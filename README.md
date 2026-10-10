@@ -1,72 +1,161 @@
 # Astracore
 
-One EVE Online login for a set of tools. v1 ships **AstracorePI**, which plans Planetary Interaction for **all your characters across several systems** at once.
-It weighs ISK against hauling effort so you can choose anything from "brain-dead passive" to "max ISK".
+One EVE Online login, one profile, several tools ("modules"). v1 ships one module, **AstracorePI**: it plans
+Planetary Interaction for **all your characters across several systems** at once, weighs ISK against your time,
+and runs it day to day from **Operate**.
 
-## Run
+The site runs on a Mac and is published at `https://astracore.hoppyhome.nl` through a Cloudflare Tunnel, only
+while that Mac runs it. Anyone with the URL can log in (an invite list gates production), so profiles are
+fully separated, sessions are server-side, and EVE tokens are encrypted at rest.
+
+## Quick start (fresh clone, local mode)
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m astracore       # http://localhost:8765 (local mode, reads .env.local)
+python3 -m venv .venv
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -e ".[test]"
+cp docs/env.example .env.local           # then fill in your own values, see "Env files"
+chmod 600 .env.local
+./astracore start                        # http://localhost:8765
 ```
 
-## Use
+Open <http://localhost:8765>, log in with EVE, and follow the onboarding. `./astracore stop` stops it.
+Running in the foreground for development works too: `.venv/bin/python -m astracore`
+(`ASTRACORE_RELOAD=1` reloads on code changes).
 
-1. **Characters**: log in with EVE once per character. Slots, Command Center Upgrades level,
-   corp/alliance and current colonies are read from ESI.
-2. **Space**: derived from your characters (your alliance's sov space + where you already have colonies),
-   grouped by region/constellation. The best constellation is pre-selected; tick what you want to use.
-3. **Plan**: a guided flow, one question per screen with a progress tracker: goal, how far to process, how often you
-   log in, how far you fly, sharing planets, characters supplying each other, how you sell, batch size. Every answer
-   card is planned live for your characters (ISK/day, your time per week, hauling, restarts, systems, factories) and the
-   flow suggests the answer that pays best once your time is counted (an hour is worth 300M / 90M / 0 ISK for
-   set-and-forget / balanced / max ISK, adjustable). The last screen is the full plan: per-character build lists, routes,
-   a zip with exactly the templates needed, and "How you get paid" with the exact VOC courier contract values.
-   **Advanced** (`/planner?view=advanced`) has every option as live sliders on one screen, plus products to avoid
-   and the drop-off.
-4. **Operate**: after setup. Extractors to restart, products waiting on launchpads, factories low on inputs,
-   PI products in your hangars with what to do with them (buyback paste list or courier contract values),
-   VOC courier/buyback contracts and sell orders in progress, and the ISK that actually came in vs. the plan.
+## Two modes
 
-## Selling: VOC Hauling
+| | local (`./astracore start`) | production (`./astracore start --prod`) |
+|---|---|---|
+| Env file / data folder | `.env.local` / `data/local/` | `.env.production` / `data/production/` |
+| URL, EVE callback | `http://localhost:8765/auth/callback` | `https://astracore.hoppyhome.nl/auth/callback` |
+| EVE application | "Astracore (dev)" | "AstraCore" |
+| Cloudflare tunnel | not started | started (and stopped first on `stop`) |
+| Secure cookies, HSTS | off | on |
+| `/docs`, debug tracebacks | on | off (branded error pages, errors in `data/logs/`) |
+| Invite list | off | on |
+| "LOCAL" badge in the header | yes | no |
 
-- Courier tariff is read live from <https://vochauling.com> (min fee, ISK/m³, collateral %) and shown in Settings.
-  Courier fee = max(min fee, m³ × rate + collateral × col%).
-- Buyback (<https://buyback.vochauling.com>): 90% of Jita buy for P2–P4, P1 refused (test appraisal at 7G-QIG on
-  2026-10-10). Editable in Settings.
+Each mode has its own EVE application and database because EVE refresh tokens only work with the
+application that issued them. Production refuses to start if its secrets are missing.
+
+## Env files
+
+Never commit them (`.env*` is gitignored) and keep them `chmod 600`. Keys (see `docs/env.example`):
+
+| Key | What |
+|---|---|
+| `ASTRACORE_MODE` | `local` or `production` (the start script sets it too) |
+| `ASTRACORE_PUBLIC_URL` | `http://localhost:8765` or `https://astracore.hoppyhome.nl` |
+| `ASTRACORE_PORT`, `ASTRACORE_DATA` | `8765`, `data/local` or `data/production` |
+| `EVE_CLIENT_ID`, `EVE_CLIENT_SECRET`, `EVE_CALLBACK_URL` | from developers.eveonline.com (one application per mode) |
+| `ASTRACORE_TOKEN_KEY` | Fernet key that encrypts EVE tokens. **Back it up**: lose it and everyone has to log in again. Generated (with a loud warning) in local mode if missing. |
+| `ASTRACORE_SESSION_SECRET` | keys the stored session ids and signed messages |
+| `ASTRACORE_ADMIN_CHARACTER_IDS` | characters whose profile is the admin (admin page, VOC buyback %, invite list) |
+| `ASTRACORE_ALLOWED_CHARACTERS` / `_CORPS` / `_ALLIANCES` | invite list (production); more can be added on `/admin` without a restart |
+| `ASTRACORE_SOLVE_CONCURRENCY` | plans solved at the same time (default 2) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | production only; from the Cloudflare dashboard. Never printed or logged. |
+
+Generate keys with `.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+and `python3 -c "import secrets; print(secrets.token_hex(32))"`.
+
+## EVE applications
+
+On <https://developers.eveonline.com> create one application per mode with the callback URLs above and
+**every scope any bundle can request** (see `/what-we-read`; the current list: the eight `pi.required` scopes plus
+`esi-planets.read_customs_offices.v1` and `esi-ui.write_waypoint.v1`). Sign-in itself asks for nothing extra:
+it requests only the required bundle of the enabled modules; optional bundles are opt-in per character on the profile page.
+
+## On / off
+
+```bash
+./astracore start --prod      # backup + migrations, app on 127.0.0.1:8765, then the tunnel; prints the URL
+./astracore stop              # tunnel first (visitors get Cloudflare's offline page), then the app
+./astracore status
+./astracore logs
+```
+
+Double-click `Start Astracore.command` / `Stop Astracore.command` in Finder for the same. Every start makes a
+SQLite backup in `data/backups/<mode>/` (the newest 14 are kept) and runs pending migrations. PID files live in
+`data/run/`, logs in `data/logs/`.
+
+Start at login (optional, off by default): see `ops/launchd/nl.hoppyhome.astracore.plist.template`.
+
+## Cloudflare Tunnel
+
+The tunnel `astracore` is **dashboard-managed**: the public hostname `astracore.hoppyhome.nl → http://127.0.0.1:8765`
+and its DNS record live in the Cloudflare dashboard (Zero Trust → Networks → Tunnels). There is no `config.yml` on the Mac.
+It is separate from the `yams` tunnel; leave that one alone.
+
+On a new Mac: put `cloudflared` in `bin/` (or on the PATH) and copy the tunnel token from the dashboard
+(Tunnels → astracore → install command) into `.env.production` as `CLOUDFLARE_TUNNEL_TOKEN`. The start script runs
+`cloudflared tunnel run` as a child process with the token in its environment. Don't use `cloudflared service install`:
+that starts it at boot and breaks the on/off switch.
+
+## Layout
+
+```
+astracore                 the on/off script
+src/astracore/
+  core/        auth (EVE SSO), sessions + CSRF, accounts (move/merge/reset), registry, pages, solve gate, formatting, icons
+  esi/         ESI client (shared rate/error budget), SSO tokens (JWT validated against EVE's JWKS), character sync
+  modules/pi/  AstracorePI: planner/, intel/, static_data/, routes, store (per-profile data), templates
+  templates/   layout, home, dashboard, profile, onboarding, privacy, what we read, admin, errors
+  static/      css (Pico 2.0.6 + astracore.css), js (fmt, icons, astracore), img, icons (Lucide)
+tests/
+```
+
+Adding a module: build `src/astracore/modules/<id>/`, call `registry.register(Module(...))` with its bundles,
+nav, dashboard tile and reset hooks, and include its router in `app.py`. Home cards, the dashboard, the module
+switcher, "What we read", sign-in scopes and resets pick it up from the registry.
+
+## AstracorePI
+
+1. **Log in** with your characters (profile page). Skills, slots, colonies, hangars, contracts, orders and wallet are read from ESI.
+2. **Area**: your alliance's sov space and where you already have colonies, grouped by region/constellation; plus the drop-off.
+3. **Plan**: one question per screen (goal, logins, area, products, planets, teamwork, selling, batches). Every answer card
+   is planned live; the suggestion is the best ISK once your time is counted at what an hour is worth to you.
+   The result has per-character build lists, routes, a templates zip and "How you get paid". Plans are saved per
+   profile; one is the **active plan**. **Advanced** (`/pi/plan?view=advanced`) has every option on one screen.
+4. **Operate**: extractors to restart, products waiting on launchpads, factories low on inputs, one "Consolidate & sell"
+   card for everything in hangars, VOC contracts and sell orders in progress, and the ISK that came in vs. the active plan.
+
+Only [DalShooth/EVE_PI_Templates](https://github.com/DalShooth/EVE_PI_Templates) templates are suggested
+(`Miner - 00/LS - <P1>`, `Factory - <product>`); each template's CPU/PG is checked against every character's
+Command Center Upgrades (nullsec miners CCU 4, lowsec miners 5, factories 2–3).
+
+### Selling: VOC Hauling
+
+- Courier tariff is read live from <https://vochauling.com>. Courier fee = max(min fee, m³ × rate + collateral × col%).
+- Buyback (<https://buyback.vochauling.com>): 90% of Jita buy for P2–P4, P1 refused (appraisal at 7G-QIG, 2026-10-10).
+  Instance-wide; the admin changes it on `/admin`.
 - Batches whose courier fee would be eaten by the minimum fee fall back to another channel or are marked "hold".
 
-Only [DalShooth/EVE_PI_Templates](https://github.com/DalShooth/EVE_PI_Templates) templates are suggested:
-`Miner - 00/LS - <P1>` (P0→P1) and `Factory - <product>` (P2/P3/P4). Each template's CPU/PG is checked against
-every character's Command Center Upgrades level (nullsec miners need CCU 4, lowsec miners 5, factories 2–3).
+### Model notes
 
-## EVE login
-
-The EVE application's credentials live in the local `.env` (`EVE_CLIENT_ID`, `EVE_CLIENT_SECRET`,
-`EVE_CALLBACK_URL` - the callback must match the one registered at developers.eveonline.com).
-Scopes used: `esi-planets.manage_planets.v1`, `esi-skills.read_skills.v1`.
-Everything else (sov, systems, planets, gates, prices) uses public ESI.
-
-## Model notes
-
-- Planet richness isn't available from ESI. It's estimated from security; override per planet on the Area page after scanning in game.
-  Once 2+ of your colonies extract, each planet's richness is measured from its extractors (manual overrides still win).
-- P0/hour/head is a setting (default 1000 at richness 1.0, 3-day program) until your characters have extractors; then it is
-  calibrated from ESI using CCP's extraction formula (<https://developers.eveonline.com/docs/guides/pi/>: bar width + decay).
-  Program length uses the same formula (1 day ≈ 1.53×, 7 days ≈ 0.63× the hourly output of 3 days).
-  The planner shows what the plan earns at 0.5× and 2× the assumed yield while it is still an estimate.
-- Sales tax and broker fee come from the selling character's Accounting / Broker Relations and standings (the character with the
-  lowest tax sells; others hand over products). Customs tax is read from ESI where a character can see it (Director of the owning
-  corp), otherwise the Settings value.
-- A 2nd/3rd colony of yours on the same resource on one planet is counted at 70% / 49% yield (Settings).
-- Drop-offs where VOC doesn't pick up are couriered from the nearest VOC pickup; stock outside VOC's reach is valued as hauled to
-  Jita/Amarr yourself.
-- The engine solves a pooled integer program over (planet, template) pairs (PuLP/CBC, a few seconds),
-  then assigns colonies to characters: existing matching colonies are kept, factory chains stay on one character
-  unless "characters supply each other" is on, and each character is kept to as few systems as possible.
+- Planet richness isn't in ESI: it's estimated from security. Set it per planet on the Area page after scanning in game.
+  Once 2+ of your colonies extract, richness is measured from your extractors (manual values still win).
+- P0/hour/head is 1000 at richness 1.0 on a 3-day program until your characters have extractors; then it is calibrated
+  with EVE's official extraction formula (<https://developers.eveonline.com/docs/guides/pi/>: bar width + decay).
+  While it's an estimate, the plan's headline says so and shows the ISK at 0.5× and 2× the yield.
+- Sales tax and broker fee come from the selling character's skills and standings. Customs tax is read from ESI for
+  characters with the optional customs bundle switched on (needs a Director of the owning corp), otherwise the Settings value.
+- A 2nd/3rd colony on the same resource on one planet counts at 70% / 49% yield (Settings).
+- The engine solves a pooled integer program over (planet, template) pairs (PuLP/CBC). At most
+  `ASTRACORE_SOLVE_CONCURRENCY` solves run at once; one request per profile; results are cached.
 
 ## Tests
 
 ```bash
 .venv/bin/python -m pytest -q tests
 ```
+
+They never touch `data/` or the real env files. Covered: profile isolation, every login flow, scope bundles,
+opt-in/opt-out, revocation on remove/reset, owner-hash changes, CSRF, cookie flags, JWT validation, the invite gate,
+migration from an MVP database, the solve gate, and the planner.
+
+## Data credits
+
+ESI and EVE SSO (Fenris Creations), Fuzzwork SDE schematics, DalShooth templates, VOC Hauling, Pico CSS (MIT),
+Lucide icons (ISC). © 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all related logos and images are
+trademarks or registered trademarks of CCP hf.

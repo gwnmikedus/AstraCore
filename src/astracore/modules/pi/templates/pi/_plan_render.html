@@ -1,4 +1,27 @@
-// Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC) and API.
+// Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC),
+// API, EXPORT, EXPORT_Q (which plan the export links download) and WAYPOINT_CHARS.
+
+// While P0 yield is still an estimate, say so in the headline with the 0.5x / 2x range.
+function yieldHeadline(res) {
+  const y = res.yield || {};
+  if (y.calibrated || !y.head_yield) return '';
+  return `<div class="warnbox headline">${AC.icon('triangle-alert')} <b>Yield is an estimate</b> (${num(y.head_yield)} P0/h per extractor head)
+    until your extractors run, and ISK scales with it. <span id="yieldband">Working out the range…</span>
+    Build 2–3 colonies and refresh: the plan then calibrates itself from your real extractors.</div>`;
+}
+async function fillYieldBand() {
+  const el = document.getElementById('yieldband'); if (!el) return;
+  const r = await AC.post(API + '/sensitivity', {});
+  const rows = (r.rows || []).filter(x => !x.error);
+  el.textContent = rows.length ? 'At ' + rows.map(x => `${x.factor}× the yield this plan makes ${isk(x.isk_per_day)}/day`).join(', at ') + '.' : '';
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button.send-route'); if (!b) return;
+  const t = b.innerHTML; b.disabled = true;
+  const r = await AC.post(API + '/waypoints', {character_id: +b.dataset.character, systems: JSON.parse(b.dataset.systems)});
+  b.innerHTML = r.ok ? `Sent ${r.sent} waypoints to ${esc(r.character)}` : esc(r.error || 'Failed');
+  setTimeout(() => { b.innerHTML = t; b.disabled = false; }, 4000);
+});
 function planHTML(res) {
   if (res.error) return `<p class="bad">${esc(res.error)}</p>` + (res.warnings||[]).map(x => `<div class="warnbox">${esc(x)}</div>`).join('');
   const t = res.totals;
@@ -11,11 +34,12 @@ function planHTML(res) {
     <div class="card"><div class="v">${count(t.restarts_per_week)}</div><div class="l">extractor restarts / week</div></div>
     <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
   </div>`;
+  h = yieldHeadline(res) + h;
   h += (res.warnings || []).map(x => `<div class="warnbox">${esc(x)}</div>`).join('');
   h += `<div class="toolbar">
-    <a href="${EXPORT}/templates.zip" role="button">${AC.icon('download')} Templates for this plan (${res.templates_needed.length})</a>
-    <a href="${EXPORT}/plan.md" role="button" class="outline">Export .md</a>
-    <a href="${EXPORT}/plan.csv" role="button" class="outline">Export .csv</a>
+    <a href="${EXPORT}/templates.zip${EXPORT_Q}" data-export="templates.zip" role="button">${AC.icon('download')} Templates for this plan (${res.templates_needed.length})</a>
+    <a href="${EXPORT}/plan.md${EXPORT_Q}" data-export="plan.md" role="button" class="outline">Export .md</a>
+    <a href="${EXPORT}/plan.csv${EXPORT_Q}" data-export="plan.csv" role="button" class="outline">Export .csv</a>
   </div>`;
   for (const ch of res.characters) {
     const mine = res.colonies.filter(c => c.character_id === ch.character_id);
@@ -24,6 +48,8 @@ function planHTML(res) {
       <strong>${esc(ch.name)}</strong>
       <span class="muted">${ch.used}/${ch.slots} slots · ${isk(ch.value_per_day)}/day · ${m3(ch.m3_per_week)}/wk</span>
       ${ch.route ? `<span class="muted">· route ${ch.route.order.map(esc).join(' → ')} (${ch.route.round_trip_jumps} jumps)</span>` : ''}
+      ${ch.route && (WAYPOINT_CHARS || []).some(w => w.character_id === ch.character_id)
+        ? `<button class="outline send-route copy" data-character="${ch.character_id}" data-systems='${esc(JSON.stringify(ch.route.order))}'>${AC.icon('send')} Send route to EVE</button>` : ''}
     </div>`;
     if (!mine.length) { h += `<p class="muted">Nothing worth placing for this character with the current settings.</p></div>`; continue; }
     h += `<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;

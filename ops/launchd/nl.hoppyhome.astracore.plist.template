@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  OPTIONAL: start Astracore (production) when you log in to the Mac. Off by default.
+
+  Install:   sed "s#__REPO__#$PWD#g" ops/launchd/nl.hoppyhome.astracore.plist.template > ~/Library/LaunchAgents/nl.hoppyhome.astracore.plist
+             launchctl load ~/Library/LaunchAgents/nl.hoppyhome.astracore.plist
+  Remove:    launchctl unload ~/Library/LaunchAgents/nl.hoppyhome.astracore.plist && rm ~/Library/LaunchAgents/nl.hoppyhome.astracore.plist
+
+  It only runs `./astracore start --prod` once at login; `./astracore stop` still takes the site offline.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>nl.hoppyhome.astracore</string>
+  <key>ProgramArguments</key>
+  <array><string>__REPO__/astracore</string><string>start</string><string>--prod</string></array>
+  <key>WorkingDirectory</key><string>__REPO__</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>StandardOutPath</key><string>__REPO__/data/logs/launchd.out</string>
+  <key>StandardErrorPath</key><string>__REPO__/data/logs/launchd.out</string>
+</dict>
+</plist>

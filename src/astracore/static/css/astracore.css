@@ -133,6 +133,10 @@ button.danger, a.danger[role=button] { background: var(--ac-bad); border-color: 
                    background: var(--ac-surface); border: 1px solid var(--ac-border); border-radius: 10px;
                    padding: .35rem; margin: 0; list-style: none; box-shadow: var(--ac-shadow); }
 .profile-menu li { list-style: none; margin: 0; }
+nav ul.topnav, nav ul.subnav, nav .profile-menu ul { margin-left: 0; margin-right: 0; }
+nav .profile-menu ul { margin: 0; display: flex; flex-direction: column; align-items: stretch; }
+nav .profile-menu li { padding: 0; display: block; }
+.page-dashboard .cards, .tile .cards { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 .profile-menu li a, .profile-menu li button { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
                    padding: .45rem .6rem; border-radius: 6px; text-decoration: none; color: var(--ac-text);
                    background: none; border: 0; margin: 0; font-size: .92rem; }

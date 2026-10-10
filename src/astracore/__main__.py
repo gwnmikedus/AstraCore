@@ -15,7 +15,7 @@ def main() -> None:
     reload = not config.PRODUCTION and config.env("ASTRACORE_RELOAD") == "1"   # local development only
     uvicorn.run("astracore.app:app", host=config.HOST, port=config.PORT, log_level="info",
                 proxy_headers=True, forwarded_allow_ips="127.0.0.1",
-                reload=reload, reload_dirs=[str(config.ROOT / "astracore")] if reload else None)
+                reload=reload, reload_dirs=[str(config.ROOT / "src" / "astracore")] if reload else None)
 
 
 if __name__ == "__main__":

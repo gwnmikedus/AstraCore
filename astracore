@@ -1,0 +1,140 @@
+#!/bin/bash
+# Astracore on/off switch.
+#
+#   ./astracore start          local mode  (http://localhost:8765, .env.local, data/local)
+#   ./astracore start --prod   production  (public URL through the Cloudflare tunnel, .env.production, data/production)
+#   ./astracore stop           stops the tunnel first (visitors get the offline page), then the app
+#   ./astracore restart [--prod]
+#   ./astracore status
+#   ./astracore logs           follow the app (and tunnel) logs
+#
+# The app listens on 127.0.0.1 only; in production the tunnel is the only way in.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="$ROOT/.venv/bin/python"
+RUN="$ROOT/data/run"
+LOGS="$ROOT/data/logs"
+PORT=8765
+mkdir -p "$RUN" "$LOGS"
+chmod 700 "$RUN" 2>/dev/null || true
+export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+
+say()  { printf '%s\n' "$*"; }
+die()  { printf 'astracore: %s\n' "$*" >&2; exit 1; }
+alive() { [[ -f "$1" ]] && kill -0 "$(cat "$1")" 2>/dev/null; }
+env_value() { grep -E "^$2=" "$1" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"' " || true; }
+port_for() { local v; v=$(env_value "$1" ASTRACORE_PORT); echo "${v:-8765}"; }
+url_for()  { local v; v=$(env_value "$1" ASTRACORE_PUBLIC_URL); echo "${v:-http://localhost:$PORT}"; }
+
+cloudflared_bin() {
+  if [[ -x "$ROOT/bin/cloudflared" ]]; then echo "$ROOT/bin/cloudflared"
+  elif command -v cloudflared >/dev/null 2>&1; then command -v cloudflared
+  else return 1; fi
+}
+
+wait_health() {
+  local i
+  for i in $(seq 1 60); do
+    if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then return 0; fi
+    alive "$RUN/app.pid" || return 1
+    sleep 0.5
+  done
+  return 1
+}
+
+stop_pid() {   # stop_pid <pidfile> <name>
+  local f="$1" name="$2" pid i
+  if alive "$f"; then
+    pid=$(cat "$f")
+    kill -TERM "$pid" 2>/dev/null || true
+    for i in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.25; done
+    if kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid" 2>/dev/null || true; fi
+    say "Stopped $name."
+  fi
+  rm -f "$f"
+}
+
+cmd_start() {
+  local mode="local"
+  [[ "${1:-}" == "--prod" || "${1:-}" == "--production" ]] && mode="production"
+  [[ -x "$PY" ]] || die "No virtualenv. Run: python3 -m venv .venv && .venv/bin/pip install -e ."
+  if alive "$RUN/app.pid"; then
+    die "Already running ($(cat "$RUN/mode" 2>/dev/null || echo '?') mode). Run ./astracore stop first."
+  fi
+  local envfile="$ROOT/.env.$mode"
+  [[ -f "$envfile" ]] || die "Missing .env.$mode (see README)."
+  chmod 600 "$envfile" 2>/dev/null || true
+  PORT=$(port_for "$envfile")
+  if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    die "Port $PORT is already in use (another Astracore or app?). Free it first."
+  fi
+  export ASTRACORE_MODE="$mode"
+  "$PY" -m astracore.ops check || die "Not starting $mode mode."
+  "$PY" -m astracore.ops backup
+  "$PY" -m astracore.ops migrate
+
+  say "Starting Astracore ($mode)…"
+  nohup "$PY" -m astracore >>"$LOGS/app-$mode.out" 2>&1 &
+  echo $! >"$RUN/app.pid"
+  echo "$mode" >"$RUN/mode"
+  if ! wait_health; then
+    stop_pid "$RUN/app.pid" "app"
+    die "The app didn't come up. See: tail -n 50 $LOGS/app-$mode.out"
+  fi
+
+  if [[ "$mode" == "production" ]]; then
+    local cf token
+    cf=$(cloudflared_bin) || { stop_pid "$RUN/app.pid" "app"; die "cloudflared not found (expected bin/cloudflared)."; }
+    token=$(env_value "$envfile" CLOUDFLARE_TUNNEL_TOKEN)
+    [[ -n "$token" ]] || { stop_pid "$RUN/app.pid" "app"; die "CLOUDFLARE_TUNNEL_TOKEN is empty in .env.production."; }
+    # The token goes in through the environment (TUNNEL_TOKEN), so it never shows up in `ps`.
+    TUNNEL_TOKEN="$token" nohup "$cf" tunnel --no-autoupdate run >>"$LOGS/tunnel.out" 2>&1 &
+    echo $! >"$RUN/tunnel.pid"
+    unset token
+    sleep 2
+    alive "$RUN/tunnel.pid" || { stop_pid "$RUN/app.pid" "app"; die "The tunnel stopped right away. See: tail -n 50 $LOGS/tunnel.out"; }
+  fi
+  say "Astracore is up: $(url_for "$envfile")"
+}
+
+cmd_stop() {
+  local any=0
+  if alive "$RUN/tunnel.pid" || alive "$RUN/app.pid"; then any=1; fi
+  stop_pid "$RUN/tunnel.pid" "tunnel"
+  stop_pid "$RUN/app.pid" "app"
+  rm -f "$RUN/mode"
+  [[ $any == 1 ]] || say "Astracore wasn't running."
+}
+
+cmd_status() {
+  local mode; mode=$(cat "$RUN/mode" 2>/dev/null || echo "-")
+  if alive "$RUN/app.pid"; then
+    PORT=$(port_for "$ROOT/.env.$mode")
+    if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then
+      say "App:    running ($mode mode, pid $(cat "$RUN/app.pid"), healthy)"
+    else
+      say "App:    running ($mode mode, pid $(cat "$RUN/app.pid")) but /healthz doesn't answer"
+    fi
+    say "URL:    $(url_for "$ROOT/.env.$mode")"
+  else
+    say "App:    stopped"
+  fi
+  if alive "$RUN/tunnel.pid"; then say "Tunnel: running (pid $(cat "$RUN/tunnel.pid"))"; else say "Tunnel: stopped"; fi
+}
+
+cmd_logs() {
+  local files=() f
+  for f in "$LOGS"/app-*.out "$LOGS"/astracore-*.log "$LOGS"/tunnel.out; do [[ -f "$f" ]] && files+=("$f"); done
+  [[ ${#files[@]} -gt 0 ]] || die "No logs yet."
+  tail -n 60 -F "${files[@]}"
+}
+
+case "${1:-}" in
+  start)   shift; cmd_start "$@" ;;
+  stop)    cmd_stop ;;
+  restart) shift; cmd_stop; cmd_start "$@" ;;
+  status)  cmd_status ;;
+  logs)    cmd_logs ;;
+  *) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

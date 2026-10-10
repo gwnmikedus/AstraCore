@@ -78,7 +78,6 @@
     <h4 style="margin-bottom:.5rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap"><span>Suggestions <span class="muted" id="alts-note"></span></span>
       <a href="/pi/plan" style="font-size:.85rem;font-weight:400">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
     <div class="alts" id="alts"></div>
-    <div id="sens" class="muted" style="font-size:.85rem;margin:-.4rem 0 1rem"></div>
     <div class="result" id="result"><p class="muted">Working out the first suggestion…</p></div>
   </section>
 </div>
@@ -87,7 +86,8 @@
 {% block scripts %}
 <script nonce="{{ nonce }}">
 const S = {{ settings_json|safe }};
-const API = '{{ api }}';
+const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}', EXPORT_Q = '?current=1';
+const WAYPOINT_CHARS = {{ waypoints|tojson }};
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, esc} = AC;
@@ -157,15 +157,6 @@ async function loadAlts() {
   document.querySelectorAll('.alt[data-effort]').forEach(el => el.onclick = () => { $('effort').value = el.dataset.effort; schedule(0); });
   $('alts-note').textContent = '- click one to load it, then fine-tune with the sliders';
   markAlt(+$('effort').value);
-  loadSens();
-}
-async function loadSens() {
-  const r = await AC.post(API + '/sensitivity', {});
-  const rows = (r.rows || []).filter(x => !x.error);
-  if (!rows.length) { $('sens').innerHTML = ''; return; }
-  $('sens').innerHTML = (r.calibrated ? 'Yield is calibrated from your extractors. ' : '<b class="warn">Yield is an estimate</b> until you have extractors running. ') +
-    `This plan assumes ${num(rows[0].head_yield / rows[0].factor)} P0/h per head. If the real yield is ` + rows.map(x => `<b>${x.factor}×</b> (${num(x.head_yield)}): the best plan makes ${isk(x.isk_per_day)}/day <span title="${esc(x.mix)}">ⓘ</span>`).join(' · ') +
-    (r.calibrated ? '' : '. Build 2-3 colonies, refresh, and the plan recalibrates itself.');
 }
 function markAlt(e) { document.querySelectorAll('.alt[data-effort]').forEach(el => el.classList.toggle('cur', +el.dataset.effort === e)); }
 
@@ -176,6 +167,7 @@ function render(res, st) {
   $('h-effort').textContent = w.isk_per_m3 !== undefined
     ? `Treats 1 m³ hauled as ${num(w.isk_per_m3)} ISK and each extra system as ${isk(w.isk_per_system)}/day.` : '';
   $('result').innerHTML = planHTML(res);
+  fillYieldBand();
 }
 
 // ---- wire up -------------------------------------------------------------------------------

@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]   # src/astracore/config.py -> repo root
 MODE = os.environ.get("ASTRACORE_MODE", "local").strip().lower()
 if MODE not in ("local", "production"):
     raise SystemExit(f"ASTRACORE_MODE must be 'local' or 'production', not {MODE!r}")

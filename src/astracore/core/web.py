@@ -85,7 +85,10 @@ def safe_path(url: Optional[str], default: str = "/") -> str:
 def redirect(url: str, msg: Optional[str] = None, kind: Optional[str] = None) -> RedirectResponse:
     url = safe_path(url)
     if msg:
+        url, _, frag = url.partition("#")
         url += ("&" if "?" in url else "?") + "msg=" + quote(msg) + "&sig=" + _sign(msg)
         if kind:
             url += "&kind=" + quote(kind)
+        if frag:
+            url += "#" + frag
     return RedirectResponse(url, status_code=303)

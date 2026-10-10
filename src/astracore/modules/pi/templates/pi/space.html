@@ -43,6 +43,25 @@
 {% endfor %}
 {% endif %}
 
+<details id="richness" {{ 'open' if overrides else '' }}>
+  <summary>Planet richness after scanning in game ({{ overrides|length }} set)</summary>
+  <p class="muted">ESI doesn't show how rich a planet's deposits are, so it's estimated from security. After scanning a planet in game,
+    tell AstracorePI what you saw. Your own extractors also correct it automatically once 2+ colonies run.</p>
+  {% for o in overrides %}
+  <div class="charrow"><span class="grow">{{ o.name }}: {{ o.richness }}×</span>
+    <button form="rm-richness-{{ o.planet_id }}" class="outline secondary">Remove</button></div>
+  {% endfor %}
+  {% if planets %}
+  <div class="grid" style="align-items:end">
+    <label>Planet
+      <select name="planet_id" form="richness-form">{% for p in planets %}<option value="{{ p.planet_id }}">{{ p.name }} ({{ p.type }})</option>{% endfor %}</select></label>
+    <label>What the scan showed
+      <select name="richness" form="richness-form">{% for label, v in richness_labels %}<option value="{{ v }}" {{ 'selected' if v == 1.0 else '' }}>{{ label|capitalize }} ({{ v }}×)</option>{% endfor %}</select></label>
+    <button form="richness-form" class="outline">Save</button>
+  </div>
+  {% endif %}
+</details>
+
 <details>
   <summary>Add another region, constellation or system</summary>
   <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)">
@@ -68,4 +87,8 @@
   </div>
 </div>
 </form>
+<form method="post" action="/pi/area/richness" id="richness-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"></form>
+{% for o in overrides %}<form method="post" action="/pi/area/richness" id="rm-richness-{{ o.planet_id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="planet_id" value="{{ o.planet_id }}">
+  <input type="hidden" name="richness" value=""></form>{% endfor %}
 {% endblock %}

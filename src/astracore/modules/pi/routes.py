@@ -133,10 +133,39 @@ async def area_page(request: Request):
         s.selected_constellations = space_mod.default_selection(groups)
         store.save_settings(pid, s)
     sel_systems = space_mod.selected_systems(area, s.selected_constellations)
+    overrides = store.planet_overrides(pid)
+    planets = sorted(({"planet_id": p["planet_id"], "name": p["name"], "type": p["type"], "system": v["name"]}
+                      for v in sel_systems.values() for p in v["planets"] if p["type"] not in ("Shattered", "Unknown")),
+                     key=lambda p: p["name"])
+    names = {p["planet_id"]: p["name"] for v in area["systems"].values() for p in v["planets"]}
     return render(request, "space.html", "area", "Area", area=area, groups=groups, s=s,
                   sources=area.get("sources", {}), selected=s.selected_constellations,
                   sel_systems=sorted(v["name"] for v in sel_systems.values()),
-                  voc_hubs=voc.COURIER_ORIGINS)
+                  voc_hubs=voc.COURIER_ORIGINS, planets=planets,
+                  overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v} for k, v in overrides.items()],
+                  richness_labels=RICHNESS_LABELS)
+
+
+RICHNESS_LABELS = [("poor", 0.6), ("average", 1.0), ("good", 1.25), ("rich", 1.5)]
+
+
+@router.post("/area/richness")
+async def area_richness(request: Request):
+    """Richness of one planet after scanning it in game (ESI can't tell). Empty value = remove."""
+    pid = _pid(request)
+    form = await request.form()
+    planet = form.get("planet_id", "")
+    if not str(planet).isdigit():
+        return redirect("/pi/area", "Pick a planet.", "warn")
+    raw = form.get("richness", "")
+    try:
+        value = float(raw) if raw else None
+    except ValueError:
+        value = None
+    if value is not None and not 0.1 <= value <= 3:
+        return redirect("/pi/area", "Richness must be between 0.1 and 3.", "warn")
+    store.set_planet_override(pid, int(planet), value)
+    return redirect("/pi/area#richness", "Planet richness saved." if value is not None else "Override removed.")
 
 
 @router.post("/area")

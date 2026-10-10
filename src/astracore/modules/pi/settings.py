@@ -82,19 +82,24 @@ class Settings:
                 elif f.name in bools or f.name in data:
                     setattr(self, f.name, f.name in data and data[f.name] not in ("", "0", "false", "off"))
             elif f.name in data:
-                val = data[f.name]
-                if isinstance(cur, list):
-                    if isinstance(val, str):
-                        val = [x.strip() for x in val.split(",") if x.strip()]
-                    if f.name == "selected_constellations":
-                        val = [int(x) for x in val]
-                    setattr(self, f.name, list(val))
-                elif isinstance(cur, int):
-                    setattr(self, f.name, int(float(val or 0)))
-                elif isinstance(cur, float):
-                    setattr(self, f.name, float(val or 0))
-                else:
-                    setattr(self, f.name, str(val))
+                try:
+                    self._set(f.name, cur, data[f.name])
+                except (TypeError, ValueError):
+                    continue   # a value that doesn't parse leaves the setting as it was
+
+    def _set(self, name: str, cur, val) -> None:
+        if isinstance(cur, list):
+            if isinstance(val, str):
+                val = [x.strip() for x in val.split(",") if x.strip()]
+            if name == "selected_constellations":
+                val = [int(x) for x in val]
+            setattr(self, name, list(val))
+        elif isinstance(cur, int):
+            setattr(self, name, int(float(str(val or 0).replace(",", "."))))
+        elif isinstance(cur, float):
+            setattr(self, name, float(str(val or 0).replace(",", ".")))
+        else:
+            setattr(self, name, str(val))
 
 
 def effort_weights(effort: int) -> dict:

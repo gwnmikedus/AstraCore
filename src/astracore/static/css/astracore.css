@@ -1129,15 +1129,22 @@ html[data-menu-open] { overflow: hidden; }
 .contributors-section h3 { font-size: 28px; line-height: 32px; margin-top: 32px; }
 .contributors-section p { line-height: 25px; max-width: 76ch; }
 .contributors-intro { color: var(--ink-muted); font-size: 17px; }
-.contributor-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px; list-style: none; padding: 0; margin: 24px 0; }
-.contributor { display: flex; gap: 16px; align-items: center; min-width: 0; height: 100%; padding: 16px; border: 1px solid var(--line); background: var(--hull); color: var(--ink); text-decoration: none; }
-.contributor:hover { border-color: var(--signal); background: var(--hull-raised); }
-.contributor img { width: 56px; height: 56px; flex: none; border: 1px solid var(--line-strong); }
-.contributor span:not(.sr-only) { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 600 20px/24px var(--font-display); }
+.contributor-list { display: flex; flex-wrap: wrap; gap: 12px 28px; list-style: none; padding: 0; margin: 16px 0; }
+.contributor-list > li { max-width: 100%; min-width: 0; }
+.contributor { display: flex; gap: 10px; align-items: center; min-width: 0; min-height: 48px; padding: 4px 0; color: var(--ink); text-decoration: none; }
+.contributor:hover .contributor-identity strong { color: var(--scan); }
+.contributor-portraits { display: flex; align-items: center; flex: none; isolation: isolate; }
+.contributor-portraits img { display: block; width: 36px; height: 36px; border: 2px solid var(--void); border-radius: 50%; object-fit: cover; background: var(--hull); }
+.contributor-portraits img + img { margin-left: -12px; }
+.contributor-portraits .contributor-github:not(:first-child) { width: 28px; height: 28px; align-self: flex-end; }
+.contributor-identity { display: grid; gap: 2px; min-width: 0; }
+.contributor-identity strong { overflow-wrap: anywhere; font: 600 18px/22px var(--font-display); }
+.contributor-identity small { display: flex; align-items: center; gap: 4px; color: var(--ink-muted); font: 12px/18px var(--font-sans); }
+.contributor-identity small .ic { width: 12px; height: 12px; }
 .contributors-actions { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 24px 0; }
 .contributors-section .contributor-updated, .contributors-section .contributors-thanks { font-size: 13px; line-height: 21px; }
-.creator-identity { display: flex; gap: 24px; align-items: center; min-width: 0; }
-.creator-portrait { display: block; width: 128px; height: 128px; object-fit: cover; border: 1px solid var(--line-strong); }
+.creator-identity { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.creator-portrait { display: block; width: 48px; height: 48px; flex: none; object-fit: cover; border: 1px solid var(--line-strong); border-radius: 50%; }
 .creator-identity .console-label { display: block; color: var(--ink-muted); font-size: 10px; margin-bottom: 12px; }
 .creator-identity h2 { font-size: 40px; line-height: 1; margin-bottom: 12px; }
 .creator-affiliation { font-size: 13px; line-height: 20px; color: var(--ink-muted); margin: 0; }
@@ -1160,7 +1167,6 @@ html[data-menu-open] { overflow: hidden; }
 @media (max-width: 900px) {
   .creator-panel { gap: 24px; padding: 28px; }
   .creator-identity { gap: 16px; }
-  .creator-portrait { width: 96px; height: 96px; }
   .creator-identity h2 { font-size: 34px; }
   .creator-support { padding-left: 24px; }
 }
@@ -1185,7 +1191,6 @@ html[data-menu-open] { overflow: hidden; }
   .site-header .brand { min-width: 0; }
   .site-header .brand .wordmark { height: 14px; max-width: 100%; }
   .creator-identity { align-items: flex-start; gap: 12px; }
-  .creator-portrait { width: 72px; height: 72px; }
   .creator-identity h2 { font-size: 30px; }
 }
 
@@ -1199,8 +1204,7 @@ html[data-menu-open] { overflow: hidden; }
 .external-link:hover .external-indicator, .external-link:focus-visible .external-indicator { transform: translate(2px, -2px); }
 .external-indicator { transition: transform .2s ease-out; }
 .site-footer .links > a { gap: 6px; }
-.contributor .link-symbol { width: 18px; height: 18px; margin: 0; }
-.contributor .external-indicator { margin-left: auto; }
+.contributor .external-indicator { margin: 0; }
 .support-link .external-indicator { width: 13px; height: 13px; }
 
 .project-intro { max-width: 780px; margin-bottom: 32px; }

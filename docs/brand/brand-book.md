@@ -91,7 +91,7 @@ Rules: headings in sentence case; `label` in uppercase with its 0.12em tracking;
 ## Iconography
 
 - **Lucide** (ISC) for interface icons: the Icons asset group holds the app's set. Inline them as SVG so they take `currentColor`; size 16px (`.ac-ic`) next to text, stroke 1.75. Icons lead their label; icon-only buttons need an `aria-label`.
-- **EVE's own icons** for anything that exists in the game: item and commodity icons, planet types, ship renders, corporation and alliance logos, all from the EVE Image Server (`images.evetech.net`). Show them square, never cropped round, at 24/32/64px.
+- **EVE's own icons** for anything that exists in the game: item and commodity icons, planet types, ship renders, corporation and alliance logos, all from the EVE Image Server (`images.evetech.net`). Show game items, planets, ships, and corporation/alliance marks square at 24/32/64px. Public contributor and founder portraits are the exception: small circular identity images, paired where a pilot has opted in to an EVE/GitHub credit.
 - No emoji, no illustrations of people, no stock space art.
 
 ## Imagery
@@ -111,7 +111,7 @@ Navigation uses the AstraCore mark as a 48px disclosure control on every page. T
 
 The header always exposes theme switching beside the profile or login action. A sun invites Chart (light); a moon invites Hull (dark). Rotate and crossfade the icons while page colours settle in 350ms, preserve the choice across pages and tabs, and remove all motion for reduced-motion preferences. Keep both controls separate from the navigation disclosure.
 
-The introduction and credits pages lead with the people building AstraCore. Show public GitHub contributors with avatars and profile links in alphabetical order, using the shared surface, border, typography and focus tokens. Avoid commit-count rankings: code, documentation, testing, ideas and bug reports all help the project. Link to the contribution guide and GitHub discussion so newcomers have a clear way to join.
+The introduction and credits pages lead with the people building AstraCore. Show public GitHub contributors in alphabetical order as a compact wrapping row, with 36px circular portraits and readable profile links. Opt-in EVE character portraits overlap the GitHub avatar slightly; the character name leads and the GitHub handle remains visible with its mark. Unlinked contributors keep their GitHub name and avatar. The origin plate uses a 48px circular founder portrait and explicitly links CosmicCarrot to @gwnmikedus. Preserve the shared typography, colour and focus tokens; avoid large contributor cards. Avoid commit-count rankings: code, documentation, testing, ideas and bug reports all help the project. Link to the contribution guide and GitHub discussion so newcomers have a clear way to join.
 
 The origin plate follows the contributor showcase and introduces CosmicCarrot as the founding capsuleer with the official EVE portrait and verified corporation/alliance names. Keep its coffee and permanent-hosting contributions optional, link both to the same Revolut destination, and describe hosting as a funding goal while the app still runs from the founder's own machine. Use the same plate on the introduction and credits pages; the footer carries a compact contributor link and support action. Keep the existing `/credits#creator` link available for the origin story.
 

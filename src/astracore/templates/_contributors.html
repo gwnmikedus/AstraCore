@@ -3,12 +3,20 @@
   <div class="eyebrow">AstraCore / Built together</div>
   <h2 id="contributors-title">For capsuleers. By capsuleers.</h2>
   <p class="contributors-intro">AstraCore started with one pilot’s planetary operation. Its next chapter is built together: code, documentation, testing, and ideas from fellow capsuleers.</p>
-  <h3>GitHub contributors</h3>
-  <p class="muted">The people whose work is part of AstraCore’s source on GitHub, listed alphabetically. Thank you for helping the project grow.</p>
+  <h3>The pilots behind the commits</h3>
+  <p class="muted">GitHub contributors, listed alphabetically. Pilots can choose to share their EVE character alongside their GitHub profile.</p>
   {% if contributor_credits.people %}
   <ul class="contributor-list" aria-label="GitHub contributors">
     {% for person in contributor_credits.people %}
-    <li>{% call external_link(person.url, cls='contributor') %}<img src="{{ person.avatar_url }}" width="56" height="56" alt="" loading="lazy"><span>{{ person.login }}</span>{% endcall %}</li>
+    <li>{% call external_link(person.url, symbol='', cls='contributor') %}
+      <span class="contributor-portraits" aria-hidden="true">
+        {% for character in person.characters %}<img class="contributor-character" src="{{ character.portrait_url }}" width="36" height="36" alt="" loading="lazy">{% endfor %}
+        <img class="contributor-github" src="{{ person.avatar_url }}" width="36" height="36" alt="" loading="lazy">
+      </span>
+      <span class="contributor-identity">
+        {% if person.characters %}<strong>{{ person.characters|map(attribute='name')|join(', ') }}</strong><small>{{ icon('github', 'icon-github') }} @{{ person.login }}</small>{% else %}<strong>{{ person.login }}</strong><small>{{ icon('github', 'icon-github') }} GitHub contributor</small>{% endif %}
+      </span>
+    {% endcall %}</li>
     {% endfor %}
   </ul>
   {% elif contributor_credits.last_success %}

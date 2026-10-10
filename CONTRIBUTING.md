@@ -24,6 +24,14 @@ take a few hours to reflect merged work. Use a commit author email associated wi
 GitHub's private `noreply` email works too. We do not publish anonymous commit names or email addresses,
 and bot accounts are omitted. You retain copyright in your own contributions.
 
+You can opt in to showing an EVE character next to your GitHub identity. Ask for the link from your
+GitHub account and provide the public character name and ID; maintainers verify the public EVE identity
+before adding it to `src/astracore/contributor_identities.json` in a reviewed pull request. The directory
+uses GitHub's numeric account ID so a renamed or reassigned login cannot give someone else your character
+credit. It supports multiple characters per contributor. These are public credits, not an account link or
+proof of in-game permissions. AstraCore never discovers contributor characters from private profiles.
+To change or remove a published character credit, request a directory update through the same process.
+
 Testing, bug reports, ideas and documentation feedback help just as much, even when they do not appear in
 GitHub's commit-based contributor list. They are acknowledged alongside the showcase. If a credit is missing,
 open an issue with the public name and contribution you would like credited; do not post private identities.

@@ -223,7 +223,12 @@ AstraCore began with CosmicCarrot and welcomes contributions from fellow capsule
 The background community worker refreshes the contributor list hourly without credentials, follows pagination,
 and keeps the last complete snapshot in the shared SQLite cache if GitHub is unavailable. Page loads do not
 call GitHub. GitHub's own contributor data may take a few hours to update; the showcase links to its full list.
-Bot accounts and anonymous commit identities are not displayed. Bug reports, testing and ideas are acknowledged
+Bot accounts and anonymous commit identities are not displayed. Contributors may opt in to public EVE
+character credits through `src/astracore/contributor_identities.json`; compact circular EVE and GitHub
+portraits identify the same contributor together. Links use GitHub's numeric account ID, are applied to
+cached snapshots without a network request, and never read private AstraCore profiles. The directory is
+packaged with the application; see CONTRIBUTING.md for verification and updates.
+Bug reports, testing and ideas are acknowledged
 alongside the source contributors, with a link to the public discussion.
 
 Astracore © 2026 is its own fan-made product; `/credits` thanks everything it builds on: ESI, EVE SSO and the Image Server

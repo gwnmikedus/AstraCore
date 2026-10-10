@@ -114,6 +114,9 @@ test('browser-rendered external links identify GitHub, escape content, and label
   assert.match(html, /Template &lt;P1&gt;/);
   assert.match(html, /rel="noopener noreferrer"/);
   assert.match(html, /external site, opens in a new tab/);
+  const withoutLeadingIcon = AC.externalLink('https://github.com/example', 'Pilot', {symbol: ''});
+  assert.doesNotMatch(withoutLeadingIcon, /link-symbol icon-github/);
+  assert.match(withoutLeadingIcon, /external-indicator/);
   const sameTab = AC.externalLink('https://vochauling.com', 'VOC', {newTab: false});
   assert.doesNotMatch(sameTab, /icon-github|target=|opens in a new tab/);
   assert.match(sameTab, /external site/);

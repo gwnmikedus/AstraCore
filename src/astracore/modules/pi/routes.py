@@ -58,7 +58,7 @@ def _pid(request: Request) -> int:
 
 def busy_response() -> JSONResponse:
     return JSONResponse({"busy": True, "retry_after": 3,
-                         "error": "Astracore is busy, your plan is queued."}, status_code=503)
+                         "error": "AstraCore is busy, your plan is queued."}, status_code=503)
 
 
 def superseded_response() -> JSONResponse:
@@ -476,7 +476,7 @@ async def export_templates(request: Request):
     try:
         res = await _export_plan(request)
     except (Busy, Superseded):
-        return Response("Astracore is busy. Try again in a moment.", status_code=503)
+        return Response("AstraCore is busy. Try again in a moment.", status_code=503)
     return Response(dalshooth.zip_pack(res.get("templates_needed", [])), media_type="application/zip",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-templates.zip"'})
 
@@ -486,11 +486,11 @@ async def export_md(request: Request):
     try:
         res = await _export_plan(request)
     except (Busy, Superseded):
-        return Response("Astracore is busy. Try again in a moment.", status_code=503)
+        return Response("AstraCore is busy. Try again in a moment.", status_code=503)
     if "error" in res:
         return Response(res["error"], status_code=400)
     t = res["totals"]
-    out = ["# AstracorePI plan", "",
+    out = ["# AstraCore PI plan", "",
            f"Drop-off **{res['hub']}** · {t['colonies']}/{t['slots_total']} colonies · "
            f"**{fmt.isk(t['isk_per_day'])} ISK/day** ({fmt.isk(t['isk_per_week'])}/week) · "
            f"{fmt.m3(t['m3_per_week'])}/week · {t['systems']} systems", ""]
@@ -532,7 +532,7 @@ async def export_csv(request: Request):
     try:
         res = await _export_plan(request)
     except (Busy, Superseded):
-        return Response("Astracore is busy. Try again in a moment.", status_code=503)
+        return Response("AstraCore is busy. Try again in a moment.", status_code=503)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["character", "system", "planet", "planet_type", "template", "product", "out_per_day",
@@ -578,7 +578,7 @@ async def settings_save(request: Request):
 @router.post("/reset")
 async def reset_pi(request: Request):
     store.reset_profile(_pid(request))
-    return redirect("/profile", "AstracorePI was reset: settings, plans and planet overrides are gone. "
+    return redirect("/profile", "AstraCore PI was reset: settings, plans and planet overrides are gone. "
                                 "Your characters are still linked.")
 
 

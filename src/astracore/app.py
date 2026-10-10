@@ -87,7 +87,7 @@ def create_app() -> FastAPI:
         log.info("Astracore started in %s mode on %s", config.MODE, config.PUBLIC_URL)
         yield
 
-    app = FastAPI(title="Astracore", debug=debug, dependencies=[Depends(sessions.csrf_protect)],
+    app = FastAPI(title="AstraCore", debug=debug, dependencies=[Depends(sessions.csrf_protect)],
                   docs_url="/docs" if debug else None, redoc_url=None, lifespan=lifespan,
                   openapi_url="/openapi.json" if debug else None)
     app.add_middleware(sessions.SessionMiddleware)

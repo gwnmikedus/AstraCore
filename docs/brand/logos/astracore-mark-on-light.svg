@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AstraCore">
+  <path d="M6 6H44L58 20V58H20L6 44Z" fill="none" stroke="#17181a" stroke-width="6" stroke-linejoin="miter"/>
+  <rect x="24" y="24" width="16" height="16" fill="#ff6a1a"/>
+</svg>

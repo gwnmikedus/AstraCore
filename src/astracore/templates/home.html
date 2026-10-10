@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Astracore · Tools for capsuleers{% endblock %}
+{% block title %}AstraCore · Tools for capsuleers{% endblock %}
 {% block content %}
 <section class="hero">
   <div>
-    {% with cls='wordmark-lg', uid=2 %}{% include "_logo.html" %}{% endwith %}
-    <h1>Tools for capsuleers.<br>One login for all your characters.</h1>
-    <p class="lead">Astracore reads what it needs from EVE with your permission and turns it into plans you can act on.
-      Start with planetary interaction; more tools are on the way.</p>
+    <div class="eyebrow">Command center for capsuleers</div>
+    <h1>Every alt, one plan.</h1>
+    <p class="lead">AstraCore reads your characters from EVE, with your permission, and turns them into plans you can fly.
+      It starts with Planetary Interaction across all your alts; skills, logistics and industry follow.</p>
     <div class="cta">
       <a class="sso-button" href="/auth/login" aria-label="Log in with EVE Online">
         <img src="/static/img/eve-sso-login-black-large.png" alt="Log in with EVE Online" width="270" height="45">
@@ -23,7 +23,7 @@
     {% endif %}
   </div>
   <div>
-    <img class="shot" src="/static/img/plan-screenshot.jpg" alt="An AstracorePI plan: ISK per day, hauling per week and a build list per character"
+    <img class="shot" src="/static/img/plan-screenshot.jpg" alt="An AstraCore PI plan: ISK per day, hauling per week and a build list per character"
          width="800" height="600" loading="eager">
   </div>
 </section>
@@ -65,7 +65,7 @@
 </section>
 
 <section class="section">
-  <div class="coming">{{ icon('sparkles') }} More modules are coming.</div>
+  <div class="coming">{{ icon('layers') }} Next modules: skill planning across your alts, logistics, industry.</div>
 </section>
 
 <section class="section" aria-labelledby="trust">

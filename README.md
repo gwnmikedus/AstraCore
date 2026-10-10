@@ -1,6 +1,6 @@
-# Astracore
+# AstraCore
 
-One EVE Online login, one profile, several tools ("modules"). v1 ships one module, **AstracorePI**: it plans
+One EVE Online login, one profile, several tools ("modules"). v1 ships one module, **AstraCore PI**: it plans
 Planetary Interaction for **all your characters across several systems** at once, weighs ISK against your time,
 and runs it day to day from **Operate**.
 
@@ -110,7 +110,7 @@ src/astracore/
   esi/         ESI client (shared rate/error budget), SSO tokens (JWT validated against EVE's JWKS), character sync
   modules/pi/  AstracorePI: planner/, intel/, static_data/, routes, store (per-profile data), templates
   templates/   layout, home, dashboard, profile, onboarding, privacy, what we read, admin, errors
-  static/      css (Pico 2.0.6 + astracore.css), js (fmt, icons, astracore), img, icons (Lucide)
+  static/      css (astracore.css, the brand stylesheet), fonts (Barlow, IBM Plex Mono), js (fmt, icons, astracore), img, icons (Lucide)
 tests/
 ```
 
@@ -171,6 +171,11 @@ Production lets in: admin characters (`ASTRACORE_ADMIN_CHARACTER_IDS`, always), 
 in again; to take someone's access away, remove their profile under **People** on `/admin` (this revokes their EVE
 logins) and take them off the invite list.
 
+## Brand
+
+The brand (tokens, type, logos, voice) lives in [`docs/brand/`](docs/brand/README.md) and the AstraCore design system
+artifact it links to. `static/css/astracore.css` implements it; templates never use colour literals.
+
 ## EVE images
 
 `src/astracore/static/img/eve/` holds a curated subset of `assets for possible usage/` (from the EVE Image Server, see its
@@ -182,6 +187,6 @@ images.evetech.net.
 ## Credits
 
 Astracore © 2026 is its own fan-made product; `/credits` thanks everything it builds on: ESI, EVE SSO and the Image Server
-(Fenris Creations), DalShooth's templates, Fuzzwork's SDE, VOC Hauling, Pico CSS, Lucide, FastAPI, PuLP/CBC and more.
+(Fenris Creations), DalShooth's templates, Fuzzwork's SDE, VOC Hauling, Lucide, Barlow, IBM Plex Mono, FastAPI, PuLP/CBC and more.
 EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
 "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.

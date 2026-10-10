@@ -46,7 +46,7 @@
 <details id="richness" {{ 'open' if overrides else '' }}>
   <summary>Planet richness after scanning in game ({{ overrides|length }} set)</summary>
   <p class="muted">ESI doesn't show how rich a planet's deposits are, so it's estimated from security. After scanning a planet in game,
-    tell AstracorePI what you saw. Your own extractors also correct it automatically once 2+ colonies run.</p>
+    tell AstraCore PI what you saw. Your own extractors also correct it automatically once 2+ colonies run.</p>
   {% for o in overrides %}
   <div class="charrow"><span class="grow">{{ o.name }}: {{ o.richness }}×</span>
     <button form="rm-richness-{{ o.planet_id }}" class="outline secondary">Remove</button></div>

@@ -19,11 +19,11 @@
   {% if c.status == 'needs_login' or not c.has_token %}
   <p class="warn muted">EVE no longer accepts this character's login. Its data is kept. <a href="/auth/upgrade/{{ c.character_id }}">Log in as {{ c.name }}</a></p>
   {% elif c.needs_pi_login %}
-  <p class="warn muted">{{ c.name }} needs one more EVE login for AstracorePI. <a href="/auth/upgrade/{{ c.character_id }}">Log in again</a></p>
+  <p class="warn muted">{{ c.name }} needs one more EVE login for AstraCore PI. <a href="/auth/upgrade/{{ c.character_id }}">Log in again</a></p>
   {% endif %}
 
   {% if c.extra_scopes %}
-  <p class="muted warn">This EVE login allows {{ c.extra_scopes|length }} more permission{{ 's' if c.extra_scopes|length != 1 }} than Astracore uses
+  <p class="muted warn">This EVE login allows {{ c.extra_scopes|length }} more permission{{ 's' if c.extra_scopes|length != 1 }} than AstraCore uses
     (left over from an older version). <a href="/auth/upgrade/{{ c.character_id }}">Log in again</a> to shrink it.</p>
   {% endif %}
   <div class="bundles">
@@ -146,7 +146,7 @@
     <button class="outline secondary">Reset {{ m.name }}</button>
   </form>
   {% endfor %}
-  <p class="muted">Reset profile deletes everything and revokes every EVE login. You can also revoke Astracore yourself on EVE's
+  <p class="muted">Reset profile deletes everything and revokes every EVE login. You can also revoke AstraCore yourself on EVE's
     third-party applications page (account management on eveonline.com).</p>
   <a role="button" class="danger" href="/profile/reset">Reset profile…</a>
 </section>

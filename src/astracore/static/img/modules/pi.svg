@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="AstracorePI">
-  <!-- AstracorePI module icon (placeholder) -->
-  <circle cx="24" cy="24" r="22" fill="#12324a"/>
-  <circle cx="24" cy="24" r="10" fill="#3fb98a"/>
-  <path d="M15 21.5c4 1.5 8 .5 11-2M14.5 27c5 1 10 0 14.5-4" stroke="#0b3d2a" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <ellipse cx="24" cy="24" rx="19" ry="6.5" fill="none" stroke="#5cc8ff" stroke-width="2" transform="rotate(-20 24 24)"/>
-  <circle cx="40.5" cy="17.5" r="2.4" fill="#f5a524"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AstraCore PI">
+  <rect width="64" height="64" fill="#0b0c0d"/>
+  <g transform="translate(12 12) scale(.625)">
+    <path d="M6 6H44L58 20V58H20L6 44Z" fill="none" stroke="#ece8df" stroke-width="6" stroke-linejoin="miter"/>
+    <circle cx="32" cy="32" r="9.5" fill="#ff6a1a"/>
+  </g>
 </svg>

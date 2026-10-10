@@ -11,7 +11,7 @@ def main() -> None:
         missing = config.missing_production_secrets()
         if missing:
             sys.exit("Refusing to start in production mode; missing in .env.production: " + ", ".join(missing))
-    print(f"Astracore ({config.MODE}) on {config.PUBLIC_URL} (listening on {config.HOST}:{config.PORT})")
+    print(f"AstraCore ({config.MODE}) on {config.PUBLIC_URL} (listening on {config.HOST}:{config.PORT})")
     reload = not config.PRODUCTION and config.env("ASTRACORE_RELOAD") == "1"   # local development only
     uvicorn.run("astracore.app:app", host=config.HOST, port=config.PORT, log_level="info",
                 proxy_headers=True, forwarded_allow_ips="127.0.0.1",

@@ -134,7 +134,7 @@ async function update() {
   const st = state();
   try {
     const res = await AC.post(API + '/suggest', st, {signal: ctrl.signal,
-      onBusy: () => { $('busy').textContent = 'Astracore is busy, your plan is queued…'; }});
+      onBusy: () => { $('busy').textContent = 'AstraCore is busy, your plan is queued…'; }});
     $('busy').textContent = 'updating…';
     if (res.superseded) return;
     render(res, st);

@@ -4,7 +4,7 @@ from __future__ import annotations
 from astracore.core.registry import Bundle, Module, register
 
 PI_REQUIRED = Bundle(
-    "pi.required", "AstracorePI",
+    "pi.required", "AstraCore PI",
     scopes=(
         "esi-planets.manage_planets.v1",
         "esi-skills.read_skills.v1",
@@ -47,7 +47,7 @@ def _reset(profile_id: int) -> None:
 
 
 MODULE = register(Module(
-    id="pi", name="AstracorePI", short="PI", status="live",
+    id="pi", name="AstraCore PI", short="PI", status="live",
     route_prefix="/pi", icon="static/img/modules/pi.svg",
     tagline="Plan Planetary Interaction across all your characters and systems, and run it day to day.",
     required_bundle=PI_REQUIRED,
@@ -57,5 +57,5 @@ MODULE = register(Module(
     dashboard_tile=_tile,
     on_character_removed=_character_removed,
     on_profile_reset=_reset,
-    reset_label="Reset AstracorePI: wipes PI settings, plans and planet overrides; keeps your characters.",
+    reset_label="Reset AstraCore PI: wipes PI settings, plans and planet overrides; keeps your characters.",
 ))

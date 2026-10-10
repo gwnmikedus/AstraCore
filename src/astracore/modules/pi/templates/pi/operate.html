@@ -8,7 +8,7 @@
 </hgroup>
 
 {% if missing %}<div class="flash warn">{{ missing|join(', ') }} {{ 'needs' if missing|length == 1 else 'need' }} one more EVE login
-  (<a href="/profile">profile</a>) so AstracorePI can read assets, contracts, orders and wallet. Until then only their colonies are tracked.</div>{% endif %}
+  (<a href="/profile">profile</a>) so AstraCore PI can read assets, contracts, orders and wallet. Until then only their colonies are tracked.</div>{% endif %}
 
 <div class="flow">
   <span class="st">{{ icon('orbit') }} On planets: <b>{{ status.pickups|map(attribute='m3')|sum|m3 }}</b> ready</span> →

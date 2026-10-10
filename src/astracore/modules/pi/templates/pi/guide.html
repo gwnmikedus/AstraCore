@@ -260,7 +260,7 @@ async function load(step) {
   const my = ++seq;
   const base = {...st};
   const rows = await AC.post(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
-    {onBusy: () => { if (my === seq) $('navhint').textContent = 'Astracore is busy, your plan is queued…'; }});
+    {onBusy: () => { if (my === seq) $('navhint').textContent = 'AstraCore is busy, your plan is queued…'; }});
   if (my !== seq || rows.superseded) return;            // user moved on
   if (!Array.isArray(rows)) { $('navhint').textContent = rows.error || 'Something went wrong.'; return; }
   results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
@@ -404,7 +404,7 @@ async function showPlan() {
   document.querySelectorAll('.chip').forEach(c => c.onclick = () => go(+c.dataset.i));
   $('back').onclick = () => go(cur - 1);
   const res = await AC.post(API + '/suggest', {}, {onBusy: () => {
-    $('planres').innerHTML = '<div class="busy-note">Astracore is busy, your plan is queued…</div>'; }});
+    $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});
   if (res.superseded) return;
   $('planres').innerHTML = planHTML(res);
   fillYieldBand();

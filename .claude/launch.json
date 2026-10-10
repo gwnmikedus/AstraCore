@@ -12,6 +12,21 @@
       "env": {
         "ASTRACORE_RELOAD": "1"
       }
+    },
+    {
+      "name": "astracore-local-8766",
+      "runtimeExecutable": "/Users/mikehoppezak/Eve/.venv/bin/python",
+      "runtimeArgs": [
+        "-m",
+        "astracore"
+      ],
+      "port": 8766,
+      "env": {
+        "ASTRACORE_MODE": "local",
+        "ASTRACORE_PORT": "8766",
+        "ASTRACORE_PUBLIC_URL": "http://localhost:8766",
+        "ASTRACORE_RELOAD": "1"
+      }
     }
   ]
 }

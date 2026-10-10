@@ -29,7 +29,7 @@
     </div>
     {% if t.module.id == 'pi' %}
       {% if t.state == 'connect' %}
-        <p>Log in with the characters you do PI on: AstracorePI reads their colonies, skills and hangars.</p>
+        <p>Log in with the characters you do PI on: AstraCore PI reads their colonies, skills and hangars.</p>
       {% elif t.state == 'area' %}
         <p>Next: choose the constellations your characters can use and where you drop products off.</p>
       {% elif t.state == 'plan' %}
@@ -55,6 +55,6 @@
     {% endif %}
   </section>
   {% endfor %}
-  <div class="coming">{{ icon('sparkles') }} More modules are coming.</div>
+  <div class="coming">{{ icon('layers') }} Next modules: skill planning across your alts, logistics, industry.</div>
 </div>
 {% endblock %}

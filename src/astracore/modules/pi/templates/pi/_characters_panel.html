@@ -10,7 +10,7 @@
     {% for c in panel %}
     <tr {% if not c.enabled %}class="muted"{% endif %}>
       <td><img src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=32" alt="" width="24" height="24"
-               style="border-radius:4px;vertical-align:-6px"> {{ c.name }}</td>
+               style="vertical-align:-6px"> {{ c.name }}</td>
       <td>{{ c.slots }}</td>
       <td><span class="{{ c.ccu_note[0] }}">{{ c.ccu_level }}</span> <span class="muted">· {{ c.ccu_note[1] }}</span></td>
       <td>{{ c.colonies|length }}{% if c.colony_summary %} <span class="muted itemlist">{% for x in c.colony_summary %}<span>{{ planet_img(x.type, 16) }}{{ eve_img(x.product, 16) }}{{ x.product }}</span>{% endfor %}</span>{% endif %}</td>

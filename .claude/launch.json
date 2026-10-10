@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "astracore",
-      "runtimeExecutable": "/Users/mikehoppezak/Eve/.venv/bin/python",
+      "runtimeExecutable": ".venv/bin/python",
       "runtimeArgs": [
         "-m",
         "astracore"
@@ -15,7 +15,7 @@
     },
     {
       "name": "astracore-local-8766",
-      "runtimeExecutable": "/Users/mikehoppezak/Eve/.venv/bin/python",
+      "runtimeExecutable": ".venv/bin/python",
       "runtimeArgs": [
         "-m",
         "astracore"

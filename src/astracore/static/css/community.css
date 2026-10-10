@@ -1,0 +1,19 @@
+.community-intro { max-width: 65ch; }
+.community-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
+.community-roadmap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.community-roadmap article { min-width: 0; margin: 0; }
+.community-roadmap h3 { line-height: 1.25; }
+.community-roadmap details { margin-top: 1rem; }
+.community-roadmap details p { color: var(--ink-muted); }
+.community-form { max-width: 780px; margin: 1.5rem 0; }
+.community-form label { display: block; margin: 1rem 0; }
+.community-form input:not([type="checkbox"]), .community-form select, .community-form textarea { display: block; width: 100%; margin-top: .4rem; }
+.community-form textarea { resize: vertical; }
+.community-form [hidden] { display: none; }
+.community-consent { display: flex !important; align-items: flex-start; gap: .75rem; }
+.community-consent input { flex: 0 0 auto; margin-top: .25rem; }
+.community-public-body { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-body, "Barlow", sans-serif); line-height: 1.5; color: var(--ink); padding: 0; border: 0; background: none; }
+.community-report-list { list-style: none; padding: 0; }
+.community-report-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
+.community-edit-form { margin: 1rem 0; }
+@media (max-width: 720px) { .community-roadmap { grid-template-columns: 1fr; } .community-actions > a { width: 100%; } }

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
+{% block content %}
+<div class="eyebrow">AstraCore / Your submission</div><h1 class="page-title">{{ report.title }}</h1>
+{% if issue %}<p><span class="pill">{{ issue.status }}</span> · <a href="{{ issue.url }}">Published as GitHub issue #{{ issue.number }}</a></p><p>Follow the discussion on GitHub. This page reflects the last confirmed issue status.</p>{% elif report.delivery == 'withdrawn' %}<p class="flash">Withdrawn before publication.</p>{% elif report.delivery == 'ambiguous' %}<p class="flash warn">GitHub may have received your report. We are checking for a matching issue before sending anything again.</p>{% elif report.delivery == 'published' %}<p>This report was published as <a href="{{ github_url }}/issues/{{ report.issue_number }}">issue #{{ report.issue_number }}</a>. It is currently unavailable in the local issue listing.</p>{% else %}<p class="flash" role="status">Saved and waiting for GitHub confirmation. It is visible only to you and the administrator until delivery is confirmed.</p>{% endif %}
+{% if report.problem %}<p class="muted">{{ report.problem }}</p>{% endif %}
+<article><h2>Confirmed public content</h2><pre class="community-public-body">{{ report.body }}</pre></article>
+{% if report.delivery == 'queued' %}<form action="/community/reports/{{ report.id }}/withdraw" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="outline secondary" type="submit">Withdraw before publication</button></form>{% endif %}
+<p><a href="/roadmap">Back to roadmap & feedback</a>{% if user.is_admin %} · <a href="/community/admin">Manage delivery</a>{% endif %}</p>
+{% endblock %}

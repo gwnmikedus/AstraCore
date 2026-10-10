@@ -4,6 +4,16 @@ One EVE Online login, one profile, several tools ("modules"). v1 ships one modul
 Planetary Interaction for **all your characters across several systems** at once, weighs ISK against your time,
 and runs it day to day from **Operate**.
 
+Source and contributions: [gwnmikedus/AstraCore](https://github.com/gwnmikedus/AstraCore).
+Report bugs or suggest improvements through [GitHub Issues](https://github.com/gwnmikedus/AstraCore/issues/new/choose).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup and pull requests, [SECURITY.md](SECURITY.md) for private vulnerability reports,
+and [docs/releases.md](docs/releases.md) for versioning and release notes.
+
+The original software is **source available under PolyForm Noncommercial 1.0.0**. Noncommercial use, modification
+and distribution are permitted subject to [LICENSE](LICENSE) and [NOTICE](NOTICE); commercial rights are not granted.
+This is not an OSI-approved open-source license. EVE materials and other third-party assets retain their own terms
+listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 The site runs on a Mac and is published at `https://astracore.hoppyhome.nl` through a Cloudflare Tunnel, only
 while that Mac runs it. Anyone with the URL can log in (an invite list gates production), so profiles are
 fully separated, sessions are server-side, and EVE tokens are encrypted at rest.

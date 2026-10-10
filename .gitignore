@@ -9,3 +9,6 @@ bin/
 .pytest_cache/
 *.egg-info/
 Astracore Control.app/
+
+# Local reviews may include private pilot and operational data.
+docs/audits/

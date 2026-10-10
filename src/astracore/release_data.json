@@ -1,0 +1,40 @@
+{
+  "current_version": "1.1.0",
+  "releases": [
+    {
+      "version": "1.1.0",
+      "date": "2026-10-11",
+      "title": "Help shape AstraCore",
+      "changes": [
+        "Explore the roadmap and see which improvements are being considered, planned, or worked on.",
+        "Signed-in pilots can suggest ideas and report bugs, with a clear preview of what will be shared publicly.",
+        "Find the project source, contribution guide, and license directly from the platform.",
+        "Follow readable release notes, with technical details available when you choose to show them."
+      ],
+      "technical": [
+        "Release metadata ships with the application and is checked against the package version before publication.",
+        "Community reports have local tracking and a GitHub issue link when publication is configured and succeeds.",
+        "The source is available under PolyForm Noncommercial 1.0.0; third-party material retains its own terms."
+      ],
+      "limitations": [
+        "The PI planner audit has identified market-liquidity and factory-restock improvements. Those changes are on the roadmap and are not included in this release.",
+        "A submitted idea is reviewed before it becomes a development commitment. GitHub publication depends on the operator's integration configuration."
+      ],
+      "references": []
+    },
+    {
+      "version": "1.0.0",
+      "date": null,
+      "kind": "baseline",
+      "title": "Existing PI platform baseline",
+      "changes": [
+        "AstraCore already offered EVE sign-in, character management, PI planning, colony templates, and operation tracking before this release history was introduced."
+      ],
+      "technical": [
+        "1.0.0 was the existing package version. It is recorded here as a baseline, not as a newly reconstructed historical release. No original release date is asserted."
+      ],
+      "limitations": [],
+      "references": []
+    }
+  ]
+}

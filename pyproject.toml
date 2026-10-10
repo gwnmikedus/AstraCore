@@ -1,11 +1,13 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "astracore"
-version = "1.0.0"
+version = "1.1.0"
 description = "Astracore: tools for EVE Online capsuleers (v1: AstracorePI)"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.9"
 dependencies = [
   "fastapi", "uvicorn", "jinja2", "httpx", "pulp", "python-multipart", "cryptography", "PyJWT",
@@ -14,8 +16,13 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest"]
 
+[project.urls]
+Homepage = "https://astracore.hoppyhome.nl/"
+Repository = "https://github.com/gwnmikedus/AstraCore"
+Issues = "https://github.com/gwnmikedus/AstraCore/issues"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-astracore = ["templates/*.html", "static/**/*", "modules/pi/templates/pi/*.html"]
+astracore = ["release_data.json", "templates/*.html", "static/**/*", "modules/pi/templates/pi/*.html"]

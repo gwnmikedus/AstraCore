@@ -37,6 +37,10 @@
             <h2 id="menu-about-title">About AstraCore</h2>
             <ul>{% if user %}{{ menu_link('Explore AstraCore', '/about', 'orbit') }}{% endif %}{{ menu_link('The capsuleer behind it', '/credits#creator', 'user', 'Meet CosmicCarrot · Support AstraCore') }}{{ menu_link('What we read', '/what-we-read', 'eye', 'Your EVE permissions, explained') }}{{ menu_link('Privacy', '/privacy', 'shield-check') }}{{ menu_link('Credits', '/credits', 'sparkles') }}</ul>
           </section>
+          <section class="menu-group" aria-labelledby="menu-community-title">
+            <h2 id="menu-community-title">Build with us</h2>
+            <ul>{{ menu_link('Source & contribute', '/project', 'layers', 'Explore the code and help improve AstraCore') }}{{ menu_link('Roadmap', '/roadmap', 'orbit', 'Follow what comes next') }}{{ menu_link('What’s new', '/releases', 'sparkles', 'Readable updates and release history') }}{{ menu_link('Ideas & bug reports', '/feedback', 'lightbulb', 'Help shape your next operation') }}</ul>
+          </section>
         </nav>
         <div class="menu-footer">
           {% if user %}

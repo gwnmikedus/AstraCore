@@ -75,7 +75,16 @@ it requests only the required bundle of the enabled modules; optional bundles ar
 ./astracore logs
 ```
 
-Double-click `Start Astracore.command` / `Stop Astracore.command` in Finder for the same. Every start makes a
+Without a terminal:
+
+- **Astracore Control.app** (repo root): double-click for a small menu. It shows the current status and offers
+  Start local test / Start production (asks for confirmation) / Stop / Restart / Open site / Show logs.
+  It is built per Mac (`ops/app/build.sh`, also after a fresh clone) and isn't in git. Drag it to the Dock if you like;
+  it keeps working from there as long as the repo stays where it was built.
+- **Launchers/** folder: one double-clickable `.command` per action: `Start Astracore (local test)`,
+  `Start Astracore (production)`, `Stop Astracore`, `Astracore status`, `Astracore logs`. The start ones open the site.
+
+Only one mode runs at a time (both use port 8765): stop one before starting the other. Every start makes a
 SQLite backup in `data/backups/<mode>/` (the newest 14 are kept) and runs pending migrations. PID files live in
 `data/run/`, logs in `data/logs/`.
 

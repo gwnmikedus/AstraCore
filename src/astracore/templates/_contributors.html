@@ -1,3 +1,4 @@
+{% from "_links.html" import external_link %}
 <section class="contributors-section" id="contributors" aria-labelledby="contributors-title">
   <div class="eyebrow">AstraCore / Built together</div>
   <h2 id="contributors-title">For capsuleers. By capsuleers.</h2>
@@ -7,7 +8,7 @@
   {% if contributor_credits.people %}
   <ul class="contributor-list" aria-label="GitHub contributors">
     {% for person in contributor_credits.people %}
-    <li><a class="contributor" href="{{ person.url }}" target="_blank" rel="noopener"><img src="{{ person.avatar_url }}" width="56" height="56" alt="" loading="lazy"><span>{{ person.login }}</span>{{ icon('external-link') }}</a></li>
+    <li>{% call external_link(person.url, cls='contributor') %}<img src="{{ person.avatar_url }}" width="56" height="56" alt="" loading="lazy"><span>{{ person.login }}</span>{% endcall %}</li>
     {% endfor %}
   </ul>
   {% elif contributor_credits.last_success %}
@@ -17,6 +18,6 @@
   {% endif %}
   {% if contributor_credits.unavailable %}<p class="muted">GitHub updates are temporarily unavailable.{% if contributor_credits.people %} Showing the last confirmed contributor list.{% endif %}</p>{% endif %}
   {% if contributor_credits.last_success %}<p class="muted contributor-updated">Last checked {{ contributor_credits.last_success|ago }}. GitHub may take a few hours to reflect new contributions.</p>{% endif %}
-  <div class="contributors-actions"><a class="text-action" href="{{ project.contributors_url }}" target="_blank" rel="noopener">Contributors on GitHub {{ icon('external-link') }}</a><a class="text-action" href="/project">Help build AstraCore {{ icon('arrow-right') }}</a></div>
-  <p class="muted contributors-thanks">Good bug reports, testing, and ideas matter too. Thank you to everyone who shares feedback and helps fellow pilots. <a href="{{ project.issues_url }}" target="_blank" rel="noopener">Join the discussion on GitHub.</a></p>
+  <div class="contributors-actions">{{ external_link(project.contributors_url, 'Contributors on GitHub', cls='text-action') }}<a class="text-action" href="/project">Help build AstraCore {{ icon('arrow-right') }}</a></div>
+  <p class="muted contributors-thanks">Good bug reports, testing, and ideas matter too. Thank you to everyone who shares feedback and helps fellow pilots. {{ external_link(project.issues_url, 'Join the discussion on GitHub.') }}</p>
 </section>

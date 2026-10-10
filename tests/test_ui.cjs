@@ -64,3 +64,35 @@ test('an expired session returns to the sign-in entry', async () => {
   assert.equal((await context.AC.post('/pi/api/save', {})).error, 'Signed out');
   assert.equal(context.location.href, '/');
 });
+
+function flightTips(output = {textContent: 'First tip'}, button = {}) {
+  let ready;
+  let click;
+  const context = {document: {
+    addEventListener: (event, callback) => ready = callback,
+    querySelector: selector => selector === '[data-next-tip]' ? button : output,
+  }};
+  if (button) button.addEventListener = (event, callback) => click = callback;
+  vm.runInNewContext(readFileSync(path.join(__dirname, '../src/astracore/static/js/flight-tips.js'), 'utf8'), context);
+  ready();
+  return {output, button, click};
+}
+
+test('capsuleer tips change only on request, stay plain text, and wrap to the original', () => {
+  const {output, button, click} = flightTips();
+  assert.equal(button.hidden, false);
+  assert.equal(output.textContent, 'First tip');
+  const seen = new Set([output.textContent]);
+  for (let i = 0; i < 5; i++) {
+    click();
+    assert.equal(seen.has(output.textContent), false);
+    assert.equal(output.textContent.includes('<'), false);
+    seen.add(output.textContent);
+  }
+  click();
+  assert.equal(output.textContent, 'First tip');
+});
+
+test('pages without the capsuleer tip controls still initialize', () => {
+  assert.doesNotThrow(() => flightTips(null, null));
+});

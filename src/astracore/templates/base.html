@@ -1,3 +1,4 @@
+{% from "_links.html" import external_link %}
 <!doctype html>
 <html lang="en" data-theme="dark">
 <head>
@@ -27,6 +28,7 @@
   <script src="{{ asset('js/eve-images.js') }}"></script>
   <script src="{{ asset('js/astracore.js') }}"></script>
   <script src="{{ asset('js/navigation.js') }}" defer></script>
+  <script src="{{ asset('js/flight-tips.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body class="page-{{ page or 'default' }}">
@@ -52,13 +54,19 @@
       <a class="footer-credits" href="/credits#contributors">Built by capsuleers <span>/ Meet the contributors</span></a>
     </div>
     <div class="links">
-      <a href="/project">Source &amp; contribute</a>
-      <a href="/roadmap">Roadmap</a>
-      <a href="/releases">What’s new</a>
-      <a href="/what-we-read">What we read</a>
-      <a href="/privacy">Privacy</a>
-      <a href="/credits">Credits</a>
+      <a href="/project">{{ icon('github', 'link-symbol') }} Source &amp; contribute</a>
+      <a href="/roadmap">{{ icon('orbit', 'link-symbol') }} Roadmap</a>
+      <a href="/feedback?kind=bug">{{ icon('bug', 'link-symbol icon-bug') }} Report a bug</a>
+      <a href="/releases">{{ icon('sparkles', 'link-symbol') }} What’s new</a>
+      <a href="/what-we-read">{{ icon('eye', 'link-symbol') }} What we read</a>
+      <a href="/privacy">{{ icon('shield-check', 'link-symbol') }} Privacy</a>
+      <a href="/credits">{{ icon('users', 'link-symbol') }} Credits</a>
       {{ support_link('Support AstraCore', 'coffee') }}
+    </div>
+    <div class="flight-tip">
+      {{ icon('rocket', 'flight-tip-icon') }}
+      <p data-flight-tip role="status">Fly safe. Your factories can’t send a rescue fleet.</p>
+      <button type="button" class="outline secondary" data-next-tip hidden aria-label="Show another capsuleer tip">One more tip {{ icon('refresh-cw') }}</button>
     </div>
     <p><strong>AstraCore</strong> © 2026 · An independent, fan-made tool for EVE Online capsuleers.{% if app_release is defined %} <a href="/releases#release-{{ app_release.version }}">v{{ app_release.version }}</a>{% endif %}</p>
     <p class="legal">EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",

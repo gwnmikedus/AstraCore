@@ -1,5 +1,6 @@
 {% macro menu_link(label, href, symbol, description='') %}
-<li><a href="{{ href }}"{% if request.url.path == href or (href == '/' and page == 'home' and not user) %} aria-current="page"{% endif %}>{{ icon(symbol) }}<span><strong>{{ label }}</strong>{% if description %}<small>{{ description }}</small>{% endif %}</span>{{ icon('arrow-right', 'menu-arrow') }}</a></li>
+{% set feedback_current = request.url.path == '/feedback' and href == '/feedback?kind=' ~ request.query_params.get('kind', 'idea') %}
+<li><a href="{{ href }}"{% if request.url.path == href or feedback_current or (href == '/' and page == 'home' and not user) %} aria-current="page"{% endif %}>{{ icon(symbol, 'icon-' ~ symbol) }}<span><strong>{{ label }}</strong>{% if description %}<small>{{ description }}</small>{% endif %}</span>{{ icon('arrow-right', 'menu-arrow') }}</a></li>
 {% endmacro %}
 <header class="topbar site-header">
   <div class="brandline">
@@ -39,7 +40,7 @@
           </section>
           <section class="menu-group" aria-labelledby="menu-community-title">
             <h2 id="menu-community-title">Build with us</h2>
-            <ul>{{ menu_link('Source & contribute', '/project', 'layers', 'Explore the code and help improve AstraCore') }}{{ menu_link('Roadmap', '/roadmap', 'orbit', 'Follow what comes next') }}{{ menu_link('What’s new', '/releases', 'sparkles', 'Readable updates and release history') }}{{ menu_link('Ideas & bug reports', '/feedback', 'lightbulb', 'Help shape your next operation') }}</ul>
+            <ul>{{ menu_link('Source & contribute', '/project', 'github', 'Explore the code and help improve AstraCore') }}{{ menu_link('Roadmap', '/roadmap', 'orbit', 'Follow what comes next') }}{{ menu_link('What’s new', '/releases', 'sparkles', 'Readable updates and release history') }}{{ menu_link('Suggest an idea', '/feedback?kind=idea', 'lightbulb', 'A bright idea for your next operation') }}{{ menu_link('Report a bug', '/feedback?kind=bug', 'bug', 'Found a stowaway? Help us catch it.') }}</ul>
           </section>
         </nav>
         <div class="menu-footer">

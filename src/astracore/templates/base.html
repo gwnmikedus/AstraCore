@@ -6,7 +6,10 @@
   <title>{% block title %}{% if page_title %}{{ page_title }} · {% endif %}{% if module %}{{ module.name }} · {% endif %}AstraCore{% endblock %}</title>
   <meta name="color-scheme" content="dark light">
   {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
-  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ asset('img/favicon-32.png') }}" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
+  <meta name="theme-color" content="#0b0c0d">
   <link rel="stylesheet" href="{{ asset('css/astracore.css') }}">
   <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <script src="{{ asset('js/fmt.js') }}"></script>
@@ -29,7 +32,7 @@
       <ul class="topnav">
         {% for m in modules %}
         <li><a href="{{ m.route_prefix }}" class="module {{ 'active' if module and module.id == m.id else '' }}">
-          <img src="/{{ m.icon }}" alt="">{{ m.short }}</a></li>
+          <img src="{{ asset(m.icon) }}" alt="">{{ m.short }}</a></li>
         {% endfor %}
         {% if user.is_admin %}<li><a href="/admin" class="{{ 'active' if page == 'admin' else '' }}">{{ icon('shield-check') }} Admin</a></li>{% endif %}
         <li class="sep" aria-hidden="true"></li>

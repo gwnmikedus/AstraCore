@@ -171,6 +171,20 @@ Production lets in: admin characters (`ASTRACORE_ADMIN_CHARACTER_IDS`, always), 
 in again; to take someone's access away, remove their profile under **People** on `/admin` (this revokes their EVE
 logins) and take them off the invite list.
 
+## Static files and caching
+
+Every static URL the app renders carries a content hash (`/static/img/logo.svg?v=3f9a1c2b7d`, see
+`core/assets.py`). Change a file and its URL changes, so browsers, phones and Cloudflare fetch the new one immediately.
+
+- In templates, always write `{{ asset('img/x.svg') }}`, never a bare `/static/...` path. Module icons: `{{ asset(m.icon) }}`.
+- In CSS, use relative `url(../fonts/x.woff2)`: the stylesheet is served with those rewritten to versioned URLs.
+- Replaced an EVE image? Run `.venv/bin/python -m astracore.core.eveimg` to regenerate `static/js/eve-images.js`
+  (a test fails if you forget).
+- Headers: versioned files `public, max-age=31536000, immutable`; unversioned or stale-version files `no-cache`;
+  pages and API `private, no-cache`; `/favicon.ico` and `/apple-touch-icon.png` `no-cache`.
+- Templates and static files are read from disk on every request, so they go live without a restart; Python changes
+  need `./astracore stop` + `./astracore start --prod`.
+
 ## Brand
 
 The brand (tokens, type, logos, voice) lives in [`docs/brand/`](docs/brand/README.md) and the AstraCore design system

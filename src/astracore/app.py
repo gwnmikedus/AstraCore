@@ -8,12 +8,12 @@ from logging.handlers import RotatingFileHandler
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import HTTPException, RequestValidationError
-from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import config, db
 from .core import auth, pages, sessions
+from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
 from .core.web import PKG, redirect, render
 from .modules.pi import module as _pi_module  # noqa: F401  (registers AstracorePI)
 from .modules.pi.routes import legacy as pi_legacy
@@ -92,7 +92,20 @@ def create_app() -> FastAPI:
                   openapi_url="/openapi.json" if debug else None)
     app.add_middleware(sessions.SessionMiddleware)
     app.add_middleware(SecurityHeaders)
-    app.mount("/static", StaticFiles(directory=str(PKG / "static")), name="static")
+    app.add_middleware(CacheHeaders)
+    app.mount("/static", VersionedStatic(directory=str(PKG / "static")), name="static")
+
+    # Fixed paths browsers and phones ask for on their own: always revalidated, so a new icon shows up.
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        return FileResponse(PKG / "static" / "img" / "favicon-32.png", media_type="image/png",
+                            headers={"cache-control": REVALIDATE})
+
+    @app.get("/apple-touch-icon.png", include_in_schema=False)
+    @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+    async def apple_touch_icon():
+        return FileResponse(PKG / "static" / "img" / "apple-touch-icon.png", media_type="image/png",
+                            headers={"cache-control": REVALIDATE})
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz():

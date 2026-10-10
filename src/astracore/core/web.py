@@ -16,6 +16,7 @@ from astracore import config
 
 from . import fmt, registry
 from . import eveimg
+from .assets import asset
 from .icons import icon
 
 PKG = Path(__file__).resolve().parent.parent
@@ -28,17 +29,7 @@ templates.env.globals["icon"] = icon
 templates.env.globals.update(eveimg.JINJA_GLOBALS)
 
 
-def asset(path: str) -> str:
-    """/static URL with the file's mtime, so browsers pick up a new stylesheet/script right away."""
-    f = PKG / "static" / path
-    try:
-        v = int(f.stat().st_mtime)
-    except OSError:
-        v = 0
-    return f"/static/{path}?v={v}"
-
-
-templates.env.globals["asset"] = asset
+templates.env.globals["asset"] = asset     # content-hashed /static URLs, see core/assets.py
 
 
 def current_user(request: Request) -> Optional[dict]:

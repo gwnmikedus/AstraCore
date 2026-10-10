@@ -24,7 +24,7 @@
   {% for t in tiles %}
   <section class="tile" aria-labelledby="tile-{{ t.module.id }}">
     <div class="tile-head">
-      <h3 id="tile-{{ t.module.id }}"><img src="/{{ t.module.icon }}" alt="">{{ t.module.name }}</h3>
+      <h3 id="tile-{{ t.module.id }}"><img src="{{ asset(t.module.icon) }}" alt="">{{ t.module.name }}</h3>
       <a role="button" href="{{ t.href or t.module.route_prefix }}">{{ t.cta or 'Open' }} {{ icon('arrow-right') }}</a>
     </div>
     {% if t.module.id == 'pi' %}

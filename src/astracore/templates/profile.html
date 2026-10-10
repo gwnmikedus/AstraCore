@@ -115,7 +115,7 @@
 <section class="section" aria-labelledby="mod-h">
   <h3 id="mod-h">Modules</h3>
   {% for m in modules %}
-  <p><img src="/{{ m.icon }}" alt="" width="20" height="20" style="vertical-align:-4px"> <strong>{{ m.name }}</strong>: enabled.
+  <p><img src="{{ asset(m.icon) }}" alt="" width="20" height="20" style="vertical-align:-4px"> <strong>{{ m.name }}</strong>: enabled.
     Which characters are included in plans is set inside <a href="{{ m.route_prefix }}/plan">{{ m.name }}</a>.</p>
   {% endfor %}
 </section>

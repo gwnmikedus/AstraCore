@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="onb">
-  <hgroup>
-    <h2>Welcome, {{ first.name if first else user.display_name }}</h2>
-    <p>Three quick steps and you're planning. Every step is optional.</p>
-  </hgroup>
+  <div class="onboarding-header">
+    <div><div class="eyebrow">PI / Prepare your operation</div>
+    <h1>Welcome aboard,<br>{{ user.display_name }}.</h1>
+    <p>Your first character is connected. Add your alts now, or go straight to planning. You can come back any time.</p>
+    <div class="onboarding-readout">{{ icon('circle-check', 'ok') }} <span><b>{{ chars|length }}</b> character{{ 's' if chars|length != 1 }} connected</span><span>{{ icon('shield-check') }} Read-only by default</span></div></div>
+    <img src="{{ asset('img/eve/renders/2863-primae-512.png') }}" width="240" height="240" alt="Primae planetary industry ship">
+  </div>
 
   <section class="step {{ 'done' if chars|length > 1 else '' }}">
     <h3><span class="n">1</span> Add your other characters</h3>
@@ -20,8 +23,8 @@
     <p class="muted">Tip: in EVE's login screen, pick a different character each time. The list fills as they come back.</p>
   </section>
 
-  <section class="step {{ 'done' if accounts else '' }}">
-    <h3><span class="n">2</span> Group them by EVE account <span class="muted">(optional)</span></h3>
+  <details class="step account-optional" {{ 'open' if accounts else '' }}>
+    <summary><strong>{{ icon('users') }} Group by EVE account</strong><span class="muted">Optional · doesn’t affect your PI plan</span></summary>
     <p class="muted">EVE doesn't tell apps which characters share an account, so you decide. Up to {{ max_per_account }} characters per account.</p>
     <form method="post" action="/profile/accounts" class="grid">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="back" value="/welcome">
@@ -41,14 +44,14 @@
     </form>
     {% endfor %}
     {% endif %}
-  </section>
+  </details>
 
-  <section class="step">
-    <h3><span class="n">3</span> Start AstraCore PI</h3>
-    <p class="muted">A few questions about how you play, then a plan for all your characters.</p>
+  <section class="step launch-step">
+    <h3>{{ icon('route', 'lg') }} Ready to put your planets to work?</h3>
+    <p class="muted">Choose where to build, then compare setups around your schedule. No existing colonies needed.</p>
     <form method="post" action="/welcome/done" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="/pi">
-      <button>{{ icon('rocket') }} Start AstraCore PI</button>
+      <button>{{ icon('rocket') }} Plan my operation</button>
     </form>
     <form method="post" action="/welcome/done" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="/">

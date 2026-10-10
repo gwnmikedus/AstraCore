@@ -1,11 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 <hgroup style="display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap">
-  <div><h2 style="margin-bottom:.2rem">Operate</h2>
+  <div><div class="eyebrow">PI / Operations deck</div><h1 class="page-title" style="margin-bottom:.2rem">Your planets, in motion.</h1>
     <p class="muted" style="margin:0">From planet to liquid ISK. Data from ESI, last refreshed {{ synced|ago }}.</p></div>
   <form method="post" action="/profile/refresh" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="back" value="/pi/operate"><button>{{ icon('refresh-cw') }} Refresh from ESI</button></form>
+    <input type="hidden" name="back" value="/pi/operate"><button class="outline">{{ icon('refresh-cw') }} Refresh from ESI</button></form>
 </hgroup>
+
+{% if not active %}
+<section class="operation-start" aria-labelledby="operation-start-title">
+  <img src="{{ asset('img/eve/renders/2863-primae-512.png') }}" width="240" height="240" alt="Primae planetary industry ship">
+  <div><div class="eyebrow">{{ 'Your next operation' if plans else 'Your first operation' }}</div><h3 id="operation-start-title">Give every colony a purpose.</h3>
+    <p>Make a plan for your characters, download the colony templates, and build them in EVE. This deck then tracks restarts, pickups, and sales.</p>
+    <a href="/pi/plan" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a>
+    <a href="/pi/area" class="text-action">Review my area {{ icon('map') }}</a>
+    {% if stock %}<p class="existing-stock"><a href="#consolidate">You already have PI products. Review what’s ready to sell {{ icon('arrow-right') }}</a></p>{% endif %}
+  </div>
+</section>
+{% endif %}
 
 {% if missing %}<div class="flash warn">{{ missing|join(', ') }} {{ 'needs' if missing|length == 1 else 'need' }} one more EVE login
   (<a href="/profile">profile</a>) so AstraCore PI can read assets, contracts, orders and wallet. Until then only their colonies are tracked.</div>{% endif %}
@@ -19,6 +31,7 @@
   <span class="st">{{ icon('coins') }} Earned {{ days }}d: <b>{{ earned.net|isk }}</b></span>
 </div>
 
+{% if active or plans %}
 <div class="box">
   <h5>{{ icon('layers') }} Your plan</h5>
   {% if active %}
@@ -40,8 +53,11 @@
     {% endfor %}
   </div>
   {% endif %}
-  {% if plans|length > 1 %}
-  <details><summary class="muted">Other saved plans ({{ plans|length - 1 }})</summary>
+  {% else %}
+  <p class="empty">No active plan yet. <a href="/pi/plan">Make a plan</a> and Operate compares what you've built against it.</p>
+  {% endif %}
+  {% if plans|rejectattr('active')|list %}
+  <details><summary class="muted">Saved plans ({{ plans|rejectattr('active')|list|length }})</summary>
     {% for p in plans if not p.active %}
     <form method="post" action="/pi/plans/{{ p.id }}/activate" class="charrow">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -51,11 +67,11 @@
     {% endfor %}
   </details>
   {% endif %}
-  {% else %}
-  <p class="empty">No active plan yet. <a href="/pi/plan">Make a plan</a> and Operate compares what you've built against it.</p>
-  {% endif %}
 </div>
 
+{% endif %}
+
+{% if active or status.extractors %}
 <div class="box">
   <h5>{{ icon('timer') }} Extractors</h5>
   {% if status.extractors %}
@@ -66,7 +82,9 @@
   {% endfor %}</tbody></table></div>
   {% else %}<p class="empty">No extractors running yet. Place the templates from your plan, then refresh.</p>{% endif %}
 </div>
+{% endif %}
 
+{% if active or status.pickups or status.restock %}
 <div class="grid">
   <div class="box">
     <h5>{{ icon('package') }} Ready to pick up from planets</h5>
@@ -80,11 +98,12 @@
     {% for r in status.restock %}
       <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {{ r.have|num }} left
       (<span class="{{ 'bad' if r.days_left < 1 else 'warn' }}">{{ r.days_left }} days</span>, uses {{ r.need_per_day|num }}/day)</p>
-    {% else %}<p class="empty">All factories are stocked for 2+ days (or none built).</p>{% endfor %}
+    {% else %}<p class="empty">No factories need inputs within the next 2 days.</p>{% endfor %}
   </div>
 </div>
+{% endif %}
 
-<div class="box">
+<div class="box" id="consolidate">
   <h5>{{ icon('store') }} Consolidate &amp; sell</h5>
   {% if consolidated %}
   {% set c = consolidated %}

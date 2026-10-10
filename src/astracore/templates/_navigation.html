@@ -1,0 +1,66 @@
+{% macro menu_link(label, href, symbol, description='') %}
+<li><a href="{{ href }}"{% if request.url.path == href or (href == '/' and page == 'home' and not user) %} aria-current="page"{% endif %}>{{ icon(symbol) }}<span><strong>{{ label }}</strong>{% if description %}<small>{{ description }}</small>{% endif %}</span>{{ icon('arrow-right', 'menu-arrow') }}</a></li>
+{% endmacro %}
+<header class="topbar site-header">
+  <div class="brandline">
+    <details class="site-menu" data-site-menu>
+      <summary class="menu-toggle" role="button" aria-label="Open AstraCore menu" aria-controls="site-navigation">
+        <svg class="menu-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <path class="menu-mark-frame" d="M6 6H44L58 20V58H20L6 44Z"/>
+          <rect class="menu-mark-core" x="24" y="24" width="16" height="16"/>
+          <path class="menu-mark-close" d="M18 18L46 46M46 18L18 46"/>
+        </svg>
+        <span class="menu-toggle-label" data-menu-label>Menu</span>
+      </summary>
+      <div class="menu-backdrop" aria-hidden="true" data-menu-backdrop></div>
+      <div class="menu-panel" id="site-navigation">
+        <div class="menu-intro"><span class="console-label">AstraCore / Navigation</span><span>Your entire operation. Within reach.</span></div>
+        <nav class="menu-navigation" aria-label="Main">
+          {% if user %}
+          {% for m in modules %}
+          <section class="menu-group" aria-labelledby="menu-module-{{ m.id }}">
+            <h2 id="menu-module-{{ m.id }}">{{ m.name }}</h2>
+            <ul>{% for label, href, symbol in m.nav %}{{ menu_link(label, href, symbol) }}{% endfor %}</ul>
+          </section>
+          {% endfor %}
+          <section class="menu-group" aria-labelledby="menu-account-title">
+            <h2 id="menu-account-title">Your account</h2>
+            <ul>{{ menu_link('Dashboard', '/', 'house', 'Your operation at a glance') }}{{ menu_link('Characters & profile', '/profile', 'users', 'Manage all your connected alts') }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
+          </section>
+          {% else %}
+          <section class="menu-group" aria-labelledby="menu-start-title">
+            <h2 id="menu-start-title">Start here</h2>
+            <ul>{{ menu_link('Home', '/', 'house', 'Meet your next PI operation') }}{{ menu_link('Explore PI', '/about#preview', 'orbit', 'Find a routine that fits your playtime') }}</ul>
+          </section>
+          {% endif %}
+          <section class="menu-group" aria-labelledby="menu-about-title">
+            <h2 id="menu-about-title">About AstraCore</h2>
+            <ul>{% if user %}{{ menu_link('Explore AstraCore', '/about', 'orbit') }}{% endif %}{{ menu_link('The capsuleer behind it', '/credits#creator', 'user', 'Meet CosmicCarrot · Support AstraCore') }}{{ menu_link('What we read', '/what-we-read', 'eye', 'Your EVE permissions, explained') }}{{ menu_link('Privacy', '/privacy', 'shield-check') }}{{ menu_link('Credits', '/credits', 'sparkles') }}</ul>
+          </section>
+        </nav>
+        <div class="menu-footer">
+          {% if user %}
+          <span class="menu-session">{{ icon('user') }}<span>Signed in as <strong>{{ user.display_name }}</strong></span></span>
+          <form method="post" action="/auth/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="outline secondary">{{ icon('log-out') }} Sign out</button></form>
+          {% else %}
+          <span class="menu-session">{{ icon('shield-check') }} EVE SSO · Read-only by default</span>
+          <a href="/auth/login" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a>
+          {% endif %}
+        </div>
+      </div>
+    </details>
+    <a class="brand" href="/" aria-label="AstraCore home">{% with cls='wordmark', uid=1 %}{% include "_logo.html" %}{% endwith %}</a>
+    {% if local_mode %}<span class="local-badge" title="Running in local mode">LOCAL</span>{% endif %}
+  </div>
+  <div class="header-controls">
+  <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
+    <svg class="theme-sun ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+    {{ icon('moon', 'theme-moon') }}
+  </button>
+  {% if user %}
+  <a href="/profile" class="header-action header-profile" aria-label="Your profile: {{ user.display_name }}">{% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" width="32" height="32" alt="">{% else %}{{ icon('user') }}{% endif %}<span>{{ user.display_name }}</span></a>
+  {% else %}
+  <a href="/auth/login" class="header-action">{{ icon('key-round') }}<span>Log in</span></a>
+  {% endif %}
+  </div>
+</header>

@@ -70,7 +70,8 @@
 
 {% block content %}
 <hgroup>
-  <h2>Your profile</h2>
+  <div class="eyebrow">AstraCore / Your capsuleers</div>
+  <h1 class="page-title">Your profile</h1>
   <p>{{ chars|length }} character{{ 's' if chars|length != 1 }}. Log in with any of them to open this profile.
     <a href="/what-we-read">What we read from them</a>.</p>
 </hgroup>
@@ -103,7 +104,7 @@
     {% endfor %}
     <div class="account unassigned">
       <div class="acc-head"><h4>Unassigned</h4></div>
-      {% for c in unassigned %}{{ character(c) }}{% else %}<p class="empty">Every character is in an account.</p>{% endfor %}
+      <div class="unassigned-characters">{% for c in unassigned %}{{ character(c) }}{% else %}<p class="empty">Every character is in an account.</p>{% endfor %}</div>
     </div>
   </div>
   <form method="post" action="/profile/accounts" class="grid" style="max-width:34rem;margin-top:1rem">{{ csrf() }}

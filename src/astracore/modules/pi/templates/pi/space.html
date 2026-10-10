@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <hgroup>
-  <h2>Area</h2>
+  <div class="eyebrow">PI / Your operating space</div>
+  <h1 class="page-title">Area</h1>
   <p>Where your characters do PI, and where you collect products and ship them from.</p>
   <p class="muted">Found from your characters:
     {% for a in sources.alliances %}<span class="pill">sov of <b>{{ a }}</b></span>{% endfor %}

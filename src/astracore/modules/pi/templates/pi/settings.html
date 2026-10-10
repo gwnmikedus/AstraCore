@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% from "pi/_fields.html" import num, check %}
 {% block content %}
-<h2>Settings</h2>
+<div class="eyebrow">PI / Operation settings</div>
+<h1 class="page-title">Settings</h1>
 <form method="post" action="/pi/settings">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <article>

@@ -1,0 +1,54 @@
+{% macro port(name, position) %}<span class="tour-port tour-port-{{ position }}" data-port="{{ name }}" aria-hidden="true"></span>{% endmacro %}
+{% macro colony(id, planet, product, tier) %}
+<div class="tour-colony" data-node="{{ id }}">{{ port('in', 'top') }}{{ planet_img(planet, 44) }}<div><span class="console-label">{{ tier }}</span><strong>{{ product }}</strong><small>{{ planet }} planet</small></div>{{ port('out', 'bottom') }}</div>
+{% endmacro %}
+<div class="hero-visual" aria-label="Illustrative AstraCore operation">
+  <div class="hero-visual-topline"><span>{{ icon('orbit') }} Operation preview</span><span>Illustrative</span></div>
+  <div class="hero-visual-scenes">
+    <section id="hero-scene-0" class="hero-visual-scene" data-hero-scene="0" role="tabpanel" aria-labelledby="hero-tab-0">
+      <div class="tour-scene-heading"><span class="console-label">Across every character</span><h3>3 characters. 3 colony systems. 9 colonies.</h3></div>
+      <div class="tour-map tour-portfolio" data-tour-map="portfolio">
+        <svg class="tour-routes" fill="none" aria-hidden="true"></svg>
+        <div class="tour-characters">
+          {% for name, system, planets in [('Miner alt 01', 'System A', ['Lava', 'Barren', 'Plasma']), ('Miner alt 02', 'System B', ['Storm', 'Lava', 'Lava']), ('Industry alt', 'System C', ['Barren', 'Temperate', 'Barren'])] %}
+          <div class="tour-character" data-node="pilot-{{ loop.index }}"><div class="tour-character-name">{{ icon('user') }}<strong>{{ name }}</strong></div><span class="console-label">{{ system }}</span><div class="tour-character-planets">{% for planet in planets %}<div>{{ planet_img(planet, 40) }}<span>{{ planet }}</span></div>{% endfor %}</div><small>3 colonies · {{ 'Production' if loop.index == 3 else 'Extraction' }}</small>{{ port('out', 'bottom') }}</div>
+          {% endfor %}
+        </div>
+        <div class="tour-core" data-node="core">{{ port('in', 'top') }}<img src="{{ asset('img/mark.svg') }}" width="48" height="48" alt=""><div><strong>AstraCore</strong><span>One plan. Shared inputs. Clear next actions.</span></div></div>
+      </div>
+      <p class="tour-scene-note">Skills, colony slots, production, hauling, and selling—planned together.</p>
+    </section>
+    <section id="hero-scene-1" class="hero-visual-scene" data-hero-scene="1" role="tabpanel" aria-labelledby="hero-tab-1" hidden>
+      <div class="tour-scene-heading"><span class="console-label">Example / A connected Robotics chain</span><h3>Give every colony a job.</h3></div>
+      <div class="tour-map tour-production" data-tour-map="production">
+        <svg class="tour-routes" fill="none" aria-hidden="true"></svg>
+        <div class="tour-input-systems">
+          <div class="tour-system"><span class="tour-system-label">{{ icon('user') }} Miner alt 01 / System A</span><div class="tour-colony-row">{{ colony('reactive', 'Lava', 'Reactive Metals', 'P1') }}{{ colony('precious', 'Barren', 'Precious Metals', 'P1') }}</div></div>
+          <div class="tour-system"><span class="tour-system-label">{{ icon('user') }} Miner alt 02 / System B</span><div class="tour-colony-row">{{ colony('toxic', 'Lava', 'Toxic Metals', 'P1') }}{{ colony('chiral', 'Lava', 'Chiral Structures', 'P1') }}</div></div>
+        </div>
+        <div class="tour-factory-system"><span class="tour-system-label">{{ icon('user') }} Industry alt / System C</span><div class="tour-factories">{{ colony('mechanical', 'Barren', 'Mechanical Parts', 'P2') }}{{ colony('electronics', 'Temperate', 'Consumer Electronics', 'P2') }}{{ colony('robotics', 'Barren', 'Robotics', 'P3') }}</div></div>
+      </div>
+      <div class="tour-template-note">{{ icon('download') }}<span>Colony templates included.<small>Your real plan checks skills, available planets, yield, and taxes.</small></span></div>
+    </section>
+    <section id="hero-scene-2" class="hero-visual-scene" data-hero-scene="2" role="tabpanel" aria-labelledby="hero-tab-2" hidden>
+      <div class="tour-scene-heading"><span class="console-label">Operate / Example next session</span><h3>Log in with a purpose.</h3></div>
+      <div class="tour-operate">
+        <div class="tour-task-list"><div><span>01</span><div><strong>Restart extractors</strong><small>Miner alts · Systems A &amp; B</small></div>{{ icon('timer') }}</div><div><span>02</span><div><strong>Supply factories</strong><small>Industry alt · System C</small></div>{{ icon('factory') }}</div><div><span>03</span><div><strong>Collect finished products</strong><small>All your characters · one pickup routine</small></div>{{ icon('package') }}</div></div>
+        <div class="tour-map tour-pickup" data-tour-map="pickup"><svg class="tour-routes" fill="none" aria-hidden="true"></svg><div class="tour-stock" data-node="stock">{{ eve_img('Robotics', 48) }}<strong>Robotics ready to collect</strong>{{ port('out', 'bottom') }}</div><div class="tour-pickup-ship" data-node="epithal">{{ port('in', 'top') }}<img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="192" height="192" alt="Epithal planetary hauler"><span>Your Epithal</span>{{ port('out', 'bottom') }}</div><div class="tour-pickup-dropoff" data-node="dropoff">{{ port('in', 'top') }}{{ icon('boxes') }}<div><strong>RF-K9W</strong><small>Consolidated stock · ready for the next leg</small></div></div></div>
+      </div>
+      <p class="tour-scene-note">AstraCore tracks the work. You restart, resupply, and haul in EVE.</p>
+    </section>
+    <section id="hero-scene-3" class="hero-visual-scene" data-hero-scene="3" role="tabpanel" aria-labelledby="hero-tab-3" hidden>
+      <div class="tour-scene-heading"><span class="console-label">Selling / Choose the final leg</span><h3>Keep going. All the way to ISK.</h3></div>
+      <div class="tour-map tour-selling-map" data-tour-map="selling">
+        <svg class="tour-routes" fill="none" aria-hidden="true"></svg>
+        <div class="tour-sell-origin" data-node="origin">{{ icon('boxes', 'xl') }}<strong>RF-K9W</strong><small>Your combined stock</small>{{ port('out', 'right') }}</div>
+        <div class="tour-freighter" data-node="freighter">{{ port('in', 'left') }}<img src="{{ asset('img/eve/renders/28844-rhea-512.png') }}" width="192" height="192" alt="Rhea jump freighter, illustrative VOC transport"><strong>VOC Hauling</strong><small>Courier contract · jump-freighter delivery</small>{{ port('out', 'right') }}</div>
+        <div class="tour-sell-destination" data-node="market">{{ port('in', 'left') }}{{ icon('wallet', 'xl') }}<strong data-network-destination>Jita 4-4</strong><small data-network-market-method>Buy orders or sell orders</small></div>
+      </div>
+      <div class="tour-destinations" role="group" aria-label="Illustrative selling route"><button type="button" data-network-channel="jita" aria-pressed="true">Jita</button><button type="button" data-network-channel="amarr" aria-pressed="false">Amarr</button><button type="button" data-network-channel="local" aria-pressed="false">RF-K9W / Local</button></div>
+      <p class="tour-sale-description" data-network-sale-description aria-live="polite">Consolidate in RF-K9W, use VOC delivery to Jita 4-4, then sell. Your plan compares the return after courier fees and selling taxes.</p>
+    </section>
+  </div>
+  <div class="hero-visual-bottomline"><span>Connected from extraction to selling</span><span>Example operation · time compressed</span></div>
+</div>

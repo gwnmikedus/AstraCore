@@ -31,11 +31,12 @@ def _login_first() -> RedirectResponse:
 
 # --------------------------------------------------------------------------- home
 @router.get("/", response_class=HTMLResponse)
+@router.get("/about", response_class=HTMLResponse)
 async def home(request: Request, code: str = "", state: str = ""):
     if code:   # EVE app registered with the site root as callback
         return RedirectResponse(f"/auth/callback?code={code}&state={state}", status_code=303)
     user = _user(request)
-    if not user:
+    if not user or request.url.path == "/about":
         return render(request, "home.html", page="home", page_title="", modules=registry.MODULES,
                       members=_member_groups())
     p = db.get_profile(user["id"])

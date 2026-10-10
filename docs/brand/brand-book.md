@@ -66,7 +66,7 @@ Three families, all on Google Fonts:
 - **Barlow** (`sans`): all running text in `body`, `body-strong`, `small`.
 - **IBM Plex Mono** (`mono`): every number a pilot compares: `figure-xl` for readouts, `figure` in tables and metrics, `code` for scopes and pasted in-game text. Numbers are tabular and right-aligned in columns.
 
-Rules: headings in sentence case; `label` in uppercase with its 0.12em tracking; no italics in UI; one `display-xl` per page at most. The root size is 15px.
+Rules: headings in sentence case; `label` in uppercase with its 0.12em tracking; no italics in UI; one `display-xl` per page at most. The landing display scales from 54px on phones to 88px on desktop. The root size is 15px.
 
 ## Shape: cuts, not curves
 
@@ -98,12 +98,20 @@ Rules: headings in sentence case; `label` in uppercase with its 0.12em tracking;
 
 - Only CCP's own images (ships, structures, planets) on `void` or in a `chamfer-lg` frame. They are credited in the footer: "EVE Online and all related images are © CCP hf., used under the EVE Developer License."
 - No AI-generated nebulae, no lens flares, no gradient space backgrounds. Space is black; the hull is graphite.
+- Compose the EVE assets into equipment views: orbital network diagrams, production chains, and labelled ship plates. Diagrams are explicitly illustrations; income figures only come from the planner. The public preview shows operational trade-offs without inventing ISK forecasts.
+- The share cover uses the actual wordmark, outlined Barlow and IBM Plex Mono, theme tokens, and bundled EVE planets. Its editable source and generator live beside this book.
 
 ## Motion
 
-Instrument-like and short: 120ms linear for colour changes, 200ms ease-out for bars filling and panels opening. Nothing bounces, nothing floats on hover (no `translateY` lifts). Progress bars fill; numbers do not count up. Respect `prefers-reduced-motion` by removing all transitions.
+Instrument-like and short: 120ms linear for colour changes, 200ms ease-out for bars filling and panels opening. Nothing bounces, nothing floats on hover (no `translateY` lifts). Progress bars fill; numbers do not count up. The public hero tells the operation in four scenes: every character and colony system, a valid P1–P2–P3 production plan, the next operating actions and consolidated pickup, then the selected sale route. Give each scene ten seconds; its headline and artwork change together with a 550ms gradient reveal and restrained crossfade. Keep the call to action and scene frame stable. Feature tabs, keyboard navigation, and pause/resume give the pilot control; choosing a feature stops automatic advancement. Pause advancement during focus and stop motion when offscreen or the document is hidden. Routes follow actual source and destination ports across desktop and mobile layouts, with cargo completing one leg before the next begins. Use real schematics, valid planet resources, and supported courier destinations; label illustrative systems, player actions, and compressed time. The selling scene offers Jita, Amarr, and local RF-K9W routes; the local route bypasses the jump freighter. It never implies live ESI activity. Respect `prefers-reduced-motion` by disabling automatic advancement, transitions, animations, and smooth scrolling. The first scene and primary action remain visible without JavaScript.
+
+Navigation uses the AstraCore mark as a 48px disclosure control on every page. The frame turns, the orange core resolves into a close mark, and the menu reveals over a softened backdrop in 320ms; closing takes 180ms. Keep the wordmark as a separate home link. Group operation, account, and information links, mark the current page, and preserve the same header dimensions on mobile. The native disclosure remains usable without JavaScript. Escape restores focus to the icon; outside clicks and keyboard focus leaving the menu dismiss it. Short viewports scroll within the menu, and reduced motion removes the reveal and mark animation.
 
 ## States and focus
+
+The header always exposes theme switching beside the profile or login action. A sun invites Chart (light); a moon invites Hull (dark). Rotate and crossfade the icons while page colours settle in 350ms, preserve the choice across pages and tabs, and remove all motion for reduced-motion preferences. Keep both controls separate from the navigation disclosure.
+
+The creator plate introduces CosmicCarrot with the official EVE portrait and verified corporation/alliance names. Keep its coffee and permanent-hosting contributions optional, link both to the same Revolut destination, and describe hosting as a funding goal while the app still runs from the creator's own machine. Use the same plate on the introduction and credits pages; the footer carries a compact creator link and support action.
 
 - Hover: edges step from `line` to `line-strong`; secondary buttons fill `hull-raised`; primary goes `signal-strong`.
 - Selected: `signal-tint` fill plus a `signal` edge or bar.

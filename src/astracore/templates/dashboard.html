@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <hgroup>
-  <h2>Welcome back, {{ user.display_name }}</h2>
-  <p class="muted">Everything at a glance. Data comes from ESI; refresh it from your profile or a module.</p>
+  <div class="eyebrow">AstraCore / Command center</div>
+  <h1>Good to have you back, {{ user.display_name }}.</h1>
+  <p class="muted">Your operation at a glance. Pick up where you left off.</p>
 </hgroup>
 
 {% if alerts %}
@@ -35,6 +36,13 @@
       {% elif t.state == 'plan' %}
         <p>Next: answer a few questions and get a plan for all your characters.</p>
       {% endif %}
+      {% if t.state in ('connect', 'area', 'plan') %}
+      <div class="setup-path" aria-label="Setup progress">
+        {% for key, label in [('connect', 'Connect characters'), ('area', 'Choose an area'), ('plan', 'Build your plan'), ('operate', 'Run the operation')] %}
+        <span class="{{ 'current' if t.state == key else '' }}" {% if t.state == key %}aria-current="step"{% endif %}><b>{{ loop.index }}</b>{{ label }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if t.state in ('plan', 'operate') or t.plan_isk_per_day is defined %}
       <div class="cards">
         <div class="card"><div class="v">{{ t.plan_isk_per_day|isk if t.plan_isk_per_day is not none else '–' }}</div>
@@ -55,6 +63,6 @@
     {% endif %}
   </section>
   {% endfor %}
-  <div class="coming">{{ icon('layers') }} Next modules: skill planning across your alts, logistics, industry.</div>
+  <div class="coming">{{ icon('layers') }} PI is your first module. More of your operation will come together here.</div>
 </div>
 {% endblock %}

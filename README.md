@@ -157,6 +157,7 @@ Command Center Upgrades (nullsec miners CCU 4, lowsec miners 5, factories 2–3)
 
 ```bash
 .venv/bin/python -m pytest -q tests
+node --test tests/test_ui.cjs            # shared request recovery, cancellation, queue limits
 ```
 
 They never touch `data/` or the real env files. Covered: profile isolation, every login flow, scope bundles,

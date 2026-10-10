@@ -1,0 +1,19 @@
+{% from "_support.html" import support_link %}
+<section class="creator-panel" id="creator" aria-labelledby="creator-title">
+  <div class="creator-identity">
+    <img class="creator-portrait" src="https://images.evetech.net/characters/2122710091/portrait?size=256" width="160" height="160" alt="CosmicCarrot’s capsuleer portrait" loading="lazy">
+    <div><span class="console-label">Capsuleer / AstraCore creator</span><h2 id="creator-title">CosmicCarrot</h2><p class="creator-affiliation">Dutch Legions <span>/</span> Insidious.</p></div>
+  </div>
+  <div class="creator-copy">
+    <h3>Built between undocks.</h3>
+    <p>I’m CosmicCarrot. I built AstraCore to bring my alts’ planetary work into one place: less time sorting colonies and hauling, more time flying in New Eden. Now it’s here for fellow capsuleers too.</p>
+    <p class="creator-signoff">Fly safe. Keep the factories running.</p>
+  </div>
+  <div class="creator-support">
+    <span class="console-label">Keep the core online</span>
+    <h3>A coffee. A permanent home.</h3>
+    <p>AstraCore currently runs from my own machine. If it saves you a few clicks, you can buy me a coffee or help fund a permanent host.</p>
+    <div class="creator-support-actions">{{ support_link('Buy me a coffee', 'coffee', 'outline') }}{{ support_link('Help fund permanent hosting', 'server', 'text-action') }}</div>
+    <p class="support-note">Voluntary support via Revolut. Coffee and hosting contributions go to the same page.</p>
+  </div>
+</section>

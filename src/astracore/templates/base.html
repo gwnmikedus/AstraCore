@@ -5,86 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% if page_title %}{{ page_title }} · {% endif %}{% if module %}{{ module.name }} · {% endif %}AstraCore{% endblock %}</title>
   <meta name="color-scheme" content="dark light">
+  <meta name="description" content="{% block description %}AstraCore turns your EVE Online characters into PI plans you can fly. Plan, build, and run your planetary operation in one place.{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AstraCore">
+  <meta property="og:title" content="AstraCore · Your planets. Your pace.">
+  <meta property="og:description" content="One PI operation across all your alts. Compare income and effort, build with colony templates, and keep production moving.">
+  <meta property="og:image" content="{{ request.base_url|string|trim('/') }}{{ asset('img/share-card.png') }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="AstraCore. Your planets. Your pace. One clear plan. An orbital network connects four EVE planets to the AstraCore core.">
+  <meta name="twitter:card" content="summary_large_image">
   {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
   <link rel="icon" href="{{ asset('img/favicon-32.png') }}" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
   <meta name="theme-color" content="#0b0c0d">
   <link rel="stylesheet" href="{{ asset('css/astracore.css') }}">
-  <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <script src="{{ asset('js/fmt.js') }}"></script>
   <script src="{{ asset('js/icons.js') }}"></script>
   <script src="{{ asset('js/eve-images.js') }}"></script>
   <script src="{{ asset('js/astracore.js') }}"></script>
+  <script src="{{ asset('js/navigation.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body class="page-{{ page or 'default' }}">
+<a class="skip-link" href="#main-content">Skip to content</a>
 <main class="container">
-  <header class="topbar">
-    <div class="brandline">
-      <a class="brand" href="/" aria-label="AstraCore home">
-        {% with cls='wordmark', uid=1 %}{% include "_logo.html" %}{% endwith %}
-      </a>
-      {% if local_mode %}<span class="local-badge" title="Running in local mode">LOCAL</span>{% endif %}
-    </div>
-    {% if user %}
-    <nav aria-label="Main">
-      <ul class="topnav">
-        {% for m in modules %}
-        <li><a href="{{ m.route_prefix }}" class="module {{ 'active' if module and module.id == m.id else '' }}">
-          <img src="{{ asset(m.icon) }}" alt="">{{ m.short }}</a></li>
-        {% endfor %}
-        {% if user.is_admin %}<li><a href="/admin" class="{{ 'active' if page == 'admin' else '' }}">{{ icon('shield-check') }} Admin</a></li>{% endif %}
-        <li class="sep" aria-hidden="true"></li>
-        <li>
-          <details class="profile-menu">
-            <summary aria-label="Profile menu">
-              {% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" alt="">{% endif %}
-              <span>{{ user.display_name }}</span>
-            </summary>
-            <ul>
-              <li><a href="/">{{ icon('house') }} Dashboard</a></li>
-              <li><a href="/profile">{{ icon('user') }} Profile</a></li>
-              <li><a href="/what-we-read">{{ icon('eye') }} What we read</a></li>
-              {% if user.is_admin %}<li><a href="/admin">{{ icon('shield-check') }} Admin</a></li>{% endif %}
-              <li><form method="post" action="/auth/logout" class="inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit">{{ icon('log-out') }} Sign out</button></form></li>
-            </ul>
-          </details>
-        </li>
-      </ul>
-    </nav>
-    {% else %}
-    <nav aria-label="Main"><ul class="topnav">
-      <li><a href="/what-we-read">What we read</a></li>
-      <li><a href="/auth/login" class="login">{{ icon('key-round') }} Log in</a></li>
-    </ul></nav>
-    {% endif %}
-  </header>
+  {% include "_navigation.html" %}
   {% if subnav %}
-  <nav aria-label="{{ module.name if module else 'Section' }}">
+  <nav class="section-navigation" aria-label="{{ module.name if module else 'Section' }}">
     <ul class="subnav">
       {% if module %}<li class="code"><span class="pill code">{{ module.short }}</span></li>{% endif %}
       {% for label, href, ic in subnav %}
-      <li><a href="{{ href }}" class="{{ 'active' if active_nav == href else '' }}">{{ icon(ic) }} {{ label }}</a></li>
+      <li><a href="{{ href }}" class="{{ 'active' if active_nav == href else '' }}" {% if active_nav == href %}aria-current="page"{% endif %}>{{ icon(ic) }} {{ label }}</a></li>
       {% endfor %}
     </ul>
   </nav>
   {% endif %}
   {% if flash %}<div class="flash {{ flash_kind or 'info' }}" role="status">{{ icon('circle-x' if flash_kind == 'bad' else ('triangle-alert' if flash_kind == 'warn' else ('circle-check' if flash_kind == 'ok' else 'info'))) }}<span>{{ flash }}</span></div>{% endif %}
-  {% block content %}{% endblock %}
+  <div id="main-content" tabindex="-1">{% block content %}{% endblock %}</div>
   <footer class="site-footer">
-    {% with cls='footmark', uid=3 %}{% include "_logo.html" %}{% endwith %}
+    {% from "_support.html" import support_link %}
+    <div class="footer-heading">
+      {% with cls='footmark', uid=3 %}{% include "_logo.html" %}{% endwith %}
+      <a class="footer-creator" href="/credits#creator">Built by CosmicCarrot <span>/ For fellow capsuleers</span></a>
+    </div>
     <div class="links">
-      <a href="/what-we-read">What we read from your characters</a>
+      <a href="/what-we-read">What we read</a>
       <a href="/privacy">Privacy</a>
       <a href="/credits">Credits</a>
-      <button class="theme-toggle" type="button" id="theme-toggle">Light / dark</button>
+      {{ support_link('Support AstraCore', 'coffee') }}
     </div>
-    <p><strong>AstraCore</strong> © 2026 · a fan-made tool for EVE Online pilots, built on top of
-      ESI and EVE SSO (Fenris Creations), Fuzzwork's SDE, DalShooth's PI templates, VOC Hauling and a stack of open-source projects.
-      <a href="/credits">See all credits</a>.</p>
+    <p><strong>AstraCore</strong> © 2026 · An independent, fan-made tool for EVE Online capsuleers.</p>
     <p class="legal">EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
       "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>
   </footer>

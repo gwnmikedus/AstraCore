@@ -8,16 +8,22 @@
   AC.post = async function (url, body, opts = {}) {
     const started = Date.now();
     for (;;) {
-      const r = await fetch(url, {
+      let r;
+      try { r = await fetch(url, {
         method: 'POST', credentials: 'same-origin',
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
         body: JSON.stringify(body ?? {}), signal: opts.signal,
-      });
+      }); } catch (error) {
+        if (error.name === 'AbortError') return {superseded: true};
+        return {error: 'Connection lost. Check your connection and try again.'};
+      }
       if (r.status === 503) {
         let j = {}; try { j = await r.json(); } catch (e) {}
         if (j.busy) {
           if (opts.onBusy) opts.onBusy(Math.round((Date.now() - started) / 1000));
-          await new Promise(res => setTimeout(res, (j.retry_after || 3) * 1000));
+          if (Date.now() - started > 120000) return {error: 'The planner is still busy. Try again in a moment.'};
+          await new Promise(res => setTimeout(res, Math.min(10, Math.max(1, +j.retry_after || 3)) * 1000));
+          if (opts.signal?.aborted) return {superseded: true};
           continue;
         }
       }
@@ -31,17 +37,43 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const tt = document.getElementById('theme-toggle');
-    if (tt) tt.onclick = () => {
-      const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-      document.documentElement.dataset.theme = next;
-      try { localStorage.setItem('ac_theme', next); } catch (e) {}
+    const root = document.documentElement;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let themeTimer;
+    const themeLabel = () => {
+      if (!tt) return;
+      const light = root.dataset.theme === 'light';
+      const label = `Switch to ${light ? 'dark' : 'light'} theme`;
+      tt.setAttribute('aria-label', label);
+      tt.title = label;
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      if (themeColor) themeColor.content = getComputedStyle(root).getPropertyValue('--void').trim();
     };
+    themeLabel();
+    if (tt) tt.onclick = () => {
+      const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+      clearTimeout(themeTimer);
+      root.toggleAttribute('data-theme-changing', !reducedMotion.matches);
+      root.dataset.theme = next;
+      try { localStorage.setItem('ac_theme', next); } catch (e) {}
+      themeLabel();
+      themeTimer = setTimeout(() => root.removeAttribute('data-theme-changing'), 400);
+    };
+    window.addEventListener('storage', event => {
+      if (event.key !== 'ac_theme') return;
+      root.dataset.theme = event.newValue === 'light' ? 'light' : 'dark';
+      themeLabel();
+    });
     document.addEventListener('click', async e => {
       const b = e.target.closest('button.copy[data-copy]');
       if (!b) return;
       e.preventDefault();
-      try { await navigator.clipboard.writeText(b.dataset.copy); } catch (err) { return; }
-      const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => b.textContent = t, 1200);
+      const t = b.innerHTML;
+      try {
+        await navigator.clipboard.writeText(b.dataset.copy);
+        b.textContent = 'Copied';
+      } catch (err) { b.textContent = 'Copy failed'; }
+      setTimeout(() => b.innerHTML = t, 1600);
     });
     document.querySelectorAll('[data-autosubmit]').forEach(el => el.addEventListener('change', () => el.form.requestSubmit()));
     document.querySelectorAll('form[data-confirm]').forEach(f => f.addEventListener('submit', e => {
@@ -53,9 +85,47 @@
         const i = document.createElement('input'); i.type = 'hidden'; i.name = 'csrf_token'; i.value = csrf(); f.appendChild(i);
       }
     });
-    // Close the profile menu when clicking elsewhere.
-    document.addEventListener('click', e => {
-      document.querySelectorAll('details.profile-menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; });
-    });
+    const preview = document.querySelector('[data-pi-preview]');
+    if (preview) {
+      const approaches = {
+        passive: {
+          title: 'A small routine. Room for everything else.',
+          description: 'Start with independent miner colonies and longer extractor programs. Keep pickups close together and the number of moving parts low.',
+          product: 'Proteins', tier: 'Produce P1',
+          planets: 'Restart extractors. Pick up products.',
+          tradeoff: 'Less upkeep; lower hourly extraction.',
+        },
+        balanced: {
+          title: 'A little more industry. When it earns its keep.',
+          description: 'Combine miner output in factory colonies where the extra income justifies restocking. Your real plan compares that work against the value of your time.',
+          product: 'Mechanical Parts', tier: 'Produce P2',
+          planets: 'Restart, collect, and supply your factories.',
+          tradeoff: 'More inputs to move; more value per cubic metre.',
+        },
+        max: {
+          title: 'More moving parts. Every colony has a job.',
+          description: 'Consider longer production chains, more systems, and selling options. Your real plan checks which combinations pay after hauling, fees, and taxes.',
+          product: 'Robotics', tier: 'Produce P3+',
+          planets: 'Coordinate miners, factories, and character transfers.',
+          tradeoff: 'More logistics and market work to manage.',
+        },
+      };
+      preview.querySelectorAll('[data-approach]').forEach(button => button.addEventListener('click', () => {
+        const approach = approaches[button.dataset.approach];
+        preview.querySelectorAll('[data-approach]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+        for (const field of ['title', 'description', 'tier', 'planets', 'tradeoff']) {
+          preview.querySelector(`[data-preview-${field}]`).textContent = approach[field];
+        }
+        const product = preview.querySelector('[data-preview-product]');
+        product.src = button.dataset.product;
+        product.alt = approach.product;
+        AC.enterPanel(preview.querySelector('.preview-output'));
+      }));
+    }
   });
+  AC.enterPanel = function (element) {
+    if (!element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    element.getAnimations().forEach(animation => animation.cancel());
+    element.animate([{opacity: .3}, {opacity: 1}], {duration: 200, easing: 'ease-out'});
+  };
 })();

@@ -2,7 +2,8 @@
 {% block content %}
 <div class="g-head">
   <div>
-    <h2>Plan your PI</h2>
+    <div class="eyebrow">PI / Mission planning</div>
+    <h1>Build an operation that fits your life.</h1>
     <div class="ctx">{{ chars|length }} character{{ 's' if chars|length != 1 }} · {{ slots }} colony slots · {{ n_systems }} systems selected
       {% if dropoff %}· drop-off {{ dropoff }}{% endif %}
       · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|num }} P0/h per head)</span>{% endif %}</div>
@@ -12,8 +13,10 @@
 
 {% include "pi/_characters_panel.html" %}
 
-<ol class="track" id="track"><span class="fill" id="fill"></span></ol>
-<section class="q" id="q" aria-live="polite"></section>
+<div class="guide-progress"><span id="progress-label">Your setup</span><span id="save-status" role="status">Answers save as you continue</span></div>
+<ol class="track" id="track"></ol>
+<section class="q" id="q" aria-labelledby="question-title"></section>
+<noscript><div class="flash warn">The guided planner needs JavaScript. Enable it and reload to compare setups.</div></noscript>
 {% endblock %}
 
 {% block scripts %}
@@ -44,7 +47,7 @@ const STEPS = [
    intro: 'PI costs time: every planet needs a visit to restart extractors, and everything you make has to be hauled to where it sells. ' +
           'Your goal sets how much an hour of your time is worth; the next questions use it to judge whether extra effort is worth the extra ISK.',
    options: [
-     {id: 'passive', icon: 'moon', label: 'Set and forget', patch: {effort: 0}, blurb: 'Few systems, simple planets, as little hauling as possible. A few minutes every few days.'},
+     {id: 'passive', icon: 'moon', label: 'Set and forget', patch: {effort: 0}, blurb: 'Simple colonies, longer programs, and fewer pickup stops. Keep maintenance predictable.'},
      {id: 'balanced', icon: 'scale', label: 'Balanced', patch: {effort: 50}, blurb: 'Extra work only where it clearly pays off.'},
      {id: 'max', icon: 'coins', label: 'Maximum ISK', patch: {effort: 100}, blurb: 'Every million counts. You don’t mind hauling and flying to more systems.'}],
    match: st => st.effort <= 25 ? 'passive' : st.effort <= 75 ? 'balanced' : 'max'},
@@ -118,6 +121,18 @@ let cur = Math.max(0, Math.min(+S.guide_step || 0, STEPS.length - 1));
 const picks = {};          // step id -> option id chosen on this visit
 const results = {};        // step id -> {option id: what-if result}
 let seq = 0;
+let comparisonRequest = null;
+let saving = false;
+const STEP_CONTEXT = {
+  goal: 'Choose the balance between income and upkeep. You can change this later.',
+  cycle: 'Pick a restart schedule you can keep. The planner compares the income and effort.',
+  area: 'Keep colonies close, or travel further for more choices.',
+  tier: 'More processing saves cargo space, but factories need supplies.',
+  share: 'Decide how tightly to group your characters on useful planets.',
+  chain: 'Choose whether moving inputs between alts is worth the extra logistics.',
+  sell: 'Compare enabled selling channels after fees and your character’s taxes.',
+  batch: 'Balance quicker payouts against courier minimum fees.',
+};
 
 const value = (step, r) => r && !r.error ? (step.metric === 'sell' ? r.sell_net_per_day : r.totals.isk_per_day) : null;
 const optOf = (step, id) => (step.options || []).find(o => o.id === id);
@@ -156,7 +171,9 @@ function wireHour(step) {
   sel.onchange = () => {
     const v = +sel.value;
     st.hour_isk = v === HOUR_DEFAULT[goalId()] ? -1 : v;
-    AC.post(API + '/save', {hour_isk: st.hour_isk});
+    AC.post(API + '/save', {hour_isk: st.hour_isk}).then(r => {
+      $('save-status').textContent = r.error ? 'Preference not saved. Continue to retry.' : 'Time preference saved';
+    });
     paint(step);
   };
 }
@@ -196,40 +213,54 @@ const sentence = d => iskText(d) + (d.parts.length ? ` for ${d.parts.join(', ')}
 
 // ---- tracker --------------------------------------------------------------------------------
 function drawTrack() {
-  $('track').innerHTML = '<span class="fill" id="fill"></span>' + STEPS.map((s, i) => {
+  $('track').innerHTML = STEPS.map((s, i) => {
     const result = s.id === 'plan';
     const dot = result ? AC.icon('layers') : (i < cur ? AC.icon('check') : i + 1);
     return `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''} ${result ? 'result' : ''}" data-i="${i}">
+      <button type="button" ${i > cur || saving ? 'disabled' : ''} ${i === cur ? 'aria-current="step"' : ''} aria-label="${esc(s.title)}${i < cur && s.options ? ': ' + esc(labelOf(s)) : ''}">
       <span class="dot">${dot}</span>
       <span class="lbl">${s.title}</span>
       <span class="ans">${i < cur && s.options ? esc(labelOf(s)) : ''}</span>
-    </li>`;
+      </button></li>`;
   }).join('');
-  requestAnimationFrame(() => { $('fill').style.width = (cur / (STEPS.length - 1)) * 92 + '%'; });
-  document.querySelectorAll('.track li.done').forEach(li => li.onclick = () => go(+li.dataset.i));
+  $('track').style.setProperty('--progress', (cur / QUESTIONS) * 92 + '%');
+  $('progress-label').textContent = cur === QUESTIONS ? 'Your flight plan is ready to calculate' : `Setup ${Math.round(cur / QUESTIONS * 100)}% complete · ${QUESTIONS - cur} questions remaining`;
+  document.querySelectorAll('.track li.done button').forEach(button => button.onclick = () => go(+button.parentElement.dataset.i));
 }
 
 // ---- a question -----------------------------------------------------------------------------
-function go(i) {
+function go(i, focus = true) {
+  if (saving) return;
+  seq++;
+  comparisonRequest?.abort();
   cur = Math.max(0, Math.min(STEPS.length - 1, i));
-  AC.post(API + '/save', {guide_step: cur});
+  const visit = seq;
+  AC.post(API + '/save', {guide_step: cur}).then(r => {
+    if (r.error && visit === seq) $('save-status').textContent = 'Position not saved. Continue to retry.';
+  });
   drawTrack();
-  window.scrollTo({top: 0, behavior: 'smooth'});
   STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
+  AC.enterPanel($('q'));
+  if (focus) {
+    const title = $('question-title');
+    if (title) title.focus({preventScroll: true});
+    $('q').scrollIntoView({block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+  }
 }
 
 function showQuestion(step) {
+  $('q').dataset.step = step.id;
   step.options = step.options.filter(o => !o.isCustom);
   const m = step.match(st);
   if (step.custom && m != null && !step.options.some(o => o.id === m))
     step.options.push({...step.custom(st), isCustom: true});
   $('q').innerHTML = `
     <div class="eyebrow">Step ${cur + 1} of ${QUESTIONS}</div>
-    <h3>${step.q}</h3>
-    <p class="intro">${step.intro}</p>
-    ${step.isGoal ? `<div class="advice">${hourPicker()}<p class="muted" style="font-size:.78rem;margin-top:.4rem">Defaults: 300M for set and forget, 90M balanced, nothing for maximum ISK.</p></div>` : ''}
+    <h2 id="question-title" tabindex="-1">${step.q}</h2>
+    <p class="intro">${STEP_CONTEXT[step.id]}</p>
+    <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.intro}</p></details>
     <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map(o => `
-      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="0" aria-checked="false">
+      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false">
         <div class="badges"></div>
         <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm">${esc(o.label)}</div>
         <div class="bl">${esc(o.blurb || '')}</div>
@@ -237,17 +268,47 @@ function showQuestion(step) {
       </div>`).join('')}</div>
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
+    ${step.isGoal ? `<details class="question-explainer"><summary>Fine-tune the value of your time</summary>${hourPicker()}<p class="muted">Goal defaults: 300M ISK/hour for set and forget, 90M for balanced, zero for maximum ISK.</p></details>` : ''}
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} Back</button>
-      <span class="hint" id="navhint">${step.isGoal ? '' : 'Working out what each answer would earn with your characters…'}</span>
-      <button id="next">Next ${AC.icon('arrow-right')}</button>
+      <span class="hint" id="navhint" role="status">${step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…'}</span>
+      <button id="next" ${step.isGoal ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
   $('back').onclick = () => go(cur - 1);
-  $('next').onclick = async () => { $('next').disabled = true; await save(step); go(cur + 1); };
+  $('next').onclick = async () => {
+    saving = true;
+    $('next').disabled = true;
+    $('back').disabled = true;
+    drawTrack();
+    $('save-status').textContent = 'Saving your answer…';
+    const result = await save(step);
+    saving = false;
+    if (result.error || result.superseded) {
+      $('save-status').textContent = 'Answer not saved';
+      $('navhint').textContent = result.error || 'Try saving your answer again.';
+      $('next').disabled = false;
+      $('back').disabled = cur === 0;
+      drawTrack();
+      return;
+    }
+    $('save-status').textContent = 'Answer saved · you can change it later';
+    go(cur + 1);
+  };
   document.querySelectorAll('.opt').forEach(el => {
-    const pick = () => { if (!el.classList.contains('err')) choose(step, JSON.parse(el.dataset.id)); };
+    const pick = () => { if (!saving && el.getAttribute('aria-disabled') !== 'true') choose(step, JSON.parse(el.dataset.id)); };
     el.onclick = pick;
-    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } };
+    el.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault();
+      const options = [...document.querySelectorAll('.opt:not([aria-disabled="true"])')];
+      if (!options.length || saving) return;
+      const position = options.indexOf(el);
+      const index = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 :
+        (position + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1) + options.length) % options.length;
+      choose(step, JSON.parse(options[index].dataset.id));
+      options[index].focus();
+    };
   });
   if (step.isArea) wireArea(step);
   // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
@@ -258,11 +319,20 @@ function showQuestion(step) {
 
 async function load(step) {
   const my = ++seq;
+  comparisonRequest?.abort();
+  comparisonRequest = new AbortController();
+  delete results[step.id];
+  paint(step);
   const base = {...st};
   const rows = await AC.post(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
-    {onBusy: () => { if (my === seq) $('navhint').textContent = 'AstraCore is busy, your plan is queued…'; }});
+    {signal: comparisonRequest.signal, onBusy: () => { if (my === seq) $('navhint').textContent = 'AstraCore is busy, your plan is queued…'; }});
   if (my !== seq || rows.superseded) return;            // user moved on
-  if (!Array.isArray(rows)) { $('navhint').textContent = rows.error || 'Something went wrong.'; return; }
+  if (!Array.isArray(rows)) {
+    $('navhint').textContent = rows.error || 'Could not compare these setups.';
+    $('advice').innerHTML = '<div class="flash warn"><span>Comparison unavailable. Your saved answers are safe.</span><button class="outline" id="retry-comparison">Retry comparison</button></div>';
+    $('retry-comparison').onclick = () => { $('advice').innerHTML = ''; load(step); };
+    return;
+  }
   results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
   if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st)); else paint(step);
   $('navhint').textContent = 'Click an answer to compare. You can come back and change it later.';
@@ -279,6 +349,9 @@ function paint(step) {
   const res = results[step.id] || {};
   const rec = recommend(step);
   const pick = picks[step.id];
+  const valid = step.isGoal || !!(res[pick] && !res[pick].error);
+  if ($('next')) $('next').disabled = saving || !valid;
+  $('opts').setAttribute('aria-busy', String(!step.isGoal && !results[step.id]));
   const vals = step.options.map(o => value(step, res[o.id])).filter(v => v != null);
   const top = Math.max(1, ...vals);
   document.querySelectorAll('.opt').forEach(el => {
@@ -286,6 +359,9 @@ function paint(step) {
     el.classList.toggle('pick', id === pick);
     el.classList.toggle('recd', id === rec && id === pick);
     el.setAttribute('aria-checked', id === pick ? 'true' : 'false');
+    el.setAttribute('aria-disabled', String(saving || (!step.isGoal && (!r || !!r.error))));
+    el.tabIndex = id === pick || (pick == null && el === $('opts').firstElementChild) ? 0 : -1;
+    el.classList.toggle('err', !!r?.error);
     // One badge story: the picked card says "Suggested" when it is the suggestion, otherwise "Your pick".
     el.querySelector('.badges').innerHTML = id !== pick ? '' :
       (rec != null && id === rec ? '<span class="badge rec">Suggested</span>' : (step.isGoal ? '' : '<span class="badge mine">Your pick</span>'));
@@ -310,6 +386,7 @@ function paint(step) {
       <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>`;
   });
   $('advice').innerHTML = step.isGoal ? '' : advice(step, rec, pick);
+  if (step.isGoal && $('hour')) $('hour').closest('label').outerHTML = hourPicker();
   wireHour(step);
 }
 
@@ -346,10 +423,22 @@ function areaAdvanced() {
 }
 async function wireArea(step) {
   const det = $('area-adv');
-  det.addEventListener('toggle', async () => {
+  const loadArea = async () => {
     if (!det.open || det.dataset.loaded) return;
     det.dataset.loaded = '1';
-    const a = await (await fetch(API + '/area', {credentials: 'same-origin'})).json();
+    let a;
+    try {
+      const response = await fetch(API + '/area', {credentials: 'same-origin'});
+      if (!response.ok) throw new Error('Could not load the area');
+      a = await response.json();
+    } catch (error) {
+      if (!det.isConnected) return;
+      delete det.dataset.loaded;
+      $('area-body').innerHTML = '<div class="flash warn"><span>Could not load your area. Check your connection and retry.</span><button class="outline" id="retry-area">Retry area</button></div>';
+      $('retry-area').onclick = loadArea;
+      return;
+    }
+    if (!det.isConnected) return;
     const sel = new Set((st.selected_constellations && st.selected_constellations.length ? st.selected_constellations : a.selected).map(Number));
     $('area-body').innerHTML = `
       <p class="muted">Constellations your characters can use (best first). The pickup round only visits systems in these.</p>
@@ -359,38 +448,53 @@ async function wireArea(step) {
         <select id="area-hub"><option value="">Auto (best spot in the selection, VOC pickups preferred)</option>
         ${(a.systems || []).map(n => `<option ${n === (st.hub_system || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
-    const apply = () => {
+    const apply = async () => {
       const ids = [...det.querySelectorAll('input[type=checkbox]:checked')].map(x => +x.value);
-      if (!ids.length) return;
+      if (!ids.length) { $('next').disabled = true; $('navhint').textContent = 'Select at least one constellation.'; return; }
       st.selected_constellations = ids; st.hub_system = $('area-hub').value;
-      AC.post(API + '/save', {selected_constellations: ids, hub_system: st.hub_system}).then(() => load(step));
+      delete results[step.id];
+      paint(step);
+      const result = await AC.post(API + '/save', {selected_constellations: ids, hub_system: st.hub_system});
+      if (!det.isConnected) return;
+      if (result.error) {
+        $('save-status').textContent = 'Area not saved';
+        $('advice').innerHTML = `<div class="flash warn"><span>${esc(result.error)}</span><button class="outline" id="retry-area-save">Retry area save</button></div>`;
+        $('retry-area-save').onclick = apply;
+        return;
+      }
+      $('save-status').textContent = 'Area saved';
+      $('advice').innerHTML = '';
+      load(step);
     };
     det.querySelectorAll('input[type=checkbox]').forEach(x => x.onchange = apply);
     $('area-hub').onchange = apply;
-  });
+  };
+  det.addEventListener('toggle', loadArea);
 }
 
 // Next saves only what was picked (or seen pre-selected) on this question, never stale fields.
 async function save(step) {
   const id = picks[step.id];
   const o = optOf(step, id);
-  answered.add(step.id);
-  const body = {answered: [...answered], guide_step: cur + 1};
+  const body = {answered: [...new Set([...answered, step.id])], guide_step: cur + 1, hour_isk: st.hour_isk ?? -1};
   if (o) Object.assign(body, o.patch);
-  if (step.isGoal) body.hour_isk = st.hour_isk ?? -1;
-  await AC.post(API + '/save', body);
+  const result = await AC.post(API + '/save', body);
+  if (result.ok) answered.add(step.id);
+  return result;
 }
 
 // ---- the result -----------------------------------------------------------------------------
 async function showPlan() {
+  const my = ++seq;
+  $('q').dataset.step = 'plan';
   const chips = STEPS.filter(s => s.options).map((s, i) =>
-    `<span class="chip" data-i="${i}">${s.title}: <b>${esc(labelOf(s))}</b></span>`).join('');
+    `<button type="button" class="chip" data-i="${i}">${s.title}: <b>${esc(labelOf(s))}</b></button>`).join('');
   $('q').innerHTML = `
     <div class="eyebrow">Done</div>
-    <h3>Your plan</h3>
+    <h2 id="question-title" tabindex="-1">Your operation, mapped out.</h2>
     <div class="chips">${chips}</div>
     <div id="planbar"></div>
-    <div class="todo"><h6 style="margin:0">What to do now</h6><ol>
+    <div class="todo" id="build-instructions" hidden><h6 style="margin:0">What to do now</h6><ol>
       <li><a href="#" id="tpl-link">Download the templates</a> and copy them into <code>Documents/EVE/PlanetaryInteractionTemplates</code>.</li>
       <li>For each character below, place a command center on the listed planet and load the template shown.</li>
       <li>Then go to <a href="{{ operate_url }}">Operate</a>: it tracks extractors, pickups and what to sell where, straight from ESI.</li>
@@ -399,24 +503,36 @@ async function showPlan() {
     <div class="nav">
       <button class="outline secondary" id="back">${AC.icon('arrow-left')} Back</button>
       <span class="hint"><a href="{{ advanced_url }}">Fine-tune with every option →</a></span>
-      <a role="button" href="{{ operate_url }}">Go to Operate ${AC.icon('arrow-right')}</a>
+      <a role="button" class="outline" href="{{ operate_url }}">Go to Operate ${AC.icon('arrow-right')}</a>
     </div>`;
   document.querySelectorAll('.chip').forEach(c => c.onclick = () => go(+c.dataset.i));
   $('back').onclick = () => go(cur - 1);
   const res = await AC.post(API + '/suggest', {}, {onBusy: () => {
-    $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});
-  if (res.superseded) return;
+    if (my === seq) $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});
+  if (my !== seq || res.superseded) return;
+  if (res.error) {
+    $('planres').innerHTML = `<div class="flash warn"><span>${esc(res.error)}</span><button class="outline" id="retry-plan">Retry plan</button></div>`;
+    $('retry-plan').onclick = () => showPlan();
+    return;
+  }
   $('planres').innerHTML = planHTML(res);
+  $('build-instructions').hidden = false;
   fillYieldBand();
   $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
   if (!res.error) planBar();
 }
 
 async function planBar() {
+  const my = seq;
   const active = PLANS.find(p => p.active);
   if (!active) {
     const r = await AC.post(API + '/plans', {label: '', active: true});
+    if (my !== seq) return;
     if (r.ok) { setSaved(r); $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b> and set as your active plan. Operate compares what you build against it.</div>`; }
+    else {
+      $('planbar').innerHTML = `<div class="flash warn"><span>${esc(r.error || 'Could not save your plan.')} Your build list is ready; saving it lets Operate track it.</span><button class="outline" id="retry-save-plan">Retry save</button></div>`;
+      $('retry-save-plan').onclick = () => planBar();
+    }
     return;
   }
   $('planbar').innerHTML = `<div class="planbar">
@@ -425,9 +541,17 @@ async function planBar() {
       <button class="outline" id="plan-save">Save as new plan</button>
       <button id="plan-active">Save and set as active plan</button></div>`;
   const doSave = async activate => {
+    $('plan-save').disabled = true;
+    $('plan-active').disabled = true;
     const r = await AC.post(API + '/plans', {label: $('plan-label').value, active: activate});
+    if (my !== seq) return;
     if (r.ok) { setSaved(r); $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b>${r.active ? ' and set as your active plan' : ''}.</div>`; }
-    else $('planbar').insertAdjacentHTML('beforeend', `<p class="bad">${esc(r.error || 'Could not save.')}</p>`);
+    else {
+      $('plan-save').disabled = false;
+      $('plan-active').disabled = false;
+      $('planbar').querySelector('.plan-save-error')?.remove();
+      $('planbar').insertAdjacentHTML('beforeend', `<p class="bad plan-save-error" role="status">${esc(r.error || 'Could not save.')}</p>`);
+    }
   };
   $('plan-save').onclick = () => doSave(false);
   $('plan-active').onclick = () => doSave(true);
@@ -439,6 +563,6 @@ function setSaved(r) {
   $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
 }
 
-go(cur);
+go(cur, false);
 </script>
 {% endblock %}

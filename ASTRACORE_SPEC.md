@@ -91,8 +91,10 @@ a one-command on/off switch.
   Put the formatter in one JS file and one Jinja filter, and use it everywhere.
 
 ### 2.4 Legal footer (required)
-- Replace "Not affiliated with CCP Games." with CCP's required copyright notice from the current
-  EVE Developer License Agreement (fetch the exact text from developers.eveonline.com; don't paraphrase it).
+- **CCP Games is now Fenris Creations** (rebrand after the split from Pearl Abyss). Never write "CCP" in new UI text.
+  Replace "Not affiliated with CCP Games." with the copyright/trademark notice required by the current EVE Developer License Agreement,
+  copied exactly from developers.eveonline.com (it may still say CCP hf. legally; use whatever the current text says, don't paraphrase).
+  Footer data credit becomes "Data: ESI (Fenris Creations)". Grep the codebase for `CCP` and update user-facing strings; code comments may keep it.
 - Keep the data/credits line (ESI, SDE, DalShooth templates, VOC).
 - Add links: Privacy (§5.4), "What we read from your characters" (§4.4).
 
@@ -161,7 +163,7 @@ personal data; Mike's current five characters, settings and plans survive the mi
 | Signed in, "Add character", character **unknown** | Link to the current profile. |
 | Signed in, "Add character", character **already in this profile** | Refresh its token/scopes; say "updated". |
 | Signed in, "Add character", character **linked to another profile** | Show a choice: "Move <name> to this profile" or cancel. The fresh SSO login proves ownership. If it was that profile's last character, offer to **merge** the two profiles (characters, plans; current profile's settings win). |
-| SSO returns a different character than the one the user meant to re-authorise (they picked another in CCP's picker) | Handle it as "Add character" and tell them which character was actually authorised. |
+| SSO returns a different character than the one the user meant to re-authorise (they picked another in the EVE SSO character picker) | Handle it as "Add character" and tell them which character was actually authorised. |
 
 - `state` must be bound to the browser session (cookie) and to the intent (`login` / `add` / `upgrade:<module>`), single-use, 10-minute expiry. Today `_pending_states` is a process-global dict — keep it server-side but key it per session.
 - Validate the access-token JWT properly (signature via the JWKS from `https://login.eveonline.com/.well-known/oauth-authorization-server`, `iss`, `aud`, `exp`) instead of only base64-decoding it — it is now a public login.
@@ -213,15 +215,15 @@ to your account except: setting waypoints if you enable it". Linked from the log
 - `.env` stays out of git (it already is) and gets `chmod 600` (`save_env` already does this).
 
 ### 4.6 Removing connections and resetting
-- **Remove a character:** revoke its refresh token at CCP (`POST https://login.eveonline.com/v2/oauth/revoke`,
+- **Remove a character:** revoke its refresh token with EVE SSO (`POST https://login.eveonline.com/v2/oauth/revoke`,
   Basic auth with client id/secret, body `token_type_hint=refresh_token&token=…`), delete token + synced data, remove it from
   plans' character lists. If it's the last character: explain that the profile will be deleted and require confirmation (= reset).
   If it's the character you're signed in with, you stay signed in (the session belongs to the profile, not the character).
 - **Reset profile** (danger zone): offer "Download my data (JSON)" first; then type-to-confirm the profile name;
-  revoke every token at CCP; delete profile, characters, accounts, settings, plans, overrides, sessions; sign out; land on home
+  revoke every token with EVE SSO; delete profile, characters, accounts, settings, plans, overrides, sessions; sign out; land on home
   with "Your profile was deleted."
 - **Reset only AstracorePI** (softer option): wipes PI settings, plans and overrides, keeps characters.
-- Also tell users they can revoke access themselves at CCP's third-party applications page.
+- Also tell users they can revoke access themselves on EVE's third-party applications page (account management on eveonline.com).
 
 **Acceptance:** tests for every row in §4.1; a test that a fresh sign-in requests exactly `pi.required`; opt-in/opt-out round
 trip; remove-character and reset-profile call the revoke endpoint (mock it) and leave no rows behind for that profile.
@@ -233,7 +235,7 @@ trip; remove-character and reset-profile call the revoke endpoint (mock it) and 
 ### 5.1 Public home (`/`, signed out)
 Today `/` immediately redirects into Characters/Space/Planner, so a visitor never lands anywhere. Build a real landing page:
 1. **Hero:** Astracore wordmark, one-line promise ("Tools for capsuleers. One login for all your characters."), primary button
-   = official **"Log in with EVE Online"** SSO button image from CCP, secondary link "What we read from your characters".
+   = official **"Log in with EVE Online"** SSO button image from developers.eveonline.com, secondary link "What we read from your characters".
 2. **Module card: AstracorePI** — 2–3 sentences on what it does that others don't (plans across several systems and all your
    characters at once; real ISK after POCO tax, courier fees and sales tax; templates + VOC courier values; daily Operate view),
    plus a static screenshot of a plan.
@@ -337,7 +339,7 @@ From the walkthrough (Mike's current data):
   non-PI items in buyback contracts). Check which are already fixed before touching them.
 
 ### 7.6 Planner correctness backlog (carry-over)
-From `pi-planner-review-2026-10-10.md`, issues #1–#7 and #9. The README says calibration now uses CCP's bar-width + decay formula
+From `pi-planner-review-2026-10-10.md`, issues #1–#7 and #9. The README says calibration now uses the official (developers.eveonline.com) bar-width + decay formula
 and that taxes come from skills — **verify each item against the current code and tests, close the fixed ones, fix the rest.**
 Do not change the optimizer's behaviour in this branding work beyond these items.
 
@@ -435,7 +437,7 @@ Manual walkthrough (record findings in the project doc):
 3. Sign out, sign in with a *different* character of the same profile → same profile loads.
 4. Opt in to waypoints for one character → button appears; opt out → it disappears.
 5. Log in with a character that belongs to another profile while signed in → move flow; merge flow.
-6. Remove a character; reset AstracorePI; reset profile → nothing left, CCP token revoked.
+6. Remove a character; reset AstracorePI; reset profile → nothing left, EVE SSO token revoked.
 7. Two browsers / two profiles planning at the same time → both get results, Mac stays responsive.
 8. `./astracore stop` and `start` while a user is mid-wizard → they can continue after restart (state is server-side).
 

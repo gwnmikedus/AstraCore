@@ -61,7 +61,7 @@
   {% if status.extractors %}
   <div class="scroll"><table><thead><tr><th>Character</th><th>Planet</th><th>Extracting</th><th>Heads</th><th>Time left</th></tr></thead><tbody>
   {% for e in status.extractors %}
-  <tr><td>{{ e.character }}</td><td>{{ e.planet }} <span class="muted">{{ e.system }}</span></td><td>{{ e.product }}</td><td>{{ e.heads }}</td>
+  <tr><td>{{ e.character }}</td><td>{{ e.planet }} <span class="muted">{{ e.system }}</span></td><td>{{ eve_img(e.product) }}{{ e.product }}</td><td>{{ e.heads }}</td>
       <td class="st-{{ e.state }}">{% if e.state == 'expired' %}<b>stopped - restart</b>{% elif e.hours_left is none %}?{% else %}{{ e.hours_left|hours }}{% endif %}</td></tr>
   {% endfor %}</tbody></table></div>
   {% else %}<p class="empty">No extractors running yet. Place the templates from your plan, then refresh.</p>{% endif %}
@@ -72,13 +72,13 @@
     <h5>{{ icon('package') }} Ready to pick up from planets</h5>
     {% for p in status.pickups %}
       <p style="margin:.2rem 0"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
-      <span class="muted">{% for k, v in p['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</span></p>
+      <span class="muted itemlist">{% for k, v in p['items'].items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</span></p>
     {% else %}<p class="empty">Nothing waiting on launchpads or storage.</p>{% endfor %}
   </div>
   <div class="box">
     <h5>{{ icon('factory') }} Factories that need inputs</h5>
     {% for r in status.restock %}
-      <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ r.item }} - {{ r.have|num }} left
+      <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {{ r.have|num }} left
       (<span class="{{ 'bad' if r.days_left < 1 else 'warn' }}">{{ r.days_left }} days</span>, uses {{ r.need_per_day|num }}/day)</p>
     {% else %}<p class="empty">All factories are stocked for 2+ days (or none built).</p>{% endfor %}
   </div>
@@ -140,7 +140,7 @@
           {% if b.contract.move_first %}<div class="muted warn">{{ b.contract.move_first }}</div>{% endif %}
         {% elif b.hold %}<div class="muted">{{ b.note }}</div>
         {% else %}
-          <div class="muted">{% for k, v in b['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+          <div class="muted itemlist">{% for k, v in b['items'].items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</div>
         {% endif %}
       </div>
       {% endfor %}
@@ -164,7 +164,7 @@
       <b>VOC buyback contracts</b>
       {% for c in pipe.buyback %}
       <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.price|isk }}
-        · {% for k, v in c['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if c.other_items %} <span class="muted">+ {{ c.other_items }} other item{{ 's' if c.other_items != 1 }}</span>{% endif %}</p>
+        · {% for k, v in c['items'].items() %}{{ eve_img(k, 16) }}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if c.other_items %} <span class="muted">+ {{ c.other_items }} other item{{ 's' if c.other_items != 1 }}</span>{% endif %}</p>
       {% else %}<p class="empty">None open.</p>{% endfor %}
     </div>
   </div>
@@ -180,7 +180,7 @@
   <b>Sell orders</b>
   {% if pipe.orders %}
   <div class="scroll"><table><thead><tr><th>Character</th><th>Item</th><th>Where</th><th>Price</th><th>Left</th><th>Value</th><th></th></tr></thead><tbody>
-  {% for o in pipe.orders %}<tr><td>{{ o.character }}</td><td>{{ o.item }}</td><td class="muted">{{ o.location }}</td><td>{{ o.price|num(2) }}</td>
+  {% for o in pipe.orders %}<tr><td>{{ o.character }}</td><td>{{ eve_img(o.item, 16) }}{{ o.item }}</td><td class="muted">{{ o.location }}</td><td>{{ o.price|num(2) }}</td>
     <td>{{ o.remaining|num }}/{{ o.total|num }}</td><td>{{ o.value|isk }}</td>
     <td>{% if o.undercut %}<span class="warn">undercut - best is {{ o.best_sell|num(2) }}</span>{% endif %}</td></tr>{% endfor %}
   </tbody></table></div>

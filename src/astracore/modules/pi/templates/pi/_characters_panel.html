@@ -13,7 +13,7 @@
                style="border-radius:4px;vertical-align:-6px"> {{ c.name }}</td>
       <td>{{ c.slots }}</td>
       <td><span class="{{ c.ccu_note[0] }}">{{ c.ccu_level }}</span> <span class="muted">· {{ c.ccu_note[1] }}</span></td>
-      <td>{{ c.colonies|length }}{% if c.colony_summary %} <span class="muted">· {{ c.colony_summary|join(', ') }}</span>{% endif %}</td>
+      <td>{{ c.colonies|length }}{% if c.colony_summary %} <span class="muted itemlist">{% for x in c.colony_summary %}<span>{{ planet_img(x.type, 16) }}{{ eve_img(x.product, 16) }}{{ x.product }}</span>{% endfor %}</span>{% endif %}</td>
       <td>{% if c.status == 'needs_login' or not c.has_token %}<a href="/auth/upgrade/{{ c.character_id }}" class="warn">needs login</a>
         {% elif c.missing_pi %}<a href="/auth/upgrade/{{ c.character_id }}" class="warn">needs one more login</a>
         {% else %}<span class="ok">OK</span>{% endif %}</td>

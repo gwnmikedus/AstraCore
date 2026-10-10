@@ -33,7 +33,7 @@
       <div class="sys">
         <span><b>{{ sy.name }}</b> <span class="muted">{{ sy.security }}</span>
           {% if sy.colonies %}<span class="badge col" title="{{ sy.colonies|join(', ') }}">{{ sy.colonies|length }} col.</span>{% endif %}</span>
-        <span>{% for t, n in sy.types.items() if t not in ('Shattered','Unknown') %}<span class="pill">{{ t[:4] }}{% if n > 1 %}×{{ n }}{% endif %}</span>{% endfor %}</span>
+        <span>{% for t, n in sy.types.items() if t not in ('Shattered','Unknown') %}<span class="pill" title="{{ t }}">{{ planet_img(t, 14) }}{{ t[:4] }}{% if n > 1 %}×{{ n }}{% endif %}</span>{% endfor %}</span>
       </div>
       {% endfor %}
     </label>

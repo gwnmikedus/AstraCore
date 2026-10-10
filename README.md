@@ -163,8 +163,25 @@ They never touch `data/` or the real env files. Covered: profile isolation, ever
 opt-in/opt-out, revocation on remove/reset, owner-hash changes, CSRF, cookie flags, JWT validation, the invite gate,
 migration from an MVP database, the solve gate, and the planner.
 
-## Data credits
+## Access
 
-ESI and EVE SSO (Fenris Creations), Fuzzwork SDE schematics, DalShooth templates, VOC Hauling, Pico CSS (MIT),
-Lucide icons (ISC). © 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all related logos and images are
-trademarks or registered trademarks of CCP hf.
+Production lets in: admin characters (`ASTRACORE_ADMIN_CHARACTER_IDS`, always), everyone in **Dutch Legions** and
+**Insidious.** (`ASTRACORE_ALLOWED_CORPS` / `_ALLIANCES` in `.env.production`), and whoever the admin invites on
+`/admin` (characters, corporations or alliances; no restart needed). Characters already in a profile can always sign
+in again; to take someone's access away, remove their profile under **People** on `/admin` (this revokes their EVE
+logins) and take them off the invite list.
+
+## EVE images
+
+`src/astracore/static/img/eve/` holds a curated subset of `assets for possible usage/` (from the EVE Image Server, see its
+`manifest.json`): PI commodity and planet icons, a few PI structure icons, the Dutch Legions / Insidious. logos and PI
+ship renders. `core/eveimg.py` looks them up by name or type id (`eve_img()`, `planet_img()`, `logo_img()` in templates;
+`AC.eveImg()` etc. in the browser, generated with `python -m astracore.core.eveimg`). Anything not bundled loads live from
+images.evetech.net.
+
+## Credits
+
+Astracore © 2026 is its own fan-made product; `/credits` thanks everything it builds on: ESI, EVE SSO and the Image Server
+(Fenris Creations), DalShooth's templates, Fuzzwork's SDE, VOC Hauling, Pico CSS, Lucide, FastAPI, PuLP/CBC and more.
+EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
+"CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.

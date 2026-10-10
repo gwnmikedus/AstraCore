@@ -54,15 +54,15 @@ function planHTML(res) {
     if (!mine.length) { h += `<p class="muted">Nothing worth placing for this character with the current settings.</p></div>`; continue; }
     h += `<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
     for (const c of mine) {
-      const outs = Object.entries(c.out_per_day).map(([k, v]) => `${num(v)} ${esc(k)}`).join(', ');
-      const ins = Object.entries(c.in_per_day).map(([k, v]) => `${num(v)} ${esc(k)}`).join('<br>');
+      const outs = Object.entries(c.out_per_day).map(([k, v]) => `<span>${AC.eveImg(k)}${num(v)} ${esc(k)}</span>`).join(', ');
+      const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join('<br>');
       h += `<tr>
-        <td>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span></td>
-        <td><a href="${c.template_url}" target="_blank" class="kind-${c.kind}">${esc(c.template)}</a>
+        <td><div class="cellimg">${AC.planetImg(c.planet_type, 28)}<div>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span></div></div></td>
+        <td><div class="cellimg">${AC.structureImg(c.kind === 'miner' ? 'miner' : (c.tier === 4 ? 'factory_p4' : 'factory'), 24)}<div><a href="${c.template_url}" target="_blank" rel="noopener" class="kind-${c.kind}">${esc(c.template)}</a>
             ${c.p0.length ? `<br><span class="muted">extract ${c.p0.map(esc).join(', ')}</span>` : ''}
             ${c.utilisation < 0.99 ? `<br><span class="muted">runs at ${Math.round(c.utilisation*100)}% (limited by inputs)</span>` : ''}
-            ${(c.notes || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}</td>
-        <td>${outs} <span class="muted">P${c.tier}</span></td>
+            ${(c.notes || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}</div></div></td>
+        <td><span class="itemlist">${outs}</span> <span class="muted">P${c.tier}</span></td>
         <td class="muted">${ins || '-'}</td>
         <td>${isk(c.value_per_day)}</td>
         <td><span class="act ${c.action}">${c.action}</span></td></tr>`;
@@ -71,7 +71,7 @@ function planHTML(res) {
   }
   if (res.transfers.length) {
     h += `<h5>Transfers between characters</h5><ul>` + res.transfers.map(x =>
-      `<li>${esc(x.from)} → ${esc(x.to)}: ${num(x.units_per_day)} ${esc(x.item)}/day</li>`).join('') + `</ul>`;
+      `<li>${esc(x.from)} → ${esc(x.to)}: ${AC.eveImg(x.item, 16)}${num(x.units_per_day)} ${esc(x.item)}/day</li>`).join('') + `</ul>`;
   }
   if (res.removals.length) {
     h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>
@@ -92,10 +92,10 @@ function renderSelling(res) {
        Other characters hand their products to ${esc(res.seller.name)} at the drop-off with a 0 ISK item exchange contract.`
     : `Sales tax ${tx.sales_tax_pct}%, broker fee ${tx.broker_fee_pct}% (set in <a href="${SETTINGS_URL}">Settings</a>).`) + `</p>`;
   for (const b of sp.batches) {
-    const items = Object.entries(b.items).map(([k, v]) => `${num(v)} ${esc(k)}`).join(', ');
+    const items = Object.entries(b.items).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join(' ');
     h += `<div class="who" ${b.hold ? 'style="opacity:.6"' : ''}><div class="h"><strong>${esc(b.label)}</strong>
       <span class="muted">${b.speed} · ${m3(b.m3)} · ${b.hold ? 'hold' : '≈ ' + isk(b.net) + ' net'}</span></div>
-      <div class="muted">${items}</div>`;
+      <div class="muted itemlist">${items}</div>`;
     if (b.note) h += `<div class="warnbox">${esc(b.note)}</div>`;
     if (b.contract && b.contract.type === 'Courier')
       h += `<div class="muted" style="margin-top:.3rem">Contract: Courier · Private to <b>${esc(b.contract.assign_to)}</b> · ${esc(b.contract.from)} → ${esc(b.contract.to)} ·
@@ -109,7 +109,7 @@ function renderSelling(res) {
   if (sp.unsellable && sp.unsellable.length) h += `<div class="warnbox">No enabled way to sell: ${sp.unsellable.map(esc).join(', ')}</div>`;
   h += `<details><summary class="muted">Per-product comparison (net ISK per unit)</summary><div class="scroll"><table><thead><tr><th>Product</th><th>Jita buy</th>` +
        Object.keys(L).map(k => `<th>${esc(L[k])}</th>`).join('') + `</tr></thead><tbody>` +
-       res.channels.map(r => `<tr><td>${esc(r.item)} <span class="muted">P${r.tier}</span></td><td>${num(r.jita_buy)}</td>` +
+       res.channels.map(r => `<tr><td>${AC.eveImg(r.item, 16)}${esc(r.item)} <span class="muted">P${r.tier}</span></td><td>${num(r.jita_buy)}</td>` +
          Object.keys(L).map(k => `<td ${r.best === k ? 'class="ok"' : ''}>${r.channels[k] !== undefined ? num(r.channels[k]) : '<span class="muted">–</span>'}</td>`).join('') + `</tr>`).join('') +
        `</tbody></table></div></details>`;
   return h;

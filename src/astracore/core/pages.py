@@ -36,7 +36,8 @@ async def home(request: Request, code: str = "", state: str = ""):
         return RedirectResponse(f"/auth/callback?code={code}&state={state}", status_code=303)
     user = _user(request)
     if not user:
-        return render(request, "home.html", page="home", page_title="", modules=registry.MODULES)
+        return render(request, "home.html", page="home", page_title="", modules=registry.MODULES,
+                      members=_member_groups())
     p = db.get_profile(user["id"])
     if p and not p["onboarded"]:
         return RedirectResponse("/welcome", status_code=303)
@@ -51,6 +52,19 @@ async def home(request: Request, code: str = "", state: str = ""):
         tiles.append({"module": m, **tile})
     return render(request, "dashboard.html", page="dashboard", page_title="Dashboard", tiles=tiles,
                   alerts=_alerts(user["id"]))
+
+
+def _member_groups() -> dict:
+    """The corporation/alliance whose members may always log in (shown on the landing page)."""
+    from astracore.core import eveimg
+    groups = eveimg.home_groups()
+    out = {}
+    corp, ally = groups.get("corporation"), groups.get("alliance")
+    if corp and (corp["id"] in config.ALLOWED["corporation"] or not config.ACCESS_GATE):
+        out["corporation"] = corp
+    if ally and (ally["id"] in config.ALLOWED["alliance"] or not config.ACCESS_GATE):
+        out["alliance"] = ally
+    return out
 
 
 def _alerts(profile_id: int) -> list:
@@ -303,6 +317,11 @@ async def what_we_read(request: Request):
                   modules=registry.MODULES, scope_text=SCOPE_TEXT)
 
 
+@router.get("/credits", response_class=HTMLResponse)
+async def credits(request: Request):
+    return render(request, "credits.html", page="credits", page_title="Credits")
+
+
 @router.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
     return render(request, "privacy.html", page="privacy", page_title="Privacy", modules=registry.MODULES)
@@ -326,11 +345,57 @@ async def admin(request: Request):
         n_profiles = c.execute("SELECT COUNT(*) FROM profiles").fetchone()[0]
         n_chars = c.execute("SELECT COUNT(*) FROM characters").fetchone()[0]
         n_sessions = c.execute("SELECT COUNT(*) FROM sessions WHERE profile_id IS NOT NULL").fetchone()[0]
+    env_rows = [{"kind": k, "entity_id": i} for k, ids in config.ALLOWED.items() for i in sorted(ids)]
+    names = await _entity_names([r["entity_id"] for r in env_rows])
+    for r in env_rows:
+        r["name"] = names.get(r["entity_id"], "")
     return render(request, "admin.html", page="admin", page_title="Admin", s=pi_store.admin_settings(),
-                  access=db.access_list(), env_allowed=config.ALLOWED, gate=config.ACCESS_GATE,
+                  access=db.access_list(), env_rows=env_rows, gate=config.ACCESS_GATE, people=_people(),
+                  me=_admin(request)["id"], admin_ids=sorted(config.ADMIN_CHARACTER_IDS),
                   stats={"profiles": n_profiles, "characters": n_chars, "sessions": n_sessions,
                          "solving": GATE.running, "waiting": GATE.waiting},
                   routes=voc.routes_cached(), routes_info=voc.routes_info(), mode=config.MODE)
+
+
+async def _entity_names(ids) -> dict:
+    ids = [int(i) for i in ids if i]
+    if not ids:
+        return {}
+    try:
+        from astracore.esi import public
+        from astracore.esi.client import ESIClient
+        async with ESIClient() as esi:
+            return await public.ids_to_names(esi, ids)
+    except Exception:  # noqa: BLE001 - names are a convenience
+        return {}
+
+
+def _people() -> list:
+    with db.session() as c:
+        profiles = [dict(r) for r in c.execute("SELECT id, display_name, main_character_id, created_at, last_login_at "
+                                               "FROM profiles ORDER BY last_login_at DESC")]
+    for p in profiles:
+        chars = db.list_characters(p["id"])
+        p["chars"] = [{"id": ch["character_id"], "name": ch["name"], "corp": ch.get("corporation_name") or "",
+                       "alliance": ch.get("alliance_name") or ""} for ch in chars]
+        p["is_admin"] = any(ch["character_id"] in config.ADMIN_CHARACTER_IDS for ch in chars)
+    return profiles
+
+
+@router.post("/admin/people/{profile_id}/remove")
+async def admin_remove_profile(request: Request, profile_id: int):
+    """Take someone's access away: revokes their EVE logins and deletes their profile. Admin profiles can't be removed."""
+    admin = _admin(request)
+    if not admin:
+        return redirect("/")
+    target = db.get_profile(profile_id)
+    if not target:
+        return redirect("/admin", "Unknown profile.", "warn")
+    if profile_id == admin["id"] or db.is_admin(profile_id):
+        return redirect("/admin", "Admin profiles can't be removed here.", "warn")
+    await accounts.reset_profile(profile_id)
+    return redirect("/admin", f"Removed {target['display_name']}'s profile and revoked their EVE logins. "
+                              "Take them off the invite list too, or they can sign up again.")
 
 
 @router.post("/admin/settings")

@@ -6,17 +6,19 @@
   {{ stats.sessions }} signed-in browsers · solves running {{ stats.solving }}, waiting {{ stats.waiting }}</p>
 
 <article>
-  <header><strong>Invite list</strong> {% if not gate %}<span class="muted">(the gate is off in this mode)</span>{% endif %}</header>
-  <p class="muted">A login passes if the character, its corporation or its alliance is listed here or in the env file.
-    Characters already linked to a profile can always sign in.</p>
+  <header><strong>Who can log in</strong> {% if not gate %}<span class="muted">(the invite gate is off in local mode; this list applies in production)</span>{% endif %}</header>
+  <p class="muted">A login passes if the character, its corporation or its alliance is on this list. Characters already in a profile can
+    always sign in again (remove their profile below to take access away). You are an admin because your characters are set in
+    <code>ASTRACORE_ADMIN_CHARACTER_IDS</code>; admin characters always get in.</p>
   <div class="scroll"><table>
-    <thead><tr><th>Kind</th><th>Name</th><th>ID</th><th></th></tr></thead>
+    <thead><tr><th></th><th>Name</th><th>Kind</th><th>ID</th><th></th></tr></thead>
     <tbody>
-    {% for kind, ids in env_allowed.items() %}{% for i in ids %}
-      <tr><td>{{ kind }}</td><td class="muted">from the env file</td><td>{{ i }}</td><td></td></tr>
-    {% endfor %}{% endfor %}
+    {% for r in env_rows %}
+      <tr><td>{{ logo_img(r.kind, r.entity_id, 32) }}</td><td>{{ r.name or '–' }}</td><td>{{ r.kind }}</td><td class="muted">{{ r.entity_id }}</td>
+        <td><span class="pill">always (env file)</span></td></tr>
+    {% endfor %}
     {% for a in access %}
-      <tr><td>{{ a.kind }}</td><td>{{ a.name or '–' }}</td><td>{{ a.entity_id }}</td>
+      <tr><td>{{ logo_img(a.kind, a.entity_id, 32) }}</td><td>{{ a.name or '–' }}</td><td>{{ a.kind }}</td><td class="muted">{{ a.entity_id }}</td>
         <td><form method="post" action="/admin/access/{{ a.kind }}/{{ a.entity_id }}/remove" class="inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="outline secondary">Remove</button></form></td></tr>
     {% endfor %}
@@ -27,8 +29,26 @@
     <select name="kind" aria-label="Kind"><option value="character">Character</option><option value="corporation">Corporation</option>
       <option value="alliance">Alliance</option></select>
     <input name="entity" placeholder="Exact name or ID" required aria-label="Name or ID">
-    <button>Add</button>
+    <button>{{ icon('plus') }} Invite</button>
   </form>
+</article>
+
+<article>
+  <header><strong>People</strong> <span class="muted">· {{ people|length }} profile{{ 's' if people|length != 1 }}</span></header>
+  <div class="scroll"><table>
+    <thead><tr><th>Profile</th><th>Characters</th><th>Last sign-in</th><th></th></tr></thead>
+    <tbody>
+    {% for p in people %}
+      <tr><td>{% if p.main_character_id %}{{ logo_img('character', p.main_character_id, 32) }}{% endif %}<strong>{{ p.display_name }}</strong>
+          {% if p.is_admin %}<span class="pill">admin</span>{% endif %}{% if p.id == me %} <span class="pill">you</span>{% endif %}</td>
+        <td class="muted">{% for c in p.chars %}{{ c.name }}{% if c.corp %} ({{ c.corp }}{% if c.alliance %} · {{ c.alliance }}{% endif %}){% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+        <td>{{ p.last_login_at|ago }}</td>
+        <td>{% if not p.is_admin %}<form method="post" action="/admin/people/{{ p.id }}/remove" class="inline"
+              data-confirm="Remove {{ p.display_name }}'s profile? Their EVE logins are revoked and their data deleted.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="outline secondary">Remove</button></form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
 </article>
 
 <article>

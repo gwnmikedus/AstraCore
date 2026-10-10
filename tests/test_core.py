@@ -694,3 +694,52 @@ def test_whatif_returns_busy_503_when_gate_full(browser, eve, monkeypatch):
     sso_login(c, eve, new_id(), "Queued")
     r = c.post("/pi/api/whatif", json={"base": {}, "options": []}, headers={"X-CSRF-Token": csrf(c)})
     assert r.status_code == 503 and r.json()["busy"] is True
+
+
+def test_alliance_members_pass_the_gate(browser, eve, monkeypatch):
+    from astracore import config
+    monkeypatch.setattr(config, "ACCESS_GATE", True)
+    monkeypatch.setitem(config.ALLOWED, "alliance", {99013537})
+    pilot = new_id()
+    eve.affiliation[pilot] = {"corporation_id": 98000999, "corporation_name": "Some corp", "alliance_id": 99013537}
+    r, _ = sso_login(browser(), eve, pilot, "Ally")
+    assert r.headers["location"] == "/welcome"
+
+
+def test_admin_can_remove_people_but_not_admins(browser, eve):
+    from astracore import config
+    admin_id = next(iter(config.ADMIN_CHARACTER_IDS))
+    ca = browser()
+    if db.get_character(admin_id):
+        sso_login(ca, eve, admin_id, "Boss")
+    else:
+        sso_login(ca, eve, new_id(), "Boss main")
+        sso_login(ca, eve, admin_id, "Boss", path="/auth/login?intent=add")
+    admin_pid = me(ca)
+    cu = browser()
+    user = new_id()
+    sso_login(cu, eve, user, "Guest")
+    guest_pid = me(cu)
+    page = ca.get("/admin").text
+    assert "People" in page and "Guest" in page
+    t = csrf(ca)
+    ca.post(f"/admin/people/{admin_pid}/remove", data={"csrf_token": t})
+    assert db.get_profile(admin_pid)
+    ca.post(f"/admin/people/{guest_pid}/remove", data={"csrf_token": t})
+    assert db.get_profile(guest_pid) is None and db.get_character(user) is None
+    assert me(cu) is None
+    # non-admins can't
+    other = browser()
+    sso_login(other, eve, new_id(), "Nope")
+    assert other.post(f"/admin/people/{admin_pid}/remove", data={"csrf_token": csrf(other)},
+                      follow_redirects=False).status_code == 303 and db.get_profile(admin_pid)
+
+
+def test_footer_credits_the_app_not_ccp_and_credits_page():
+    from astracore.app import app
+    with TestClient(app) as c:
+        home = c.get("/").text
+        assert "Astracore</strong> © 2026" in home and 'href="/credits"' in home
+        assert "used under the EVE Developer License: © 2014 CCP hf." in home
+        page = c.get("/credits").text
+        assert "DalShooth" in page and "Pico CSS" in page and "Fuzzwork" in page

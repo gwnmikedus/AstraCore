@@ -1,0 +1,744 @@
+{
+ "generated": "2026-10-10",
+ "source": "EVE Online Image Server (images.evetech.net) + ESI",
+ "entities": {
+  "alliance": {
+   "id": 99013537,
+   "name": "Insidious.",
+   "ticker": "EVIL."
+  },
+  "corporation": {
+   "id": 98652891,
+   "name": "Dutch Legions",
+   "alliance_id": 99013537,
+   "url": "https://dutchlegions.nl"
+  }
+ },
+ "note": "Subset of 'assets for possible usage/' bundled with the app. EVE images \u00a9 CCP hf., used under the EVE Developer License.",
+ "files": [
+  {
+   "path": "logos/insidious-alliance-logo-128.png",
+   "url": "https://images.evetech.net/alliances/99013537/logo?size=128",
+   "bytes": 38465
+  },
+  {
+   "path": "logos/insidious-alliance-logo-64.png",
+   "url": "https://images.evetech.net/alliances/99013537/logo?size=64",
+   "bytes": 10444
+  },
+  {
+   "path": "logos/dutch-legions-corp-logo-128.png",
+   "url": "https://images.evetech.net/corporations/98652891/logo?size=128",
+   "bytes": 19922
+  },
+  {
+   "path": "logos/dutch-legions-corp-logo-64.png",
+   "url": "https://images.evetech.net/corporations/98652891/logo?size=64",
+   "bytes": 6836
+  },
+  {
+   "path": "structures/2524-barren-command-center.png",
+   "url": "https://images.evetech.net/types/2524/icon?size=64",
+   "type_id": 2524,
+   "name": "Barren Command Center",
+   "bytes": 3282
+  },
+  {
+   "path": "structures/2473-barren-basic-industry-facility.png",
+   "url": "https://images.evetech.net/types/2473/icon?size=64",
+   "type_id": 2473,
+   "name": "Barren Basic Industry Facility",
+   "bytes": 4594
+  },
+  {
+   "path": "structures/2474-barren-advanced-industry-facility.png",
+   "url": "https://images.evetech.net/types/2474/icon?size=64",
+   "type_id": 2474,
+   "name": "Barren Advanced Industry Facility",
+   "bytes": 2898
+  },
+  {
+   "path": "structures/2475-barren-high-tech-production-plant.png",
+   "url": "https://images.evetech.net/types/2475/icon?size=64",
+   "type_id": 2475,
+   "name": "Barren High-Tech Production Plant",
+   "bytes": 3421
+  },
+  {
+   "path": "structures/2541-barren-storage-facility.png",
+   "url": "https://images.evetech.net/types/2541/icon?size=64",
+   "type_id": 2541,
+   "name": "Barren Storage Facility",
+   "bytes": 3359
+  },
+  {
+   "path": "structures/2544-barren-launchpad.png",
+   "url": "https://images.evetech.net/types/2544/icon?size=64",
+   "type_id": 2544,
+   "name": "Barren Launchpad",
+   "bytes": 3905
+  },
+  {
+   "path": "pi/p0-raw/2267-base-metals.png",
+   "url": "https://images.evetech.net/types/2267/icon?size=64",
+   "type_id": 2267,
+   "name": "Base Metals",
+   "bytes": 8488
+  },
+  {
+   "path": "pi/p0-raw/2270-noble-metals.png",
+   "url": "https://images.evetech.net/types/2270/icon?size=64",
+   "type_id": 2270,
+   "name": "Noble Metals",
+   "bytes": 8662
+  },
+  {
+   "path": "pi/p0-raw/2272-heavy-metals.png",
+   "url": "https://images.evetech.net/types/2272/icon?size=64",
+   "type_id": 2272,
+   "name": "Heavy Metals",
+   "bytes": 8153
+  },
+  {
+   "path": "pi/p0-raw/2306-non-cs-crystals.png",
+   "url": "https://images.evetech.net/types/2306/icon?size=64",
+   "type_id": 2306,
+   "name": "Non-CS Crystals",
+   "bytes": 9690
+  },
+  {
+   "path": "pi/p0-raw/2307-felsic-magma.png",
+   "url": "https://images.evetech.net/types/2307/icon?size=64",
+   "type_id": 2307,
+   "name": "Felsic Magma",
+   "bytes": 4847
+  },
+  {
+   "path": "pi/p0-raw/2268-aqueous-liquids.png",
+   "url": "https://images.evetech.net/types/2268/icon?size=64",
+   "type_id": 2268,
+   "name": "Aqueous Liquids",
+   "bytes": 5053
+  },
+  {
+   "path": "pi/p0-raw/2308-suspended-plasma.png",
+   "url": "https://images.evetech.net/types/2308/icon?size=64",
+   "type_id": 2308,
+   "name": "Suspended Plasma",
+   "bytes": 5190
+  },
+  {
+   "path": "pi/p0-raw/2309-ionic-solutions.png",
+   "url": "https://images.evetech.net/types/2309/icon?size=64",
+   "type_id": 2309,
+   "name": "Ionic Solutions",
+   "bytes": 5077
+  },
+  {
+   "path": "pi/p0-raw/2310-noble-gas.png",
+   "url": "https://images.evetech.net/types/2310/icon?size=64",
+   "type_id": 2310,
+   "name": "Noble Gas",
+   "bytes": 4979
+  },
+  {
+   "path": "pi/p0-raw/2311-reactive-gas.png",
+   "url": "https://images.evetech.net/types/2311/icon?size=64",
+   "type_id": 2311,
+   "name": "Reactive Gas",
+   "bytes": 5104
+  },
+  {
+   "path": "pi/p2-refined/44-enriched-uranium.png",
+   "url": "https://images.evetech.net/types/44/icon?size=64",
+   "type_id": 44,
+   "name": "Enriched Uranium",
+   "bytes": 4847
+  },
+  {
+   "path": "pi/p2-refined/2312-supertensile-plastics.png",
+   "url": "https://images.evetech.net/types/2312/icon?size=64",
+   "type_id": 2312,
+   "name": "Supertensile Plastics",
+   "bytes": 6092
+  },
+  {
+   "path": "pi/p2-refined/2317-oxides.png",
+   "url": "https://images.evetech.net/types/2317/icon?size=64",
+   "type_id": 2317,
+   "name": "Oxides",
+   "bytes": 7494
+  },
+  {
+   "path": "pi/p2-refined/2319-test-cultures.png",
+   "url": "https://images.evetech.net/types/2319/icon?size=64",
+   "type_id": 2319,
+   "name": "Test Cultures",
+   "bytes": 7116
+  },
+  {
+   "path": "pi/p2-refined/2321-polyaramids.png",
+   "url": "https://images.evetech.net/types/2321/icon?size=64",
+   "type_id": 2321,
+   "name": "Polyaramids",
+   "bytes": 6258
+  },
+  {
+   "path": "pi/p2-refined/2327-microfiber-shielding.png",
+   "url": "https://images.evetech.net/types/2327/icon?size=64",
+   "type_id": 2327,
+   "name": "Microfiber Shielding",
+   "bytes": 5437
+  },
+  {
+   "path": "pi/p2-refined/2328-water-cooled-cpu.png",
+   "url": "https://images.evetech.net/types/2328/icon?size=64",
+   "type_id": 2328,
+   "name": "Water-Cooled CPU",
+   "bytes": 7451
+  },
+  {
+   "path": "pi/p2-refined/2329-biocells.png",
+   "url": "https://images.evetech.net/types/2329/icon?size=64",
+   "type_id": 2329,
+   "name": "Biocells",
+   "bytes": 6651
+  },
+  {
+   "path": "pi/p2-refined/2463-nanites.png",
+   "url": "https://images.evetech.net/types/2463/icon?size=64",
+   "type_id": 2463,
+   "name": "Nanites",
+   "bytes": 7338
+  },
+  {
+   "path": "pi/p2-refined/3689-mechanical-parts.png",
+   "url": "https://images.evetech.net/types/3689/icon?size=64",
+   "type_id": 3689,
+   "name": "Mechanical Parts",
+   "bytes": 6148
+  },
+  {
+   "path": "pi/p2-refined/3691-synthetic-oil.png",
+   "url": "https://images.evetech.net/types/3691/icon?size=64",
+   "type_id": 3691,
+   "name": "Synthetic Oil",
+   "bytes": 6073
+  },
+  {
+   "path": "pi/p2-refined/3693-fertilizer.png",
+   "url": "https://images.evetech.net/types/3693/icon?size=64",
+   "type_id": 3693,
+   "name": "Fertilizer",
+   "bytes": 6287
+  },
+  {
+   "path": "pi/p2-refined/3695-polytextiles.png",
+   "url": "https://images.evetech.net/types/3695/icon?size=64",
+   "type_id": 3695,
+   "name": "Polytextiles",
+   "bytes": 6466
+  },
+  {
+   "path": "pi/p2-refined/3697-silicate-glass.png",
+   "url": "https://images.evetech.net/types/3697/icon?size=64",
+   "type_id": 3697,
+   "name": "Silicate Glass",
+   "bytes": 5937
+  },
+  {
+   "path": "pi/p2-refined/3725-livestock.png",
+   "url": "https://images.evetech.net/types/3725/icon?size=64",
+   "type_id": 3725,
+   "name": "Livestock",
+   "bytes": 5547
+  },
+  {
+   "path": "pi/p2-refined/3775-viral-agent.png",
+   "url": "https://images.evetech.net/types/3775/icon?size=64",
+   "type_id": 3775,
+   "name": "Viral Agent",
+   "bytes": 4908
+  },
+  {
+   "path": "pi/p2-refined/3828-construction-blocks.png",
+   "url": "https://images.evetech.net/types/3828/icon?size=64",
+   "type_id": 3828,
+   "name": "Construction Blocks",
+   "bytes": 3928
+  },
+  {
+   "path": "pi/p2-refined/9830-rocket-fuel.png",
+   "url": "https://images.evetech.net/types/9830/icon?size=64",
+   "type_id": 9830,
+   "name": "Rocket Fuel",
+   "bytes": 5967
+  },
+  {
+   "path": "pi/p2-refined/9832-coolant.png",
+   "url": "https://images.evetech.net/types/9832/icon?size=64",
+   "type_id": 9832,
+   "name": "Coolant",
+   "bytes": 5744
+  },
+  {
+   "path": "pi/p2-refined/9836-consumer-electronics.png",
+   "url": "https://images.evetech.net/types/9836/icon?size=64",
+   "type_id": 9836,
+   "name": "Consumer Electronics",
+   "bytes": 6721
+  },
+  {
+   "path": "pi/p2-refined/9838-superconductors.png",
+   "url": "https://images.evetech.net/types/9838/icon?size=64",
+   "type_id": 9838,
+   "name": "Superconductors",
+   "bytes": 6722
+  },
+  {
+   "path": "pi/p2-refined/9840-transmitter.png",
+   "url": "https://images.evetech.net/types/9840/icon?size=64",
+   "type_id": 9840,
+   "name": "Transmitter",
+   "bytes": 6698
+  },
+  {
+   "path": "pi/p2-refined/9842-miniature-electronics.png",
+   "url": "https://images.evetech.net/types/9842/icon?size=64",
+   "type_id": 9842,
+   "name": "Miniature Electronics",
+   "bytes": 5858
+  },
+  {
+   "path": "pi/p2-refined/15317-genetically-enhanced-livestock.png",
+   "url": "https://images.evetech.net/types/15317/icon?size=64",
+   "type_id": 15317,
+   "name": "Genetically Enhanced Livestock",
+   "bytes": 6411
+  },
+  {
+   "path": "pi/p0-raw/2073-microorganisms.png",
+   "url": "https://images.evetech.net/types/2073/icon?size=64",
+   "type_id": 2073,
+   "name": "Microorganisms",
+   "bytes": 9523
+  },
+  {
+   "path": "pi/p0-raw/2286-planktic-colonies.png",
+   "url": "https://images.evetech.net/types/2286/icon?size=64",
+   "type_id": 2286,
+   "name": "Planktic Colonies",
+   "bytes": 10239
+  },
+  {
+   "path": "pi/p0-raw/2287-complex-organisms.png",
+   "url": "https://images.evetech.net/types/2287/icon?size=64",
+   "type_id": 2287,
+   "name": "Complex Organisms",
+   "bytes": 9088
+  },
+  {
+   "path": "pi/p0-raw/2288-carbon-compounds.png",
+   "url": "https://images.evetech.net/types/2288/icon?size=64",
+   "type_id": 2288,
+   "name": "Carbon Compounds",
+   "bytes": 7613
+  },
+  {
+   "path": "pi/p0-raw/2305-autotrophs.png",
+   "url": "https://images.evetech.net/types/2305/icon?size=64",
+   "type_id": 2305,
+   "name": "Autotrophs",
+   "bytes": 5977
+  },
+  {
+   "path": "pi/p3-specialized/2344-condensates.png",
+   "url": "https://images.evetech.net/types/2344/icon?size=64",
+   "type_id": 2344,
+   "name": "Condensates",
+   "bytes": 7561
+  },
+  {
+   "path": "pi/p3-specialized/2345-camera-drones.png",
+   "url": "https://images.evetech.net/types/2345/icon?size=64",
+   "type_id": 2345,
+   "name": "Camera Drones",
+   "bytes": 8971
+  },
+  {
+   "path": "pi/p3-specialized/2346-synthetic-synapses.png",
+   "url": "https://images.evetech.net/types/2346/icon?size=64",
+   "type_id": 2346,
+   "name": "Synthetic Synapses",
+   "bytes": 9563
+  },
+  {
+   "path": "pi/p3-specialized/2348-gel-matrix-biopaste.png",
+   "url": "https://images.evetech.net/types/2348/icon?size=64",
+   "type_id": 2348,
+   "name": "Gel-Matrix Biopaste",
+   "bytes": 7169
+  },
+  {
+   "path": "pi/p3-specialized/2349-supercomputers.png",
+   "url": "https://images.evetech.net/types/2349/icon?size=64",
+   "type_id": 2349,
+   "name": "Supercomputers",
+   "bytes": 5501
+  },
+  {
+   "path": "pi/p3-specialized/2351-smartfab-units.png",
+   "url": "https://images.evetech.net/types/2351/icon?size=64",
+   "type_id": 2351,
+   "name": "Smartfab Units",
+   "bytes": 5648
+  },
+  {
+   "path": "pi/p3-specialized/2352-nuclear-reactors.png",
+   "url": "https://images.evetech.net/types/2352/icon?size=64",
+   "type_id": 2352,
+   "name": "Nuclear Reactors",
+   "bytes": 8319
+  },
+  {
+   "path": "pi/p3-specialized/2354-neocoms.png",
+   "url": "https://images.evetech.net/types/2354/icon?size=64",
+   "type_id": 2354,
+   "name": "Neocoms",
+   "bytes": 7669
+  },
+  {
+   "path": "pi/p3-specialized/2358-biotech-research-reports.png",
+   "url": "https://images.evetech.net/types/2358/icon?size=64",
+   "type_id": 2358,
+   "name": "Biotech Research Reports",
+   "bytes": 9354
+  },
+  {
+   "path": "pi/p3-specialized/2360-industrial-explosives.png",
+   "url": "https://images.evetech.net/types/2360/icon?size=64",
+   "type_id": 2360,
+   "name": "Industrial Explosives",
+   "bytes": 5659
+  },
+  {
+   "path": "pi/p3-specialized/2361-hermetic-membranes.png",
+   "url": "https://images.evetech.net/types/2361/icon?size=64",
+   "type_id": 2361,
+   "name": "Hermetic Membranes",
+   "bytes": 6867
+  },
+  {
+   "path": "pi/p3-specialized/2366-hazmat-detection-systems.png",
+   "url": "https://images.evetech.net/types/2366/icon?size=64",
+   "type_id": 2366,
+   "name": "Hazmat Detection Systems",
+   "bytes": 6851
+  },
+  {
+   "path": "pi/p3-specialized/2367-cryoprotectant-solution.png",
+   "url": "https://images.evetech.net/types/2367/icon?size=64",
+   "type_id": 2367,
+   "name": "Cryoprotectant Solution",
+   "bytes": 6196
+  },
+  {
+   "path": "pi/p3-specialized/9834-guidance-systems.png",
+   "url": "https://images.evetech.net/types/9834/icon?size=64",
+   "type_id": 9834,
+   "name": "Guidance Systems",
+   "bytes": 4507
+  },
+  {
+   "path": "pi/p3-specialized/9846-planetary-vehicles.png",
+   "url": "https://images.evetech.net/types/9846/icon?size=64",
+   "type_id": 9846,
+   "name": "Planetary Vehicles",
+   "bytes": 6704
+  },
+  {
+   "path": "pi/p3-specialized/9848-robotics.png",
+   "url": "https://images.evetech.net/types/9848/icon?size=64",
+   "type_id": 9848,
+   "name": "Robotics",
+   "bytes": 7999
+  },
+  {
+   "path": "pi/p3-specialized/12836-transcranial-microcontrollers.png",
+   "url": "https://images.evetech.net/types/12836/icon?size=64",
+   "type_id": 12836,
+   "name": "Transcranial Microcontrollers",
+   "bytes": 4463
+  },
+  {
+   "path": "pi/p3-specialized/17136-ukomi-superconductors.png",
+   "url": "https://images.evetech.net/types/17136/icon?size=64",
+   "type_id": 17136,
+   "name": "Ukomi Superconductors",
+   "bytes": 6722
+  },
+  {
+   "path": "pi/p3-specialized/17392-data-chips.png",
+   "url": "https://images.evetech.net/types/17392/icon?size=64",
+   "type_id": 17392,
+   "name": "Data Chips",
+   "bytes": 4463
+  },
+  {
+   "path": "pi/p3-specialized/17898-high-tech-transmitters.png",
+   "url": "https://images.evetech.net/types/17898/icon?size=64",
+   "type_id": 17898,
+   "name": "High-Tech Transmitters",
+   "bytes": 6698
+  },
+  {
+   "path": "pi/p3-specialized/28974-vaccines.png",
+   "url": "https://images.evetech.net/types/28974/icon?size=64",
+   "type_id": 28974,
+   "name": "Vaccines",
+   "bytes": 6413
+  },
+  {
+   "path": "pi/p4-advanced/2867-broadcast-node.png",
+   "url": "https://images.evetech.net/types/2867/icon?size=64",
+   "type_id": 2867,
+   "name": "Broadcast Node",
+   "bytes": 5968
+  },
+  {
+   "path": "pi/p4-advanced/2868-integrity-response-drones.png",
+   "url": "https://images.evetech.net/types/2868/icon?size=64",
+   "type_id": 2868,
+   "name": "Integrity Response Drones",
+   "bytes": 7464
+  },
+  {
+   "path": "pi/p4-advanced/2869-nano-factory.png",
+   "url": "https://images.evetech.net/types/2869/icon?size=64",
+   "type_id": 2869,
+   "name": "Nano-Factory",
+   "bytes": 8385
+  },
+  {
+   "path": "pi/p4-advanced/2870-organic-mortar-applicators.png",
+   "url": "https://images.evetech.net/types/2870/icon?size=64",
+   "type_id": 2870,
+   "name": "Organic Mortar Applicators",
+   "bytes": 5722
+  },
+  {
+   "path": "pi/p4-advanced/2871-recursive-computing-module.png",
+   "url": "https://images.evetech.net/types/2871/icon?size=64",
+   "type_id": 2871,
+   "name": "Recursive Computing Module",
+   "bytes": 5400
+  },
+  {
+   "path": "pi/p4-advanced/2872-self-harmonizing-power-core.png",
+   "url": "https://images.evetech.net/types/2872/icon?size=64",
+   "type_id": 2872,
+   "name": "Self-Harmonizing Power Core",
+   "bytes": 7551
+  },
+  {
+   "path": "pi/p4-advanced/2875-sterile-conduits.png",
+   "url": "https://images.evetech.net/types/2875/icon?size=64",
+   "type_id": 2875,
+   "name": "Sterile Conduits",
+   "bytes": 6621
+  },
+  {
+   "path": "pi/p4-advanced/2876-wetware-mainframe.png",
+   "url": "https://images.evetech.net/types/2876/icon?size=64",
+   "type_id": 2876,
+   "name": "Wetware Mainframe",
+   "bytes": 7968
+  },
+  {
+   "path": "pi/p1-basic/2389-plasmoids.png",
+   "url": "https://images.evetech.net/types/2389/icon?size=64",
+   "type_id": 2389,
+   "name": "Plasmoids",
+   "bytes": 5955
+  },
+  {
+   "path": "pi/p1-basic/2390-electrolytes.png",
+   "url": "https://images.evetech.net/types/2390/icon?size=64",
+   "type_id": 2390,
+   "name": "Electrolytes",
+   "bytes": 5794
+  },
+  {
+   "path": "pi/p1-basic/2392-oxidizing-compound.png",
+   "url": "https://images.evetech.net/types/2392/icon?size=64",
+   "type_id": 2392,
+   "name": "Oxidizing Compound",
+   "bytes": 6130
+  },
+  {
+   "path": "pi/p1-basic/2393-bacteria.png",
+   "url": "https://images.evetech.net/types/2393/icon?size=64",
+   "type_id": 2393,
+   "name": "Bacteria",
+   "bytes": 9107
+  },
+  {
+   "path": "pi/p1-basic/2395-proteins.png",
+   "url": "https://images.evetech.net/types/2395/icon?size=64",
+   "type_id": 2395,
+   "name": "Proteins",
+   "bytes": 8816
+  },
+  {
+   "path": "pi/p1-basic/2396-biofuels.png",
+   "url": "https://images.evetech.net/types/2396/icon?size=64",
+   "type_id": 2396,
+   "name": "Biofuels",
+   "bytes": 5742
+  },
+  {
+   "path": "pi/p1-basic/2397-industrial-fibers.png",
+   "url": "https://images.evetech.net/types/2397/icon?size=64",
+   "type_id": 2397,
+   "name": "Industrial Fibers",
+   "bytes": 7616
+  },
+  {
+   "path": "pi/p1-basic/2398-reactive-metals.png",
+   "url": "https://images.evetech.net/types/2398/icon?size=64",
+   "type_id": 2398,
+   "name": "Reactive Metals",
+   "bytes": 8364
+  },
+  {
+   "path": "pi/p1-basic/2399-precious-metals.png",
+   "url": "https://images.evetech.net/types/2399/icon?size=64",
+   "type_id": 2399,
+   "name": "Precious Metals",
+   "bytes": 8078
+  },
+  {
+   "path": "pi/p1-basic/2400-toxic-metals.png",
+   "url": "https://images.evetech.net/types/2400/icon?size=64",
+   "type_id": 2400,
+   "name": "Toxic Metals",
+   "bytes": 8473
+  },
+  {
+   "path": "pi/p1-basic/2401-chiral-structures.png",
+   "url": "https://images.evetech.net/types/2401/icon?size=64",
+   "type_id": 2401,
+   "name": "Chiral Structures",
+   "bytes": 7598
+  },
+  {
+   "path": "pi/p1-basic/3645-water.png",
+   "url": "https://images.evetech.net/types/3645/icon?size=64",
+   "type_id": 3645,
+   "name": "Water",
+   "bytes": 5552
+  },
+  {
+   "path": "pi/p1-basic/3683-oxygen.png",
+   "url": "https://images.evetech.net/types/3683/icon?size=64",
+   "type_id": 3683,
+   "name": "Oxygen",
+   "bytes": 5199
+  },
+  {
+   "path": "pi/p1-basic/3779-biomass.png",
+   "url": "https://images.evetech.net/types/3779/icon?size=64",
+   "type_id": 3779,
+   "name": "Biomass",
+   "bytes": 7020
+  },
+  {
+   "path": "pi/p1-basic/9828-silicon.png",
+   "url": "https://images.evetech.net/types/9828/icon?size=64",
+   "type_id": 9828,
+   "name": "Silicon",
+   "bytes": 5086
+  },
+  {
+   "path": "structures/2848-barren-extractor-control-unit.png",
+   "url": "https://images.evetech.net/types/2848/icon?size=64",
+   "type_id": 2848,
+   "name": "Barren Extractor Control Unit",
+   "bytes": 4335
+  },
+  {
+   "path": "pi/planets/11-planet-temperate.png",
+   "url": "https://images.evetech.net/types/11/icon?size=128",
+   "type_id": 11,
+   "name": "Planet (Temperate)",
+   "bytes": 11885
+  },
+  {
+   "path": "pi/planets/12-planet-ice.png",
+   "url": "https://images.evetech.net/types/12/icon?size=128",
+   "type_id": 12,
+   "name": "Planet (Ice)",
+   "bytes": 10432
+  },
+  {
+   "path": "pi/planets/13-planet-gas.png",
+   "url": "https://images.evetech.net/types/13/icon?size=128",
+   "type_id": 13,
+   "name": "Planet (Gas)",
+   "bytes": 9236
+  },
+  {
+   "path": "pi/planets/2014-planet-oceanic.png",
+   "url": "https://images.evetech.net/types/2014/icon?size=128",
+   "type_id": 2014,
+   "name": "Planet (Oceanic)",
+   "bytes": 9933
+  },
+  {
+   "path": "pi/planets/2015-planet-lava.png",
+   "url": "https://images.evetech.net/types/2015/icon?size=128",
+   "type_id": 2015,
+   "name": "Planet (Lava)",
+   "bytes": 12927
+  },
+  {
+   "path": "pi/planets/2016-planet-barren.png",
+   "url": "https://images.evetech.net/types/2016/icon?size=128",
+   "type_id": 2016,
+   "name": "Planet (Barren)",
+   "bytes": 10940
+  },
+  {
+   "path": "pi/planets/2017-planet-storm.png",
+   "url": "https://images.evetech.net/types/2017/icon?size=128",
+   "type_id": 2017,
+   "name": "Planet (Storm)",
+   "bytes": 10536
+  },
+  {
+   "path": "pi/planets/2063-planet-plasma.png",
+   "url": "https://images.evetech.net/types/2063/icon?size=128",
+   "type_id": 2063,
+   "name": "Planet (Plasma)",
+   "bytes": 13403
+  },
+  {
+   "path": "renders/655-epithal-512.png",
+   "url": "https://images.evetech.net/types/655/render?size=512",
+   "type_id": 655,
+   "bytes": 33482
+  },
+  {
+   "path": "renders/2863-primae-512.png",
+   "url": "https://images.evetech.net/types/2863/render?size=512",
+   "type_id": 2863,
+   "bytes": 46653
+  },
+  {
+   "path": "renders/81080-orbital-skyhook-512.png",
+   "url": "https://images.evetech.net/types/81080/render?size=512",
+   "type_id": 81080,
+   "bytes": 30562
+  }
+ ]
+}

@@ -70,6 +70,14 @@ body { background: var(--ac-bg); color: var(--ac-text); }
 /* ------------------------------------------------------------------ base */
 .ic { width: 1.05em; height: 1.05em; vertical-align: -.16em; flex: none; }
 .ic.lg { width: 1.5em; height: 1.5em; }
+img.eve { display: inline-block; vertical-align: middle; border-radius: 4px; margin-right: .3rem; }
+img.eve.lg { border-radius: 8px; }
+img.logo { border-radius: 6px; }
+.itemlist { display: inline-flex; flex-wrap: wrap; gap: .15rem .7rem; align-items: center; }
+.itemlist span { white-space: nowrap; }
+.members { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+.members a, .members span.m { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--ac-text); }
+.module-card .render { width: 100%; max-width: 360px; border-radius: 12px; border: 1px solid var(--ac-border); display: block; margin: 0 auto; }
 .ic.xl { width: 2.2em; height: 2.2em; }
 main.container { max-width: 1440px; padding-top: .5rem; }
 .muted { color: var(--ac-muted); font-size: .87rem; }
@@ -396,3 +404,6 @@ nav .profile-menu li { padding: 0; display: block; }
 .error-page { text-align: center; padding: 3rem 0; }
 .error-page .code { font-size: 4rem; font-weight: 800; color: var(--ac-accent); line-height: 1; }
 .typeconfirm { max-width: 26rem; }
+.ic.heart { color: var(--ac-bad); fill: currentColor; }
+.cellimg { display: flex; gap: .55rem; align-items: center; }
+.cellimg > img.eve { margin: 0; }

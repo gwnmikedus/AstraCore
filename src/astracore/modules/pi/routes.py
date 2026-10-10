@@ -110,7 +110,8 @@ def character_panel(pid: int) -> list:
         products = []
         for col in c.get("colonies", []):
             prod = optimizer.existing_product(pi, col) if pi else None
-            products.append(f"{(col.get('planet_type') or '').capitalize()} · {pi.name(prod) if pi and prod else '?'}")
+            products.append({"type": (col.get("planet_type") or "").capitalize(),
+                             "product": pi.name(prod) if pi and prod else "?"})
         out.append({**c, "ccu_note": ccu, "colony_summary": products, "pi_ready": service.pi_ready(c),
                     "missing_pi": not set(MODULE.required_bundle.scopes) <= set(c.get("scopes") or [])})
     return out

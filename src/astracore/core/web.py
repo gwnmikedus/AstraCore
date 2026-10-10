@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from astracore import config
 
 from . import fmt, registry
+from . import eveimg
 from .icons import icon
 
 PKG = Path(__file__).resolve().parent.parent
@@ -24,6 +25,7 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIRS[0]))
 templates.env.loader = jinja2.ChoiceLoader([jinja2.FileSystemLoader(str(d)) for d in TEMPLATE_DIRS])
 templates.env.filters.update(fmt.FILTERS)
 templates.env.globals["icon"] = icon
+templates.env.globals.update(eveimg.JINJA_GLOBALS)
 
 
 def asset(path: str) -> str:

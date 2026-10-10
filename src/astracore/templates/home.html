@@ -13,6 +13,14 @@
       </a>
       <a href="/what-we-read">What we read from your characters</a>
     </div>
+    {% if members %}
+    <div class="members">
+      <span class="muted">Open to members of</span>
+      {% if members.corporation %}<span class="m">{{ logo_img('corporation', members.corporation.id, 32) }}{{ members.corporation.name }}</span>{% endif %}
+      {% if members.alliance %}<span class="m">{{ logo_img('alliance', members.alliance.id, 32) }}{{ members.alliance.name }}</span>{% endif %}
+      <span class="muted">and invited pilots.</span>
+    </div>
+    {% endif %}
   </div>
   <div>
     <img class="shot" src="/static/img/plan-screenshot.jpg" alt="An AstracorePI plan: ISK per day, hauling per week and a build list per character"
@@ -34,12 +42,15 @@
         what to sell where.</p>
       {% else %}<p>{{ m.tagline }}</p>{% endif %}
     </div>
+    <div>
+    {% if m.id == 'pi' %}<img class="render" src="/static/img/eve/renders/655-epithal-512.png" alt="Epithal, the PI hauler" width="360" height="360" loading="lazy">{% endif %}
     <ul>
       <li>Weigh ISK against your time: from "set and forget" to "every million counts"</li>
       <li>Checks every template against each character's Command Center Upgrades</li>
       <li>Templates zip, pickup routes and transfers between your characters</li>
       <li>Tracks what was actually earned against the plan</li>
     </ul>
+    </div>
   </article>
 </section>
 {% endfor %}

@@ -12,6 +12,7 @@
   <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <script src="{{ asset('js/fmt.js') }}"></script>
   <script src="{{ asset('js/icons.js') }}"></script>
+  <script src="{{ asset('js/eve-images.js') }}"></script>
   <script src="{{ asset('js/astracore.js') }}"></script>
   {% block head %}{% endblock %}
 </head>
@@ -31,6 +32,7 @@
         <li><a href="{{ m.route_prefix }}" class="module {{ 'active' if module and module.id == m.id else '' }}">
           <img src="/{{ m.icon }}" alt="">{{ m.name }}</a></li>
         {% endfor %}
+        {% if user.is_admin %}<li><a href="/admin" class="{{ 'active' if page == 'admin' else '' }}">{{ icon('shield-check') }} Admin</a></li>{% endif %}
         <li class="sep" aria-hidden="true"></li>
         <li>
           <details class="profile-menu">
@@ -73,13 +75,14 @@
     <div class="links">
       <a href="/what-we-read">What we read from your characters</a>
       <a href="/privacy">Privacy</a>
+      <a href="/credits">Credits</a>
       <button class="theme-toggle" type="button" id="theme-toggle">Light / dark</button>
     </div>
-    <p>Data: ESI (Fenris Creations) · Schematics: Fuzzwork SDE · Templates:
-      <a href="https://github.com/DalShooth/EVE_PI_Templates" target="_blank" rel="noopener">DalShooth/EVE_PI_Templates</a> ·
-      Courier &amp; buyback: <a href="https://vochauling.com" target="_blank" rel="noopener">VOC Hauling</a> ·
-      Icons: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a></p>
-    <p class="legal">© 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>
+    <p><strong>Astracore</strong> © 2026 · a fan-made tool for EVE Online players, made with {{ icon('heart', 'heart') }} on top of
+      ESI and EVE SSO (Fenris Creations), Fuzzwork's SDE, DalShooth's PI templates, VOC Hauling and a stack of open-source projects.
+      <a href="/credits">See all credits</a>.</p>
+    <p class="legal">EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
+      "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>
   </footer>
 </main>
 {% block scripts %}{% endblock %}

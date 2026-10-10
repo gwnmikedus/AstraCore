@@ -225,6 +225,42 @@ def test_github_failure_keeps_private_report_and_retries_without_exposing_text(m
     assert not community.public_issues()
 
 
+def test_public_roadmap_sync_without_credentials_never_publishes_queued_feedback():
+    _, fid = create_saved()
+    calls = []
+    public = issue(2, "<!-- astracore-roadmap:reliable-market-advice -->",
+                   labels=[{"name": "roadmap"}, {"name": "status:planned"}])
+
+    def api(request):
+        calls.append(request.method)
+        assert request.method == "GET"
+        assert "authorization" not in request.headers
+        return httpx.Response(200, json=[public])
+
+    asyncio.run(community.sync_once(transport=httpx.MockTransport(api)))
+    assert calls == ["GET"]
+    assert community.public_issues()[0]["roadmap_slug"] == "reliable-market-advice"
+    assert community.public_issues()[0]["status"] == "Planned"
+    assert load_saved(fid)["delivery"] == "queued"
+    assert "not connected" in load_saved(fid)["problem"]
+    assert load_saved(fid)["issue_number"] is None
+    assert community.sync_state()["last_success"] > 0
+    assert community.sync_state()["next_poll_at"] >= time.time() + 290
+
+
+def test_missing_credentials_rejects_github_mutations_before_network_request():
+    requests = []
+    transport = httpx.MockTransport(lambda request: requests.append(request) or httpx.Response(201, json=issue()))
+
+    async def attempt():
+        async with httpx.AsyncClient(transport=transport) as client:
+            with pytest.raises(community.GitHubError, match="not connected"):
+                await community.github_request(client, "POST", "/repos/gwnmikedus/AstraCore/issues", payload={"title": "A report"})
+
+    asyncio.run(attempt())
+    assert requests == []
+
+
 def test_timeout_create_is_reconciled_and_not_posted_twice(monkeypatch):
     allow_github(monkeypatch)
     _, fid = create_saved()

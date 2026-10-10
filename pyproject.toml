@@ -10,7 +10,7 @@ license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.9"
 dependencies = [
-  "fastapi", "uvicorn", "jinja2", "httpx", "pulp", "python-multipart", "cryptography", "PyJWT",
+  "fastapi", "uvicorn", "jinja2", "httpx", "pulp>=3.3,<4", "python-multipart", "cryptography", "PyJWT",
 ]
 
 [project.optional-dependencies]

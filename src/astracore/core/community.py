@@ -142,10 +142,13 @@ async def access_token(client: httpx.AsyncClient) -> str:
 
 async def github_request(client: httpx.AsyncClient, method: str, path: str, *, payload: Optional[dict] = None,
                          params: Optional[dict] = None) -> httpx.Response:
-    token = await access_token(client)
+    headers = {}
+    if configured() or method != "GET":
+        token = await access_token(client)
+        headers["Authorization"] = f"Bearer {token}"
     try:
         response = await client.request(method, f"https://api.github.com{path}", json=payload, params=params,
-                                        headers={"Authorization": f"Bearer {token}"})
+                                        headers=headers)
     except httpx.HTTPError:
         if method == "POST":
             raise AmbiguousCreate("GitHub may have received this report. Checking before another delivery.") from None
@@ -340,6 +343,9 @@ def delivery_problem(feedback_id: str, problem: str, *, ambiguous: bool = False)
 
 async def deliver(client: httpx.AsyncClient, row: dict) -> None:
     was_ambiguous = row["delivery"] == "ambiguous"
+    if not configured() and not was_ambiguous:
+        delivery_problem(row["id"], "GitHub is not connected yet. Your report is saved here until it is connected.")
+        return
     try:
         found = await find_published(client, row)
         if found:
@@ -418,11 +424,15 @@ async def sync_once(*, force: bool = False, transport=None) -> None:
                     claimed = claim.rowcount == 1
                 if claimed:
                     await deliver(client, row)
-            if configured() and sync and (force or sync["next_poll_at"] <= now):
+            if sync and (force or sync["next_poll_at"] <= now):
                 try:
                     interval = max(60, int(config.env("ASTRACORE_COMMUNITY_POLL_SECONDS", "300")))
                 except ValueError:
                     interval = 300
+                # Unauthenticated public API reads share a 60-request/hour IP quota.
+                # One page every five minutes uses 12 requests/hour; each extra page counts.
+                if not configured():
+                    interval = max(300, interval)
                 with db.session() as c:
                     c.execute("UPDATE community_sync SET next_poll_at=? WHERE id=1", (now + interval,))
                 try:

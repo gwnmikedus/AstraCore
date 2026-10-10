@@ -14,6 +14,13 @@ and distribution are permitted subject to [LICENSE](LICENSE) and [NOTICE](NOTICE
 This is not an OSI-approved open-source license. EVE materials and other third-party assets retain their own terms
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+The public `/roadmap`, `/project` and `/releases` pages are available without signing in.
+Signed-in users can preview and submit ideas or bugs at `/feedback`. Public GitHub issue status
+is synchronized without credentials; publishing platform reports requires an Issues read/write
+GitHub App installed on this repository, configured using the fields in `docs/env.example`.
+Polling defaults to five minutes. A signed Issues webhook is optional; leave it inactive until
+its shared secret is configured. Reports remain private and withdrawable while queued.
+
 The site runs on a Mac and is published at `https://astracore.hoppyhome.nl` through a Cloudflare Tunnel, only
 while that Mac runs it. Anyone with the URL can log in (an invite list gates production), so profiles are
 fully separated, sessions are server-side, and EVE tokens are encrypted at rest.

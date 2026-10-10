@@ -14,7 +14,8 @@
       "technical": [
         "Release metadata ships with the application and is checked against the package version before publication.",
         "Community reports have local tracking and a GitHub issue link when publication is configured and succeeds.",
-        "The source is available under PolyForm Noncommercial 1.0.0; third-party material retains its own terms."
+        "The source is available under PolyForm Noncommercial 1.0.0; third-party material retains its own terms.",
+        "The planner dependency is restricted to supported PuLP 3 releases (3.3 or newer, below 4) to preserve compatibility with the existing optimizer."
       ],
       "limitations": [
         "The PI planner audit has identified market-liquidity and factory-restock improvements. Those changes are on the roadmap and are not included in this release.",

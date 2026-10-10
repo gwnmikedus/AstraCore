@@ -570,8 +570,10 @@ async def community_retry(request: Request, feedback_id: str):
             return redirect("/community/admin", "Check that no matching issue exists before retrying an unconfirmed delivery.", "warn")
         if row["delivery"] not in ("queued", "ambiguous"):
             return redirect("/community/admin", "This report is not waiting for a retry.", "warn")
-        c.execute("UPDATE community_feedback SET delivery='queued',next_attempt_at=0,problem='',updated_at=? WHERE id=?",
-                  (time.time(), feedback_id))
+        retried = c.execute("UPDATE community_feedback SET delivery='queued',next_attempt_at=0,problem='',updated_at=? "
+                            "WHERE id=? AND delivery=?", (time.time(), feedback_id, row["delivery"]))
+        if retried.rowcount != 1:
+            return redirect("/community/admin", "Delivery changed while this report was being checked. Refresh before retrying.", "warn")
     await sync_once()
     return redirect("/community/admin", "Delivery checked and retried where safe.")
 

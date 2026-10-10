@@ -155,6 +155,45 @@ def test_withdrawal_does_not_overwrite_a_concurrent_delivery_claim(browser, eve,
     assert load_saved(fid)["delivery"] == "processing"
 
 
+@pytest.mark.parametrize("concurrent_state", ["processing", "ambiguous", "published"])
+def test_admin_retry_does_not_overwrite_concurrent_delivery(browser, eve, monkeypatch, concurrent_state):
+    client = browser()
+    sso_login(client, eve, 90000001, "Admin")
+    _, fid = create_saved(me(client))
+    token = csrf(client)
+    original_session = db.session
+
+    class Snapshot:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class ConcurrentDelivery:
+        def __init__(self, conn):
+            self.conn = conn
+
+        def execute(self, query, args=()):
+            if query.startswith("SELECT * FROM community_feedback WHERE id=?"):
+                row = self.conn.execute(query, args).fetchone()
+                self.conn.execute("UPDATE community_feedback SET delivery=? WHERE id=?", (concurrent_state, fid))
+                return Snapshot(row)
+            return self.conn.execute(query, args)
+
+    @contextmanager
+    def changed_session():
+        with original_session() as conn:
+            yield ConcurrentDelivery(conn)
+
+    monkeypatch.setattr(db, "session", changed_session)
+    response = client.post(f"/community/admin/{fid}/retry", data={"csrf_token": token}, follow_redirects=False)
+    message = parse_qs(urlparse(response.headers["location"]).query)["msg"][0]
+    assert "Delivery changed" in message
+    with original_session() as conn:
+        assert conn.execute("SELECT delivery FROM community_feedback WHERE id=?", (fid,)).fetchone()[0] == concurrent_state
+
+
 def test_bug_fields_and_profile_rate_limit():
     with pytest.raises(ValueError, match="steps to reproduce"):
         community.validate_fields(idea(kind="bug"))

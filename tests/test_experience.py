@@ -129,3 +129,15 @@ def test_feedback_menu_marks_only_the_selected_report_kind(browser):
         links = OutboundLinks.parse(client.get(f'/feedback?kind={kind}').text)
         current = [link['attrs']['href'] for link in links if link['attrs'].get('aria-current') == 'page']
         assert current == [f'/feedback?kind={kind}']
+
+
+def test_signed_in_pi_settings_use_the_shared_external_link(browser, eve):
+    client = browser()
+    sso_login(client, eve, new_id(), 'Link inspector', scopes='publicData')
+    response = client.get('/pi/settings')
+    assert response.status_code == 200
+    links = OutboundLinks.parse(response.text)
+    voc = [link for link in links if link['attrs']['href'] == 'https://vochauling.com']
+    assert len(voc) == 1
+    assert voc[0]['indicators'] == 1
+    assert 'opens in a new tab' in voc[0]['text']

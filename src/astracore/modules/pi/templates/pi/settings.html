@@ -48,7 +48,7 @@
 </form>
 
 <article>
-  <header><strong>VOC courier tariff</strong> <span class="muted">{{ 'read live from' if routes_info.live else 'defaults - could not read' }} <a href="{{ voc_site }}" target="_blank" rel="noopener">vochauling.com</a>{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
+  <header><strong>VOC courier tariff</strong> <span class="muted">{{ 'read live from' if routes_info.live else 'defaults - could not read' }} {{ external_link(voc_site, 'vochauling.com') }}{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
   <div class="scroll"><table>
     <thead><tr><th>From</th><th>To</th><th>Min fee</th><th>Per m³</th><th>Collateral</th><th>Max m³</th></tr></thead>
     <tbody>{% for r in routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|num }}</td><td>{{ r.collateral_pct|pct }}</td><td>{{ r.max_m3|num }}</td></tr>{% endfor %}</tbody>

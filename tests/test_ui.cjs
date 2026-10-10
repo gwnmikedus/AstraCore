@@ -96,3 +96,33 @@ test('capsuleer tips change only on request, stay plain text, and wrap to the or
 test('pages without the capsuleer tip controls still initialize', () => {
   assert.doesNotThrow(() => flightTips(null, null));
 });
+
+function externalLinks() {
+  const context = {URL};
+  context.window = context;
+  for (const file of ['fmt.js', 'icons.js', 'links.js']) {
+    vm.runInNewContext(readFileSync(path.join(__dirname, '../src/astracore/static/js', file), 'utf8'), context);
+  }
+  return context.AC;
+}
+
+test('browser-rendered external links identify GitHub, escape content, and label new tabs', () => {
+  const AC = externalLinks();
+  const html = AC.externalLink('https://github.com/example/templates', 'Template <P1>', {cls: 'kind-miner'});
+  assert.match(html, /link-symbol icon-github/);
+  assert.equal((html.match(/external-indicator/g) || []).length, 1);
+  assert.match(html, /Template &lt;P1&gt;/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.match(html, /external site, opens in a new tab/);
+  const sameTab = AC.externalLink('https://vochauling.com', 'VOC', {newTab: false});
+  assert.doesNotMatch(sameTab, /icon-github|target=|opens in a new tab/);
+  assert.match(sameTab, /external site/);
+});
+
+test('external link helpers do not turn invalid destinations into executable links', () => {
+  const AC = externalLinks();
+  for (const href of ['javascript:alert(1)', 'data:text/html,example', 'not a URL']) {
+    assert.equal(AC.externalLink(href, '<unsafe>'), '&lt;unsafe&gt;');
+  }
+  assert.doesNotMatch(AC.externalLink('https://github.com.evil.example/', 'Example'), /icon-github/);
+});

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Astracore">
+  <!-- Placeholder mark until the final logo is supplied -->
+  <defs>
+    <radialGradient id="c" cx="50%" cy="45%" r="55%">
+      <stop offset="0" stop-color="#ffe7b3"/><stop offset=".45" stop-color="#f5a524"/><stop offset="1" stop-color="#b85c00"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="32" cy="32" rx="29" ry="11" fill="none" stroke="#5cc8ff" stroke-width="3" transform="rotate(-28 32 32)"/>
+  <circle cx="32" cy="32" r="13" fill="url(#c)"/>
+  <circle cx="55" cy="19.5" r="3.6" fill="#5cc8ff"/>
+</svg>

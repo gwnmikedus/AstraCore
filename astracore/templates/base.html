@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% if page_title %}{{ page_title }} · {% endif %}{% if module %}{{ module.name }} · {% endif %}Astracore{% endblock %}</title>
+  <meta name="color-scheme" content="dark light">
+  {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/pico.min.css">
+  <link rel="stylesheet" href="/static/css/astracore.css">
+  <script>try { const t = localStorage.getItem('ac_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <script src="/static/js/fmt.js"></script>
+  <script src="/static/js/icons.js"></script>
+  <script src="/static/js/astracore.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body class="page-{{ page or 'default' }}">
+<main class="container">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:.7rem">
+      <a class="brand" href="/" aria-label="Astracore home">
+        {% with cls='wordmark', uid=1 %}{% include "_logo.html" %}{% endwith %}
+      </a>
+      {% if local_mode %}<span class="local-badge" title="Running in local mode">LOCAL</span>{% endif %}
+    </div>
+    {% if user %}
+    <nav aria-label="Main">
+      <ul class="topnav">
+        {% for m in modules %}
+        <li><a href="{{ m.route_prefix }}" class="module {{ 'active' if module and module.id == m.id else '' }}">
+          <img src="/{{ m.icon }}" alt="">{{ m.name }}</a></li>
+        {% endfor %}
+        <li class="sep" aria-hidden="true"></li>
+        <li>
+          <details class="profile-menu">
+            <summary aria-label="Profile menu">
+              {% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" alt="">{% endif %}
+              <span>{{ user.display_name }}</span>
+            </summary>
+            <ul>
+              <li><a href="/">{{ icon('house') }} Dashboard</a></li>
+              <li><a href="/profile">{{ icon('user') }} Profile</a></li>
+              <li><a href="/what-we-read">{{ icon('eye') }} What we read</a></li>
+              {% if user.is_admin %}<li><a href="/admin">{{ icon('shield-check') }} Admin</a></li>{% endif %}
+              <li><form method="post" action="/auth/logout" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit">{{ icon('log-out') }} Sign out</button></form></li>
+            </ul>
+          </details>
+        </li>
+      </ul>
+    </nav>
+    {% else %}
+    <nav aria-label="Main"><ul class="topnav">
+      <li><a href="/what-we-read">What we read</a></li>
+      <li><a href="/auth/login" class="module">{{ icon('key-round') }} Log in</a></li>
+    </ul></nav>
+    {% endif %}
+  </header>
+  {% if subnav %}
+  <nav aria-label="{{ module.name if module else 'Section' }}">
+    <ul class="subnav">
+      {% for label, href, ic in subnav %}
+      <li><a href="{{ href }}" class="{{ 'active' if active_nav == href else '' }}">{{ icon(ic) }} {{ label }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  {% endif %}
+  {% if flash %}<div class="flash {{ flash_kind or '' }}" role="status">{{ flash }}</div>{% endif %}
+  {% block content %}{% endblock %}
+  <footer class="site-footer">
+    <div class="links">
+      <a href="/what-we-read">What we read from your characters</a>
+      <a href="/privacy">Privacy</a>
+      <button class="theme-toggle" type="button" id="theme-toggle">Light / dark</button>
+    </div>
+    <p>Data: ESI (Fenris Creations) · Schematics: Fuzzwork SDE · Templates:
+      <a href="https://github.com/DalShooth/EVE_PI_Templates" target="_blank" rel="noopener">DalShooth/EVE_PI_Templates</a> ·
+      Courier &amp; buyback: <a href="https://vochauling.com" target="_blank" rel="noopener">VOC Hauling</a> ·
+      Icons: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a></p>
+    <p class="legal">© 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>
+  </footer>
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

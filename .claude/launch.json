@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "pi-planner",
+      "name": "astracore",
       "runtimeExecutable": "/Users/mikehoppezak/Eve/.venv/bin/python",
-      "runtimeArgs": ["-m", "pi_planner"],
+      "runtimeArgs": ["-m", "astracore"],
       "port": 8765
     }
   ]

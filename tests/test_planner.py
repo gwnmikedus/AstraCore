@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import pytest
 
-from pi_planner.config import Settings, effort_weights
-from pi_planner.planner import optimizer, setups
-from pi_planner.static_data import pi_rules as R
-from pi_planner.static_data.sde_loader import build_from_rows
+from astracore.modules.pi.settings import Settings, effort_weights
+from astracore.modules.pi.planner import optimizer, setups
+from astracore.modules.pi.static_data import pi_rules as R
+from astracore.modules.pi.static_data.sde_loader import build_from_rows
 
 # --- minimal SDE fixture: 4 P0 -> 4 P1 -> 2 P2 ------------------------------------------
 P0 = {"Carbon Compounds": 2288, "Noble Metals": 2270, "Ionic Solutions": 2309, "Aqueous Liquids": 2268}
@@ -196,7 +196,7 @@ def test_ccu4_character_gets_only_fitting_templates(pi):
 
 
 # --- selling ------------------------------------------------------------------------------
-from pi_planner.planner import selling  # noqa: E402
+from astracore.modules.pi.planner import selling  # noqa: E402
 
 BOOKS = {
     2396: {"jita_buy": 800.0, "jita_sell": 850.0, "amarr_buy": 790.0, "amarr_sell": 840.0, "delve_buy": 150.0},
@@ -245,9 +245,9 @@ def test_small_courier_batch_falls_back_or_holds(pi):
 # --- operate --------------------------------------------------------------------------------
 from datetime import datetime, timedelta, timezone  # noqa: E402
 
-from pi_planner import db  # noqa: E402
-from pi_planner.esi import character as esi_char  # noqa: E402
-from pi_planner.planner import operate  # noqa: E402
+from astracore import db  # noqa: E402
+from astracore.esi import character as esi_char  # noqa: E402
+from astracore.modules.pi.planner import operate  # noqa: E402
 
 
 def _iso(hours: float) -> str:
@@ -300,9 +300,9 @@ def test_operate_flow(pi):
 
 
 # --- review 2026-10-10 fixes ------------------------------------------------------------------
-from pi_planner.intel import richness as rich  # noqa: E402
-from pi_planner.planner import skills  # noqa: E402
-from pi_planner.static_data import extraction  # noqa: E402
+from astracore.modules.pi.intel import richness as rich  # noqa: E402
+from astracore.modules.pi.planner import skills  # noqa: E402
+from astracore.modules.pi.static_data import extraction  # noqa: E402
 
 
 def test_cycle_factor_follows_ccp_formula():

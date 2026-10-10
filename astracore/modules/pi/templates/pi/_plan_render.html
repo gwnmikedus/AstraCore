@@ -1,0 +1,90 @@
+// Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC) and API.
+function planHTML(res) {
+  if (res.error) return `<p class="bad">${esc(res.error)}</p>` + (res.warnings||[]).map(x => `<div class="warnbox">${esc(x)}</div>`).join('');
+  const t = res.totals;
+  let h = `<div class="cards">
+    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">ISK / day, after taxes, hauling &amp; fees</div></div>
+    <div class="card"><div class="v">${isk(t.isk_per_week)}</div><div class="l">ISK / week</div></div>
+    <div class="card"><div class="v">${m3(t.m3_per_week)}</div><div class="l">to haul / week</div></div>
+    <div class="card"><div class="v">${t.systems}</div><div class="l">systems · drop-off ${esc(res.hub)}</div></div>
+    <div class="card"><div class="v">${t.colonies}/${t.slots_total}</div><div class="l">slots used</div></div>
+    <div class="card"><div class="v">${count(t.restarts_per_week)}</div><div class="l">extractor restarts / week</div></div>
+    <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
+  </div>`;
+  h += (res.warnings || []).map(x => `<div class="warnbox">${esc(x)}</div>`).join('');
+  h += `<div class="toolbar">
+    <a href="${EXPORT}/templates.zip" role="button">${AC.icon('download')} Templates for this plan (${res.templates_needed.length})</a>
+    <a href="${EXPORT}/plan.md" role="button" class="outline">Export .md</a>
+    <a href="${EXPORT}/plan.csv" role="button" class="outline">Export .csv</a>
+  </div>`;
+  for (const ch of res.characters) {
+    const mine = res.colonies.filter(c => c.character_id === ch.character_id);
+    h += `<div class="who"><div class="h">
+      <img src="https://images.evetech.net/characters/${ch.character_id}/portrait?size=64" alt="">
+      <strong>${esc(ch.name)}</strong>
+      <span class="muted">${ch.used}/${ch.slots} slots · ${isk(ch.value_per_day)}/day · ${m3(ch.m3_per_week)}/wk</span>
+      ${ch.route ? `<span class="muted">· route ${ch.route.order.map(esc).join(' → ')} (${ch.route.round_trip_jumps} jumps)</span>` : ''}
+    </div>`;
+    if (!mine.length) { h += `<p class="muted">Nothing worth placing for this character with the current settings.</p></div>`; continue; }
+    h += `<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
+    for (const c of mine) {
+      const outs = Object.entries(c.out_per_day).map(([k, v]) => `${num(v)} ${esc(k)}`).join(', ');
+      const ins = Object.entries(c.in_per_day).map(([k, v]) => `${num(v)} ${esc(k)}`).join('<br>');
+      h += `<tr>
+        <td>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span></td>
+        <td><a href="${c.template_url}" target="_blank" class="kind-${c.kind}">${esc(c.template)}</a>
+            ${c.p0.length ? `<br><span class="muted">extract ${c.p0.map(esc).join(', ')}</span>` : ''}
+            ${c.utilisation < 0.99 ? `<br><span class="muted">runs at ${Math.round(c.utilisation*100)}% (limited by inputs)</span>` : ''}
+            ${(c.notes || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}</td>
+        <td>${outs} <span class="muted">P${c.tier}</span></td>
+        <td class="muted">${ins || '-'}</td>
+        <td>${isk(c.value_per_day)}</td>
+        <td><span class="act ${c.action}">${c.action}</span></td></tr>`;
+    }
+    h += `</tbody></table></div></div>`;
+  }
+  if (res.transfers.length) {
+    h += `<h5>Transfers between characters</h5><ul>` + res.transfers.map(x =>
+      `<li>${esc(x.from)} → ${esc(x.to)}: ${num(x.units_per_day)} ${esc(x.item)}/day</li>`).join('') + `</ul>`;
+  }
+  if (res.removals.length) {
+    h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>
+      `<li>${esc(x.character)}: ${esc(x.current)} (planet ${x.planet_id})</li>`).join('') + `</ul>`;
+  }
+  h += renderSelling(res);
+  h += `<p class="muted">Solved in ${res.solve_seconds}s over ${res.systems_in_scope} systems in reach.</p>`;
+  return h;
+}
+
+function renderSelling(res) {
+  const sp = res.selling; if (!sp) return '';
+  const L = res.channel_labels || {};
+  let h = `<h5 style="margin-top:1.4rem">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span></h5>`;
+  const tx = res.taxes || {};
+  h += `<p class="muted" style="font-size:.85rem">` + (res.seller
+    ? `Sell with <b>${esc(res.seller.name)}</b>: Accounting ${res.seller.accounting} → ${tx.sales_tax_pct}% sales tax, Broker Relations ${res.seller.broker_relations} → ${tx.broker_fee_pct}% broker fee.
+       Other characters hand their products to ${esc(res.seller.name)} at the drop-off with a 0 ISK item exchange contract.`
+    : `Sales tax ${tx.sales_tax_pct}%, broker fee ${tx.broker_fee_pct}% (set in <a href="${SETTINGS_URL}">Settings</a>).`) + `</p>`;
+  for (const b of sp.batches) {
+    const items = Object.entries(b.items).map(([k, v]) => `${num(v)} ${esc(k)}`).join(', ');
+    h += `<div class="who" ${b.hold ? 'style="opacity:.6"' : ''}><div class="h"><strong>${esc(b.label)}</strong>
+      <span class="muted">${b.speed} · ${m3(b.m3)} · ${b.hold ? 'hold' : '≈ ' + isk(b.net) + ' net'}</span></div>
+      <div class="muted">${items}</div>`;
+    if (b.note) h += `<div class="warnbox">${esc(b.note)}</div>`;
+    if (b.contract && b.contract.type === 'Courier')
+      h += `<div class="muted" style="margin-top:.3rem">Contract: Courier · Private to <b>${esc(b.contract.assign_to)}</b> · ${esc(b.contract.from)} → ${esc(b.contract.to)} ·
+            reward <b>${num(b.contract.reward)}</b> · collateral <b>${num(b.contract.collateral)}</b> · ${b.contract.expiration} / ${b.contract.completion}
+            ${b.contract.contracts_needed > 1 ? ` · split into ${b.contract.contracts_needed} contracts (max m³)` : ''}</div>`
+          + (b.contract.move_first ? `<div class="warnbox">${esc(b.contract.move_first)}</div>` : '');
+    if (b.contract && b.contract.type === 'Item Exchange')
+      h += `<div class="muted" style="margin-top:.3rem">${esc(b.contract.how)}</div>`;
+    h += `</div>`;
+  }
+  if (sp.unsellable && sp.unsellable.length) h += `<div class="warnbox">No enabled way to sell: ${sp.unsellable.map(esc).join(', ')}</div>`;
+  h += `<details><summary class="muted">Per-product comparison (net ISK per unit)</summary><div class="scroll"><table><thead><tr><th>Product</th><th>Jita buy</th>` +
+       Object.keys(L).map(k => `<th>${esc(L[k])}</th>`).join('') + `</tr></thead><tbody>` +
+       res.channels.map(r => `<tr><td>${esc(r.item)} <span class="muted">P${r.tier}</span></td><td>${num(r.jita_buy)}</td>` +
+         Object.keys(L).map(k => `<td ${r.best === k ? 'class="ok"' : ''}>${r.channels[k] !== undefined ? num(r.channels[k]) : '<span class="muted">–</span>'}</td>`).join('') + `</tr>`).join('') +
+       `</tbody></table></div></details>`;
+  return h;
+}

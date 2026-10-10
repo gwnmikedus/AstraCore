@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<hgroup>
+  <h2>Where can your characters do PI?</h2>
+  <p>Found from your characters:
+    {% for a in sources.alliances %}<span class="pill">sov of <b>{{ a }}</b></span>{% endfor %}
+    {% for c in sources.colony_constellations %}<span class="pill">your colonies in <b>{{ c }}</b></span>{% endfor %}
+    {% for e in sources.extra %}<span class="pill">added: <b>{{ e }}</b></span>{% endfor %}
+    {% if not sources.alliances and not sources.colony_constellations and not sources.extra %}nothing yet - add a region or system below.{% endif %}
+  </p>
+</hgroup>
+
+<form method="post" action="/space">
+{% if area %}
+{% set maxscore = groups|map(attribute='constellations')|map('map', attribute='score')|map('max')|max %}
+{% for r in groups %}
+<section class="region">
+  <h4>{{ r.name }}</h4>
+  <div class="cons">
+    {% for con in r.constellations %}
+    <label class="con">
+      <div class="top">
+        <span class="title"><input type="checkbox" name="con" value="{{ con.id }}" {% if con.id in selected %}checked{% endif %}>{{ con.name }}</span>
+        <span class="muted">sec {{ con.sec_max }} … {{ con.sec_min }}</span>
+      </div>
+      <div class="bar"><span style="width: {{ (100 * con.score / (maxscore or 1))|round|int }}%"></span></div>
+      <div class="muted" style="margin-bottom:.3rem">
+        {{ con.systems|length }} systems{% if con.yours %} · {{ con.yours }} your sov{% endif %}{% if con.has_colonies %} · <span class="badge col">your colonies</span>{% endif %}
+      </div>
+      {% for sy in con.systems %}
+      <div class="sys">
+        <span><b>{{ sy.name }}</b> <span class="muted">{{ sy.security }}</span>
+          {% if sy.colonies %}<span class="badge col" title="{{ sy.colonies|join(', ') }}">{{ sy.colonies|length }} col.</span>{% endif %}</span>
+        <span>{% for t, n in sy.types.items() if t not in ('Shattered','Unknown') %}<span class="pill">{{ t[:4] }}{% if n > 1 %}×{{ n }}{% endif %}</span>{% endfor %}</span>
+      </div>
+      {% endfor %}
+    </label>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endif %}
+
+<details>
+  <summary>Add another region, constellation or system</summary>
+  <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)">
+</details>
+
+<div class="sticky-bar">
+  <div class="grid" style="align-items:end">
+    <label>Drop-off (where you collect products and ship them from)
+      <select name="hub_system">
+        <option value="">Auto (best spot in the selection, VOC pickups preferred)</option>
+        {% for name in sel_systems %}<option {% if s.hub_system == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <div class="next-bar" style="margin:0">
+      <a href="/characters" role="button" class="outline secondary">{{ icon('arrow-left') }} Characters</a>
+      <button name="refresh" value="1" class="outline">{{ icon('refresh-cw') }} Reload from ESI</button>
+      <button>Show suggestions {{ icon('arrow-right') }}</button>
+    </div>
+  </div>
+</div>
+</form>
+{% endblock %}

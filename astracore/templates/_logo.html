@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 236 40" role="img" aria-label="Astracore" class="{{ cls or 'wordmark' }}">
+  <!-- Placeholder wordmark until the final logo is supplied -->
+  <defs>
+    <radialGradient id="lc-{{ uid or 0 }}" cx="50%" cy="45%" r="55%">
+      <stop offset="0" stop-color="#ffe7b3"/><stop offset=".45" stop-color="#f5a524"/><stop offset="1" stop-color="#b85c00"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(2 0) scale(.625)">
+    <ellipse cx="32" cy="32" rx="29" ry="11" fill="none" stroke="#5cc8ff" stroke-width="3.2" transform="rotate(-28 32 32)"/>
+    <circle cx="32" cy="32" r="13" fill="url(#lc-{{ uid or 0 }})"/>
+    <circle cx="55" cy="19.5" r="3.6" fill="#5cc8ff"/>
+  </g>
+  <text x="50" y="28" fill="currentColor" font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif"
+        font-size="24" font-weight="700" letter-spacing="2.5">ASTRACORE</text>
+</svg>

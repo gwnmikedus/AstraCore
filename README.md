@@ -1,13 +1,13 @@
-# PI Planner
+# Astracore
 
-Local tool that plans Planetary Interaction for **all your characters across several systems** at once.
+One EVE Online login for a set of tools. v1 ships **AstracorePI**, which plans Planetary Interaction for **all your characters across several systems** at once.
 It weighs ISK against hauling effort so you can choose anything from "brain-dead passive" to "max ISK".
 
 ## Run
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pi_planner      # http://localhost:8765
+.venv/bin/python -m astracore       # http://localhost:8765 (local mode, reads .env.local)
 ```
 
 ## Use

@@ -5,3 +5,5 @@ httpx
 pulp
 python-multipart
 pytest
+cryptography
+PyJWT

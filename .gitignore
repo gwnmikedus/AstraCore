@@ -1,14 +1,14 @@
+# Python environments and generated files
 .venv/
-data/
-.env
 __pycache__/
 *.pyc
-bin/
-.env.*
-.DS_Store
 .pytest_cache/
 *.egg-info/
-Astracore Control.app/
 
-# Local reviews may include private pilot and operational data.
-docs/audits/
+# Credentials and application runtime data
+.env
+.env.*
+data/
+
+# Downloaded tunnel executable used by the launcher
+bin/

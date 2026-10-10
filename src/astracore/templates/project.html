@@ -1,24 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="prose">
+<section class="project-intro" aria-labelledby="project-title">
   <div class="eyebrow">AstraCore / Community</div>
-  <h1 class="page-title">Build a better operation together.</h1>
+  <h1 class="page-title" id="project-title">Build a better operation together.</h1>
   <p>AstraCore is built by capsuleers for fellow EVE pilots. Explore the source, help improve the tools, or tell us what would make your next PI session easier.</p>
-  <p><a href="{{ project.repository_url }}" target="_blank" rel="noopener">View the source on GitHub {{ icon('arrow-right') }}</a></p>
-  <h2>Follow the work</h2>
-  <ul>
-    <li><a href="/roadmap">Roadmap</a> — see what is being considered, planned, and worked on.</li>
-    <li><a href="/releases">What’s new</a> — understand what has changed, with optional technical detail.</li>
-    <li><a href="{{ project.issues_url }}" target="_blank" rel="noopener">GitHub issues</a> — follow development discussions and linked reports.</li>
-  </ul>
-  <h2>Share an idea or report a bug</h2>
-  <p><a href="/feedback">Send feedback</a> from your AstraCore account. You can review the public text before submitting. Never include login tokens, private character data, or other information you do not want published.</p>
-  <p>Hosted access remains invite-based. If you do not have access, you can still <a href="{{ project.issues_url }}" target="_blank" rel="noopener">report a bug or suggest an idea on GitHub</a>.</p>
-  <h2>Contribute code or documentation</h2>
-  <p>Start with the <a href="{{ project.contributing_url }}" target="_blank" rel="noopener">contribution guide</a> and an existing issue, or propose an improvement before starting a larger change. Clear bug reports, reproducible examples, and documentation corrections help too.</p>
-  <p><a href="/credits#contributors">Meet the contributors</a> and read <a href="/credits#creator">how CosmicCarrot started the project</a>. GitHub contributor profiles appear automatically as work becomes part of the repository.</p>
-  <h2>Source and license</h2>
-  <p>AstraCore’s source is publicly available under <a href="{{ project.license_url }}" target="_blank" rel="noopener">{{ project.license_name }}</a>. This permits use under its noncommercial terms. It is a source-available license with a commercial-use restriction; it is not an OSI-approved open-source license. Read the license before reusing or distributing the project.</p>
-  <p>EVE material and bundled third-party work retain their own terms. See <a href="/credits">Credits</a> for the tools, data, and people AstraCore relies on.</p>
+  {{ external_link(project.repository_url, 'Explore the source on GitHub', cls='text-action') }}
+</section>
+<section class="contribution-grid" aria-label="Ways to contribute">
+  <article class="contribution-card">
+    <div class="contribution-symbol">{{ icon('lightbulb', 'icon-lightbulb') }}<span class="console-label">01 / Bright ideas</span></div>
+    <h2>A lightbulb moment?</h2>
+    <p>Less clicking. Smoother hauling. A better way to wrangle your alts. Tell us what would help.</p>
+    <a class="text-action" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea {{ icon('arrow-right', 'action-arrow') }}</a>
+  </article>
+  <article class="contribution-card">
+    <div class="contribution-symbol">{{ icon('bug', 'icon-bug') }}<span class="console-label">02 / Bug patrol</span></div>
+    <h2>Found a stowaway?</h2>
+    <p>Even a planetary operation gets the odd bug. Show us where it’s hiding and how to find it.</p>
+    <a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug {{ icon('arrow-right', 'action-arrow') }}</a>
+  </article>
+  <article class="contribution-card">
+    <div class="contribution-symbol">{{ icon('github') }}<span class="console-label">03 / Build with us</span></div>
+    <h2>Room for another pilot.</h2>
+    <p>Code, documentation, and careful testing all help. Pick a small improvement and make it fly.</p>
+    {{ external_link(project.contributing_url, 'Contribution guide', cls='text-action') }}
+  </article>
+</section>
+<div class="project-details">
+  <section aria-labelledby="project-follow-title">
+    <h2 id="project-follow-title">Follow the flight plan.</h2>
+    <ul class="project-routes">
+      <li><a class="text-action" href="/roadmap">{{ icon('orbit') }} Roadmap {{ icon('arrow-right', 'action-arrow') }}</a><p>What is being considered, planned, and worked on.</p></li>
+      <li><a class="text-action" href="/releases">{{ icon('sparkles') }} What’s new {{ icon('arrow-right', 'action-arrow') }}</a><p>Readable updates, with optional technical detail.</p></li>
+      <li>{{ external_link(project.issues_url, 'GitHub issues', cls='text-action') }}<p>Development discussions and linked reports.</p></li>
+    </ul>
+    <p><a href="/credits#contributors">Meet the contributors</a> and read <a href="/credits#creator">how CosmicCarrot started the project</a>. GitHub contributor profiles appear automatically as work becomes part of the repository.</p>
+  </section>
+  <section aria-labelledby="project-access-title">
+    <h2 id="project-access-title">Before you join the fleet.</h2>
+    <p>You can review your feedback’s public text before submitting. Never include login tokens, private character data, or other information you do not want published.</p>
+    <p>Hosted access remains invite-based. Without an invitation, you can still {{ external_link(project.issues_url ~ '/new/choose', 'share feedback on GitHub') }}.</p>
+    <p>Start with the contribution guide and an existing issue, or propose an improvement before starting a larger change. Clear bug reports, reproducible examples, and documentation corrections help too.</p>
+  </section>
 </div>
+<section class="project-license prose" aria-labelledby="project-license-title">
+  <h2 id="project-license-title">Source and license</h2>
+  <p>AstraCore’s source is publicly available under {{ external_link(project.license_url, project.license_name) }}. This permits use under its noncommercial terms. It is a source-available license with a commercial-use restriction; it is not an OSI-approved open-source license. Read the license before reusing or distributing the project.</p>
+  <p>EVE material and bundled third-party work retain their own terms. See <a href="/credits">Credits</a> for the tools, data, and people AstraCore relies on.</p>
+</section>
 {% endblock %}

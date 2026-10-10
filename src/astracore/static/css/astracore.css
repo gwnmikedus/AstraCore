@@ -1121,7 +1121,6 @@ html[data-menu-open] { overflow: hidden; }
 .site-footer .links > a { display: inline-flex; align-items: center; min-height: 36px; }
 .support-link { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .support-link > .ic { flex-shrink: 0; }
-.support-link .support-external { width: 13px; height: 13px; color: var(--ink-muted); }
 .creator-panel { display: grid; grid-template-columns: 1fr 1.15fr; gap: 32px 48px; padding: 40px; margin: 48px 0; background: var(--hull); scroll-margin-top: 24px; }
 .contributors-section { margin: 48px 0; scroll-margin-top: 24px; }
 .hero-contribute { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 16px; max-width: 52ch; }
@@ -1134,7 +1133,7 @@ html[data-menu-open] { overflow: hidden; }
 .contributor { display: flex; gap: 16px; align-items: center; min-width: 0; height: 100%; padding: 16px; border: 1px solid var(--line); background: var(--hull); color: var(--ink); text-decoration: none; }
 .contributor:hover { border-color: var(--signal); background: var(--hull-raised); }
 .contributor img { width: 56px; height: 56px; flex: none; border: 1px solid var(--line-strong); }
-.contributor span { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 600 20px/24px var(--font-display); }
+.contributor span:not(.sr-only) { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 600 20px/24px var(--font-display); }
 .contributors-actions { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 24px 0; }
 .contributors-section .contributor-updated, .contributors-section .contributors-thanks { font-size: 13px; line-height: 21px; }
 .creator-identity { display: flex; gap: 24px; align-items: center; min-width: 0; }
@@ -1183,8 +1182,68 @@ html[data-menu-open] { overflow: hidden; }
 }
 @media (max-width: 360px) {
   .site-header .brandline { gap: 8px; }
-  .site-header .brand .wordmark { height: 14px; }
+  .site-header .brand { min-width: 0; }
+  .site-header .brand .wordmark { height: 14px; max-width: 100%; }
   .creator-identity { align-items: flex-start; gap: 12px; }
   .creator-portrait { width: 72px; height: 72px; }
   .creator-identity h2 { font-size: 30px; }
+}
+
+/* Outbound links share a destination symbol and an accessible external-site cue. */
+.external-link .link-symbol { margin-inline-end: 3px; }
+.external-indicator { width: 13px; height: 13px; margin-inline-start: 3px; vertical-align: -.1em; flex: none; }
+.link-symbol { flex: none; }
+.text-action.external-link { gap: 8px; }
+.text-action:hover .link-symbol, .text-action:hover .icon-bug, .text-action:hover .icon-lightbulb { transform: none; }
+.text-action:hover .action-arrow, .text-action:focus-visible .action-arrow { transform: translateX(4px); }
+.external-link:hover .external-indicator, .external-link:focus-visible .external-indicator { transform: translate(2px, -2px); }
+.external-indicator { transition: transform .2s ease-out; }
+.site-footer .links > a { gap: 6px; }
+.contributor .link-symbol { width: 18px; height: 18px; margin: 0; }
+.contributor .external-indicator { margin-left: auto; }
+.support-link .external-indicator { width: 13px; height: 13px; }
+
+.project-intro { max-width: 780px; margin-bottom: 32px; }
+.project-intro .eyebrow { color: var(--ink-muted); margin-bottom: 16px; }
+.project-intro > p { font-size: 18px; line-height: 28px; color: var(--ink-muted); }
+.contribution-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 48px; }
+.contribution-card { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: 24px; border: 1px solid var(--line); background: var(--hull); transition: border-color .12s linear; }
+.contribution-card:hover, .contribution-card:focus-within { border-color: var(--line-strong); }
+.contribution-symbol { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; color: var(--scan); }
+.contribution-symbol > .ic { width: 28px; height: 28px; }
+.contribution-symbol .console-label { color: var(--ink-muted); }
+.contribution-card h2 { font-size: 30px; line-height: 34px; }
+.contribution-card > p { color: var(--ink-muted); margin-bottom: 24px; }
+.contribution-card > .text-action { align-self: flex-start; margin-top: auto; flex-wrap: wrap; gap: 8px; }
+.project-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; margin-bottom: 32px; }
+.project-details h2, .project-license h2 { font-size: 30px; line-height: 34px; }
+.project-details p { color: var(--ink-muted); }
+.project-routes { list-style: none; padding: 0; margin-bottom: 24px; }
+.project-routes li { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.project-routes p { margin-bottom: 8px; }
+.project-license { padding-top: 24px; border-top: 1px solid var(--line); }
+.flight-tip { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 0; margin-bottom: 16px; border-block: 1px solid var(--line); }
+.flight-tip-icon { width: 20px; height: 20px; flex: none; color: var(--scan); }
+.site-footer .flight-tip p { flex: 1; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.flight-tip button { min-height: 44px; font-size: 12px; }
+.flight-tip button[hidden] { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  a:hover .icon-bug, a:focus-visible .icon-bug,
+  .contribution-card:hover .contribution-symbol .icon-bug, .contribution-card:focus-within .contribution-symbol .icon-bug { animation: bug-signal .35s ease-out; }
+  a:hover .icon-lightbulb, a:focus-visible .icon-lightbulb,
+  .contribution-card:hover .contribution-symbol .icon-lightbulb, .contribution-card:focus-within .contribution-symbol .icon-lightbulb { animation: bright-idea .4s ease-out; }
+}
+@keyframes bug-signal { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-12deg); } 65% { transform: rotate(12deg); } }
+@keyframes bright-idea { 50% { color: var(--signal); filter: drop-shadow(0 0 4px var(--signal)); } }
+@media (max-width: 900px) {
+  .contribution-grid { grid-template-columns: 1fr; }
+  .contribution-symbol { margin-bottom: 16px; }
+  .project-details { grid-template-columns: 1fr; gap: 24px; }
+}
+@media (max-width: 520px) {
+  .contribution-card { padding: 20px; }
+  .flight-tip { flex-wrap: wrap; }
+  .site-footer .flight-tip p { flex-basis: calc(100% - 32px); }
+  .flight-tip button { margin-left: 32px; }
 }

@@ -1,0 +1,4 @@
+{% macro external_link(href, label='', symbol='', cls='', new_tab=true) -%}
+{% set symbol = symbol or ('github' if href.startswith('https://github.com/') else '') %}
+<a href="{{ href }}" class="external-link {{ cls }}"{% if new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>{% if symbol %}{{ icon(symbol, 'link-symbol icon-' ~ symbol) }} {% endif %}{% if caller is defined %}{{ caller() }}{% else %}{{ label }}{% endif %} {{ icon('external-link', 'external-indicator') }}<span class="sr-only"> (external site{% if new_tab %}, opens in a new tab{% endif %})</span></a>
+{%- endmacro %}

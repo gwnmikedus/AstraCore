@@ -23,9 +23,9 @@
         <summary>Technical details for {{ release.version }}</summary>
         <div>
           {% if release.technical %}<ul>{% for note in release.technical %}<li>{{ note }}</li>{% endfor %}</ul>{% endif %}
-          {% if release.references %}<ul>{% for reference in release.references %}<li><a href="{{ reference.url }}" target="_blank" rel="noopener">{{ reference.label }}</a></li>{% endfor %}</ul>{% endif %}
-          {% if release.version == app_release.version and app_release.commit %}<p>Running commit: <a href="{{ app_release.commit_url }}" target="_blank" rel="noopener"><code>{{ app_release.commit[:7] }}</code></a>.</p>{% endif %}
-          {% if release.kind != 'baseline' %}<p><a href="{{ project.releases_url }}" target="_blank" rel="noopener">GitHub releases</a></p>{% endif %}
+          {% if release.references %}<ul>{% for reference in release.references %}<li>{{ external_link(reference.url, reference.label) }}</li>{% endfor %}</ul>{% endif %}
+          {% if release.version == app_release.version and app_release.commit %}<p>Running commit: {% call external_link(app_release.commit_url) %}<code>{{ app_release.commit[:7] }}</code>{% endcall %}.</p>{% endif %}
+          {% if release.kind != 'baseline' %}<p>{{ external_link(project.releases_url, 'GitHub releases') }}</p>{% endif %}
         </div>
       </details>
       {% endif %}

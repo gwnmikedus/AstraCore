@@ -145,7 +145,7 @@
       <div style="margin-left:1rem;margin-bottom:.6rem">
         <b>{{ b.label }}</b> <span class="muted">{{ b.m3|m3 }} · {% if b.hold %}hold{% else %}≈ {{ b.net|isk }} net{% endif %}</span>
         {% if b.channel == 'buyback' %}
-          <div class="muted">1. Copy this list, paste it at <a href="{{ buyback_site }}" target="_blank" rel="noopener">VOC buyback</a> (location {{ g.system }}), Appraise.
+          <div class="muted">1. Copy this list, paste it at {{ external_link(buyback_site, 'VOC buyback') }} (location {{ g.system }}), Appraise.
             2. Create an Item Exchange contract to <b>United East-Indian Compagnie</b> with the reference it shows.</div>
           <textarea class="paste" readonly aria-label="Paste list">{{ b.paste }}</textarea><button class="copy outline" data-copy="{{ b.paste }}">Copy list</button>
         {% elif b.contract %}

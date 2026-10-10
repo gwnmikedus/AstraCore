@@ -25,6 +25,8 @@ These are self-hosted Latin WOFF2 subsets originally supplied by Google Fonts. F
 
 [Lucide](https://github.com/lucide-icons/lucide) SVG icons are covered by the [ISC license bundled in this repository](src/astracore/static/icons/LICENSE), including the upstream Feather attribution. Their ISC permission and notice remain in force independently of PolyForm.
 
+[GitHub Octicons](https://github.com/primer/octicons) supplies the GitHub mark under the [bundled MIT license](src/astracore/static/icons/OCTICONS-LICENSE). The mark uses its original geometry with `currentColor` fill for both themes. GitHub trademarks remain their owners' property.
+
 ## Downloaded templates and static data
 
 [DalShooth's PI templates](https://github.com/DalShooth/EVE_PI_Templates) and [Fuzzwork's static data exports](https://www.fuzzwork.co.uk/dump/) are downloaded at runtime into the ignored data directory. They are not AstraCore-authored files and are not covered by the root license. Preserve their source attribution and check the publisher's applicable permissions before repackaging or redistributing them. Where no explicit redistribution license is supplied, a public download alone is not treated as a grant from AstraCore.

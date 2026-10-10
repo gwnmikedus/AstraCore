@@ -25,10 +25,24 @@ a one-command on/off switch.
 
 ---
 
+## Already done before you start (2026-10-10)
+- **Phase 0 is done:** git repo on `main`, baseline commit `MVP baseline (PI Planner) before Astracore rebuild`;
+  DB backup at `data/backups/pi_planner-pre-astracore-20261010.sqlite3`. `.gitignore` covers `.env*`, `bin/`, `data/`, `.DS_Store`, `.pytest_cache/`.
+- **Env files exist (chmod 600, gitignored):** `.env.local` (dev EVE app credentials copied from `.env`, generated token key + session secret)
+  and `.env.production` (public URL, callback, client id, generated token key + session secret, admin IDs, invite list).
+  The old `.env` is still read by the MVP; retire it once the app reads `.env.local`. Never print secret values in logs or chat.
+- **EVE applications exist:** "Astracore (dev)" (client `d5bf352d…`, callback `http://localhost:8765/auth/callback`) and
+  "AstraCore" (client `440238e5…`, callback `https://astracore.hoppyhome.nl/auth/callback`). Both have the full scope list registered.
+- **Cloudflare tunnel exists** (§8.2), `cloudflared` is in `bin/`.
+- **Decided:** admin = Mike's 5 characters (IDs in the env files); production invite list starts with those 5 characters (Mike adds corps/alliances later).
+- Mike fills `EVE_CLIENT_SECRET` and `CLOUDFLARE_TUNNEL_TOKEN` in `.env.production` himself. If they're empty when you need them, ask him; don't ask him to paste them in chat.
+
+---
+
 ## 1. Phase 0 — safety net (do first)
 
-1. The folder is **not a git repo**. Run `git init`, commit the current state as `MVP baseline`, then work in commits per phase.
-2. Back up `data/pi_planner.sqlite3` (the app already writes `pi_planner.backup-*.sqlite3`; make one now).
+1. ~~git init + baseline commit~~ (done). Work in commits per phase from here.
+2. ~~Back up the database~~ (done).
 3. `pytest -q tests` must pass before and after every phase.
 
 ---
@@ -428,7 +442,6 @@ Manual walkthrough (record findings in the project doc):
 ---
 
 ## 10. Open decisions for Mike
-1. Who's on the invite list at launch (characters / corps / alliances, §8.3)?
+1. Which corps/alliances to add to the invite list (starts with Mike's 5 characters, §8.3).
 2. Final logo/colours (§2.3) — placeholders until then. (Domain decided: `astracore.hoppyhome.nl`.)
 3. Should a removed character's colonies stay in old saved plans (read-only history) or be stripped? Default in this spec: stripped.
-4. Admin profile: confirm which character IDs are admin (`ASTRACORE_ADMIN_CHARACTER_IDS`).

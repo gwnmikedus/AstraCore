@@ -1097,7 +1097,7 @@ html[data-menu-open] { overflow: hidden; }
   .section-navigation { display: none; }
 }
 
-/* Shared finishing details: theme control, creator plate, and account layout. */
+/* Shared finishing details: theme control, contributor credits, and account layout. */
 .header-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .theme-toggle { position: relative; display: grid; place-items: center; width: 48px; min-height: 48px; padding: 0; background: var(--hull); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
 .theme-toggle:hover { background: var(--hull-raised); border-color: var(--line-strong); color: var(--signal); }
@@ -1115,14 +1115,28 @@ html[data-menu-open] { overflow: hidden; }
 #main-content > .eyebrow, .prose > .eyebrow, hgroup > .eyebrow { color: var(--ink-muted); margin-bottom: 16px; }
 .footer-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
 .footer-heading .footmark { margin: 0; }
-.footer-creator { text-decoration: none; }
-.footer-creator span { color: var(--ink-muted); }
+.footer-credits { text-decoration: none; }
+.footer-credits span { color: var(--ink-muted); }
 .site-footer .links { gap: 8px 24px; margin-bottom: 16px; }
 .site-footer .links > a { display: inline-flex; align-items: center; min-height: 36px; }
 .support-link { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .support-link > .ic { flex-shrink: 0; }
 .support-link .support-external { width: 13px; height: 13px; color: var(--ink-muted); }
 .creator-panel { display: grid; grid-template-columns: 1fr 1.15fr; gap: 32px 48px; padding: 40px; margin: 48px 0; background: var(--hull); scroll-margin-top: 24px; }
+.contributors-section { margin: 48px 0; scroll-margin-top: 24px; }
+.hero-contribute { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 16px; max-width: 52ch; }
+.hero-contribute p { color: var(--ink-muted); font-size: 14px; line-height: 22px; margin-bottom: 8px; }
+.contributors-section h2 { font-size: clamp(32px, 4vw, 48px); line-height: 1.1; margin-bottom: 16px; }
+.contributors-section h3 { font-size: 28px; line-height: 32px; margin-top: 32px; }
+.contributors-section p { line-height: 25px; max-width: 76ch; }
+.contributors-intro { color: var(--ink-muted); font-size: 17px; }
+.contributor-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px; list-style: none; padding: 0; margin: 24px 0; }
+.contributor { display: flex; gap: 16px; align-items: center; min-width: 0; height: 100%; padding: 16px; border: 1px solid var(--line); background: var(--hull); color: var(--ink); text-decoration: none; }
+.contributor:hover { border-color: var(--signal); background: var(--hull-raised); }
+.contributor img { width: 56px; height: 56px; flex: none; border: 1px solid var(--line-strong); }
+.contributor span { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 600 20px/24px var(--font-display); }
+.contributors-actions { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 24px 0; }
+.contributors-section .contributor-updated, .contributors-section .contributors-thanks { font-size: 13px; line-height: 21px; }
 .creator-identity { display: flex; gap: 24px; align-items: center; min-width: 0; }
 .creator-portrait { display: block; width: 128px; height: 128px; object-fit: cover; border: 1px solid var(--line-strong); }
 .creator-identity .console-label { display: block; color: var(--ink-muted); font-size: 10px; margin-bottom: 12px; }
@@ -1162,7 +1176,7 @@ html[data-menu-open] { overflow: hidden; }
   .creator-support-actions .outline { width: 100%; justify-content: space-between; }
   .creator-support-actions .outline > span:not(.sr-only) { flex: 1; }
   .footer-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
-  .footer-creator span { display: block; margin-top: 4px; }
+  .footer-credits span { display: block; margin-top: 4px; }
   .site-footer .links > a { min-height: 44px; }
   .unassigned-characters .pchar { padding: 12px; }
   .pchar .row button, .bundles .bundle a[role="button"], .bundles .bundle button { min-height: 44px; }

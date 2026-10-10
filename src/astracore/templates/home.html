@@ -29,6 +29,7 @@
     </div>
     <div class="hero-actions"><a href="{{ '/pi' if user else '/auth/login' }}" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a><a href="#preview" class="text-action">Explore it first {{ icon('arrow-right') }}</a></div>
     <p class="hero-assurance">{{ icon('shield-check') }} EVE SSO · Read-only by default</p>
+    <div class="hero-contribute"><p>Help shape AstraCore. Code, documentation, ideas &amp; bug reports are welcome.</p><a class="text-action" href="/project">Contribute to AstraCore {{ icon('arrow-right') }}</a></div>
   </div>
   {% include "_hero_tour.html" %}
   <div class="hero-tour-controls" data-hero-controls hidden>
@@ -83,6 +84,7 @@
     <ul class="operation-list"><li>{{ icon('timer') }}<div><strong>Restart before production stops.</strong><span>See which extractors have stopped or are ending soon.</span></div></li><li>{{ icon('package') }}<div><strong>Collect what’s ready.</strong><span>Find products waiting on launchpads and factories low on inputs.</span></div></li><li>{{ icon('wallet') }}<div><strong>Know how you get paid.</strong><span>Compare selling channels after fees and taxes, and track earned ISK against your active plan.</span></div></li></ul>
   </div>
 </section>
+{% include "_contributors.html" %}
 {% include "_creator.html" %}
 <section class="landing-section" aria-labelledby="questions-title">
   <div class="section-heading"><div><div class="eyebrow">Before you undock</div><h2 id="questions-title">A few things worth knowing.</h2></div></div>

@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from astracore import config, db
 
-from . import accounts, registry, releases, sessions
+from . import accounts, contributors, registry, releases, sessions
 from .auth import bundle_active, missing_required
 from .web import redirect, render
 
@@ -49,7 +49,7 @@ async def home(request: Request, code: str = "", state: str = ""):
     user = _user(request)
     if not user or request.url.path == "/about":
         return render(request, "home.html", page="home", page_title="", modules=registry.MODULES,
-                      members=_member_groups())
+                      members=_member_groups(), contributor_credits=contributors.snapshot())
     p = db.get_profile(user["id"])
     if p and not p["onboarded"]:
         return RedirectResponse("/welcome", status_code=303)
@@ -331,7 +331,8 @@ async def what_we_read(request: Request):
 
 @router.get("/credits", response_class=HTMLResponse)
 async def credits(request: Request):
-    return render(request, "credits.html", page="credits", page_title="Credits")
+    return render(request, "credits.html", page="credits", page_title="Contributors & credits",
+                  contributor_credits=contributors.snapshot())
 
 
 @router.get("/privacy", response_class=HTMLResponse)

@@ -26,6 +26,8 @@ Install the test extras with `python -m pip install -e ".[test]"`. The test fixt
 
 Create a branch from `main`, keep the change small enough to review, and follow the existing Python, vanilla JavaScript and Jinja patterns. Use shared formatting, icons, asset helpers and brand tokens. Keep module-specific behavior in its module. Do not add secrets, hardcoded personal identifiers, real account fixtures or unnecessary dependencies.
 
+Use a short-lived branch named `feat/<topic>`, `fix/<topic>`, `docs/<topic>` or `chore/<topic>`; coding-agent branches use `codex/<topic>`. Outside contributors should open a pull request from their fork. Keep personal editor and agent configuration, local launchers and private reviews out of commits; use `.git/info/exclude` or your global Git ignore file for those local rules.
+
 For a behavior change, add a useful regression test. Verify the affected flow on the project's designated test deployment, including narrow screens where relevant. Do not restart or deploy the shared production instance as part of a contribution. Repository owners' local workflow instructions take precedence over these general development notes.
 
 The CI checks run in isolated GitHub-hosted jobs:
@@ -39,6 +41,10 @@ python scripts/check_release.py
 If you cannot run a check, state that in the pull request; do not report it as passing.
 
 ## Open a pull request
+
+`main` is protected, including for repository administrators. All changes go through a pull request with the branch up to date, resolved review conversations, and successful `Python 3.9`, `Python 3.13`, `Browser helper unit tests` and `Release metadata` checks. Direct pushes, force pushes and deletion of `main` are blocked. Do not skip required checks or change protection settings to merge a failing pull request.
+
+Maintainers merge using squash merge and a Conventional Commit title. GitHub deletes merged branches automatically. There is no mandatory approval count while the project has a sole maintainer; maintainers should obtain another contributor's review when available, especially for authentication, privacy or licensing changes. Revisit the approval requirement when there are multiple active maintainers.
 
 Explain the problem and resulting behavior, link the related issue, and describe validation and any remaining limitations. Use Conventional Commits for commit messages, for example `fix: keep factory restocks within storage capacity`. Include understandable release notes for changes pilots should know about, with implementation details kept separate. See [the release workflow](docs/releases.md).
 

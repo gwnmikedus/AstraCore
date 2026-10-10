@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}"><script src="{{ asset('js/community.js') }}" defer></script>{% endblock %}
+{% block content %}
+<div class="eyebrow">AstraCore / Feedback</div><h1 class="page-title">Share an idea or report a bug</h1>
+<p>Describe what would help or what did not work. You will review the public content before submitting.</p>
+<p><a href="/roadmap">Browse existing issues first</a> to see whether someone has already reported it.</p>
+{% if not user %}<article><h2>Log in to submit</h2><p>Use your AstraCore EVE login. Your character identity will not be included in the public report. Platform access currently requires an invitation; the roadmap and GitHub repository are public.</p><a class="primary-link" href="{{ feedback_login_url }}">{{ icon('key-round') }} Log in for community feedback</a><p class="muted">You can also <a href="{{ github_url }}/issues/new/choose">report directly on GitHub</a>.</p></article>{% else %}
+{% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+{% if not connected %}<p class="flash warn">GitHub is not connected yet. Your confirmed report can be saved here and published once the connection is available.</p>{% endif %}
+<form action="/feedback/preview" method="post" class="community-form" data-feedback-form>
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<label>What would you like to share?<select name="kind" data-feedback-kind><option value="idea"{% if data.kind != 'bug' %} selected{% endif %}>An idea or feature request</option><option value="bug"{% if data.kind == 'bug' %} selected{% endif %}>A bug report</option></select></label>
+<label>Title<input name="title" value="{{ data.title or '' }}" minlength="8" maxlength="160" required placeholder="A short, specific description"></label>
+<label>Problem or idea<textarea name="description" minlength="20" maxlength="6000" rows="6" required placeholder="Explain what happened, or what you would like to be able to do.">{{ data.description or '' }}</textarea></label>
+<div data-bug-fields{% if data.kind != 'bug' %} hidden{% endif %}>
+<label>Steps to reproduce<textarea name="steps" maxlength="3000" rows="4"{% if data.kind == 'bug' %} required{% endif %} placeholder="1. Open… 2. Choose… 3. See…">{{ data.steps or '' }}</textarea></label>
+<label>Expected result<textarea name="expected" maxlength="3000" rows="3"{% if data.kind == 'bug' %} required{% endif %}>{{ data.expected or '' }}</textarea></label>
+<label>Actual result<textarea name="actual" maxlength="3000" rows="3"{% if data.kind == 'bug' %} required{% endif %}>{{ data.actual or '' }}</textarea></label>
+</div>
+<p class="muted">Keep private information out of your text: wallet details, tokens, character identities and sensitive colony locations. We do not attach your EVE data, screenshots or logs automatically. A public GitHub report can be read or copied by anyone.</p>
+<button type="submit">Preview public report {{ icon('arrow-right') }}</button>
+</form>
+{% endif %}{% endblock %}

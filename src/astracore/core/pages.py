@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from astracore import config, db
 
-from . import accounts, registry, sessions
+from . import accounts, registry, releases, sessions
 from .auth import bundle_active, missing_required
 from .web import redirect, render
 
@@ -19,6 +19,17 @@ log = logging.getLogger("astracore")
 router = APIRouter()
 REFRESH_EVERY = 300          # a profile may ask ESI for fresh data at most every 5 minutes
 STALE_AFTER = 3 * 86400
+
+
+@router.get("/project", response_class=HTMLResponse)
+async def project_page(request: Request):
+    return render(request, "project.html", page="project", page_title="Source & contribute")
+
+
+@router.get("/releases", response_class=HTMLResponse)
+async def releases_page(request: Request):
+    return render(request, "releases.html", page="releases", page_title="What’s new",
+                  release_history=releases.history())
 
 
 def _user(request: Request) -> Optional[dict]:

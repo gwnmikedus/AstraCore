@@ -18,6 +18,8 @@ from . import fmt, registry
 from . import eveimg
 from .assets import asset
 from .icons import icon
+from .project import PROJECT
+from .releases import current as current_release
 
 PKG = Path(__file__).resolve().parent.parent
 TEMPLATE_DIRS = [PKG / "templates", PKG / "modules" / "pi" / "templates"]
@@ -46,6 +48,7 @@ def render(request: Request, name: str, *, module_id: Optional[str] = None, stat
     ctx.setdefault("active_nav", request.url.path)
     ctx.update(
         request=request, user=user, module=module, modules=registry.MODULES,
+        project=PROJECT, app_release=current_release(),
         local_mode=not config.PRODUCTION, csrf_token=(sess or {}).get("csrf"),
         nonce=getattr(request.state, "nonce", ""),
         flash=ctx.get("flash") or _flash(request),

@@ -86,15 +86,23 @@ def active_optional(ch: dict) -> List[str]:
 
 # --------------------------------------------------------------------------- routes: start
 @router.get("/auth/login")
-async def login(request: Request, intent: str = "login"):
+async def login(request: Request, intent: str = "login", next: str = ""):
     if not sso.configured():
         return redirect("/", "The EVE application isn't configured for this site yet.", "bad")
     sess = sessions.ensure(request)
     intent = "add" if request.state.user and intent == "add" else "login"
     if request.state.user and intent == "login":
         intent = "add"
-    state = _new_state(sess, intent)
+    destination = next if next in ("/feedback", "/roadmap") else ""
+    state = _new_state(sess, intent, {"next": destination})
     return RedirectResponse(sso.authorize_url(state, registry.signin_scopes()), status_code=303)
+
+
+@router.get("/auth/community")
+async def community_login(request: Request):
+    if request.state.user:
+        return RedirectResponse("/feedback", status_code=303)
+    return await login(request, next="/feedback")
 
 
 @router.get("/auth/upgrade/{character_id}")
@@ -173,6 +181,8 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
     cid, name = login["character_id"], login["name"]
     user = request.state.user
     intent = st["intent"]
+    destination = st["data"].get("next")
+    destination = destination if destination in ("/feedback", "/roadmap") else ""
     existing = db.get_character(cid)
 
     # Same character id, different owner hash: it changed hands. The old profile loses it.
@@ -220,7 +230,7 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
             db.set_character(cid, status="ok", name=name, owner_hash=login["owner"] or existing.get("owner_hash"))
             sessions.sign_in(request, existing["profile_id"])
             problem = await _refresh_character(cid)
-            return redirect("/", f"Signed in as {name}." + (f" ({problem})" if problem else ""))
+            return redirect(destination or "/", f"Signed in as {name}." + (f" ({problem})" if problem else ""))
         aff = await _affiliation(cid)
         if not accounts.gate_allows(cid, aff.get("corporation_id"), aff.get("alliance_id")):
             await sso.revoke(login["refresh_token"])
@@ -231,7 +241,7 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
         await _store_token(login)
         sessions.sign_in(request, pid)
         await _refresh_character(cid)
-        return redirect("/welcome")
+        return redirect(destination or "/welcome")
 
     # ---- signed in: add a character
     if existing and existing["profile_id"] == user["id"]:

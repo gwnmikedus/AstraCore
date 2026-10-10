@@ -1,9 +1,10 @@
 """The Astracore web app: core pages + every registered module."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from logging.handlers import RotatingFileHandler
 
 from fastapi import Depends, FastAPI, Request
@@ -12,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import config, db
-from .core import auth, pages, sessions
+from .core import auth, community, pages, releases, sessions
 from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
 from .core.web import PKG, redirect, render
 from .modules.pi import module as _pi_module  # noqa: F401  (registers AstracorePI)
@@ -85,9 +86,16 @@ def create_app() -> FastAPI:
         db.init()
         sessions.purge_expired()
         log.info("Astracore started in %s mode on %s", config.MODE, config.PUBLIC_URL)
-        yield
+        sync_task = asyncio.create_task(community.run_sync_loop())
+        try:
+            yield
+        finally:
+            sync_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await sync_task
 
-    app = FastAPI(title="AstraCore", debug=debug, dependencies=[Depends(sessions.csrf_protect)],
+    app = FastAPI(title="AstraCore", version=releases.current()["version"], debug=debug,
+                  dependencies=[Depends(sessions.csrf_protect)],
                   docs_url="/docs" if debug else None, redoc_url=None, lifespan=lifespan,
                   openapi_url="/openapi.json" if debug else None)
     app.add_middleware(sessions.SessionMiddleware)
@@ -141,6 +149,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth.router)
     app.include_router(pages.router)
+    app.include_router(community.router)
     app.include_router(pi_router)
     app.include_router(pi_legacy)
     return app

@@ -1,0 +1,39 @@
+name: Suggest an idea
+description: Describe a useful improvement for capsuleers.
+title: "[Idea]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggestions are public and start under review. They are not automatically accepted roadmap commitments.
+        Please search existing issues first and avoid sharing private character or account details.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe who is affected and what they are trying to do.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Suggested improvement
+      description: Explain the behavior you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Related tools, public examples, mockups or links to similar requests.
+  - type: checkboxes
+    id: public_report
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing ideas and removed secrets and private account data from this public suggestion.
+          required: true

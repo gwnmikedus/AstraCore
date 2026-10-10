@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/gwnmikedus/AstraCore/security/advisories/new
+    about: Keep security details and private pilot data out of public issues.
+  - name: Contribution guide
+    url: https://github.com/gwnmikedus/AstraCore/blob/main/CONTRIBUTING.md
+    about: Setup, licensing, validation and pull request guidance.

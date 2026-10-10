@@ -1,5 +1,8 @@
+import asyncio
 import os
 import tempfile
+
+import pytest
 
 # Isolated data and env for tests - never touch the real data/ directory or the real .env files.
 _tmp = tempfile.mkdtemp(prefix="astracore_test_")
@@ -19,3 +22,16 @@ from astracore import db  # noqa: E402
 db.init()
 
 import astracore.modules.pi.module  # noqa: E402,F401  (registers AstracorePI)
+
+
+@pytest.fixture(autouse=True)
+def isolated_community_worker(monkeypatch):
+    from astracore.core import community
+
+    async def idle():
+        await asyncio.Event().wait()
+
+    # API behavior is exercised explicitly with mocked transports, never a live repository.
+    monkeypatch.setattr(community, "run_sync_loop", idle)
+    for field in ("APP_ID", "INSTALLATION_ID", "PRIVATE_KEY_PATH", "WEBHOOK_SECRET", "TOKEN"):
+        monkeypatch.setenv(f"ASTRACORE_GITHUB_{field}", "")

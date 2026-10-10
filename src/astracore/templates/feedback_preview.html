@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
+{% block content %}
+<div class="eyebrow">AstraCore / Review before sharing</div><h1 class="page-title">Preview your public report</h1>
+<p>This title and report text will be published on <a href="{{ github_url }}/issues">AstraCore’s public GitHub issue tracker</a>. Your account identity is used privately to track your submission.</p>
+<article><header><strong>{{ 'Bug report' if data.kind == 'bug' else 'Idea' }}</strong></header><h2>{{ data.title }}</h2><pre class="community-public-body">{{ body }}</pre></article>
+<form method="post" action="/feedback" class="community-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{% for field in ['kind','title','description','steps','expected','actual'] %}<input type="hidden" name="{{ field }}" value="{{ data[field] }}">{% endfor %}
+<input type="hidden" name="version" value="{{ version }}"><input type="hidden" name="submission_key" value="{{ submission_key }}"><input type="hidden" name="preview_at" value="{{ preview_at }}"><input type="hidden" name="preview_signature" value="{{ preview_signature }}">
+<label class="community-consent"><input type="checkbox" name="public_confirm" value="yes" required><span>I have checked the preview and want this content published publicly. I understand that deleting my AstraCore profile does not remove an already published GitHub issue.</span></label>
+{% if not connected %}<p class="muted">Your report will wait privately until GitHub is connected, then it will be published using this confirmed content. You can withdraw it while it is still queued.</p>{% endif %}
+<button type="submit">Confirm & submit</button>
+</form>
+<form method="post" action="/feedback/edit" class="community-edit-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% for field in ['kind','title','description','steps','expected','actual'] %}<input type="hidden" name="{{ field }}" value="{{ data[field] }}">{% endfor %}<button class="outline secondary" type="submit">Edit this report</button></form>
+{% endblock %}

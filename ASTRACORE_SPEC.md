@@ -330,7 +330,7 @@ New order — lifestyle constraints first, then how to produce, then how to sell
 ### 7.5 Operate
 From the walkthrough (Mike's current data):
 - Unresolved structure: "Location 1045667232374" — show "Unknown structure (no docking access)" + system name if known; never a raw ID.
-- The same advice repeats per hangar ("VOC doesn't pick up here…", "Let Han Nin Lo sell this… 4.2% vs 7.5%"). Aggregate:
+- The same advice repeats per hangar ("VOC doesn't pick up here…", "Let your lower-tax character sell this… 4.2% vs 7.5%"). Aggregate:
   one "Consolidate & sell" card with total m³ and value, the best seller once, and the per-location list underneath.
 - A 210,138 m³ stack (Konora, 614.6M) gets "haul it to Jita yourself" — add the size reality check (freighter load, number of trips, or the
   VOC pickup alternative with its courier fee) instead of a one-liner.

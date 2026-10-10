@@ -11,16 +11,23 @@
       related to PI, standings).</li>
     <li>EVE login tokens, <strong>encrypted</strong>.</li>
     <li>For each signed-in browser: when it signed in and was last seen, its user agent and the first half of its IP address.</li>
+    <li>If you submit feedback: the text you confirmed, its submission time and delivery status, linked privately to your profile.</li>
   </ul>
   <h3>Where</h3>
   <p>On a single machine run by the person who operates this site (it is online only while that machine runs it), in a database
-    that only this site reads. Nothing is sent anywhere else except the requests to EVE's own servers (ESI and EVE SSO) and the public
-    VOC Hauling site.</p>
+    that only this site reads. EVE data is requested from EVE's servers (ESI and EVE SSO), and courier tariffs from the public
+    VOC Hauling site. Community issue status is read from GitHub.</p>
+  <h3>Public feedback on GitHub</h3>
+  <p>When you submit an idea or bug report, you first preview the content and explicitly confirm public publication.
+    The confirmed title, report text and app version are sent to AstraCore's public GitHub issue tracker. Anyone can read or copy
+    them. We do not automatically include your character identity, EVE tokens, wallets, assets, colony locations, plans or logs.</p>
+  <p>Queued reports remain private to you and the administrator until GitHub confirms publication. You can withdraw a report while
+    it is still queued. A report whose delivery is unconfirmed may already exist on GitHub; contact the maintainer before removal.</p>
   <h3>What we don't do</h3>
   <ul>
     <li>No tracking, no analytics, no advertising, no third-party scripts.</li>
-    <li>No selling or sharing of data.</li>
-    <li>One cookie, <code>ac_session</code>, to keep you signed in. A theme choice is kept in your browser.</li>
+    <li>No selling of data. Public feedback is shared only after your explicit confirmation.</li>
+    <li>One cookie, <code>ac_session</code>, to keep you signed in. Your theme choice and preference for showing technical release details are kept in your browser.</li>
   </ul>
   <h3>How to delete it</h3>
   <ul>
@@ -28,6 +35,8 @@
     <li><strong>Only a module's data:</strong> Profile → Danger zone → Reset {% for m in modules %}{{ m.name }}{% endfor %}.</li>
     <li><strong>Everything:</strong> Profile → Danger zone → Reset profile (download your data first if you want it).</li>
     <li>You can also revoke AstraCore on EVE's third-party applications page (account management on eveonline.com).</li>
+    <li>Resetting your profile deletes your private feedback ownership and queued reports here, but does not remove an issue already
+      published on GitHub. Contact the maintainer about public issue content; public copies may persist elsewhere.</li>
   </ul>
 </div>
 {% endblock %}

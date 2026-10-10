@@ -1,0 +1,53 @@
+name: Report a bug
+description: Tell us what went wrong and how to reproduce it.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This report is public. Remove tokens, credentials, private logs, wallets, inventory and colony locations. Use fake or anonymized data.
+        For a security vulnerability, use [private reporting](https://github.com/gwnmikedus/AstraCore/security/advisories/new).
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Copy the version shown in the footer, or provide a commit for your own deployment.
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the page and relevant settings using an anonymized example.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: "Chrome on desktop, Safari on iPhone, etc."
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Optional redacted screenshot, data timestamp or relevant issue link. Never upload your database or environment file.
+  - type: checkboxes
+    id: public_report
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and removed secrets and private account data from this public report.
+          required: true

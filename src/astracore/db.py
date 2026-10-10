@@ -242,7 +242,13 @@ def _migrate_v3(c: sqlite3.Connection) -> None:
         c.execute("UPDATE characters SET bundle_prefs_json=? WHERE character_id=?", (json.dumps(prefs), r["character_id"]))
 
 
-MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3]
+def _migrate_v4(c: sqlite3.Connection) -> None:
+    """Community reports, reliable delivery and the public GitHub issue cache."""
+    from .core.community import SCHEMA
+    c.executescript(SCHEMA)
+
+
+MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4]
 
 
 def adopt_legacy_db() -> bool:

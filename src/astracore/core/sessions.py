@@ -213,6 +213,9 @@ async def csrf_protect(request: Request) -> None:
     """App-wide dependency: every POST (form or fetch) must carry the session's CSRF token."""
     if request.method in SAFE_METHODS:
         return
+    if request.method == "POST" and request.url.path == "/api/community/github/webhook":
+        # This machine-to-machine endpoint validates GitHub's signed raw body instead.
+        return
     sess = request.state.session
     sent = request.headers.get("x-csrf-token")
     if not sent:

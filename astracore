@@ -74,6 +74,12 @@ cmd_start() {
   "$PY" -m astracore.ops backup
   "$PY" -m astracore.ops migrate
 
+  unset ASTRACORE_COMMIT
+  if [[ -z "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]]; then
+    ASTRACORE_COMMIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null) || ASTRACORE_COMMIT=""
+    export ASTRACORE_COMMIT
+  fi
+
   say "Starting Astracore ($mode)…"
   nohup "$PY" -m astracore >>"$LOGS/app-$mode.out" 2>&1 &
   echo $! >"$RUN/app.pid"

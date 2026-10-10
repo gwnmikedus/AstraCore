@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="prose">
+  <div class="eyebrow">AstraCore / Release history</div>
+  <h1 class="page-title">What’s new</h1>
+  <p>This site is running <a href="#release-{{ app_release.version }}">AstraCore {{ app_release.version }}</a>. Each update explains what it means for your operation.</p>
+  <div id="release-detail-control" hidden>
+    <label for="release-technical"><input type="checkbox" id="release-technical" role="switch" aria-controls="release-history" aria-describedby="release-detail-help"> Show technical details</label>
+    <p class="muted" id="release-detail-help">Includes implementation notes and development links. Your choice is remembered in this browser.</p>
+  </div>
+  <div id="release-history">
+    {% for release in release_history %}
+    <article class="box" id="release-{{ release.version }}" aria-labelledby="release-title-{{ loop.index }}">
+      <div class="eyebrow">Version {{ release.version }}{% if release.date %} · <time datetime="{{ release.date }}">{{ release.date }}</time>{% else %} · Historical baseline · date not recorded{% endif %}{% if release.version == app_release.version %} · Running here{% endif %}</div>
+      <h2 id="release-title-{{ loop.index }}">{{ release.title }}</h2>
+      {% if release.changes %}<ul>{% for change in release.changes %}<li>{{ change }}</li>{% endfor %}</ul>{% else %}<p class="muted">Maintenance update. Technical details are available below.</p>{% endif %}
+      {% if release.limitations %}
+      <h3>Good to know</h3>
+      <ul>{% for limitation in release.limitations %}<li>{{ limitation }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if release.technical or release.references or (release.version == app_release.version and app_release.commit) %}
+      <details class="release-technical-details" data-release-technical>
+        <summary>Technical details for {{ release.version }}</summary>
+        <div>
+          {% if release.technical %}<ul>{% for note in release.technical %}<li>{{ note }}</li>{% endfor %}</ul>{% endif %}
+          {% if release.references %}<ul>{% for reference in release.references %}<li><a href="{{ reference.url }}" target="_blank" rel="noopener">{{ reference.label }}</a></li>{% endfor %}</ul>{% endif %}
+          {% if release.version == app_release.version and app_release.commit %}<p>Running commit: <a href="{{ app_release.commit_url }}" target="_blank" rel="noopener"><code>{{ app_release.commit[:7] }}</code></a>.</p>{% endif %}
+          {% if release.kind != 'baseline' %}<p><a href="{{ project.releases_url }}" target="_blank" rel="noopener">GitHub releases</a></p>{% endif %}
+        </div>
+      </details>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ nonce }}">
+(function () {
+  const control = document.getElementById('release-detail-control');
+  const toggle = document.getElementById('release-technical');
+  const details = document.querySelectorAll('[data-release-technical]');
+  const key = 'ac_release_technical';
+  let enabled = false;
+  try { enabled = localStorage.getItem(key) === 'true'; } catch (error) {}
+  function apply() {
+    details.forEach(function (detail) {
+      detail.hidden = !toggle.checked;
+      detail.open = toggle.checked;
+    });
+  }
+  toggle.checked = enabled;
+  apply();
+  control.hidden = false;
+  toggle.addEventListener('change', function () {
+    apply();
+    try { localStorage.setItem(key, String(toggle.checked)); } catch (error) {}
+  });
+})();
+</script>
+{% endblock %}

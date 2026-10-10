@@ -12,7 +12,7 @@ from typing import Any, Optional
 def _f(v: Any) -> Optional[float]:
     try:
         x = float(v)
-    except (TypeError, ValueError):
+    except Exception:  # noqa: BLE001 - None, '', jinja Undefined, junk: all "no number"
         return None
     return x if x == x else None   # NaN -> None
 

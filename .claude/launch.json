@@ -4,8 +4,14 @@
     {
       "name": "astracore",
       "runtimeExecutable": "/Users/mikehoppezak/Eve/.venv/bin/python",
-      "runtimeArgs": ["-m", "astracore"],
-      "port": 8765
+      "runtimeArgs": [
+        "-m",
+        "astracore"
+      ],
+      "port": 8765,
+      "env": {
+        "ASTRACORE_RELOAD": "1"
+      }
     }
   ]
 }

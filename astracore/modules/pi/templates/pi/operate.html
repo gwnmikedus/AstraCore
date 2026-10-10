@@ -3,12 +3,12 @@
 <hgroup style="display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap">
   <div><h2 style="margin-bottom:.2rem">Operate</h2>
     <p class="muted" style="margin:0">From planet to liquid ISK. Data from ESI, last refreshed {{ synced|ago }}.</p></div>
-  <form method="post" action="/characters/sync" class="inline"><input type="hidden" name="back" value="/operate">
-    <button>{{ icon('refresh-cw') }} Refresh from ESI</button></form>
+  <form method="post" action="/profile/refresh" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="back" value="/pi/operate"><button>{{ icon('refresh-cw') }} Refresh from ESI</button></form>
 </hgroup>
 
-{% if missing %}<div class="flash">Log in once more with {{ missing|join(', ') }} (<a href="/characters">Characters</a>) so the tool can read
-  assets, contracts, orders and wallet. Until then only colonies are tracked.</div>{% endif %}
+{% if missing %}<div class="flash warn">{{ missing|join(', ') }} {{ 'needs' if missing|length == 1 else 'need' }} one more EVE login
+  (<a href="/profile">profile</a>) so AstracorePI can read assets, contracts, orders and wallet. Until then only their colonies are tracked.</div>{% endif %}
 
 <div class="flow">
   <span class="st">{{ icon('orbit') }} On planets: <b>{{ status.pickups|map(attribute='m3')|sum|m3 }}</b> ready</span> →
@@ -19,17 +19,42 @@
   <span class="st">{{ icon('coins') }} Earned {{ days }}d: <b>{{ earned.net|isk }}</b></span>
 </div>
 
-{% if progress %}
 <div class="box">
-  <h5>Build progress vs. your plan</h5>
-  {% if progress.total %}
+  <h5>{{ icon('layers') }} Your plan</h5>
+  {% if active %}
+  <p style="margin:.2rem 0"><strong>{{ active.label }}</strong> <span class="muted">· saved {{ active.created|ago }}
+    · {{ (plan.totals.isk_per_day if plan and plan.totals else 0)|isk }} ISK/day · drop-off {{ plan.hub if plan else '–' }}</span></p>
+  {% if progress and progress.total %}
   <progress value="{{ progress.done }}" max="{{ progress.total }}"></progress>
   <p class="muted">{{ progress.done }} of {{ progress.total }} planned colonies are built as planned ·
     {{ progress.new }} to build · {{ progress.rebuild }} to rebuild · {{ progress.removals }} to remove.
-    {% if progress.todo %}<a href="/planner">Open the plan</a> · <a href="/export/templates.zip">download its templates</a>{% endif %}</p>
-  {% else %}<p class="empty">No plan yet - make one in step 3.</p>{% endif %}
+    {% if progress.todo %}<a href="/pi/export/templates.zip?plan={{ active.id }}">Download its templates</a>{% endif %}</p>
+  {% endif %}
+  {% if waypoints and plan %}
+  <div class="toolbar">
+    {% for ch in plan.characters if ch.route %}
+      {% for w in waypoints if w.character_id == ch.character_id %}
+      <button class="outline send-route" data-character="{{ w.character_id }}" data-systems='{{ ch.route.order|tojson }}'>
+        {{ icon('send') }} Send {{ ch.name }}'s pickup route to EVE</button>
+      {% endfor %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if plans|length > 1 %}
+  <details><summary class="muted">Other saved plans ({{ plans|length - 1 }})</summary>
+    {% for p in plans if not p.active %}
+    <form method="post" action="/pi/plans/{{ p.id }}/activate" class="charrow">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <span class="grow">{{ p.label }} <span class="muted">· {{ p.created|ago }} · {{ (p.totals.isk_per_day or 0)|isk }}/day</span></span>
+      <button class="outline">Set as active plan</button>
+    </form>
+    {% endfor %}
+  </details>
+  {% endif %}
+  {% else %}
+  <p class="empty">No active plan yet. <a href="/pi/plan">Make a plan</a> and Operate compares what you've built against it.</p>
+  {% endif %}
 </div>
-{% endif %}
 
 <div class="box">
   <h5>{{ icon('timer') }} Extractors</h5>
@@ -37,7 +62,7 @@
   <div class="scroll"><table><thead><tr><th>Character</th><th>Planet</th><th>Extracting</th><th>Heads</th><th>Time left</th></tr></thead><tbody>
   {% for e in status.extractors %}
   <tr><td>{{ e.character }}</td><td>{{ e.planet }} <span class="muted">{{ e.system }}</span></td><td>{{ e.product }}</td><td>{{ e.heads }}</td>
-      <td class="st-{{ e.state }}">{% if e.state == 'expired' %}<b>expired - restart</b>{% elif e.hours_left is none %}?{% else %}{{ e.hours_left|hours }}{% endif %}</td></tr>
+      <td class="st-{{ e.state }}">{% if e.state == 'expired' %}<b>stopped - restart</b>{% elif e.hours_left is none %}?{% else %}{{ e.hours_left|hours }}{% endif %}</td></tr>
   {% endfor %}</tbody></table></div>
   {% else %}<p class="empty">No extractors running yet. Place the templates from your plan, then refresh.</p>{% endif %}
 </div>
@@ -47,8 +72,8 @@
     <h5>{{ icon('package') }} Ready to pick up from planets</h5>
     {% for p in status.pickups %}
       <p style="margin:.2rem 0"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
-      <span class="muted">{% for k, v in p.items.items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</span></p>
-    {% else %}<p class="empty">Nothing waiting on launchpads/storage.</p>{% endfor %}
+      <span class="muted">{% for k, v in p['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</span></p>
+    {% else %}<p class="empty">Nothing waiting on launchpads or storage.</p>{% endfor %}
   </div>
   <div class="box">
     <h5>{{ icon('factory') }} Factories that need inputs</h5>
@@ -60,39 +85,69 @@
 </div>
 
 <div class="box">
-  <h5>{{ icon('store') }} Products in your hangars → what to do with them</h5>
-  {% for g in stock %}
-  <div style="margin-bottom:1rem">
-    <p style="margin:.2rem 0"><b>{{ g.character }}</b> · {{ g.location }} <span class="muted">{{ g.m3|m3 }} · Jita buy value {{ g.jita_value|isk }}</span></p>
-    {% for b in g.plan.batches %}
-    <div style="margin-left:1rem;margin-bottom:.6rem">
-      <b>{{ b.label }}</b> <span class="muted">{{ b.m3|m3 }} · {% if b.hold %}hold{% else %}≈ {{ b.net|isk }} net{% endif %}</span>
-      {% if b.note %}<div class="muted warn">{{ b.note }}</div>{% endif %}
-      {% if b.channel == 'buyback' %}
-        <div class="muted">1. Copy this list → paste at <a href="{{ buyback_site }}" target="_blank">VOC buyback</a> (location {{ g.system }}) → Appraise.
-          2. Create an Item Exchange contract to <b>United East-Indian Compagnie</b> with the reference it shows.</div>
-        <textarea class="paste" readonly>{{ b.paste }}</textarea><button class="copy outline" data-copy="{{ b.paste }}">Copy list</button>
-      {% elif b.contract %}
-        <div class="kv muted">
-          <span>Type</span><span>Courier · Private · <b>{{ b.contract.assign_to }}</b></span>
-          <span>Route</span><span>{{ b.contract.from }} → {{ b.contract.to }}</span>
-          <span>Reward</span><span><b>{{ b.contract.reward|num }}</b> <button class="copy outline" data-copy="{{ b.contract.reward }}">copy</button></span>
-          <span>Collateral</span><span><b>{{ b.contract.collateral|num }}</b> <button class="copy outline" data-copy="{{ b.contract.collateral }}">copy</button></span>
-          <span>Expiration / days</span><span>{{ b.contract.expiration }} / {{ b.contract.completion }}</span>
-        </div>
-        {% if b.contract.move_first %}<div class="muted warn">{{ b.contract.move_first }}</div>{% endif %}
-        <div class="muted">Then sell in {{ b.contract.to.split(' ')[0] }}: {{ 'list sell orders' if 'sell' in b.channel else 'sell into buy orders' }}.</div>
-      {% elif b.channel.endswith('_self') %}
-        <div class="muted">Sell in {{ 'Jita 4-4' if b.channel.startswith('jita') else 'Amarr VIII' }} into buy orders: {% for k, v in b['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
-      {% else %}
-        <div class="muted">Sell directly{{ ' (list sell orders)' if 'sell' in b.channel else ' into buy orders' }}: {% for k, v in b['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
-      {% endif %}
+  <h5>{{ icon('store') }} Consolidate &amp; sell</h5>
+  {% if consolidated %}
+  {% set c = consolidated %}
+  <div class="cards">
+    <div class="card"><div class="v">{{ c.total_m3|m3 }}</div><div class="l">PI products in {{ c.locations }} hangar{{ 's' if c.locations != 1 }}</div></div>
+    <div class="card"><div class="v">{{ c.total_value|isk }}</div><div class="l">Jita buy value</div></div>
+    <div class="card"><div class="v ok">{{ c.net|isk }}</div><div class="l">net after fees and taxes</div></div>
+  </div>
+  {% if c.seller %}
+  <p>{{ icon('lightbulb') }} <strong>Sell with {{ c.seller.name }}</strong> ({{ c.seller.sales_tax_pct|pct(2) }} sales tax).
+    {% if c.seller_gain %}Hand over what {{ c.handover|join(', ') }} {{ 'holds' if c.handover|length == 1 else 'hold' }} with a 0 ISK item
+    exchange contract first: about <strong>{{ c.seller_gain|isk }}</strong> more than selling it on {{ 'that character' if c.handover|length == 1 else 'those characters' }}.{% endif %}</p>
+  {% endif %}
+  <ul>
+  {% for a in c.advice %}
+    <li><strong>{{ a.label }}</strong> <span class="muted">· {{ a.m3|m3 }} · {% if a.hold and not a.net %}hold{% else %}≈ {{ a.net|isk }} net{% endif %}</span><br>
+      <span class="muted">{{ a.where|join(' · ') }}</span>
+      {% if a.note %}<br><span class="muted warn">{{ a.note }}</span>{% endif %}</li>
+  {% endfor %}
+  </ul>
+  {% for r in c.reality %}
+  <div class="warnbox reality">
+    <strong>{{ r.m3|m3 }} in {{ r.where }}{% if r.system %} ({{ r.system }}){% endif %}</strong>, worth {{ r.value|isk }} at Jita buy, has to reach {{ r.dest }}.
+    That is {% for t in r.trips %}{{ t.trips }} {{ t.ship }} trip{{ 's' if t.trips != 1 }} (≈ {{ t.capacity|m3 }} each){% if not loop.last %} or {% endif %}{% endfor %}.
+    {% if r.voc %}Alternative: move it to the VOC pickup in {{ r.voc.origin }} ({{ r.voc.jumps }} jumps) and let VOC courier it:
+      about <strong>{{ r.voc.fee|isk }}</strong> in fees{% if r.voc.contracts > 1 %}, split into {{ r.voc.contracts }} contracts{% endif %}.
+    {% else %}VOC has no pickup within reach of this hangar.{% endif %}
+  </div>
+  {% endfor %}
+  {% if c.unsellable %}<p class="muted warn">No enabled way to sell: {{ c.unsellable|join(', ') }}. Enable more selling options in the plan.</p>{% endif %}
+
+  <details>
+    <summary>Per location: paste lists and contract values</summary>
+    {% for g in stock %}
+    <div style="margin:.8rem 0 1rem">
+      <p style="margin:.2rem 0"><b>{{ g.character }}</b> · {{ g.location }}{% if g.system %} <span class="muted">{{ g.system }}</span>{% endif %}
+        <span class="muted">· {{ g.m3|m3 }} · Jita buy value {{ g.jita_value|isk }}</span></p>
+      {% for b in g.plan.batches %}
+      <div style="margin-left:1rem;margin-bottom:.6rem">
+        <b>{{ b.label }}</b> <span class="muted">{{ b.m3|m3 }} · {% if b.hold %}hold{% else %}≈ {{ b.net|isk }} net{% endif %}</span>
+        {% if b.channel == 'buyback' %}
+          <div class="muted">1. Copy this list, paste it at <a href="{{ buyback_site }}" target="_blank" rel="noopener">VOC buyback</a> (location {{ g.system }}), Appraise.
+            2. Create an Item Exchange contract to <b>United East-Indian Compagnie</b> with the reference it shows.</div>
+          <textarea class="paste" readonly aria-label="Paste list">{{ b.paste }}</textarea><button class="copy outline" data-copy="{{ b.paste }}">Copy list</button>
+        {% elif b.contract %}
+          <div class="kv muted">
+            <span>Type</span><span>Courier · Private · <b>{{ b.contract.assign_to }}</b></span>
+            <span>Route</span><span>{{ b.contract.from }} → {{ b.contract.to }}</span>
+            <span>Reward</span><span><b>{{ b.contract.reward|num }}</b> <button class="copy outline" data-copy="{{ b.contract.reward }}">copy</button></span>
+            <span>Collateral</span><span><b>{{ b.contract.collateral|num }}</b> <button class="copy outline" data-copy="{{ b.contract.collateral }}">copy</button></span>
+            <span>Expiration / days</span><span>{{ b.contract.expiration }} / {{ b.contract.completion }}</span>
+          </div>
+          {% if b.contract.move_first %}<div class="muted warn">{{ b.contract.move_first }}</div>{% endif %}
+        {% elif b.hold %}<div class="muted">{{ b.note }}</div>
+        {% else %}
+          <div class="muted">{% for k, v in b['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
     </div>
     {% endfor %}
-    {% if g.plan.seller_tip %}<p class="muted ok" style="margin-left:1rem">{{ icon('lightbulb') }} {{ g.plan.seller_tip }}</p>{% endif %}
-    {% if g.plan.unsellable %}<p class="muted warn">No enabled way to sell: {{ g.plan.unsellable|join(', ') }}</p>{% endif %}
-  </div>
-  {% else %}<p class="empty">No PI products in station hangars{{ ' (or assets not readable yet)' if missing else '' }}.</p>{% endfor %}
+  </details>
+  {% else %}<p class="empty">No PI products in station hangars{{ ' (or assets not readable yet)' if missing else '' }}.</p>{% endif %}
 </div>
 
 <div class="box">
@@ -101,16 +156,16 @@
     <div>
       <b>VOC courier contracts</b>
       {% for c in pipe.courier %}
-      <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status }}</span> · {{ c.character }} · {{ c.from }} → {{ c.to }}
+      <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.from }} → {{ c.to }}
         · {{ c.volume|m3 }} · collateral {{ c.collateral|isk }} · reward {{ c.reward|isk }}</p>
-      {% else %}<p class="empty">None.</p>{% endfor %}
+      {% else %}<p class="empty">None open.</p>{% endfor %}
     </div>
     <div>
       <b>VOC buyback contracts</b>
       {% for c in pipe.buyback %}
-      <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status }}</span> · {{ c.character }} · {{ c.price|isk }}
-        · {% for k, v in c['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if c.other_items %} <span class="muted">+ {{ c.other_items }} non-PI item(s)</span>{% endif %}</p>
-      {% else %}<p class="empty">None.</p>{% endfor %}
+      <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.price|isk }}
+        · {% for k, v in c['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if c.other_items %} <span class="muted">+ {{ c.other_items }} other item{{ 's' if c.other_items != 1 }}</span>{% endif %}</p>
+      {% else %}<p class="empty">None open.</p>{% endfor %}
     </div>
   </div>
   {% if pipe.done %}
@@ -133,15 +188,25 @@
 </div>
 
 <div class="box">
-  <h5>{{ icon('wallet') }} ISK that actually came in <span class="muted">· last <a href="?days=7" {{ 'aria-current=page' if days == 7 }}>7</a> / <a href="?days=30">30</a> days</span></h5>
+  <h5>{{ icon('wallet') }} ISK that actually came in <span class="muted">· last <a href="?days=7" {{ 'aria-current=page' if days == 7 }}>7</a> / <a href="?days=30" {{ 'aria-current=page' if days == 30 }}>30</a> days</span></h5>
   <div class="cards">
     <div class="card"><div class="v">{{ earned.market_sales|isk }}</div><div class="l">market sales (PI)</div></div>
     <div class="card"><div class="v">{{ earned.buyback|isk }}</div><div class="l">VOC buyback payouts</div></div>
     <div class="card"><div class="v">{{ (-earned.courier_costs)|isk }}</div><div class="l">VOC courier rewards paid</div></div>
     <div class="card"><div class="v">{{ (-earned.taxes)|isk }}</div><div class="l">POCO, sales &amp; broker taxes</div></div>
     <div class="card"><div class="v {{ 'ok' if earned.net > 0 else '' }}">{{ earned.net|isk }}</div><div class="l">net · {{ earned.net_per_day|isk }}/day</div></div>
-    <div class="card"><div class="v">{{ (plan.totals.isk_per_day if plan and plan.totals else 0)|isk }}</div><div class="l">plan expects / day</div></div>
+    <div class="card"><div class="v">{{ (plan.totals.isk_per_day if plan and plan.totals else none)|isk }}</div><div class="l">active plan expects / day</div></div>
     <div class="card"><div class="v">{{ earned.balance|isk }}</div><div class="l">wallet balance (all characters)</div></div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ nonce }}">
+document.querySelectorAll('.send-route').forEach(b => b.onclick = async () => {
+  const t = b.innerHTML; b.disabled = true;
+  const r = await AC.post('/pi/api/waypoints', {character_id: +b.dataset.character, systems: JSON.parse(b.dataset.systems)});
+  b.innerHTML = r.ok ? `Sent ${r.sent} waypoints to ${AC.esc(r.character)}` : AC.esc(r.error || 'Failed');
+  setTimeout(() => { b.innerHTML = t; b.disabled = false; }, 4000);
+});
+</script>
 {% endblock %}

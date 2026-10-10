@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="prose">
+  <h2>What we read from your characters</h2>
+  <p>Signing in with EVE asks for no permissions at all: it only tells us which character you are. Each module asks for a set of
+    read permissions it needs to work ("required"), and you can switch on extras per character ("optional").
+    You see EVE's own list of permissions every time you log in.</p>
+  <p><strong>We never write to your account, except: setting waypoints if you enable "Send routes to your EVE client".</strong></p>
+  {% for m in modules %}
+  <h3><img src="/{{ m.icon }}" alt="" width="24" height="24" style="vertical-align:-5px"> {{ m.name }}</h3>
+  {% for b in m.bundles %}
+  <h4>{{ b.title }} <span class="pill">{{ 'required' if b is sameas m.required_bundle else 'optional, off by default' }}</span>
+    {% if b.writes %}<span class="pill warn">writes</span>{% endif %}</h4>
+  <p>{{ b.why }}</p>
+  <div class="scroll"><table class="scopes-table">
+    <thead><tr><th>EVE permission</th><th>What it's used for</th></tr></thead>
+    <tbody>{% for sc in b.scopes %}<tr><td>{{ sc }}</td><td>{{ scope_text.get(sc, '') }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endfor %}
+  {% endfor %}
+  <h3>Everything else</h3>
+  <p>Universe data (systems, planets, sovereignty), market prices and the VOC Hauling tariff come from public sources and are
+    shared by everyone. Tokens are stored encrypted. See <a href="/privacy">Privacy</a> for what is stored and how to delete it.</p>
+  <p>You can revoke Astracore at any time on EVE's third-party applications page (account management on eveonline.com), or remove a
+    character on your profile page, which revokes the login for you.</p>
+</div>
+{% endblock %}

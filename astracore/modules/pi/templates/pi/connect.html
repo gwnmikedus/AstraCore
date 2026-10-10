@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="prose">
+  <h2>Connect your characters to AstracorePI</h2>
+  <p>AstracorePI reads your colonies, PI skills, hangars, contracts, sell orders and wallet (read-only) to plan and track
+    your Planetary Interaction. That takes one EVE login per character with these permissions:</p>
+  <ul>{% for sc in bundle.scopes %}<li><code>{{ sc }}</code></li>{% endfor %}</ul>
+  <p class="muted">{{ bundle.why }} <a href="/what-we-read">What we read, in plain words</a>.</p>
+  {% if chars %}
+  <h4>Your characters</h4>
+  {% for c in chars %}
+  <div class="charrow">
+    <img src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64" alt="">
+    <span class="grow"><strong>{{ c.name }}</strong></span>
+    <a role="button" class="outline" href="/auth/upgrade/{{ c.character_id }}">Log in as {{ c.name }}</a>
+  </div>
+  {% endfor %}
+  {% endif %}
+  <p><a role="button" href="/auth/login?intent=add">{{ icon('plus') }} Add a character</a></p>
+</div>
+{% endblock %}

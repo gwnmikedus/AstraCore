@@ -57,8 +57,10 @@ async def _safe(coro, default):
 
 async def resolve_locations(esi: ESIClient, token: str, ids: List[int]) -> Dict[int, dict]:
     """Station / structure id -> {name, system_id, system}. Cached across characters."""
-    known = {int(k): v for k, v in (db.kv_get(LOCATIONS_KEY) or {}).items()}
-    todo = [i for i in set(ids) if i not in known]
+    known = locations()
+    # unresolved structures are retried after a day (another character may have docking access by then)
+    todo = [i for i in set(ids) if i not in known
+            or (known[i].get("unknown") and time.time() - known[i].get("at", 0) > 86400)]
     for lid in todo:
         info = None
         if 60_000_000 <= lid < 64_000_000:
@@ -74,19 +76,43 @@ async def resolve_locations(esi: ESIClient, token: str, ids: List[int]) -> Dict[
         if info:
             sysn = await public.ids_to_names(esi, [info["system_id"]])
             info["system"] = sysn.get(info["system_id"], "")
-        known[lid] = info or {"name": f"Location {lid}", "system_id": None, "system": ""}
+        if not info and known.get(lid) and not known[lid].get("unknown"):
+            continue   # keep what we resolved earlier
+        known[lid] = info or unknown_location(lid)
     db.kv_set(LOCATIONS_KEY, {str(k): v for k, v in known.items()})
     return {i: known[i] for i in ids if i in known}
 
 
+def unknown_location(lid: int) -> dict:
+    """Never show a raw id: structures we can't read are named for what they are."""
+    if lid > 1_000_000_000_000:
+        name = "Unknown structure (no docking access)"
+    elif 60_000_000 <= lid < 64_000_000:
+        name = "Unknown station"
+    else:
+        name = "Unknown location"
+    return {"name": name, "system_id": None, "system": "", "unknown": True, "at": time.time()}
+
+
 def locations() -> Dict[int, dict]:
-    return {int(k): v for k, v in (db.kv_get(LOCATIONS_KEY) or {}).items()}
+    out = {}
+    for k, v in (db.kv_get(LOCATIONS_KEY) or {}).items():
+        if str(v.get("name", "")).startswith("Location ") and not v.get("system_id"):   # MVP cache entries
+            v = {**unknown_location(int(k)), "at": 0}
+        out[int(k)] = v
+    return out
 
 
 async def sync_character(esi: ESIClient, character_id: int) -> Dict:
+    from astracore.core.auth import bundle_active
+
+    me = db.get_character(character_id)
+    if not me:
+        raise RuntimeError("Unknown character.")
     token = await sso.access_token(character_id)
     if not token:
-        raise RuntimeError("No token for character; log in again.")
+        raise RuntimeError("No EVE login for this character; log in again.")
+    me = db.get_character(character_id) or me     # scopes may have changed with the refresh
     cid = character_id
     pi = sde_loader.cached()
     pi_types = {t for t in pi.items} if pi else set()
@@ -182,13 +208,16 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         extra["standings"] = standings
 
     aff = await affiliation(esi, cid)
-    if aff.get("corporation_id"):
+    # Real POCO tax only when the user opted in to the customs bundle (and didn't switch it off).
+    if aff.get("corporation_id") and bundle_active(me, "pi.optional.customs"):
         offices = await _safe(esi.get(f"/corporations/{aff['corporation_id']}/customs_offices/",
                                       token=token, ttl=86400), None)
         if offices is not None:
             extra["customs_offices"] = [{**o, "owner_corporation_id": aff["corporation_id"]} for o in offices]
-    db.upsert_character(
-        cid, db_name(cid), "esi",
+    if not bundle_active(me, "pi.optional.customs"):
+        extra["customs_offices"] = []
+    db.set_character(
+        cid,
         skills=skills, colonies=colonies, synced_at=time.time(),
         slots=1 + skills["Interplanetary Consolidation"],
         ccu_level=skills["Command Center Upgrades"],
@@ -196,9 +225,3 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     )
     return {"skills": skills, "colonies": colonies, **extra}
 
-
-def db_name(character_id: int) -> str:
-    for c in db.list_characters():
-        if c["character_id"] == character_id:
-            return c["name"]
-    return str(character_id)

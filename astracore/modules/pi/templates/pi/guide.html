@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ nonce }}">
 const S = {{ settings_json|safe }};
 const SELLER = {{ (seller or {})|tojson }};
 const LIVE = ['effort', 'max_tier', 'max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'cross_character', 'hub_system',

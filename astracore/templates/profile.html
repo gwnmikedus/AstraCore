@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% endmacro %}
+
+{% macro character(c) %}
+<div class="pchar" id="char-{{ c.character_id }}">
+  <div class="top">
+    <img src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64" alt="">
+    <div class="grow">
+      <div class="name">{{ c.name }}
+        {% if profile.main_character_id == c.character_id %}<span class="pill">main</span>{% endif %}</div>
+      <div class="meta">{{ c.corporation_name or '' }}{% if c.alliance_name %} · {{ c.alliance_name }}{% endif %}</div>
+      <div class="meta">Last ESI refresh {{ c.synced_at|ago }}</div>
+    </div>
+    {% if c.status == 'needs_login' or not c.has_token %}<span class="status needs_login">needs login</span>
+    {% elif c.needs_pi_login %}<span class="status missing">needs one more login</span>
+    {% else %}<span class="status ok">OK</span>{% endif %}
+  </div>
+
+  {% if c.status == 'needs_login' or not c.has_token %}
+  <p class="warn muted">EVE no longer accepts this character's login. Its data is kept. <a href="/auth/upgrade/{{ c.character_id }}">Log in as {{ c.name }}</a></p>
+  {% elif c.needs_pi_login %}
+  <p class="warn muted">{{ c.name }} needs one more EVE login for AstracorePI. <a href="/auth/upgrade/{{ c.character_id }}">Log in again</a></p>
+  {% endif %}
+
+  {% if c.extra_scopes %}
+  <p class="muted warn">This EVE login allows {{ c.extra_scopes|length }} more permission{{ 's' if c.extra_scopes|length != 1 }} than Astracore uses
+    (left over from an older version). <a href="/auth/upgrade/{{ c.character_id }}">Log in again</a> to shrink it.</p>
+  {% endif %}
+  <div class="bundles">
+    {% for b in c.bundles if not b.required %}
+    <div class="bundle">
+      <span class="grow"><strong>{{ b.bundle.title }}</strong> <span class="muted">· {{ b.module.short }}</span><br>
+        <span class="muted">{{ b.bundle.why }}</span>
+        {% if b.switched_off %}<br><span class="warn muted">Granted but unused. Log in again to drop it completely.</span>{% endif %}</span>
+      {% if b.active %}
+        <a role="button" class="outline secondary" href="/auth/upgrade/{{ c.character_id }}?bundle={{ b.bundle.id }}&action=off"
+           title="Log in again without this permission">Turn off</a>
+        <form method="post" action="/profile/characters/{{ c.character_id }}/bundles/{{ b.bundle.id }}/pause">{{ csrf() }}
+          <button class="outline secondary" title="Stop using it now, without a new EVE login">Pause</button></form>
+      {% elif b.switched_off %}
+        <form method="post" action="/profile/characters/{{ c.character_id }}/bundles/{{ b.bundle.id }}/resume">{{ csrf() }}
+          <button class="outline">Use again</button></form>
+        <a role="button" class="outline secondary" href="/auth/upgrade/{{ c.character_id }}?bundle={{ b.bundle.id }}&action=off">Drop (log in)</a>
+      {% else %}
+        <a role="button" class="outline" href="/auth/upgrade/{{ c.character_id }}?bundle={{ b.bundle.id }}&action=on"
+           title="Opens EVE's login for {{ c.name }}">Enable for {{ c.name }}</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="row">
+    <form method="post" action="/profile/characters/{{ c.character_id }}/account">{{ csrf() }}
+      <select name="account_id" aria-label="EVE account for {{ c.name }}" data-autosubmit>
+        <option value="">Unassigned</option>
+        {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if c.eve_account_id == a.id else '' }}>{{ a.name }}</option>{% endfor %}
+      </select><noscript><button class="outline">Move</button></noscript>
+    </form>
+    <form method="post" action="/profile/refresh">{{ csrf() }}<input type="hidden" name="character_id" value="{{ c.character_id }}">
+      <button class="outline" {{ 'disabled' if refresh_wait else '' }}>{{ icon('refresh-cw') }} Refresh</button></form>
+    {% if profile.main_character_id != c.character_id %}
+    <form method="post" action="/profile/main">{{ csrf() }}<input type="hidden" name="character_id" value="{{ c.character_id }}">
+      <button class="outline secondary">Make main</button></form>{% endif %}
+    <form method="post" action="/profile/characters/{{ c.character_id }}/remove"
+          data-confirm="Remove {{ c.name }}? Its EVE login is revoked and its data deleted.{{ ' It is your last character: this deletes your profile.' if chars|length == 1 else '' }}">{{ csrf() }}
+      <button class="outline secondary">{{ icon('trash-2') }} Remove</button></form>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<hgroup>
+  <h2>Your profile</h2>
+  <p>{{ chars|length }} character{{ 's' if chars|length != 1 }}. Log in with any of them to open this profile.
+    <a href="/what-we-read">What we read from them</a>.</p>
+</hgroup>
+
+<div class="next-bar" style="justify-content:flex-start;margin-top:0">
+  <a role="button" href="/auth/login?intent=add">{{ icon('plus') }} Add a character</a>
+  <form method="post" action="/profile/refresh" class="inline">{{ csrf() }}
+    <button class="outline" {{ 'disabled' if refresh_wait else '' }}>{{ icon('refresh-cw') }} Refresh all from ESI</button></form>
+  {% if refresh_wait %}<span class="muted">Refresh again in {{ refresh_wait // 60 + 1 }} min.</span>{% endif %}
+</div>
+
+<section class="section" aria-labelledby="acc-h">
+  <h3 id="acc-h">EVE accounts</h3>
+  <p class="muted">EVE doesn't tell apps which characters share an account, so you group them here (up to {{ max_per_account }} per account).</p>
+  <div class="accounts">
+    {% for col in columns %}
+    <div class="account">
+      <div class="acc-head">
+        <h4>{{ col.account.name }} <span class="muted">{{ col.chars|length }}/{{ max_per_account }}</span></h4>
+        <details>
+          <summary>Edit</summary>
+          <form method="post" action="/profile/accounts/{{ col.account.id }}/rename">{{ csrf() }}
+            <input name="name" value="{{ col.account.name }}" maxlength="60" aria-label="Account name"><button class="outline">Rename</button></form>
+          <form method="post" action="/profile/accounts/{{ col.account.id }}/delete" data-confirm="Delete {{ col.account.name }}? Its characters become unassigned.">{{ csrf() }}
+            <button class="outline secondary">Delete account</button></form>
+        </details>
+      </div>
+      {% for c in col.chars %}{{ character(c) }}{% else %}<p class="empty">No characters yet. Move some here with their account selector.</p>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="account unassigned">
+      <div class="acc-head"><h4>Unassigned</h4></div>
+      {% for c in unassigned %}{{ character(c) }}{% else %}<p class="empty">Every character is in an account.</p>{% endfor %}
+    </div>
+  </div>
+  <form method="post" action="/profile/accounts" class="grid" style="max-width:34rem;margin-top:1rem">{{ csrf() }}
+    <input name="name" placeholder="New EVE account, e.g. Alt account 2" required maxlength="60" aria-label="New EVE account name">
+    <button class="outline">{{ icon('plus') }} Add EVE account</button>
+  </form>
+</section>
+
+<section class="section" aria-labelledby="mod-h">
+  <h3 id="mod-h">Modules</h3>
+  {% for m in modules %}
+  <p><img src="/{{ m.icon }}" alt="" width="20" height="20" style="vertical-align:-4px"> <strong>{{ m.name }}</strong>: enabled.
+    Which characters are included in plans is set inside <a href="{{ m.route_prefix }}/plan">{{ m.name }}</a>.</p>
+  {% endfor %}
+</section>
+
+<section class="section" aria-labelledby="ses-h">
+  <h3 id="ses-h">Signed-in browsers</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Browser</th><th>Network</th><th>Signed in</th><th>Last seen</th><th></th></tr></thead>
+    <tbody>
+    {% for s in sessions %}
+      <tr><td>{{ (s.user_agent or 'Unknown')[:70] }}{% if s.id_hash == current_session %} <span class="pill">this browser</span>{% endif %}</td>
+        <td class="muted">{{ s.ip_hint or '–' }}</td><td>{{ s.created_at|ago }}</td><td>{{ s.last_seen_at|ago }}</td>
+        <td>{% if s.id_hash != current_session %}<form method="post" action="/profile/sessions/{{ s.id_hash }}/end" class="inline">{{ csrf() }}
+          <button class="outline secondary">Sign out</button></form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <form method="post" action="/auth/logout-everywhere" class="inline">{{ csrf() }}
+    <button class="outline secondary">{{ icon('log-out') }} Sign out everywhere</button></form>
+</section>
+
+<section class="section box danger-zone" aria-labelledby="dz-h">
+  <h3 id="dz-h">Danger zone</h3>
+  <p><a role="button" class="outline" href="/profile/export.json">{{ icon('download') }} Download my data (JSON)</a></p>
+  {% for m in modules if m.on_profile_reset %}
+  <form method="post" action="{{ m.route_prefix }}/reset" data-confirm="{{ m.reset_label }} Continue?">{{ csrf() }}
+    <p class="muted">{{ m.reset_label }}</p>
+    <button class="outline secondary">Reset {{ m.name }}</button>
+  </form>
+  {% endfor %}
+  <p class="muted">Reset profile deletes everything and revokes every EVE login. You can also revoke Astracore yourself on EVE's
+    third-party applications page (account management on eveonline.com).</p>
+  <a role="button" class="danger" href="/profile/reset">Reset profile…</a>
+</section>
+{% endblock %}

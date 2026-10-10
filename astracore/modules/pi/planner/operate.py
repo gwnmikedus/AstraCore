@@ -120,15 +120,72 @@ def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: Li
         market = sum(b["net"] for b in plan["batches"] if b["channel"] != "buyback" and not b.get("hold"))
         if seller and own and seller["name"] != who and own["sales_tax_pct"] > seller["sales_tax_pct"] and market > 0:
             gain = market / (1 - own["sales_tax_pct"] / 100) * (own["sales_tax_pct"] - seller["sales_tax_pct"]) / 100
-            plan["seller_tip"] = (f"Let {seller['name']} sell this ({seller['sales_tax_pct']}% sales tax vs "
-                                  f"{own['sales_tax_pct']}% for {who}): about {gain / 1e6:,.1f}M more. Hand it over "
-                                  f"with a 0 ISK item exchange contract.")
-        out.append({"character": who, "location": loc["name"], "system": here,
+            plan["seller_gain"] = round(gain)
+            plan["own_tax_pct"] = own["sales_tax_pct"]
+        out.append({"character": who, "location": loc["name"], "system": here, "location_id": lid,
+                    "unknown_location": bool(loc.get("unknown")),
                     "items": {pi.name(t): int(q) for t, q in stock.items()},
                     "m3": round(sum(q * pi.volume(t) for t, q in stock.items()), 1),
                     "jita_value": round(sum(q * books.get(t, {}).get("jita_buy", 0) for t, q in stock.items())),
                     "plan": plan})
     out.sort(key=lambda g: -g["jita_value"])
+    for g in out:
+        g["seller"] = seller
+    return out
+
+
+# Rough cargo capacities for the "can you actually haul this?" check (fitted, typical).
+HAUL_SHIPS = (("Deep Space Transport", 60_000), ("Freighter (high-sec only)", 900_000))
+BIG_STACK_M3 = 30_000
+
+
+def consolidate(stock: List[dict], area: Optional[dict] = None) -> Optional[dict]:
+    """One "Consolidate & sell" summary for everything in hangars: totals, the best seller once,
+    each kind of advice once (with where it applies), and a size reality check for stacks you'd
+    have to haul yourself."""
+    if not stock:
+        return None
+    seller = next((g.get("seller") for g in stock if g.get("seller")), None)
+    total_m3 = sum(g["m3"] for g in stock)
+    total_value = sum(g["jita_value"] for g in stock)
+    net = sum(b["net"] for g in stock for b in g["plan"]["batches"] if not b.get("hold"))
+    gain = sum(g["plan"].get("seller_gain", 0) for g in stock)
+    handover = sorted({g["character"] for g in stock if g["plan"].get("seller_gain")})
+    advice: Dict[str, dict] = {}
+    for g in stock:
+        for b in g["plan"]["batches"]:
+            key = b["channel"]
+            a = advice.setdefault(key, {"label": b["label"], "channel": key, "m3": 0.0, "net": 0.0, "where": [],
+                                        "hold": False, "note": b.get("note") if key.endswith("_self") else None})
+            a["m3"] += b["m3"]
+            a["net"] += 0 if b.get("hold") else b["net"]
+            a["hold"] = a["hold"] or bool(b.get("hold"))
+            where = g["location"] + (f" ({g['system']})" if g["system"] else "")
+            if where not in a["where"]:
+                a["where"].append(where)
+    unsellable = sorted({x for g in stock for x in g["plan"].get("unsellable", [])})
+    reality = [_reality(g, b, area) for g in stock for b in g["plan"]["batches"]
+               if b["channel"].endswith("_self") and b["m3"] >= BIG_STACK_M3]
+    return {"total_m3": round(total_m3, 1), "total_value": round(total_value), "net": round(net),
+            "seller": seller, "seller_gain": round(gain), "handover": handover,
+            "advice": sorted(advice.values(), key=lambda a: -a["net"]), "unsellable": unsellable,
+            "reality": reality, "locations": len(stock)}
+
+
+def _reality(g: dict, b: dict, area: Optional[dict]) -> dict:
+    """What hauling a big stack yourself really means, next to letting VOC take it from their nearest pickup."""
+    import math
+    m3 = b["m3"]
+    dest = "Jita" if b["channel"].startswith("jita") else "Amarr"
+    out = {"where": g["location"], "system": g["system"], "m3": m3, "value": b["jita_value"], "dest": dest,
+           "trips": [{"ship": name, "trips": max(1, math.ceil(m3 / cap)), "capacity": cap} for name, cap in HAUL_SHIPS],
+           "voc": None}
+    origin, jumps = selling.courier_origin(g["system"], area)
+    if origin:
+        r = voc.route(origin, voc.JITA if dest == "Jita" else voc.AMARR)
+        if r:
+            out["voc"] = {"origin": origin, "jumps": jumps, "fee": round(voc.courier_fee(r, m3, b["jita_value"])),
+                          "contracts": max(1, math.ceil(m3 / r["max_m3"]))}
     return out
 
 

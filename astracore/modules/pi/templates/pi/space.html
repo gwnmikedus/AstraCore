@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <hgroup>
-  <h2>Where can your characters do PI?</h2>
-  <p>Found from your characters:
+  <h2>Area</h2>
+  <p>Where your characters do PI, and where you collect products and ship them from.</p>
+  <p class="muted">Found from your characters:
     {% for a in sources.alliances %}<span class="pill">sov of <b>{{ a }}</b></span>{% endfor %}
     {% for c in sources.colony_constellations %}<span class="pill">your colonies in <b>{{ c }}</b></span>{% endfor %}
     {% for e in sources.extra %}<span class="pill">added: <b>{{ e }}</b></span>{% endfor %}
@@ -10,7 +11,8 @@
   </p>
 </hgroup>
 
-<form method="post" action="/space">
+<form method="post" action="/pi/area">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 {% if area %}
 {% set maxscore = groups|map(attribute='constellations')|map('map', attribute='score')|map('max')|max %}
 {% for r in groups %}
@@ -51,12 +53,17 @@
     <label>Drop-off (where you collect products and ship them from)
       <select name="hub_system">
         <option value="">Auto (best spot in the selection, VOC pickups preferred)</option>
+        <optgroup label="In your selection">
         {% for name in sel_systems %}<option {% if s.hub_system == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </optgroup>
+        <optgroup label="VOC pickups">
+        {% for name in voc_hubs or [] if name not in sel_systems %}<option value="{{ name }}" {% if s.hub_system == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </optgroup>
       </select></label>
     <div class="next-bar" style="margin:0">
-      <a href="/characters" role="button" class="outline secondary">{{ icon('arrow-left') }} Characters</a>
+      
       <button name="refresh" value="1" class="outline">{{ icon('refresh-cw') }} Reload from ESI</button>
-      <button>Show suggestions {{ icon('arrow-right') }}</button>
+      <button>Save and plan {{ icon('arrow-right') }}</button>
     </div>
   </div>
 </div>

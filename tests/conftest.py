@@ -17,3 +17,5 @@ os.environ["ASTRACORE_ADMIN_CHARACTER_IDS"] = "90000001"
 from astracore import db  # noqa: E402
 
 db.init()
+
+import astracore.modules.pi.module  # noqa: E402,F401  (registers AstracorePI)

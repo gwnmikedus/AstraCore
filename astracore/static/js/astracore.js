@@ -43,6 +43,7 @@
       try { await navigator.clipboard.writeText(b.dataset.copy); } catch (err) { return; }
       const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => b.textContent = t, 1200);
     });
+    document.querySelectorAll('[data-autosubmit]').forEach(el => el.addEventListener('change', () => el.form.requestSubmit()));
     document.querySelectorAll('form[data-confirm]').forEach(f => f.addEventListener('submit', e => {
       if (!confirm(f.dataset.confirm)) e.preventDefault();
     }));

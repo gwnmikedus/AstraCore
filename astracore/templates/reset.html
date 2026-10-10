@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="prose">
+  <h2>Reset profile</h2>
+  <p>This deletes <strong>{{ profile.display_name }}</strong> and everything in it: {{ chars|length }} character{{ 's' if chars|length != 1 }}
+    ({{ chars|map(attribute='name')|join(', ') }}), EVE accounts, settings, saved plans, planet overrides and every signed-in browser.
+    Every EVE login is revoked with EVE. This can't be undone.</p>
+  <p><a role="button" class="outline" href="/profile/export.json">{{ icon('download') }} Download my data first (JSON)</a></p>
+  <form method="post" action="/profile/reset" class="typeconfirm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Type <strong>{{ profile.display_name }}</strong> to confirm
+      <input name="confirm" autocomplete="off" required></label>
+    <button class="danger">Delete my profile</button>
+    <a href="/profile">Cancel</a>
+  </form>
+  <p class="muted">You can also revoke Astracore on EVE's third-party applications page (account management on eveonline.com).</p>
+</div>
+{% endblock %}

@@ -7,12 +7,12 @@
   <meta name="color-scheme" content="dark light">
   {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/pico.min.css">
-  <link rel="stylesheet" href="/static/css/astracore.css">
-  <script>try { const t = localStorage.getItem('ac_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
-  <script src="/static/js/fmt.js"></script>
-  <script src="/static/js/icons.js"></script>
-  <script src="/static/js/astracore.js"></script>
+  <link rel="stylesheet" href="{{ asset('css/pico.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/astracore.css') }}">
+  <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <script src="{{ asset('js/fmt.js') }}"></script>
+  <script src="{{ asset('js/icons.js') }}"></script>
+  <script src="{{ asset('js/astracore.js') }}"></script>
   {% block head %}{% endblock %}
 </head>
 <body class="page-{{ page or 'default' }}">

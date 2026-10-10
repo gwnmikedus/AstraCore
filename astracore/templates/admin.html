@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "pi/_fields.html" import num %}
+{% block content %}
+<h2>Admin</h2>
+<p class="muted">Mode <strong>{{ mode }}</strong> · {{ stats.profiles }} profiles · {{ stats.characters }} characters ·
+  {{ stats.sessions }} signed-in browsers · solves running {{ stats.solving }}, waiting {{ stats.waiting }}</p>
+
+<article>
+  <header><strong>Invite list</strong> {% if not gate %}<span class="muted">(the gate is off in this mode)</span>{% endif %}</header>
+  <p class="muted">A login passes if the character, its corporation or its alliance is listed here or in the env file.
+    Characters already linked to a profile can always sign in.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Kind</th><th>Name</th><th>ID</th><th></th></tr></thead>
+    <tbody>
+    {% for kind, ids in env_allowed.items() %}{% for i in ids %}
+      <tr><td>{{ kind }}</td><td class="muted">from the env file</td><td>{{ i }}</td><td></td></tr>
+    {% endfor %}{% endfor %}
+    {% for a in access %}
+      <tr><td>{{ a.kind }}</td><td>{{ a.name or '–' }}</td><td>{{ a.entity_id }}</td>
+        <td><form method="post" action="/admin/access/{{ a.kind }}/{{ a.entity_id }}/remove" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="outline secondary">Remove</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <form method="post" action="/admin/access" class="grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="kind" aria-label="Kind"><option value="character">Character</option><option value="corporation">Corporation</option>
+      <option value="alliance">Alliance</option></select>
+    <input name="entity" placeholder="Exact name or ID" required aria-label="Name or ID">
+    <button>Add</button>
+  </form>
+</article>
+
+<article>
+  <header><strong>AstracorePI: instance-wide values</strong></header>
+  <form method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid">
+      {{ num(s, 'buyback_pct', 'VOC buyback: % of Jita buy for P2–P4', 'Measured 90% from an appraisal at 7G-QIG on 2026-10-10.') }}
+      {{ num(s, 'buyback_pct_p1', 'VOC buyback: % of Jita buy for P1', '0 = refused (as of 2026-10-10).') }}
+      {{ num(s, 'solver_time_limit', 'Solver time limit (seconds per solve)', 'Keeps one plan from hogging the Mac.', 1, 2) }}
+    </div>
+    <button>Save</button>
+  </form>
+</article>
+
+<article>
+  <header><strong>VOC courier tariff</strong> <span class="muted">{{ 'read live from vochauling.com' if routes_info.live else 'defaults (could not read vochauling.com)' }}{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
+  <div class="scroll"><table>
+    <thead><tr><th>From</th><th>To</th><th>Min fee</th><th>Per m³</th><th>Collateral</th><th>Max m³</th></tr></thead>
+    <tbody>{% for r in routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|num }}</td><td>{{ r.collateral_pct|pct }}</td><td>{{ r.max_m3|num }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</article>
+{% endblock %}

@@ -34,13 +34,48 @@ def _expires(resp: httpx.Response, ttl: Optional[int]) -> float:
     return time.time() + 300
 
 
+class _Budget:
+    """One ESI budget for the whole process: every user shares this machine's IP, so the error limit,
+    the rate limits and the number of requests in flight are tracked globally, not per client."""
+
+    MAX_IN_FLIGHT = 20
+
+    def __init__(self) -> None:
+        self.pause_until = 0.0
+        self._sems: Dict[int, asyncio.Semaphore] = {}
+
+    def sem(self) -> asyncio.Semaphore:
+        loop = asyncio.get_running_loop()
+        key = id(loop)
+        if key not in self._sems:
+            self._sems = {key: asyncio.Semaphore(self.MAX_IN_FLIGHT)}   # one loop in practice
+        return self._sems[key]
+
+    def observe(self, resp: httpx.Response) -> None:
+        h = resp.headers
+        remain = h.get("x-esi-error-limit-remain")
+        if remain is not None and remain.isdigit() and int(remain) < 20:
+            reset = h.get("x-esi-error-limit-reset", "10")
+            self.pause_until = max(self.pause_until, time.time() + (int(reset) if reset.isdigit() else 10))
+        rl_remain = h.get("x-ratelimit-remaining")
+        if rl_remain is not None and rl_remain.isdigit() and int(rl_remain) < 5:
+            self.pause_until = max(self.pause_until, time.time() + 5)
+        if resp.status_code in (420, 429):
+            try:
+                retry = float(h.get("retry-after", "10"))
+            except ValueError:
+                retry = 10.0
+            self.pause_until = max(self.pause_until, time.time() + min(retry, 120))
+
+
+BUDGET = _Budget()
+
+
 class ESIClient:
     def __init__(self, concurrency: int = 20) -> None:
-        self._sem = asyncio.Semaphore(concurrency)
         self._client = httpx.AsyncClient(
             timeout=30, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
         )
-        self._error_pause_until = 0.0
 
     async def __aenter__(self) -> "ESIClient":
         return self
@@ -57,23 +92,21 @@ class ESIClient:
         if etag:
             headers["If-None-Match"] = etag
         for attempt in range(5):
-            wait = self._error_pause_until - time.time()
+            wait = BUDGET.pause_until - time.time()
             if wait > 0:
-                await asyncio.sleep(wait)
-            async with self._sem:
+                await asyncio.sleep(min(wait, 120))
+            async with BUDGET.sem():
                 try:
                     resp = await self._client.request(method, url, params=params,
                                                       json=json_body, headers=headers)
                 except httpx.TransportError:
                     await asyncio.sleep(1 + attempt * 2)
                     continue
-            remain = resp.headers.get("x-esi-error-limit-remain")
-            if remain is not None and int(remain) < 15:
-                reset = int(resp.headers.get("x-esi-error-limit-reset", "10"))
-                self._error_pause_until = time.time() + reset
-            if resp.status_code in (420, 429, 500, 502, 503, 504):
-                retry = float(resp.headers.get("retry-after", 1 + attempt * 2))
-                await asyncio.sleep(retry)
+            BUDGET.observe(resp)
+            if resp.status_code in (420, 429):
+                continue          # observe() set the global pause
+            if resp.status_code in (500, 502, 503, 504):
+                await asyncio.sleep(1 + attempt * 2)
                 continue
             return resp
         raise ESIError(f"ESI request kept failing: {method} {url}")

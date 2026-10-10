@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% include "pi/_characters_panel.html" %}
 <div id="busy" role="status">updating…</div>
 <div class="layout">
   <aside class="controls">
@@ -33,7 +34,7 @@
     <div class="ctl">
       <label>Your colonies per planet <output id="o-per_planet"></output></label>
       <input type="range" id="per_planet" min="1" max="3" step="1">
-      <div class="hint">More than 1 = your characters share planets. A 2nd/3rd colony on the same resource is counted at {{ s.stack_yield_pct|round|int }}% / {{ (s.stack_yield_pct ** 2 / 100)|round|int }}% yield (<a href="/settings">adjust</a>).</div>
+      <div class="hint">More than 1 = your characters share planets. A 2nd/3rd colony on the same resource is counted at {{ s.stack_yield_pct|round|int }}% / {{ (s.stack_yield_pct ** 2 / 100)|round|int }}% yield (<a href="/pi/settings">adjust</a>).</div>
     </div>
     <div class="ctl">
       <label style="font-weight:600"><span><input type="checkbox" role="switch" id="cross_character"> Characters supply each other</span></label>
@@ -68,14 +69,14 @@
     </div>
     <div class="hint">
       Yield: {{ head_yield|num }} P0/h per head
-      {% if calibrated %}<span class="ok">(calibrated from your extractors)</span>{% else %}(estimate - <a href="/settings">adjust</a>){% endif %}
-      · <a href="/space">change space</a> · when built: <a href="/operate">Operate {{ icon('arrow-right') }}</a>
+      {% if calibrated %}<span class="ok">(calibrated from your extractors)</span>{% else %}(estimate - <a href="/pi/settings">adjust</a>){% endif %}
+      · <a href="/pi/area">change area</a> · when built: <a href="/pi/operate">Operate {{ icon('arrow-right') }}</a>
     </div>
   </aside>
 
   <section>
     <h4 style="margin-bottom:.5rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap"><span>Suggestions <span class="muted" id="alts-note"></span></span>
-      <a href="/planner" style="font-size:.85rem;font-weight:400" >{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
+      <a href="/pi/plan" style="font-size:.85rem;font-weight:400">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
     <div class="alts" id="alts"></div>
     <div id="sens" class="muted" style="font-size:.85rem;margin:-.4rem 0 1rem"></div>
     <div class="result" id="result"><p class="muted">Working out the first suggestion…</p></div>
@@ -84,7 +85,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ nonce }}">
 const S = {{ settings_json|safe }};
 const API = '{{ api }}';
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders'];

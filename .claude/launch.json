@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pi-planner",
+      "runtimeExecutable": "/Users/mikehoppezak/Eve/.venv/bin/python",
+      "runtimeArgs": ["-m", "pi_planner"],
+      "port": 8765
+    }
+  ]
+}

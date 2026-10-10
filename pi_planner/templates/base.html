@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PI Planner</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css">
+  <style>
+    :root { --pico-font-size: 15px; --ok: #3fb950; --warn: #d29922; --bad: #f85149; --blue: #58a6ff; }
+    main.container { max-width: 1440px; padding-top: .5rem; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+              border-bottom: 1px solid var(--pico-muted-border-color); padding: .4rem 0 .8rem; margin-bottom: 1.2rem; }
+    .brand { font-weight: 700; white-space: nowrap; }
+    .steps { display: flex; gap: .4rem; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+    .steps li { list-style: none; margin: 0; }
+    .steps a { display: flex; align-items: center; gap: .5rem; padding: .35rem .8rem; border-radius: 99px;
+               border: 1px solid var(--pico-muted-border-color); text-decoration: none; color: var(--pico-muted-color); }
+    .steps a .n { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%;
+                  background: var(--pico-muted-border-color); color: var(--pico-color); font-size: .8rem; font-weight: 700; }
+    .steps a.done .n { background: var(--ok); color: #000; }
+    .steps a.active { border-color: var(--pico-primary); color: var(--pico-color); font-weight: 600; }
+    .steps a.active .n { background: var(--pico-primary); color: #fff; }
+    .steps a.disabled { pointer-events: none; opacity: .45; }
+    .settings-link { color: var(--pico-muted-color); text-decoration: none; font-size: .9rem; }
+    .flash { padding: .6rem 1rem; border-radius: 6px; background: var(--pico-card-background-color);
+             border-left: 4px solid var(--pico-primary); margin-bottom: 1rem; }
+    .muted { color: var(--pico-muted-color); font-size: .87rem; }
+    .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+    .pill { display: inline-block; padding: 0 .45rem; border-radius: 99px; font-size: .76rem; line-height: 1.5;
+            border: 1px solid var(--pico-muted-border-color); margin: 1px; white-space: nowrap; }
+    .next-bar { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.2rem; }
+    .next-bar a[role=button], .next-bar button { width: auto; }
+    table { font-size: .87rem; } td, th { padding: .35rem .5rem; }
+    form.inline { display: inline; margin: 0; }
+    form.inline button { padding: .25rem .6rem; margin: 0; width: auto; }
+    .scroll { overflow-x: auto; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<main class="container">
+  <header class="topbar">
+    <span class="brand">🪐 PI Planner</span>
+    <ul class="steps">
+      <li><a href="/characters" class="{{ 'active' if step==1 else ('done' if has_chars else '') }}"><span class="n">{{ '✓' if has_chars and step!=1 else 1 }}</span>Characters</a></li>
+      <li><a href="/space" class="{{ 'active' if step==2 else ('done' if has_space else '') }} {{ '' if has_chars else 'disabled' }}"><span class="n">{{ '✓' if has_space and step!=2 else 2 }}</span>Space</a></li>
+      <li><a href="/planner" class="{{ 'active' if step==3 else '' }} {{ '' if has_chars else 'disabled' }}"><span class="n">3</span>Plan</a></li>
+      <li><a href="/operate" class="{{ 'active' if step==4 else '' }} {{ '' if has_chars else 'disabled' }}"><span class="n">4</span>Operate</a></li>
+    </ul>
+    <a href="/settings" class="settings-link">⚙ Settings</a>
+  </header>
+  {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+  {% block content %}{% endblock %}
+  <footer class="muted" style="margin-top:3rem">
+    Data: ESI (CCP) · Schematics: Fuzzwork SDE · Templates:
+    <a href="https://github.com/DalShooth/EVE_PI_Templates" target="_blank">DalShooth/EVE_PI_Templates</a> · Not affiliated with CCP Games.
+  </footer>
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+{% block head %}
+<style>
+{% include "_plan_css.html" %}
+  .g-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .g-head h2 { margin: 0 0 .2rem; }
+  .g-head .adv { font-size: .85rem; white-space: nowrap; }
+
+  /* progress tracker */
+  .track { position: relative; display: flex; justify-content: space-between; margin: 0 0 1.6rem; padding: 0; list-style: none;
+           overflow-x: auto; scrollbar-width: none; }
+  .track::before, .track .fill { content: ""; position: absolute; top: 15px; left: 4%; height: 3px; border-radius: 3px; }
+  .track::before { right: 4%; background: var(--pico-muted-border-color); }
+  .track .fill { background: var(--ok); transition: width .35s ease; width: 0; }
+  .track li { position: relative; z-index: 1; flex: 1 0 84px; display: flex; flex-direction: column; align-items: center;
+              text-align: center; margin: 0; list-style: none; }
+  .track .dot { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .85rem;
+                background: var(--pico-background-color); border: 2px solid var(--pico-muted-border-color); color: var(--pico-muted-color);
+                transition: all .2s; }
+  .track .lbl { font-size: .78rem; margin-top: .3rem; color: var(--pico-muted-color); font-weight: 600; }
+  .track .ans { font-size: .7rem; color: var(--pico-muted-color); max-width: 110px; line-height: 1.2; min-height: 1.7em; }
+  .track li.done { cursor: pointer; }
+  .track li.done .dot { background: var(--ok); border-color: var(--ok); color: #000; }
+  .track li.done:hover .lbl { color: var(--pico-color); }
+  .track li.cur .dot { border-color: var(--pico-primary); background: var(--pico-primary); color: #fff;
+                       box-shadow: 0 0 0 5px color-mix(in srgb, var(--pico-primary) 25%, transparent); }
+  .track li.cur .lbl { color: var(--pico-color); }
+  @media (max-width: 760px) { .track li:not(.cur) .lbl, .track .ans { display: none; } .track li { flex-basis: 40px; } }
+
+  /* question */
+  .q { max-width: 1100px; margin: 0 auto; }
+  .q .eyebrow { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--pico-primary); font-weight: 700; }
+  .q h3 { margin: .2rem 0 .5rem; font-size: 1.55rem; }
+  .q .intro { color: var(--pico-muted-color); max-width: 780px; margin-bottom: 1.2rem; }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: .9rem; margin-bottom: 1.1rem; }
+  .opt { position: relative; border: 1px solid var(--pico-muted-border-color); border-radius: 14px; padding: 1rem 1rem .9rem;
+         cursor: pointer; transition: border-color .15s, transform .15s, box-shadow .15s; background: var(--pico-card-background-color);
+         display: flex; flex-direction: column; }
+  .opt:hover { border-color: var(--pico-primary); transform: translateY(-2px); }
+  .opt.pick { border-color: var(--pico-primary); box-shadow: 0 0 0 2px var(--pico-primary) inset; }
+  .opt.err { opacity: .55; cursor: not-allowed; }
+  .opt .badges { position: absolute; top: -.65rem; left: .8rem; display: flex; gap: .3rem; }
+  .badge { font-size: .68rem; font-weight: 700; padding: .1rem .5rem; border-radius: 99px; text-transform: uppercase; letter-spacing: .03em; }
+  .badge.rec { background: var(--ok); color: #000; }
+  .badge.mine { background: var(--pico-primary); color: #fff; }
+  .opt .ic { font-size: 1.5rem; line-height: 1; }
+  .opt .nm { font-weight: 700; margin: .35rem 0 .2rem; }
+  .opt .bl { font-size: .82rem; color: var(--pico-muted-color); margin-bottom: .7rem; flex: 1; }
+  .opt .isk { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+  .opt .isk small { font-size: .8rem; font-weight: 400; color: var(--pico-muted-color); }
+  .opt .delta { font-size: .8rem; font-weight: 600; min-height: 1.2em; }
+  .delta.up { color: var(--ok); } .delta.down { color: var(--bad); } .delta.same { color: var(--pico-muted-color); }
+  .bar { height: 5px; border-radius: 3px; background: var(--pico-muted-border-color); margin: .45rem 0 .6rem; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--pico-primary); border-radius: 3px; transition: width .4s ease; }
+  .opt.recd .bar i { background: var(--ok); }
+  .metrics { display: grid; grid-template-columns: 1fr auto; gap: .1rem .6rem; font-size: .8rem; }
+  .metrics span:nth-child(odd) { color: var(--pico-muted-color); }
+  .metrics span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+  .metrics .more { color: var(--warn) !important; } .metrics .less { color: var(--ok) !important; }
+  .mix { font-size: .72rem; color: var(--pico-muted-color); margin-top: .5rem; }
+  .skel { height: 1.6rem; border-radius: 6px; margin: .3rem 0; background: linear-gradient(90deg, var(--pico-muted-border-color) 25%,
+          transparent 50%, var(--pico-muted-border-color) 75%); background-size: 200% 100%; animation: sh 1.3s infinite linear; opacity: .5; }
+  @keyframes sh { to { background-position: -200% 0; } }
+  .advice { border-radius: 12px; padding: .9rem 1.1rem; background: var(--pico-card-background-color);
+            border-left: 4px solid var(--ok); margin-bottom: 1rem; }
+  .advice h6 { margin: 0 0 .35rem; } .advice p { margin: .25rem 0; font-size: .9rem; }
+  .nav { display: flex; justify-content: space-between; align-items: center; gap: .7rem; margin-top: 1rem; }
+  .nav button { width: auto; margin: 0; }
+  .nav .hint { font-size: .8rem; color: var(--pico-muted-color); }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+  .chip { font-size: .8rem; padding: .2rem .7rem; border: 1px solid var(--pico-muted-border-color); border-radius: 99px; cursor: pointer; }
+  .chip b { color: var(--pico-primary); } .chip:hover { border-color: var(--pico-primary); }
+  .todo { border: 1px solid var(--pico-muted-border-color); border-radius: 12px; padding: .9rem 1.1rem; margin-bottom: 1.2rem; }
+  .todo ol { margin: .3rem 0 0; padding-left: 1.2rem; } .todo li { margin: .25rem 0; font-size: .92rem; }
+  .ctx { font-size: .85rem; color: var(--pico-muted-color); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="g-head">
+  <div>
+    <h2>Plan your PI</h2>
+    <div class="ctx">{{ chars|length }} characters · {{ slots }} colony slots · {{ n_systems }} systems selected
+      {% if dropoff %}· drop-off {{ dropoff }}{% endif %}
+      · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|round|int }} P0/h per head)</span>{% endif %}</div>
+  </div>
+  <a class="adv" href="/planner?view=advanced">Advanced: all options on one screen →</a>
+</div>
+
+<ol class="track" id="track"><span class="fill" id="fill"></span></ol>
+<section class="q" id="q"></section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const S = {{ settings_json|safe }};
+const SELLER = {{ (seller or {})|tojson }};
+const LIVE = ['effort', 'max_tier', 'max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'cross_character', 'hub_system',
+              'product_blacklist', 'use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders', 'ship_every_days'];
+const $ = id => document.getElementById(id);
+const isk = v => { if (v == null) return '–'; const a = Math.abs(v); return a >= 1e9 ? (v/1e9).toFixed(2)+'B' : a >= 1e6 ? (v/1e6).toFixed(1)+'M' : a >= 1e3 ? (v/1e3).toFixed(0)+'k' : Math.round(v)+''; };
+const num = v => Math.round(v).toLocaleString();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+{% include "_plan_render.html" %}
+
+// ---- the questions --------------------------------------------------------------------------
+// Options are listed from least to most effort; the recommendation picks the cheapest one that
+// earns close enough to the best, where "close enough" depends on the goal from question 1.
+const SELL = {
+  nohaul: {use_buyback: true, use_local: true, use_jita: false, use_amarr: false, use_sell_orders: false},
+  courier: {use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: false},
+  orders: {use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: true},
+};
+const STEPS = [
+  {id: 'goal', title: 'Goal', q: 'What do you want from PI?', noRec: true,
+   intro: 'PI costs time: every planet needs a visit to restart extractors, and everything you make has to be hauled to where it sells. Pick what matters most. The next questions use it to judge whether extra effort is worth the extra ISK.',
+   options: [
+     {id: 'passive', icon: '😴', label: 'Set and forget', patch: {effort: 0}, blurb: 'Few systems, simple planets, as little hauling as possible. A few minutes every few days.'},
+     {id: 'balanced', icon: '⚖️', label: 'Balanced', patch: {effort: 50}, blurb: 'Extra work only where it clearly pays off.'},
+     {id: 'max', icon: '💰', label: 'Maximum ISK', patch: {effort: 100}, blurb: 'Every million counts. You don’t mind hauling and flying to more systems.'}],
+   match: st => st.effort <= 25 ? 'passive' : st.effort <= 75 ? 'balanced' : 'max'},
+  {id: 'tier', title: 'Products', q: 'How far should your planets process?',
+   intro: 'Miner planets turn raw resources (P0) into P1 on their own. Factory planets turn P1 into P2 and up: worth more per m³, so less hauling, and VOC buyback takes P2+ (not P1). But a factory has to be stocked with its inputs on every run.',
+   options: [
+     {id: 1, icon: '⛏️', label: 'Only P1 (miners)', patch: {max_tier: 1}, blurb: 'Every planet works alone: restart, pick up, sell. P1 goes by courier, since the buyback refuses it.'},
+     {id: 2, icon: '🏭', label: 'Up to P2', patch: {max_tier: 2}, blurb: 'Adds factories that combine two P1 into P2, where that pays.'},
+     {id: 3, icon: '🏭', label: 'Up to P3', patch: {max_tier: 3}, blurb: 'Longer chains: more inputs to move between planets.'},
+     {id: 4, icon: '🚀', label: 'Up to P4', patch: {max_tier: 4}, blurb: 'Allows any factory. The planner only uses one if the ISK justifies it.'}],
+   match: st => +st.max_tier},
+  {id: 'cycle', title: 'Logins', q: 'How often can you log in to restart extractors?',
+   intro: 'Extractors slow down the longer a program runs (CCP’s formula): a 1-day program gives about 1.5× the hourly output of a 3-day one, a weekly one about 0.6×. Each restart is a quick login, but on every miner planet.',
+   options: [
+     {id: 1, icon: '📅', label: 'Every day', patch: {cycle_days: 1}, blurb: 'Most ISK per extractor, but it becomes a daily chore.'},
+     {id: 2, icon: '📅', label: 'Every 2 days', patch: {cycle_days: 2}, blurb: ''},
+     {id: 3, icon: '📅', label: 'Every 3 days', patch: {cycle_days: 3}, blurb: 'The usual compromise.'},
+     {id: 7, icon: '🗓️', label: 'Once a week', patch: {cycle_days: 7}, blurb: 'One login a week, but much less output.'}],
+   match: st => +st.cycle_days, logins: true,
+   custom: st => ({id: +st.cycle_days, icon: '📌', label: `Every ${st.cycle_days} days`, patch: {cycle_days: +st.cycle_days}, blurb: 'Your current setting.'})},
+  {id: 'area', title: 'Area', q: 'How far are you willing to fly?',
+   intro: 'More systems mean more planets to choose from (better types, richer deposits), but every system is a stop on your pickup round.',
+   options: [
+     {id: 'compact', icon: '📍', label: 'One system', patch: {max_systems: 1, max_jumps: 1}, blurb: 'Everything in a single system near the drop-off.'},
+     {id: 'near', icon: '🧭', label: 'A few nearby systems', patch: {max_systems: 3, max_jumps: 3}, blurb: 'Up to 3 systems, at most 3 jumps out.'},
+     {id: 'wide', icon: '🌌', label: 'Wherever pays most', patch: {max_systems: 0, max_jumps: 6}, blurb: 'No system limit, up to 6 jumps.'}],
+   match: st => (+st.max_systems === 1 && +st.max_jumps === 1) ? 'compact' : (+st.max_systems === 3 && +st.max_jumps === 3) ? 'near'
+               : (+st.max_systems === 0 && +st.max_jumps === 6) ? 'wide' : 'custom',
+   custom: st => ({id: 'custom', icon: '📌', label: `${+st.max_systems || 'Any number of'} system(s), ≤ ${st.max_jumps} jumps`,
+                   patch: {max_systems: +st.max_systems, max_jumps: +st.max_jumps}, blurb: 'Your current setting.'})},
+  {id: 'share', title: 'Planets', q: 'May several of your characters use the same planet?',
+   intro: 'A character can only have one colony per planet. Putting 2–3 of your characters on one good planet means fewer systems to visit, but colonies on the same resource share its deposits (each extra one counts at a lower yield).',
+   options: [
+     {id: 1, icon: '1️⃣', label: 'One of mine per planet', patch: {per_planet: 1}, blurb: 'Full yield everywhere, spread over more planets.'},
+     {id: 2, icon: '2️⃣', label: 'Up to 2', patch: {per_planet: 2}, blurb: 'Good planets get used twice.'},
+     {id: 3, icon: '3️⃣', label: 'Up to 3', patch: {per_planet: 3}, blurb: 'Tightest grouping, lowest extra yield.'}],
+   match: st => +st.per_planet},
+  {id: 'chain', title: 'Teamwork', q: 'May your characters supply each other?',
+   intro: 'A factory needs inputs from several miners. Without this, each factory is fed only by miners of the same character. With it, one character’s P1 can go to another character’s factory: you move it with 0 ISK contracts between your own characters.',
+   options: [
+     {id: false, icon: '🧍', label: 'No, each character on its own', patch: {cross_character: false}, blurb: 'No contracts between your characters.'},
+     {id: true, icon: '🤝', label: 'Yes, they can trade', patch: {cross_character: true}, blurb: 'More factories fit, but there are contracts to create on every haul.'}],
+   match: st => !!st.cross_character},
+  {id: 'sell', title: 'Selling', q: 'How do you want to turn products into ISK?',
+   intro: '', // filled in with the seller's taxes
+   options: [
+     {id: 'nohaul', icon: '🏠', label: 'Sell in Delve only', patch: SELL.nohaul, blurb: 'VOC buyback (P2+) and Delve buy orders. Nothing leaves null, but P1 is worth little here.'},
+     {id: 'courier', icon: '🚚', label: 'Also courier to Jita / Amarr', patch: SELL.courier, blurb: 'VOC hauls it, you sell into buy orders on arrival.'},
+     {id: 'orders', icon: '📈', label: 'Also list sell orders', patch: SELL.orders, blurb: 'Better prices, but you list orders and update them when undercut.'}],
+   match: st => Object.keys(SELL).find(k => Object.entries(SELL[k]).every(([f, v]) => !!st[f] === v)) || null},
+  {id: 'batch', title: 'Batches', q: 'How often do you want to sell a batch?', metric: 'sell',
+   intro: 'VOC charges a minimum fee per courier contract (10M to Jita, 20M to Amarr). Bigger, less frequent batches spread that fee; smaller ones turn into ISK sooner.',
+   options: [
+     {id: 7, icon: '📦', label: 'Every week', patch: {ship_every_days: 7}, blurb: 'ISK comes in quickly; small batches may wait for the minimum fee.'},
+     {id: 14, icon: '📦', label: 'Every 2 weeks', patch: {ship_every_days: 14}, blurb: ''},
+     {id: 28, icon: '🗃️', label: 'Every 4 weeks', patch: {ship_every_days: 28}, blurb: 'One big haul a month: lowest fee per m³.'}],
+   match: st => +st.ship_every_days,
+   custom: st => ({id: +st.ship_every_days, icon: '📌', label: `Every ${st.ship_every_days} days`, patch: {ship_every_days: +st.ship_every_days}, blurb: 'Your current setting.'})},
+  {id: 'plan', title: 'Your plan'},
+];
+STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after VOC’s fees and your taxes' +
+  (SELLER.name ? ` (${SELLER.name} sells: ${SELLER.sales_tax_pct}% sales tax, ${SELLER.broker_fee_pct}% broker fee).` : '.');
+
+// ---- state ----------------------------------------------------------------------------------
+let st = Object.fromEntries(LIVE.map(k => [k, S[k]]));
+if (Array.isArray(st.product_blacklist)) st.product_blacklist = st.product_blacklist.join(', ');
+let cur = 0;
+try { cur = Math.min(+localStorage.getItem('guide_step') || 0, STEPS.length - 1); } catch (e) {}
+let picks = {};          // step id -> option id the user chose
+let results = {};        // step id -> {option id: what-if result}
+let seq = 0;
+
+const goalName = () => ({passive: 'set and forget', balanced: 'balanced', max: 'maximum ISK'})[STEPS[0].match(st)];
+const value = (step, r) => r && !r.error ? (step.metric === 'sell' ? r.sell_net_per_day : r.totals.isk_per_day) : null;
+const optOf = (step, id) => step.options.find(o => o.id === id);
+// Estimated minutes of your time per week for an answer. Rough, but the same yardstick for every
+// question, so ISK can be weighed against time. Shown on the cards, assumptions in TIME_NOTE.
+const TIME_NOTE = 'Time estimate: 1.5 min per extractor restart, 1 min per character login, 1 min per colony pickup and ' +
+  '5 min per system on every pickup round, 20 min per 60,000 m³ hauled, 3 min per factory restock, 2 min per transfer ' +
+  'and 5 min of contracts per batch (+20 min/week to keep sell orders up to date).';
+function minutesPerWeek(o, r) {
+  if (!r || r.error) return Infinity;
+  const t = r.totals, x = {...st, ...o.patch};
+  const rounds = 7 / Math.max(1, +x.ship_every_days), cycles = 7 / Math.max(1, +x.cycle_days);
+  const chars = Math.min({{ chars|length }}, t.colonies);
+  return t.restarts_per_week * 1.5 + cycles * chars * 1
+       + rounds * (t.colonies * 1 + t.systems * 5) + t.m3_per_week / 60000 * 20
+       + t.factories * cycles * 3 + t.transfers * rounds * 2
+       + rounds * 5 + (x.use_sell_orders ? 20 : 0);
+}
+const hm = m => m >= 60 ? `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m` : `${Math.round(m)} min`;
+const effortScore = (step, o, r) => minutesPerWeek(o, r);
+const HOUR_DEFAULT = {passive: 300e6, balanced: 90e6, max: 0};
+let hourOverride = null;
+try { const v = localStorage.getItem('hour_isk'); if (v !== null && v !== '') hourOverride = +v; } catch (e) {}
+const iskPerHour = () => hourOverride ?? HOUR_DEFAULT[STEPS[0].match(st)];
+function hourPicker() {
+  const vals = [0, 25e6, 50e6, 90e6, 150e6, 300e6, 500e6];
+  const curv = iskPerHour();
+  if (!vals.includes(curv)) vals.push(curv);
+  return `<label class="muted" style="display:inline-flex;gap:.4rem;align-items:center;margin:.4rem 0 0;font-size:.82rem">
+    An hour of my time is worth
+    <select id="hour" style="width:auto;margin:0;padding:.15rem 1.8rem .15rem .5rem;font-size:.82rem">
+      ${vals.sort((a, b) => a - b).map(v => `<option value="${v}" ${v === curv ? 'selected' : ''}>${v ? isk(v) + ' ISK' : 'nothing (max ISK)'}</option>`).join('')}
+    </select>${hourOverride != null ? ' <a href="#" id="hour-reset">use my goal’s default</a>' : ''}</label>`;
+}
+function wireHour(step) {
+  const sel = $('hour'); if (!sel) return;
+  sel.onchange = () => { hourOverride = +sel.value; try { localStorage.setItem('hour_isk', sel.value); } catch (e) {}
+                         paint(step); };
+  const r = $('hour-reset'); if (r) r.onclick = e => { e.preventDefault(); hourOverride = null;
+    try { localStorage.removeItem('hour_isk'); } catch (e) {} paint(step); };
+}
+const net = (step, o, r) => value(step, r) - minutesPerWeek(o, r) / 7 / 60 * iskPerHour();   // ISK/day minus time cost
+const byEffort = (step, res) => step.options.filter(o => res[o.id] && !res[o.id].error)
+  .sort((a, b) => effortScore(step, a, res[a.id]) - effortScore(step, b, res[b.id]));
+const labelOf = (step) => { const o = optOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : 'custom'; };
+
+function recommend(step) {
+  const res = results[step.id]; if (!res || step.noRec) return null;
+  const ok = byEffort(step, res);           // least time first: ties go to the easier answer
+  if (!ok.length) return null;
+  return ok.reduce((a, o) => net(step, o, res[o.id]) > net(step, a, res[a.id]) + 1 ? o : a, ok[0]).id;
+}
+
+// ---- tracker --------------------------------------------------------------------------------
+function drawTrack() {
+  $('track').innerHTML = '<span class="fill" id="fill"></span>' + STEPS.map((s, i) => `
+    <li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}" data-i="${i}">
+      <span class="dot">${i < cur ? '✓' : i + 1}</span>
+      <span class="lbl">${s.title}</span>
+      <span class="ans">${i < cur && s.options ? esc(labelOf(s)) : ''}</span>
+    </li>`).join('');
+  requestAnimationFrame(() => { $('fill').style.width = (cur / (STEPS.length - 1)) * 92 + '%'; });
+  document.querySelectorAll('.track li.done').forEach(li => li.onclick = () => go(+li.dataset.i));
+}
+
+// ---- a question -----------------------------------------------------------------------------
+function go(i) {
+  cur = Math.max(0, Math.min(STEPS.length - 1, i));
+  try { localStorage.setItem('guide_step', cur); } catch (e) {}
+  drawTrack();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
+}
+
+function showQuestion(step) {
+  const n = STEPS.length - 1;
+  step.options = step.options.filter(o => !o.isCustom);
+  const m = step.match(st);
+  if (step.custom && m != null && !step.options.some(o => o.id === m))
+    step.options.push({...step.custom(st), isCustom: true});
+  $('q').innerHTML = `
+    <div class="eyebrow">Question ${cur + 1} of ${n}</div>
+    <h3>${step.q}</h3>
+    <p class="intro">${step.intro}</p>
+    <div class="opts" id="opts">${step.options.map(o => `
+      <div class="opt" data-id="${esc(JSON.stringify(o.id))}">
+        <div class="badges"></div>
+        <div class="ic">${o.icon}</div><div class="nm">${esc(o.label)}</div>
+        <div class="bl">${esc(o.blurb || '')}</div>
+        <div class="res"><div class="skel"></div><div class="skel" style="width:60%"></div></div>
+      </div>`).join('')}</div>
+    <div id="advice"></div>
+    <div class="nav">
+      <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>← Back</button>
+      <span class="hint" id="navhint">Working out what each answer would earn with your characters…</span>
+      <button id="next">Next →</button>
+    </div>`;
+  $('back').onclick = () => go(cur - 1);
+  $('next').onclick = async () => { await save(); go(cur + 1); };
+  document.querySelectorAll('.opt').forEach(el => el.onclick = () => {
+    if (el.classList.contains('err')) return;
+    choose(step, JSON.parse(el.dataset.id));
+  });
+  if (picks[step.id] === undefined && step.match(st) != null) picks[step.id] = step.match(st);
+  paint(step);
+  load(step);
+}
+
+async function load(step) {
+  const my = ++seq;
+  const base = {...st};
+  const r = await fetch('/api/whatif', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({base, options: step.options.map(o => ({id: o.id, patch: o.patch}))})});
+  const rows = await r.json();
+  if (my !== seq) return;            // user moved on
+  results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
+  if (picks[step.id] === undefined) choose(step, recommend(step), true); else paint(step);
+  $('navhint').textContent = 'Click an answer to compare. You can come back and change it later.';
+}
+
+function choose(step, id, auto) {
+  if (id === null || id === undefined) return;
+  picks[step.id] = id;
+  Object.assign(st, optOf(step, id).patch);
+  paint(step);
+}
+
+function effortDiff(a, b, oa, ob) {   // what b costs more than a
+  const out = [], ta = a.totals, tb = b.totals;
+  if (oa && ob) { const dm = minutesPerWeek(ob, b) - minutesPerWeek(oa, a);
+    if (Math.abs(dm) >= 1) out.push(`<b>${hm(Math.abs(dm))} ${dm > 0 ? 'more' : 'less'} of your time per week</b>`); }
+  const d = (k, unit, fmt = num) => { const x = tb[k] - ta[k]; if (Math.abs(x) >= 1) out.push(`${x > 0 ? '+' : '−'}${fmt(Math.abs(x))} ${unit}`); };
+  d('m3_per_week', 'm³ hauled/week'); d('restarts_per_week', 'extractor restarts/week'); d('systems', 'systems');
+  d('factories', 'factory planets'); d('transfers', 'transfers between characters');
+  return out;
+}
+
+function paint(step) {
+  const res = results[step.id] || {};
+  const rec = recommend(step);
+  const pick = picks[step.id];
+  const vals = step.options.map(o => value(step, res[o.id])).filter(v => v != null);
+  const top = Math.max(1, ...vals);
+  const pv = value(step, res[pick]);
+  const pr = res[pick];
+  document.querySelectorAll('.opt').forEach(el => {
+    const id = JSON.parse(el.dataset.id), r = res[id], o = optOf(step, id);
+    el.classList.toggle('pick', id === pick);
+    el.classList.toggle('recd', id === rec);
+    el.querySelector('.badges').innerHTML = (id === rec ? '<span class="badge rec">Suggested</span>' : '') +
+                                            (id === pick ? '<span class="badge mine">Your pick</span>' : '');
+    if (!r) return;
+    if (r.error) { el.classList.add('err'); el.querySelector('.res').innerHTML = `<div class="bad" style="font-size:.82rem">${esc(r.error)}</div>`; return; }
+    const v = value(step, r), t = r.totals;
+    const dv = pv != null && id !== pick ? v - pv : null;
+    const cmp = (k, better) => !pr || pr.error || id === pick || t[k] === pr.totals[k] ? '' : ((t[k] > pr.totals[k]) === (better === 'low') ? 'more' : 'less');
+    const mins = minutesPerWeek(o, r), pmins = pr && !pr.error ? minutesPerWeek(optOf(step, pick), pr) : null;
+    const rows = [
+      ['⏱ Your time / week', '≈ ' + hm(mins), pmins == null || id === pick || Math.abs(mins - pmins) < 1 ? '' : (mins > pmins ? 'more' : 'less')],
+      ['🚚 Haul / week', num(t.m3_per_week) + ' m³', cmp('m3_per_week', 'low')],
+      ['🔁 Restarts / week', t.restarts_per_week, cmp('restarts_per_week', 'low')],
+      ['🗺️ Systems', t.systems, cmp('systems', 'low')],
+      ['🏭 Factory planets', t.factories, cmp('factories', 'low')],
+    ];
+    if (step.logins) rows.unshift(['🔑 Logins / week', Math.round(7 / o.patch.cycle_days * 10) / 10, '']);
+    if (t.transfers) rows.push(['🤝 Transfers', t.transfers, cmp('transfers', 'low')]);
+    if (step.metric === 'sell') rows.unshift(['💸 Per batch', isk(r.sell_net_per_cycle), '']);
+    if (r.holds) rows.push(['⏸ Batches held back', r.holds, 'more']);
+    el.querySelector('.res').innerHTML = `
+      <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small></div>
+      <div class="delta ${dv == null ? 'same' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'same'}">${dv == null ? (id === pick ? 'your current pick' : '') : (dv >= 0 ? '+' : '−') + isk(Math.abs(dv)) + '/day vs your pick'}</div>
+      <div class="bar"><i style="width:${Math.max(3, v / top * 100)}%"></i></div>
+      <div class="metrics">${rows.map(([a, b, c]) => `<span>${a}</span><span class="${c}">${b}</span>`).join('')}</div>
+      <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>`;
+  });
+  $('advice').innerHTML = advice(step, rec, pick);
+  wireHour(step);
+}
+
+// ISK per extra hour of your time when going from answer a to answer b.
+function perHour(step, a, b) {
+  const res = results[step.id];
+  const dv = value(step, res[b.id]) - value(step, res[a.id]);
+  const dm = minutesPerWeek(b, res[b.id]) - minutesPerWeek(a, res[a.id]);
+  return dm > 1 ? dv * 7 / (dm / 60) : null;
+}
+const vs = (step, a, b) => {           // "+X/day for +Yh of your time, ... (Z ISK per extra hour)"
+  const res = results[step.id], dv = value(step, res[b.id]) - value(step, res[a.id]);
+  const extra = effortDiff(res[a.id], res[b.id], a, b), ph = perHour(step, a, b);
+  return `${dv >= 0 ? '+' : '−'}${isk(Math.abs(dv))}/day` + (extra.length ? ` for ${extra.join(', ')}` : ' for about the same work') +
+         (ph != null && dv > 0 ? ` (<b>${isk(ph)} ISK per extra hour</b>)` : '');
+};
+
+function tradeoffs(step) {           // each option vs the least-time one
+  const res = results[step.id], ok = byEffort(step, res);
+  if (ok.length < 2) return '';
+  const p = ok.slice(1).map(o => `<b>${esc(o.label)}</b>: ${vs(step, ok[0], o)} compared to ${esc(ok[0].label)}.`);
+  p.push('There is no right answer here. Pick what fits how you play. Your goal decides what an hour of your time is worth in the next questions: ' +
+         '300M ISK for set-and-forget, 90M balanced, nothing for max ISK. You can set your own value below.');
+  return `<div class="advice"><h6>⚖️ The trade-off</h6>${p.map(x => `<p>${x}</p>`).join('')}${hourPicker()}<p class="muted" style="font-size:.75rem">${TIME_NOTE}</p></div>`;
+}
+
+function advice(step, rec, pick) {
+  const res = results[step.id]; if (!res) return '';
+  if (step.noRec) return tradeoffs(step);
+  if (rec == null) return '';
+  const ok = byEffort(step, res);
+  const best = ok.reduce((a, o) => value(step, res[o.id]) > value(step, res[a.id]) ? o : a, ok[0]);
+  const r = optOf(step, rec), rv = value(step, res[rec]);
+  const worth = iskPerHour() ? `you value an hour at ${isk(iskPerHour())} ISK` : 'only ISK counts';
+  const p = [];
+  if (best.id === rec) {
+    const easier = ok.slice(0, ok.indexOf(r));
+    p.push(`<b>${esc(r.label)}</b> earns the most here: ${isk(rv)}/day.`);
+    if (easier.length) {
+      const c = easier[easier.length - 1];
+      p.push(`Compared to <b>${esc(c.label)}</b>: ${vs(step, c, r)}. With your goal (${goalName()}: ${worth}) that's worth it.`);
+    }
+  } else {
+    p.push(`<b>${esc(best.label)}</b> would earn the most, but compared to <b>${esc(r.label)}</b> it's ${vs(step, r, best)}.`);
+    p.push(`With your goal (${goalName()}: ${worth}) that isn't worth it, so we suggest <b>${esc(r.label)}</b>.`);
+  }
+  if (pick != null && pick !== rec && res[pick] && !res[pick].error) {
+    p.push(`<span class="muted">Your pick, ${esc(optOf(step, pick).label)}: ${vs(step, r, optOf(step, pick))} compared to the suggestion.</span>`);
+  }
+  return `<div class="advice"><h6>💡 Our advice</h6>${p.map(x => `<p>${x}</p>`).join('')}${hourPicker()}<p class="muted" style="font-size:.75rem">${TIME_NOTE}</p></div>`;
+}
+
+async function save() {
+  await fetch('/api/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(st)});
+}
+
+// ---- the result -----------------------------------------------------------------------------
+async function showPlan() {
+  const chips = STEPS.filter(s => s.options).map((s, i) =>
+    `<span class="chip" data-i="${i}">${s.title}: <b>${esc(labelOf(s))}</b></span>`).join('');
+  $('q').innerHTML = `
+    <div class="eyebrow">Done</div>
+    <h3>Your plan</h3>
+    <div class="chips">${chips}</div>
+    <div class="todo"><h6 style="margin:0">What to do now</h6><ol>
+      <li><a href="/export/templates.zip">Download the templates</a> and copy them into <code>Documents/EVE/PlanetaryInteractionTemplates</code>.</li>
+      <li>For each character below, place a command center on the listed planet and load the template shown.</li>
+      <li>Then go to <a href="/operate">Operate</a>: it tracks extractors, pickups and what to sell where, straight from ESI.</li>
+    </ol></div>
+    <div id="planres"><div class="skel" style="height:6rem"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+    <div class="nav">
+      <button class="outline secondary" id="back">← Back</button>
+      <span class="hint"><a href="/planner?view=advanced">Fine-tune with every option →</a></span>
+      <a role="button" href="/operate">Go to Operate →</a>
+    </div>`;
+  document.querySelectorAll('.chip').forEach(c => c.onclick = () => go(+c.dataset.i));
+  $('back').onclick = () => go(cur - 1);
+  const r = await fetch('/api/suggest', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(st)});
+  $('planres').innerHTML = planHTML(await r.json());
+}
+
+go(cur);
+</script>
+{% endblock %}

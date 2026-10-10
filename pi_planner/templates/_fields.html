@@ -1,0 +1,12 @@
+{% macro num(s, name, label, help='', step='any', min=None) -%}
+<label>{{ label }}
+  <input type="number" name="{{ name }}" value="{{ s[name] }}" step="{{ step }}" {% if min is not none %}min="{{ min }}"{% endif %}>
+  {% if help %}<small>{{ help }}</small>{% endif %}
+</label>
+{%- endmacro %}
+
+{% macro check(s, name, label, help='') -%}
+<input type="hidden" name="__bool_fields__" value="{{ name }}">
+<label><input type="checkbox" role="switch" name="{{ name }}" {% if s[name] %}checked{% endif %}> {{ label }}
+  {% if help %}<br><small class="muted">{{ help }}</small>{% endif %}</label>
+{%- endmacro %}

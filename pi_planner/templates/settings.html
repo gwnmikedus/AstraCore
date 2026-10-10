@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_fields.html" import num, check %}
+{% block content %}
+<h2>Settings</h2>
+<form method="post" action="/settings">
+<article>
+  <header><strong>Selling &amp; taxes</strong></header>
+  <div class="grid">
+    {{ num(s, 'buyback_pct', 'VOC buyback: % of Jita buy for P2–P4', 'Measured 90% from an appraisal at 7G-QIG on 2026-10-10.') }}
+    {{ num(s, 'buyback_pct_p1', 'VOC buyback: % of Jita buy for P1', '0 = refused (as of 2026-10-10).') }}
+  </div>
+  {{ check(s, 'taxes_from_skills', 'Take sales tax and broker fee from my characters’ skills and standings (ESI)') }}
+  {% if rates %}
+  <div class="scroll"><table>
+    <thead><tr><th>Character</th><th>Accounting</th><th>Sales tax</th><th>Broker Relations</th><th>Broker fee Jita / Amarr</th></tr></thead>
+    <tbody>{% for r in rates %}<tr {% if seller and r.character_id == seller.character_id %}class="ok"{% endif %}>
+      <td>{{ r.name }}{% if seller and r.character_id == seller.character_id %} ← sells{% endif %}</td><td>{{ r.accounting }}</td><td>{{ r.sales_tax_pct }}%</td>
+      <td>{{ r.broker_relations }}</td><td>{{ r.broker_by_hub.jita }}% / {{ r.broker_by_hub.amarr }}%</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted"><small>Sales tax 7.5% −11% per Accounting level; broker fee 3% −0.3% per Broker Relations level − standings with the station owner.
+    The planner values products at the seller’s rates. Products other characters hold in hangars are valued at their own rates on Operate.
+    Training Accounting on the seller is the cheapest ISK gain (each level ≈ 0.8% of everything sold on the market).</small></p>
+  {% endif %}
+  <div class="grid">
+    {{ num(s, 'sales_tax_pct', 'Sales tax % (only when the switch above is off)', '') }}
+    {{ num(s, 'broker_fee_pct', 'Broker fee % (sell orders, only when the switch is off)', '') }}
+  </div>
+  <div class="grid">
+    {{ num(s, 'poco_tax_pct', 'Customs office tax % (where ESI can’t read it)', 'Import tax is half of this. ESI only shows customs office rates to Directors of the owning corporation.') }}
+  </div>
+  {% if poco %}<p class="ok"><small>Read from ESI for {{ poco|length }} system(s): {% for sid, r in poco.items() %}{{ r }}%{% if not loop.last %}, {% endif %}{% endfor %}. Used there instead of the value above.</small></p>
+  {% else %}<p class="muted"><small>No customs office rates readable from ESI (none of your characters is a Director of the owning corp). Ask your alliance what the POCO tax is for members.</small></p>{% endif %}
+</article>
+<article>
+  <header><strong>Extraction yield</strong></header>
+  {{ check(s, 'auto_calibrate', 'Use yield measured from my characters’ real extractors when available') }}
+  {% if calibrated %}<p class="ok">Measured from your extractors: {{ calibrated }} P0/hour/head (CCP’s extraction formula, normalised to richness 1.0 and a 3-day program).
+    {% if measured %}Richness of {{ measured|length }} planet(s) is also taken from your extractors.{% endif %}</p>
+  {% else %}<p class="muted">No extractor data from your characters yet - the value below is used.</p>{% endif %}
+  {{ num(s, 'head_yield_per_hour', 'Fallback: P0 per hour per extractor head (richness 1.0, 3-day cycle)') }}
+  {{ num(s, 'stack_yield_pct', 'Yield of each extra colony on the same resource on one planet (%)', 'Two of your colonies extracting the same P0 on one planet share its deposits. 70 = the 2nd gets 70%, the 3rd 49% of the first.') }}
+  {{ num(s, 'solver_time_limit', 'Solver time limit (seconds)', '', 1, 2) }}
+</article>
+<button>Save</button>
+</form>
+
+<article>
+  <header><strong>VOC courier tariff</strong> <span class="muted">{{ 'read live from' if routes_info.live else 'defaults - could not read' }} <a href="{{ voc_site }}" target="_blank">vochauling.com</a>{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
+  <div class="scroll"><table>
+    <thead><tr><th>From</th><th>To</th><th>Min fee</th><th>Per m³</th><th>Collateral</th><th>Max m³</th></tr></thead>
+    <tbody>{% for r in routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|int }}</td><td>{{ r.collateral_pct }}%</td><td>{{ '{:,.0f}'.format(r.max_m3) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</article>
+
+<article>
+  <header><strong>EVE application</strong></header>
+  <p class="muted">Configured in <code>.env</code>. Client ID <code>{{ client_id or 'not set' }}</code>, callback <code>{{ callback }}</code>. Logins request all {{ scopes|length }} scopes enabled on the application.</p>
+</article>
+{% endblock %}

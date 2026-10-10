@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block head %}
+<style>
+  .region { margin-bottom: 1.6rem; }
+  .cons { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: .8rem; }
+  .con { border: 1px solid var(--pico-muted-border-color); border-radius: 10px; padding: .8rem 1rem; cursor: pointer; display: block; margin: 0; }
+  .con:has(input:checked) { border-color: var(--pico-primary); box-shadow: 0 0 0 1px var(--pico-primary) inset; }
+  .con .top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  .con .title { font-weight: 700; display: flex; align-items: center; gap: .5rem; }
+  .con .title input { margin: 0; }
+  .bar { height: 6px; border-radius: 3px; background: var(--pico-muted-border-color); margin: .5rem 0; }
+  .bar span { display: block; height: 100%; border-radius: 3px; background: var(--pico-primary); }
+  .sys { font-size: .82rem; display: flex; justify-content: space-between; gap: .4rem; padding: .15rem 0;
+         border-top: 1px dashed var(--pico-muted-border-color); }
+  .badge { font-size: .7rem; padding: 0 .4rem; border-radius: 99px; border: 1px solid; }
+  .badge.you { color: var(--ok); } .badge.col { color: var(--blue); }
+  .sticky { position: sticky; bottom: 0; background: var(--pico-background-color); padding: .8rem 0;
+            border-top: 1px solid var(--pico-muted-border-color); margin-top: 1rem; }
+</style>
+{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Where can your characters do PI?</h2>
+  <p>Found from your characters:
+    {% for a in sources.alliances %}<span class="pill">sov of <b>{{ a }}</b></span>{% endfor %}
+    {% for c in sources.colony_constellations %}<span class="pill">your colonies in <b>{{ c }}</b></span>{% endfor %}
+    {% for e in sources.extra %}<span class="pill">added: <b>{{ e }}</b></span>{% endfor %}
+    {% if not sources.alliances and not sources.colony_constellations and not sources.extra %}nothing yet - add a region or system below.{% endif %}
+  </p>
+</hgroup>
+
+<form method="post" action="/space">
+{% if area %}
+{% set maxscore = groups|map(attribute='constellations')|map('map', attribute='score')|map('max')|max %}
+{% for r in groups %}
+<section class="region">
+  <h4>{{ r.name }}</h4>
+  <div class="cons">
+    {% for con in r.constellations %}
+    <label class="con">
+      <div class="top">
+        <span class="title"><input type="checkbox" name="con" value="{{ con.id }}" {% if con.id in selected %}checked{% endif %}>{{ con.name }}</span>
+        <span class="muted">sec {{ con.sec_max }} … {{ con.sec_min }}</span>
+      </div>
+      <div class="bar"><span style="width: {{ (100 * con.score / (maxscore or 1))|round|int }}%"></span></div>
+      <div class="muted" style="margin-bottom:.3rem">
+        {{ con.systems|length }} systems{% if con.yours %} · {{ con.yours }} your sov{% endif %}{% if con.has_colonies %} · <span class="badge col">your colonies</span>{% endif %}
+      </div>
+      {% for sy in con.systems %}
+      <div class="sys">
+        <span><b>{{ sy.name }}</b> <span class="muted">{{ sy.security }}</span>
+          {% if sy.colonies %}<span class="badge col" title="{{ sy.colonies|join(', ') }}">{{ sy.colonies|length }} col.</span>{% endif %}</span>
+        <span>{% for t, n in sy.types.items() if t not in ('Shattered','Unknown') %}<span class="pill">{{ t[:4] }}{% if n > 1 %}×{{ n }}{% endif %}</span>{% endfor %}</span>
+      </div>
+      {% endfor %}
+    </label>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endif %}
+
+<details>
+  <summary>Add another region, constellation or system</summary>
+  <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)">
+</details>
+
+<div class="sticky">
+  <div class="grid" style="align-items:end">
+    <label>Hub (where your hauler starts)
+      <select name="hub_system">
+        <option value="">Auto (best spot in the selection)</option>
+        {% for name in sel_systems %}<option {% if s.hub_system == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <div class="next-bar" style="margin:0">
+      <a href="/characters" role="button" class="outline secondary">← Characters</a>
+      <button name="refresh" value="1" class="outline">↻ Reload from ESI</button>
+      <button>Show suggestions →</button>
+    </div>
+  </div>
+</div>
+</form>
+{% endblock %}

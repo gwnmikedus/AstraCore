@@ -218,6 +218,14 @@ images.evetech.net.
 
 ## Credits
 
+AstraCore began with CosmicCarrot and welcomes contributions from fellow capsuleers. The introduction and
+`/credits#contributors` showcase public GitHub contributor profiles; `/credits#creator` preserves the origin story.
+The background community worker refreshes the contributor list hourly without credentials, follows pagination,
+and keeps the last complete snapshot in the shared SQLite cache if GitHub is unavailable. Page loads do not
+call GitHub. GitHub's own contributor data may take a few hours to update; the showcase links to its full list.
+Bot accounts and anonymous commit identities are not displayed. Bug reports, testing and ideas are acknowledged
+alongside the source contributors, with a link to the public discussion.
+
 Astracore © 2026 is its own fan-made product; `/credits` thanks everything it builds on: ESI, EVE SSO and the Image Server
 (Fenris Creations), DalShooth's templates, Fuzzwork's SDE, VOC Hauling, Lucide, Barlow, IBM Plex Mono, FastAPI, PuLP/CBC and more.
 EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",

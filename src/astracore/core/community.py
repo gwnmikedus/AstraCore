@@ -444,12 +444,18 @@ async def sync_once(*, force: bool = False, transport=None) -> None:
 
 
 async def run_sync_loop() -> None:
+    from . import contributors
+
     while True:
         try:
             await sync_once()
         except Exception:  # noqa: BLE001 - keep the delivery worker alive after an unexpected failure
             # Log only the failure category, never exception bodies or private report text.
             log.warning("Community synchronization failed; queued reports will be checked again.")
+        try:
+            await contributors.sync_once()
+        except Exception:  # noqa: BLE001 - contributor credits must not stop report delivery
+            log.warning("Contributor synchronization failed; cached credits remain available.")
         await asyncio.sleep(30)
 
 

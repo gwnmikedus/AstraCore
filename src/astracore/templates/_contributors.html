@@ -1,0 +1,22 @@
+<section class="contributors-section" id="contributors" aria-labelledby="contributors-title">
+  <div class="eyebrow">AstraCore / Built together</div>
+  <h2 id="contributors-title">For capsuleers. By capsuleers.</h2>
+  <p class="contributors-intro">AstraCore started with one pilot’s planetary operation. Its next chapter is built together: code, documentation, testing, and ideas from fellow capsuleers.</p>
+  <h3>GitHub contributors</h3>
+  <p class="muted">The people whose work is part of AstraCore’s source on GitHub, listed alphabetically. Thank you for helping the project grow.</p>
+  {% if contributor_credits.people %}
+  <ul class="contributor-list" aria-label="GitHub contributors">
+    {% for person in contributor_credits.people %}
+    <li><a class="contributor" href="{{ person.url }}" target="_blank" rel="noopener"><img src="{{ person.avatar_url }}" width="56" height="56" alt="" loading="lazy"><span>{{ person.login }}</span>{{ icon('external-link') }}</a></li>
+    {% endfor %}
+  </ul>
+  {% elif contributor_credits.last_success %}
+  <p>No GitHub contributor profiles are available yet. You can still explore the work and help shape what comes next.</p>
+  {% else %}
+  <p>Meet the contributors on GitHub while the contributor list is being updated.</p>
+  {% endif %}
+  {% if contributor_credits.unavailable %}<p class="muted">GitHub updates are temporarily unavailable.{% if contributor_credits.people %} Showing the last confirmed contributor list.{% endif %}</p>{% endif %}
+  {% if contributor_credits.last_success %}<p class="muted contributor-updated">Last checked {{ contributor_credits.last_success|ago }}. GitHub may take a few hours to reflect new contributions.</p>{% endif %}
+  <div class="contributors-actions"><a class="text-action" href="{{ project.contributors_url }}" target="_blank" rel="noopener">Contributors on GitHub {{ icon('external-link') }}</a><a class="text-action" href="/project">Help build AstraCore {{ icon('arrow-right') }}</a></div>
+  <p class="muted contributors-thanks">Good bug reports, testing, and ideas matter too. Thank you to everyone who shares feedback and helps fellow pilots. <a href="{{ project.issues_url }}" target="_blank" rel="noopener">Join the discussion on GitHub.</a></p>
+</section>

@@ -16,6 +16,18 @@ Issues and pull requests are public. Remove character names, colony locations, w
 
 Suggestions start under review. Submitting an idea does not commit it to the roadmap or promise a delivery date.
 
+## Contributor recognition
+
+The site's introduction and [credits page](https://astracore.hoppyhome.nl/credits#contributors) showcase public
+GitHub contributor profiles alphabetically. The list follows GitHub's repository contributor data and may
+take a few hours to reflect merged work. Use a commit author email associated with your GitHub account;
+GitHub's private `noreply` email works too. We do not publish anonymous commit names or email addresses,
+and bot accounts are omitted. You retain copyright in your own contributions.
+
+Testing, bug reports, ideas and documentation feedback help just as much, even when they do not appear in
+GitHub's commit-based contributor list. They are acknowledged alongside the showcase. If a credit is missing,
+open an issue with the public name and contribution you would like credited; do not post private identities.
+
 ## Set up a development copy
 
 Use a separate checkout and a separate data directory. Follow the [README quick start](README.md#quick-start-fresh-clone-local-mode), copy `docs/env.example` to `.env.local`, and register your own EVE development application and callback. Do not copy the project's production secrets or database into your checkout. The Mac launchers are optional; the Python module can run directly on another supported operating system.

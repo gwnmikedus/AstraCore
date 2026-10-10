@@ -50,7 +50,7 @@ class SecurityHeaders:
         csp = ("default-src 'self'; "
                f"script-src 'self' 'nonce-{nonce}'; "
                "style-src 'self' 'unsafe-inline'; "
-               "img-src 'self' data: https://images.evetech.net; "
+               "img-src 'self' data: https://images.evetech.net https://avatars.githubusercontent.com; "
                "connect-src 'self'; "
                "form-action 'self' https://login.eveonline.com; "
                "frame-ancestors 'none'; base-uri 'self'; object-src 'none'")

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="eyebrow">AstraCore / The people behind it</div>
-<h1 class="page-title">Built by a capsuleer. Powered by a community.</h1>
+<h1 class="page-title">The people behind AstraCore.</h1>
+{% include "_contributors.html" %}
 {% include "_creator.html" %}
 <div class="prose">
-  <h2>Credits</h2>
+  <h2>Tools, data &amp; community</h2>
   <p>AstraCore is its own small fan-made product, but it stands entirely on other people's work. Thank you all.</p>
 
   <h3>EVE Online</h3>
@@ -41,6 +42,6 @@
   <ul>
     <li><a href="https://www.cloudflare.com/products/tunnel/" target="_blank" rel="noopener">Cloudflare Tunnel</a> puts a Mac on the internet without opening ports.</li>
   </ul>
-  <p class="muted">AstraCore © 2026. Missing someone? Tell us and we'll add them.</p>
+  <p class="muted">AstraCore © 2026. Missing a credit? <a href="{{ project.issues_url }}/new/choose" target="_blank" rel="noopener">Let us know on GitHub.</a></p>
 </div>
 {% endblock %}

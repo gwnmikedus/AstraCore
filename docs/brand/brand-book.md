@@ -111,7 +111,9 @@ Navigation uses the AstraCore mark as a 48px disclosure control on every page. T
 
 The header always exposes theme switching beside the profile or login action. A sun invites Chart (light); a moon invites Hull (dark). Rotate and crossfade the icons while page colours settle in 350ms, preserve the choice across pages and tabs, and remove all motion for reduced-motion preferences. Keep both controls separate from the navigation disclosure.
 
-The creator plate introduces CosmicCarrot with the official EVE portrait and verified corporation/alliance names. Keep its coffee and permanent-hosting contributions optional, link both to the same Revolut destination, and describe hosting as a funding goal while the app still runs from the creator's own machine. Use the same plate on the introduction and credits pages; the footer carries a compact creator link and support action.
+The introduction and credits pages lead with the people building AstraCore. Show public GitHub contributors with avatars and profile links in alphabetical order, using the shared surface, border, typography and focus tokens. Avoid commit-count rankings: code, documentation, testing, ideas and bug reports all help the project. Link to the contribution guide and GitHub discussion so newcomers have a clear way to join.
+
+The origin plate follows the contributor showcase and introduces CosmicCarrot as the founding capsuleer with the official EVE portrait and verified corporation/alliance names. Keep its coffee and permanent-hosting contributions optional, link both to the same Revolut destination, and describe hosting as a funding goal while the app still runs from the founder's own machine. Use the same plate on the introduction and credits pages; the footer carries a compact contributor link and support action. Keep the existing `/credits#creator` link available for the origin story.
 
 - Hover: edges step from `line` to `line-strong`; secondary buttons fill `hull-raised`; primary goes `signal-strong`.
 - Selected: `signal-tint` fill plus a `signal` edge or bar.

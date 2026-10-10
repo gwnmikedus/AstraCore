@@ -35,7 +35,7 @@ a one-command on/off switch.
   "AstraCore" (client `440238e5…`, callback `https://astracore.hoppyhome.nl/auth/callback`). Both have the full scope list registered.
 - **Cloudflare tunnel exists** (§8.2), `cloudflared` is in `bin/`.
 - **Decided:** admin = Mike's 5 characters (IDs in the env files); production invite list starts with those 5 characters (Mike adds corps/alliances later).
-- `EVE_CLIENT_SECRET` in `.env.production` is filled. Mike fills `CLOUDFLARE_TUNNEL_TOKEN` himself. If it's empty when you need it, ask him; don't ask him to paste them in chat.
+- `EVE_CLIENT_SECRET` in `.env.production` is filled. `CLOUDFLARE_TUNNEL_TOKEN` is filled too.
 
 ---
 

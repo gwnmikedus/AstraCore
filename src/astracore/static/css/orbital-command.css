@@ -66,7 +66,10 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 
 /* Context headers reserve a separate image region. Data and controls never sit on artwork. */
 .context-header, .command-header { position: relative; isolation: isolate; min-width: 0; background: var(--hull); border-bottom: 1px solid var(--line-strong); padding: 32px; margin-block: 0 32px; }
-.context-header { padding-right: min(32%, 360px); }
+.context-header { padding-right: min(32%, 360px); overflow-wrap: anywhere; }
+.context-header.ac-page-header { grid-template-columns: minmax(0, 1fr); }
+.context-header > :not(.context-art) { min-width: 0; max-width: 100%; }
+.context-header :is(button, .primary-link, .text-action) { max-width: 100%; white-space: normal; }
 .context-header > .context-art, .command-header > .context-art { position: absolute; right: 0; top: 0; width: min(28%, 320px); height: 100%; object-fit: cover; object-position: 66% center; z-index: -1; mask-image: linear-gradient(90deg, transparent, #000 24%); }
 .context-header h1, .command-header h1 { font-size: clamp(36px, 3.8vw, 52px); line-height: 1.04; letter-spacing: -.01em; }
 .context-header p { color: var(--ink-muted); }
@@ -99,9 +102,8 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .community-invitation .eyebrow { color: var(--ink-muted); margin-bottom: 8px; }
 .community-invitation p { color: var(--ink-muted); margin: 0; }
 .community-invitation a { flex-shrink: 0; }
-.page-guide .g-head.context-header { margin-top: 0; display: flex; flex-wrap: wrap; gap: 24px; padding: 24px 32px; }
-.page-guide .g-head.context-header > div { flex: 1 1 640px; padding-right: min(32%, 320px); }
-.page-guide .g-head.context-header .adv { margin: 0; }
+.page-guide .g-head.context-header { margin-top: 0; display: block; padding-block: 24px; }
+.page-guide .g-head.context-header .adv { display: inline-block; margin: 16px 0 0; max-width: 100%; white-space: normal; }
 .operation-header { display: flex; align-items: end; gap: 24px; flex-wrap: wrap; }
 .operation-header > div { flex: 1 1 500px; }
 .page-operate .flow { background: var(--hull); padding: 16px; border: 1px solid var(--line); margin-block: 24px; gap: 12px; }
@@ -166,8 +168,7 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   .command-next > a { white-space: normal; min-height: 44px; }
   .page-dashboard .command-readouts section:last-child .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .command-readouts .card { min-height: 100px; padding: 12px; }
-  .page-guide .g-head.context-header { padding: 24px 20px; gap: 16px; }
-  .page-guide .g-head.context-header > div { padding-right: 0; }
+  .page-guide .g-head.context-header { padding: 24px 20px; }
   .page-guide .g-head.context-header h1 { font-size: 36px; line-height: 40px; }
   .page-welcome .onboarding-header { padding: 24px 20px; }
   .page-welcome .onboarding-header h1 { font-size: 38px; }

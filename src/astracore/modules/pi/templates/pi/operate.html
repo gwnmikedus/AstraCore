@@ -147,6 +147,8 @@
         {{ c.m3|m3 }}, collateral {{ c.collateral|isk }}, {% if c.shared %}extra {% endif %}fee {{ c.fee|isk }}
         {%- if c.contracts > 1 %} over {{ c.contracts }} contracts (VOC’s size limit){% endif %}
         {%- if c.carry_jumps %}, then carry it {{ c.carry_jumps }} jump{{ 's' if c.carry_jumps != 1 }} to {{ hl.dropoff }} yourself{% endif %}.
+        {% if c.self_haul_trips %}<br>The fee is more than these goods are worth: with a Deep Space Transport
+          ({{ c.self_haul_trips }} trip{{ 's' if c.self_haul_trips != 1 }} of ≈ 60,000 m³) flying it yourself may be cheaper; AstraCore doesn’t price that trip or its risk.{% endif %}
         {% if c.approx %}<span class="warn">Approximation:</span> VOC’s tariff lists {{ c.to }} → {{ c.from }} only; the same rate is assumed this way. Check it on <a href="{{ voc_site }}" target="_blank" rel="noopener">vochauling.com</a> before you contract.{% endif %}</li>
     {% endfor %}
     {% if hl.self_haul %}<li>From {{ hl.self_haul|join(' and ') }}: no VOC courier route to your drop-off is known, so you haul it yourself and the hauling isn’t priced.</li>{% endif %}

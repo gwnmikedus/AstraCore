@@ -73,8 +73,8 @@ CHARS = [
 ]
 
 
-def _build(pi, plan=PLAN, local=False, books=CC_BOOKS, **kw):
-    return checklist.build(pi, plan, CHARS, books, _templates(), {"cycle_days": 2}, local,
+def _build(pi, plan=PLAN, local=False, books=CC_BOOKS, settings=None, **kw):
+    return checklist.build(pi, plan, CHARS, books, _templates(), settings or {"cycle_days": 2}, local,
                            {99: {"name": "Old Rock", "system": "FAR"}}, **kw)
 
 
@@ -377,7 +377,9 @@ def test_delve_offer_names_the_station_and_the_jumps(pi):
     assert "1 jump from 7G-QIG" in cc["pickup"]["text"] and cc["pickup"]["partial"]   # 2 there, 3 needed
     books[BARREN]["delve_sell_at"] = {"location_id": 1_000_000_000_123, "system_id": 3, "station": None,
                                       "system": None, "units": 5, "structure": True}
-    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES)["command_centers"][0]
+    free_time = {"cycle_days": 2, "hour_isk": 0}       # time worth nothing: the cheaper Delve price wins
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+                settings=free_time)["command_centers"][0]
     assert cc["pickup"]["text"].startswith("a player structure in NEXT (2 jumps")    # system from the area
 
 
@@ -439,3 +441,34 @@ def test_operate_shows_landed_cost_and_hauling(browser, eve, pi, monkeypatch):
     html = c.get("/pi/operate").text
     assert "<th>Landed</th>" in html and "Hauling to 7G-QIG" in html
     assert "VOC courier Jita 4-4 → 7G-QIG" in html and "Approximation:" in html
+
+
+def test_your_own_delve_trip_is_priced_at_your_hour_value(pi):
+    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
+        "location_id": 1_000_000_000_123, "system_id": 3, "station": None, "system": None, "units": 5,
+        "structure": True}}}
+    cheap_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+                        settings={"cycle_days": 2, "hour_isk": 0})["command_centers"][0]
+    assert cheap_time["where"] == checklist.LOCAL_MARKET
+    assert cheap_time["trip"]["jumps"] == 2 and "your trip: 2 jumps each way" in cheap_time["haul_note"]
+    # 2 jumps each way at 1.5 min + handling: at 90M ISK/h that trip outweighs the courier for 3 command centers
+    dear_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+                       settings={"cycle_days": 2, "hour_isk": 90e6})["command_centers"][0]
+    assert dear_time["where"] != checklist.LOCAL_MARKET
+    trip = checklist.own_trip(2, 3000, 60e6)
+    assert trip["minutes"] == 2 * 2 * checklist.MIN_PER_JUMP + 1.0 and trip["isk"] == round(trip["minutes"] * 1e6)
+
+
+def test_a_seller_at_an_unknown_distance_doesnt_beat_a_priced_courier(pi):
+    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
+        "location_id": 60_000_009, "system_id": 999, "station": "FAR - Station", "system": "FAR",
+        "units": 5, "structure": False}}}
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+                settings={"cycle_days": 2, "hour_isk": 0})["command_centers"][0]
+    assert cc["where"] != checklist.LOCAL_MARKET and cc["haul_isk"] > 0    # outside the area: courier instead
+
+
+def test_a_courier_fee_above_the_goods_value_suggests_flying_it_yourself(pi):
+    k = _build(pi, _cc_only(), local=False, area=AREA, voc_routes=ROUTES)
+    c = k["hauling"]["contracts"][0]
+    assert c["fee"] > c["collateral"] and c["self_haul_trips"] == 1      # 3,000 m3: one DST trip

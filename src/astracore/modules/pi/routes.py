@@ -486,6 +486,11 @@ async def _export_plan(request: Request) -> dict:
     return (await _export_run(request))["result"]
 
 
+def _removal_planet(x: dict) -> str:
+    """Plans saved before planet names were stored only have the id."""
+    return x.get("planet") or f"planet {x['planet_id']}"
+
+
 def _plural(n: int, one: str, many: str) -> str:
     return f"{n} {one if n == 1 else many}"
 
@@ -645,7 +650,7 @@ async def export_md(request: Request):
         out += [f"- {x['from']} → {x['to']}: {fmt.num(x['units_per_day'])} {x['item']}/day" for x in res["transfers"]]
     if res.get("removals"):
         out += ["", "## Remove", ""]
-        out += [f"- {x['character']}: planet {x['planet_id']} ({x['current']})" for x in res["removals"]]
+        out += [f"- {x['character']}: {_removal_planet(x)} ({x['current']})" for x in res["removals"]]
     first = _first_build_md(checklist)
     if first:
         out += [""] + first

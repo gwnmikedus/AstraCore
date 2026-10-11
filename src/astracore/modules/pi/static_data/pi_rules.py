@@ -51,6 +51,31 @@ LINK_COST = (20, 15)
 
 MAX_HEADS_PER_ECU = 10
 
+# Command centers are the only part of a colony bought on the market: one per planet, of the
+# planet's own type (SDE type ids, 1,000 m3 each). Everything else is built in the planetary interface.
+COMMAND_CENTER_TYPES = {
+    "Temperate": 2254, "Barren": 2524, "Oceanic": 2525, "Ice": 2533,
+    "Gas": 2534, "Lava": 2549, "Storm": 2550, "Plasma": 2551,
+}
+COMMAND_CENTER_M3 = 1000.0
+COMMAND_CENTER_ISK_ESTIMATE = 110_000   # Jita sell was ~106k on 2026-10-11; used without cached prices
+
+# ISK the planetary interface charges from your wallet to place a structure (not market items).
+STRUCTURE_ISK = {"ecus": 45_000, "basic": 75_000, "advanced": 250_000, "hightech": 525_000,
+                 "storage": 250_000, "launchpads": 900_000}
+STRUCTURE_NAMES = {"ecus": "Extractor Control Unit", "basic": "Basic Industry Facility",
+                   "advanced": "Advanced Industry Facility", "hightech": "High-Tech Production Plant",
+                   "storage": "Storage Facility", "launchpads": "Launchpad"}
+# ISK to upgrade a placed command center from level n-1 to level n (index n), paid in the
+# planetary interface. The Command Center Upgrades skill caps the level.
+CCU_UPGRADE_ISK = [0, 580_000, 930_000, 1_200_000, 1_500_000, 2_100_000]
+
+
+def upgrade_isk(from_level: int, to_level: int) -> int:
+    lo, hi = max(0, int(from_level)), min(5, int(to_level))
+    return sum(CCU_UPGRADE_ISK[lo + 1:hi + 1]) if hi > lo else 0
+
+
 # Customs office "base" values used for export/import tax, by tier.
 POCO_BASE_VALUE = {0: 5, 1: 400, 2: 7200, 3: 60000, 4: 1200000}
 

@@ -16,7 +16,7 @@ from . import store
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import demand, operate, optimizer, prices, selling
+from .planner import checklist, demand, operate, optimizer, prices, selling
 from .planner import skills as skills_mod
 from .settings import Settings
 from .static_data import dalshooth, sde_loader, voc
@@ -256,6 +256,19 @@ def _progress_against(plan_result: dict, chars: List[dict]) -> dict:
 
 def progress(plan_result: Optional[dict], chars: List[dict]) -> Optional[dict]:
     return operate.build_progress(_progress_against(plan_result, chars)) if plan_result else None
+
+
+def first_build(ctx: dict, active: Optional[dict]) -> Optional[dict]:
+    """Shopping and construction checklist for what the active plan still needs built."""
+    if not active or "colonies" not in (active.get("result") or {}):
+        return None
+    res = active["result"]
+    out = checklist.build(ctx["pi"], _progress_against(res, ctx["chars"]), ctx["chars"], ctx["books"],
+                          ctx["tpl"], active.get("settings"), selling.in_delve(res.get("hub") or "", ctx["area"]),
+                          operate.planet_names(ctx["area"]))
+    if out:
+        out["prices_at"] = prices.cached().get("at")
+    return out
 
 
 async def refresh_profile(profile_id: int, only: Optional[int] = None) -> Dict[str, str]:

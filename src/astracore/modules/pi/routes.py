@@ -452,6 +452,7 @@ async def operate_page(request: Request):
                   pipe=operate.pipeline(ctx["pi"], ctx["books"], chars),
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,
                   progress=service.progress(plan, chars), plan=plan, active=active, missing=missing,
+                  checklist=service.first_build(ctx, active),
                   plans=store.list_plan_runs(pid),
                   synced=min((c.get("synced_at") or 0) for c in chars), buyback_site=voc.BUYBACK_SITE,
                   voc_site=voc.SITE, waypoints=_waypoint_chars(pid))

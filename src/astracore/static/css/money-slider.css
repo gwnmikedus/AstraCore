@@ -1,0 +1,25 @@
+.money-slider { display: grid; gap: var(--space-2); margin: var(--space-6) 0; max-width: 640px; }
+.money-slider-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+.money-slider-heading label { margin: 0; font-weight: 500; }
+.money-slider-heading output { font-family: var(--font-mono); font-size: 18px; color: var(--signal); }
+.money-slider-track { position: relative; }
+.money-slider-track::before, .money-slider-fill { position: absolute; top: calc(50% - 1px); height: 2px; pointer-events: none; }
+.money-slider-track::before { content: ''; inset-inline: 0; background: var(--line-strong); }
+.money-slider-fill { left: 0; width: var(--money-progress, 0%); background: var(--signal); }
+.money-slider input[type="range"] { position: relative; display: block; height: 44px; margin: 0; }
+.money-slider input[type="range"]::-webkit-slider-runnable-track { background: transparent; }
+.money-slider input[type="range"]::-moz-range-track, .money-slider input[type="range"]::-moz-range-progress { background: transparent; }
+.money-slider input[type="range"]::-webkit-slider-thumb { height: 24px; width: 14px; margin-top: -11px; background: var(--signal); }
+.money-slider input[type="range"]::-moz-range-thumb { height: 24px; width: 14px; background: var(--signal); }
+.money-slider-ends { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--ink-muted); font-size: 12px; }
+.money-slider-ends > :last-child { text-align: right; }
+.money-slider-entry { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
+.money-slider-entry label { flex: 1; min-width: 160px; max-width: 240px; margin: 0; font-size: 12px; color: var(--ink-muted); }
+.money-slider-entry input { font-family: var(--font-mono); }
+.money-slider-entry button { flex: none; }
+.money-slider > small { color: var(--ink-muted); }
+.money-slider > small.bad { color: var(--status-danger); }
+.money-slider [hidden] { display: none; }
+@media (max-width: 760px) {
+  .money-slider :is(input, button) { scroll-margin-block: var(--space-6) calc(var(--space-12) * 3); }
+}

@@ -12,7 +12,7 @@ The production brand of AstraCore. The MVP look (Pico, navy and cyan, rounded ca
 
 ## In the app
 
-- `src/astracore/static/css/astracore.css` is the only stylesheet. Tokens are CSS custom properties on `:root`
+- `src/astracore/static/css/astracore.css` defines the brand and shared components. `layout.css` supplies page rhythm; module styles extend those shared tokens. Tokens are CSS custom properties on `:root`
   (`--void`, `--hull`, `--signal`…); `data-theme="light"` switches to Chart. It keeps the app's existing class names
   (`.box`, `.card`, `.pill`, `.flash`…) and restyles them, so templates rarely need brand-specific markup.
 - Fonts are self-hosted in `src/astracore/static/fonts/` (the CSP allows only `'self'`).

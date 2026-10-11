@@ -1,0 +1,30 @@
+/* Shared page rhythm. Compose sections and panels without accumulating child margins. */
+:root {
+  --section-gap: var(--space-8);
+  --band-gap: var(--space-12);
+  --panel-gap: var(--space-6);
+  --panel-padding: var(--space-6);
+}
+
+.ac-stack { display: grid; gap: var(--section-gap); min-width: 0; }
+.ac-stack--major { gap: var(--band-gap); }
+.ac-stack--panels { gap: var(--panel-gap); }
+.ac-stack > * { min-width: 0; margin-block: 0; }
+.ac-stack > :is(.section, .creator-panel, .contributors-section, .project-intro, .contribution-grid, .project-details) { margin-block: 0; }
+.ac-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-4) var(--space-6); margin: 0; }
+.ac-page-header { display: grid; gap: var(--space-4); }
+.ac-page-header > * { margin-block: 0; }
+.ac-page-header > .eyebrow { color: var(--ink-muted); }
+.ac-page-header > p { max-width: 76ch; }
+.ac-section { display: grid; gap: var(--panel-gap); min-width: 0; scroll-margin-top: var(--space-6); }
+.ac-section > * { min-width: 0; margin-block: 0; }
+.ac-panel, article, .box, .tile { padding: var(--panel-padding); }
+.ac-panel { min-width: 0; margin: 0; background: var(--hull); }
+:is(.ac-panel, article, .box, .tile) > :last-child { margin-bottom: 0; }
+.tiles, .accounts, .contribution-grid { gap: var(--panel-gap); }
+.prose > h2 { margin-top: var(--section-gap); }
+.prose > :first-child { margin-top: 0; }
+
+@media (max-width: 760px) {
+  :root { --panel-padding: var(--space-4); }
+}

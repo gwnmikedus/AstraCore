@@ -54,7 +54,7 @@ The CI checks run in isolated GitHub-hosted jobs:
 
 ```bash
 python -m pytest -q tests
-node --test tests/test_ui.cjs
+node --test tests/test_*.cjs
 python scripts/check_release.py
 ```
 

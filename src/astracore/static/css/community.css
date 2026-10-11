@@ -1,19 +1,37 @@
 .community-intro { max-width: 65ch; }
-.community-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
-.community-roadmap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.community-roadmap article { min-width: 0; margin: 0; }
-.community-roadmap h3 { line-height: 1.25; }
-.community-roadmap details { margin-top: 1rem; }
+.community-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-6); margin: var(--space-6) 0; }
+.ac-page-header > .community-actions { margin: var(--space-2) 0; }
+.community-page-nav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); padding-block: var(--space-3); border-block: 1px solid var(--line); }
+.community-page-nav a { display: inline-flex; align-items: center; min-height: var(--control-h); }
+.community-page .ac-section > h2 { scroll-margin-top: calc(var(--bar-h) + var(--space-6)); }
+.community-roadmap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--panel-gap); align-items: start; }
+.community-roadmap article { display: grid; gap: var(--space-4); min-width: 0; margin: 0; transition: background-color .12s linear; }
+.community-roadmap article:hover, .community-roadmap article:focus-within { background: var(--hull-raised); }
+.community-roadmap article > * { margin: 0; }
+.community-roadmap article > header { padding-bottom: var(--space-3); }
+.community-roadmap h3 { font-size: 28px; line-height: 1.2; }
+.community-roadmap article > p { color: var(--ink-muted); }
+.community-roadmap details { padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.community-roadmap summary { min-height: var(--control-h); color: var(--scan); }
+.community-roadmap details[open] > summary { margin-bottom: var(--space-4); }
 .community-roadmap details p { color: var(--ink-muted); }
-.community-form { max-width: 780px; margin: 1.5rem 0; }
-.community-form label { display: block; margin: 1rem 0; }
-.community-form input:not([type="checkbox"]), .community-form select, .community-form textarea { display: block; width: 100%; margin-top: .4rem; }
+.community-roadmap details > :last-child { margin-bottom: 0; }
+.community-status { max-width: 76ch; padding-left: var(--space-4); border-left: 2px solid var(--line-strong); }
+.community-status p:last-child { margin-bottom: 0; }
+.community-form { max-width: 780px; margin: var(--space-6) 0; }
+.community-form label { display: block; margin: var(--space-4) 0; }
+.community-form input:not([type="checkbox"]), .community-form select, .community-form textarea { display: block; width: 100%; margin-top: var(--space-2); }
 .community-form textarea { resize: vertical; }
 .community-form [hidden] { display: none; }
-.community-consent { display: flex !important; align-items: flex-start; gap: .75rem; }
-.community-consent input { flex: 0 0 auto; margin-top: .25rem; }
-.community-public-body { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-body, "Barlow", sans-serif); line-height: 1.5; color: var(--ink); padding: 0; border: 0; background: none; }
+.community-consent { display: flex !important; align-items: flex-start; gap: var(--space-3); }
+.community-consent input { flex: 0 0 auto; margin-top: var(--space-1); }
+.community-public-body { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-sans); line-height: 1.5; color: var(--ink); padding: 0; border: 0; background: none; }
 .community-report-list { list-style: none; padding: 0; }
-.community-report-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
-.community-edit-form { margin: 1rem 0; }
-@media (max-width: 720px) { .community-roadmap { grid-template-columns: 1fr; } .community-actions > a { width: 100%; } }
+.community-report-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: var(--space-4) 0; border-bottom: 1px solid var(--line); }
+.community-report-list li:first-child { padding-top: 0; }
+.community-edit-form { margin: var(--space-4) 0; }
+@media (max-width: 720px) {
+  .community-roadmap { grid-template-columns: 1fr; }
+  .community-actions > a { width: 100%; }
+  .community-roadmap h3 { font-size: 26px; }
+}

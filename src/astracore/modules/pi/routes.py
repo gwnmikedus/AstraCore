@@ -33,7 +33,7 @@ from astracore.esi.client import ESI_BASE
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import operate, optimizer, prices
+from .planner import operate, optimizer, prices, upkeep
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, Settings, effort_weights
 from .static_data import dalshooth, voc
@@ -448,6 +448,7 @@ async def operate_page(request: Request):
     stock = operate.hangar_stock(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"])
     return render(request, "operate.html", "operate", "Operate", chars=chars,
                   status=operate.colonies_status(ctx["pi"], chars, ctx["area"]),
+                  upkeep=upkeep.schedule(ctx["pi"], ctx["s"], chars, plan, ctx["area"]),
                   stock=stock, consolidated=operate.consolidate(stock, ctx["area"]),
                   pipe=operate.pipeline(ctx["pi"], ctx["books"], chars),
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,

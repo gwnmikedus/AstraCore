@@ -76,3 +76,37 @@ def test_number_formatter_is_locale_free_and_never_negative_zero():
     assert fmt.num(-0.3) == "0" and fmt.isk(-0.01) == "0" and fmt.isk(-40_000) == "-40k"
     assert fmt.count(94.5) == "95"
     assert fmt.num(None) == "–" and fmt.isk("") == "–"
+
+
+def test_operate_shows_the_upkeep_schedule(browser, eve, monkeypatch):
+    import time
+
+    from astracore.modules.pi import service
+    from test_planner import _colonies, pi as _pi_fixture
+
+    pi = _pi_fixture.__wrapped__()
+    c = browser()
+    cid = new_id()
+    sso_login(c, eve, cid, "Upkeep Pilot")
+    pid = me(c)
+    db.save_token(cid, "rt", "at", 1199, PI_SCOPES)
+    db.set_character(cid, colonies=list(_colonies(time.time())), synced_at=time.time())
+    s = Settings()
+    store.save_plan_run(pid, "upkeep", s, {"totals": {}, "colonies": [
+        {"character_id": cid, "planet_id": 12, "character": "Upkeep Pilot", "planet": "P12", "product": "Biocells",
+         "kind": "factory", "action": "keep", "layout": {"advanced": 2, "launchpads": 1},
+         "in_per_day": {"Biofuels": 1920, "Precious Metals": 1920}, "out_per_day": {"Biocells": 480}}]}, active=True)
+
+    async def ctx(profile_id, *a, **kw):
+        return {"chars": service.planning_characters(profile_id), "pi": pi, "s": s, "books": {}, "area": None,
+                "tpl": []}
+
+    monkeypatch.setattr(service, "planning_context", ctx)
+    r = c.get("/pi/operate")
+    assert r.status_code == 200, r.text
+    html = r.text
+    assert 'id="upkeep"' in html and "Upkeep schedule" in html
+    assert "Restock inputs" in html and "Restart extractors" in html
+    assert "market shipment · every 7 days" in html
+    assert "Precious Metals" in html and "doesn't send reminders" in html
+    assert "50% of planned 480" in html and "not in the active plan" in html

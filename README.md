@@ -143,8 +143,9 @@ switcher, "What we read", sign-in scopes and resets pick it up from the registry
    is planned live; the suggestion is the best ISK once your time is counted at what an hour is worth to you.
    The result has per-character build lists, routes, a templates zip and "How you get paid". Plans are saved per
    profile; one is the **active plan**. **Advanced** (`/pi/plan?view=advanced`) has every option on one screen.
-4. **Operate**: extractors to restart, products waiting on launchpads, factories low on inputs, one "Consolidate & sell"
-   card for everything in hangars, VOC contracts and sell orders in progress, and the ISK that came in vs. the active plan.
+4. **Operate**: an upkeep schedule per colony (extractor restarts, factory restocks and collections derived from its
+   launchpad/storage space, market shipments on their own cycle, measured output vs. the plan and data freshness),
+   products waiting on launchpads, factories low on inputs, one "Consolidate & sell" card for everything in hangars, VOC contracts and sell orders in progress, and the ISK that came in vs. the active plan.
 
 Only [DalShooth/EVE_PI_Templates](https://github.com/DalShooth/EVE_PI_Templates) templates are suggested
 (`Miner - 00/LS - <P1>`, `Factory - <product>`); each template's CPU/PG is checked against every character's

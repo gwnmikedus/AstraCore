@@ -155,6 +155,57 @@
 </div>
 {% endif %}
 
+{% if upkeep.colonies or upkeep.plan_checks %}
+{% set tr = upkeep.tracks %}
+<div class="box" id="upkeep">
+  <h5>{{ icon('calendar-days') }} Upkeep schedule</h5>
+  <p class="muted" style="margin:.2rem 0">Each colony's visits follow from its own extractors, factory inputs and launchpad/storage space.
+    Market shipments run on their own cycle.</p>
+  {% for f in upkeep.freshness if f.sync_stale or f.colony_stale %}
+  <div class="warnbox">{{ icon('triangle-alert') }} <b>{{ f.character }}</b>:
+    {% if f.sync_stale %}last ESI refresh {{ f.synced_at|ago }}.{% endif %}
+    {% if f.colony_stale %}Colony data dates from {{ f.colony_update|ago }}. ESI only updates a colony after you view it in game,
+      so stock and storage below are projected from then.{% endif %}</div>
+  {% endfor %}
+  <div class="cards">
+    <div class="card"><div class="v {{ 'bad' if tr.restart.expired else ('warn' if tr.restart.due else '') }}">{% if tr.restart.next_hours is none %}–{% elif tr.restart.next_hours <= 0 %}now{% else %}{{ tr.restart.next_hours|hours }}{% endif %}</div>
+      <div class="l">next extractor restart{% if tr.restart.colonies %} · {{ tr.restart.due }} within 24 h · every {{ tr.restart.every_days|num(1) }} days{% endif %}</div></div>
+    <div class="card"><div class="v {{ 'warn' if tr.restock.due else '' }}">{% if tr.restock.next_hours is none %}–{% elif tr.restock.next_hours <= 0 %}now{% else %}{{ tr.restock.next_hours|hours }}{% endif %}</div>
+      <div class="l">next factory restock{% if tr.restock.colonies %} · {{ tr.restock.colonies }} factor{{ 'y' if tr.restock.colonies == 1 else 'ies' }} · tightest every {{ tr.restock.every_days|num(1) }} days{% endif %}</div></div>
+    <div class="card"><div class="v {{ 'warn' if tr.collect.due else '' }}">{% if tr.collect.next_hours is none %}–{% elif tr.collect.next_hours <= 0 %}full{% else %}{{ tr.collect.next_hours|hours }}{% endif %}</div>
+      <div class="l">until storage fills{% if tr.collect.colonies %} · {{ tr.collect.colonies }} colon{{ 'y' if tr.collect.colonies == 1 else 'ies' }} exporting{% endif %}</div></div>
+    <div class="card"><div class="v">{% if tr.ship.next_days is none %}–{% elif tr.ship.next_days <= 0 %}due{% else %}{{ (tr.ship.next_days * 24)|hours }}{% endif %}</div>
+      <div class="l">market shipment · every {{ tr.ship.every_days|num }} days · {% if tr.ship.last %}last {{ tr.ship.last|ago }}{% else %}no sale seen yet{% endif %}</div></div>
+  </div>
+  {% if upkeep.colonies %}
+  <div class="scroll"><table><thead><tr><th>Colony</th><th>Next visit</th><th>Visit rhythm</th><th>Storage</th><th>Output vs plan</th><th>Colony data</th></tr></thead><tbody>
+  {% for u in upkeep.colonies %}
+  <tr><td>{{ u.character }} · {{ u.planet }} <span class="muted">{{ u.system }}</span></td>
+    <td class="st-{{ u.state }}">{% if u.next %}{{ {'restart': 'Restart extractors', 'restock': 'Restock inputs', 'collect': 'Collect products'}[u.next] }}
+      · {% if u.next_hours <= 0 %}<b>now</b>{% else %}{{ u.next_hours|hours }}{% endif %}{% else %}<span class="muted">nothing scheduled</span>{% endif %}</td>
+    <td>{% if u.visit_every_days %}every {{ u.visit_every_days|num(1) }} days
+      {% if u.restock %}<br><span class="muted itemlist">bring {% for k, v in u.restock.items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</span>{% endif %}
+      {% else %}<span class="muted">–</span>{% endif %}</td>
+    <td>{% if u.capacity_m3 is none %}<span class="muted">unknown</span>{% else %}{{ u.used_m3|m3 }} / {{ u.capacity_m3|m3 }}
+      <span class="muted">· {{ u.fill_pct }}%</span>{% endif %}</td>
+    <td>{% if u.output %}{{ eve_img(u.output.product, 16) }}{{ u.output.actual|num }} {{ u.output.product }}/day
+      {% if u.output.planned %}<br><span class="st-{{ u.output.state }}">{{ u.output.pct }}% of planned {{ u.output.planned|num }}</span>{% elif plan %}<br><span class="muted">not in the active plan</span>{% endif %}
+      {% else %}<span class="muted">–</span>{% endif %}</td>
+    <td class="{{ 'warn' if u.stale else 'muted' }}">{{ u.last_update|ago if u.last_update else 'unknown' }}</td></tr>
+  {% if u.issues %}<tr><td colspan="6">{% for i in u.issues %}<span class="warn">{{ icon('triangle-alert') }} {{ i }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endif %}
+  {% endfor %}</tbody></table></div>
+  {% endif %}
+  {% if upkeep.plan_checks %}
+  <details{{ ' open' if not upkeep.colonies }}><summary>Storage check for the active plan ({{ upkeep.plan_checks|length }})</summary>
+    {% for c in upkeep.plan_checks %}<p style="margin:.2rem 0"><b>{{ c.character }}</b> · {{ c.planet }} · {{ c.product }}:
+      <span class="muted">{{ c.issues|join(' ') }}</span></p>{% endfor %}
+  </details>
+  {% endif %}
+  <p class="muted" style="margin:.4rem 0 0">Output is measured from the synced structures and extractors. AstraCore doesn't send reminders;
+    refresh from ESI to update the schedule.</p>
+</div>
+{% endif %}
+
 {% if active or status.extractors %}
 <div class="box">
   <h5>{{ icon('timer') }} Extractors</h5>
@@ -168,7 +219,7 @@
 </div>
 {% endif %}
 
-{% if active or status.pickups or status.restock %}
+{% if active or status.pickups or upkeep.shortages %}
 <div class="grid">
   <div class="box">
     <h5>{{ icon('package') }} Ready to pick up from planets</h5>
@@ -179,9 +230,10 @@
   </div>
   <div class="box">
     <h5>{{ icon('factory') }} Factories that need inputs</h5>
-    {% for r in status.restock %}
-      <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {{ r.have|num }} left
-      (<span class="{{ 'bad' if r.days_left < 1 else 'warn' }}">{{ r.days_left }} days</span>, uses {{ r.need_per_day|num }}/day)</p>
+    {% for r in upkeep.shortages %}
+      <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {% if r.have %}about {{ r.have|num }} left
+      (<span class="{{ 'bad' if r.days_left < 1 else 'warn' }}">{{ r.days_left }} days</span>, uses {{ r.need_per_day|num }}/day){% else %}<span class="bad">run out, factory idle</span>
+      (uses {{ r.need_per_day|num }}/day){% endif %}</p>
     {% else %}<p class="empty">No factories need inputs within the next 2 days.</p>{% endfor %}
   </div>
 </div>

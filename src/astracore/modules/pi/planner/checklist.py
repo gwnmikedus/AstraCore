@@ -209,6 +209,7 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
         "rebuild": sum(1 for c in todo if c["action"] == "rebuild"),
         "blocked": blocked, "warned": warned, "local": local, "cycle_days": cycle_days,
         "command_centers": command_centers, "cc_qty": cc_qty, "cc_m3": cc_qty * R.COMMAND_CENTER_M3,
+        "cc_local": any(c["where"] == LOCAL_MARKET for c in command_centers),
         "multibuy": voc.paste_list({c["name"]: c["qty"] for c in command_centers}),
         "supplies": supplies, "supply_days": cycle_days,
         "supplies_multibuy": voc.paste_list({s["item"]: s["qty"] for s in supplies}),

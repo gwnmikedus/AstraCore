@@ -103,7 +103,7 @@
       <textarea class="paste" readonly aria-label="Multibuy list: command centers">{{ k.multibuy }}</textarea>
       <button class="copy outline" data-copy="{{ k.multibuy }}">{{ icon('copy') }} Copy Multibuy list</button>
       <p class="muted">One command center per new planet, of that planet’s type. {{ k.cc_m3|m3 }} to carry
-        {%- if k.local %}; the Delve market saves you the haul when it lists them{% else %} from the trade hub to your systems{% endif %}.
+        {%- if k.cc_local %}; buying them on the Delve market saves you the haul{% else %} from the trade hub to your systems{% if k.local %}: the Delve market doesn't list them right now{% endif %}{% endif %}.
         {% if k.costs.estimated_cc %}No cached market price for some of them yet: the estimate uses a typical Jita price.{% endif %}</p>
       {% else %}
       <p class="empty">Nothing to buy: every colony still to build is a rebuild on a planet where you already have a command center.</p>

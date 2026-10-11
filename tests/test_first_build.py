@@ -191,3 +191,10 @@ def test_operate_shows_the_checklist_for_the_active_plan(browser, eve, pi, monke
     assert "Copy Multibuy list" in html and "can’t buy anything or place market orders" in html
     assert "Optional · Factory starter stock" in html and "Biofuels\t1920" in html
     assert "Fly to HUB with a Barren Command Center" in html
+
+
+def test_local_market_is_only_credited_when_it_sells_the_command_centers(pi):
+    barren = {**PLAN, "colonies": [_col(1, "Pilot One", 12, "Barren", "HUB", "miner")]}
+    assert _build(pi, barren, local=True)["cc_local"]                  # Delve lists Barren command centers
+    gas = {**PLAN, "colonies": [_col(1, "Pilot One", 12, "Gas", "HUB", "miner")]}
+    assert not _build(pi, gas, local=True)["cc_local"]                 # nobody sells Gas ones: estimate, no haul saved

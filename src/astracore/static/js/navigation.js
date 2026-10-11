@@ -8,6 +8,8 @@
   const backdrop = menu.querySelector('[data-menu-backdrop]');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let closeTimer;
+  let touchStart;
+  let touchClickHandled = false;
 
   function sync() {
     const open = menu.open && !menu.hasAttribute('data-closing');
@@ -28,7 +30,7 @@
 
   function closeMenu(returnFocus = true) {
     if (!menu.open || menu.hasAttribute('data-closing')) return;
-    if (returnFocus) toggle.focus();
+    if (returnFocus) toggle.focus({preventScroll: true});
     menu.setAttribute('data-closing', '');
     sync();
     function finishClose() {
@@ -40,10 +42,41 @@
     else closeTimer = setTimeout(finishClose, 180);
   }
 
-  toggle.addEventListener('click', event => {
-    event.preventDefault();
+  function activate() {
     if (menu.open && !menu.hasAttribute('data-closing')) closeMenu();
     else openMenu();
+  }
+
+  toggle.addEventListener('pointerdown', event => {
+    touchClickHandled = false;
+    touchStart = event.pointerType === 'touch' && event.isPrimary && event.button === 0
+      ? {id: event.pointerId, x: event.clientX, y: event.clientY} : null;
+  });
+  toggle.addEventListener('pointerup', event => {
+    if (!touchStart || event.pointerId !== touchStart.id) return;
+    const distance = Math.hypot(event.clientX - touchStart.x, event.clientY - touchStart.y);
+    touchStart = null;
+    touchClickHandled = true;
+    event.preventDefault();
+    if (distance > 12) return;
+    toggle.focus({preventScroll: true});
+    activate();
+  });
+  toggle.addEventListener('pointercancel', () => {
+    touchStart = null;
+    touchClickHandled = true;
+  });
+  toggle.addEventListener('click', event => {
+    event.preventDefault();
+    const pointerClick = event.detail > 0 || event.pointerType === 'touch'
+      || event.sourceCapabilities?.firesTouchEvents;
+    // A touch release may also generate a compatibility click for the same input.
+    if (touchClickHandled && pointerClick) {
+      touchClickHandled = false;
+      return;
+    }
+    touchClickHandled = false;
+    activate();
   });
   menu.addEventListener('toggle', sync);
   backdrop.addEventListener('click', () => closeMenu());
@@ -64,6 +97,8 @@
   });
   window.addEventListener('pageshow', () => {
     clearTimeout(closeTimer);
+    touchStart = null;
+    touchClickHandled = false;
     menu.open = false;
     menu.removeAttribute('data-closing');
     sync();

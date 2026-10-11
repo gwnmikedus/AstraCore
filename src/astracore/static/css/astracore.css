@@ -1031,9 +1031,10 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 html[data-menu-open] { overflow: hidden; }
 .site-header { position: relative; z-index: 30; flex-wrap: nowrap; align-items: center; background: var(--void); }
 .site-header .brandline { gap: 20px; min-width: 0; }
-.menu-slot { --menu-inset: var(--space-4); --menu-top: 14px; width: 48px; height: 48px; flex: none; }
+.menu-slot { --menu-inset: max(var(--space-4), env(safe-area-inset-left)); --menu-top: calc(14px + env(safe-area-inset-top)); width: 48px; height: 48px; flex: none; }
 .site-menu { position: fixed; top: max(var(--menu-top), env(safe-area-inset-top)); left: max(var(--menu-inset), calc((100% - var(--container)) / 2 + var(--menu-inset))); z-index: 30; margin: 0; }
-.site-menu > .menu-toggle { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 8px; margin: 0; color: var(--ink); border: 1px solid var(--line); background: var(--hull); }
+.site-menu > .menu-toggle { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 8px; margin: 0; color: var(--ink); border: 1px solid var(--line); background: var(--hull); touch-action: manipulation; }
+.menu-toggle > * { pointer-events: none; }
 .site-menu > .menu-toggle::before { display: none; }
 .site-menu > .menu-toggle:hover { border-color: var(--signal); }
 .site-menu > .menu-toggle:active { background: var(--signal-tint); }
@@ -1084,7 +1085,10 @@ html[data-menu-open] { overflow: hidden; }
 @keyframes menu-item-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 @keyframes menu-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes menu-backdrop-out { to { opacity: 0; } }
-@media (min-width: 760px) { .menu-slot { --menu-inset: var(--space-6); } }
+@media (min-width: 760px) { .menu-slot { --menu-inset: max(var(--space-6), env(safe-area-inset-left)); } }
+@media (max-width: 1079px) {
+  html[data-header-away] .site-menu::before { content: ''; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top) + 112px); z-index: -1; pointer-events: none; background: linear-gradient(to bottom, var(--void) 0, var(--void) env(safe-area-inset-top), transparent calc(env(safe-area-inset-top) + 72px)), radial-gradient(ellipse 96px 80px at calc(var(--menu-inset) + 24px) calc(env(safe-area-inset-top) + 38px), var(--void) 24%, color-mix(in srgb, var(--void) 88%, transparent) 43%, transparent 100%); }
+}
 @media (max-width: 760px) {
   .site-header { min-height: 76px; gap: 8px; }
   .site-header .brandline { gap: 12px; }

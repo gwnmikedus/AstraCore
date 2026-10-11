@@ -1,6 +1,21 @@
 {
-  "current_version": "1.2.2",
+  "current_version": "1.2.3",
   "releases": [
+    {
+      "version": "1.2.3",
+      "date": "2026-10-11",
+      "title": "One-tap navigation",
+      "changes": [
+        "Open and close navigation with one touch. The original icon, button size and Menu caption are preserved.",
+        "Desktop navigation has its own gutter. Phones retain their full content width, with a soft fade behind the floating menu that continues through the top safe area."
+      ],
+      "technical": [
+        "Touch release activates the disclosure once and suppresses its duplicate compatibility click. Cancelled touches and scrolling gestures do not activate navigation; keyboard and mouse behavior remain available.",
+        "The desktop shell reserves 96px for navigation at widths of 1080px and above. Mobile uses a non-interactive, theme-aware gradient from the top edge, with viewport-fit and safe-area spacing for cutouts and browser chrome."
+      ],
+      "limitations": [],
+      "references": []
+    },
     {
       "version": "1.2.2",
       "date": "2026-10-11",

@@ -65,7 +65,8 @@
     {{ plan_compare_table(plans, csrf_token) }}
     <p class="muted compare-note">Income is after taxes, hauling and fees. Your time is a rough weekly estimate for restarts,
       logins, pickups, hauling, restocks, transfers and contracts. Uncertainty lists what can make real income differ
-      from the estimate; it is not a probability.</p>
+      from the estimate, scored by how much of the income depends on sell orders, courier transit or held batches;
+      it is not a probability. Reasons every plan shares are greyed.</p>
   </details>
   {% endif %}
 </div>

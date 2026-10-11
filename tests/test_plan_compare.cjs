@@ -61,6 +61,41 @@ test('missing facts from an old saved plan render as dashes instead of failing',
   assert.ok(!html.includes('undefined') && !html.includes('NaN'));
 });
 
+// Fake answers to a logins question: every row has estimated yield, sell orders differ by share.
+const YIELD = 'Yield is an estimate until your extractors have run';
+const answer = (label, sellPct, score, level, label2) => ({
+  label, totals: {isk_per_day: 40e6, colonies: 6, slots_total: 8, systems: 2},
+  facts: {uncertainty: {level, label: label2, score, reasons: [
+    `Sell orders: ${sellPct}% of income; price and time to sell can change`,
+    'Courier: 100% of income; prices can move during about 3 days in transit', YIELD]}},
+});
+
+test('reasons every row shares are muted and listed after the ones that differ', () => {
+  const AC = load();
+  const html = AC.compareTableHTML({caption: 'Logins', first: 'Answer', rows: [
+    answer('Every day', 20, 80, 'higher', 'Higher'), answer('Twice a week', 5, 67, 'higher', 'Higher'),
+    {label: 'Legacy <i>', totals: {}, facts: {uncertainty: {level: 'medium', label: 'Medium', reasons: [
+      'Courier: 100% of income; prices can move during about 3 days in transit', YIELD]}}},
+  ]});
+  const shared = `<small class="uncert-shared">Same for every option: Courier: 100% of income; prices can move during about 3 days in transit; ${YIELD}</small>`;
+  assert.equal(html.split(shared).length - 1, 3);
+  assert.ok(html.includes('<small class="uncert-own">Sell orders: 20% of income; price and time to sell can change</small>'));
+  assert.ok(html.includes('<small class="uncert-own">Sell orders: 5% of income'));
+  assert.ok(html.indexOf('Sell orders: 20%') < html.indexOf('Same for every option'));
+  assert.ok(html.includes('score 80 of 100') && html.includes('score 67 of 100'));
+  assert.ok(!html.includes('score undefined') && html.includes('Legacy &lt;i&gt;'));
+});
+
+test('a single row or rows without uncertainty mark nothing as shared, and reasons stay escaped', () => {
+  const AC = load();
+  const one = AC.compareTableHTML({caption: 'x', rows: [answer('Only', 10, 50, 'higher', 'Higher')]});
+  assert.ok(!one.includes('uncert-shared') && one.includes(YIELD));
+  const tricky = {label: 'T', totals: {}, facts: {uncertainty: {level: 'x" onmouseover="y', label: '<b>', reasons: ['<img src=x>']}}};
+  const html = AC.compareTableHTML({caption: 'x', rows: [tricky, {label: 'Old', totals: {}, facts: {}}]});
+  assert.ok(!html.includes('<img') && !html.includes('<b>') && !html.includes('" onmouseover'));
+  assert.ok(html.includes('&lt;img src=x&gt;') && !html.includes('uncert-shared'));
+});
+
 const STEPS = [{id: 'goal', options: []}, {id: 'cycle', options: []}, {id: 'area', options: []},
                {id: 'sell', options: []}, {id: 'plan'}];
 

@@ -1,5 +1,11 @@
 {# Saved plans side by side. Mirrors AC.compareTableHTML (static/js/plan-compare.js): same columns and units. #}
 {% macro plan_compare_table(plans, csrf_token, caption='Saved plans compared') -%}
+{#- Uncertainty reasons every plan gives word for word: listed last and muted, like sharedReasons() in the JS. #}
+{%- set ns = namespace(lists=[], shared=[]) %}
+{%- for p in plans if p.facts and p.facts.uncertainty %}{% set ns.lists = ns.lists + [p.facts.uncertainty.reasons or []] %}{% endfor %}
+{%- if ns.lists|length > 1 %}{% for r in ns.lists[0] %}{% set hit = namespace(ok=true) %}
+  {%- for l in ns.lists if r not in l %}{% set hit.ok = false %}{% endfor %}
+  {%- if hit.ok %}{% set ns.shared = ns.shared + [r] %}{% endif %}{% endfor %}{% endif %}
 <div class="scroll compare-scroll"><table class="compare-table">
   <caption>{{ caption }}</caption>
   <thead><tr><th scope="col">Plan</th><th scope="col">Income</th><th scope="col">Your time</th>
@@ -25,7 +31,13 @@
       {%- if f.dropoff or p.hub %}<small>drop-off {{ f.dropoff or p.hub }}</small>{% endif %}</td>
     <td data-label="Restarts">{{ t.restarts_per_week|count }} / week</td>
     <td data-label="Haul">{{ t.m3_per_week|m3 }} / week{% if t.transfers %}<small>{{ t.transfers|count }} transfer{{ 's' if t.transfers != 1 }} between characters</small>{% endif %}</td>
-    <td data-label="Uncertainty">{% if f.uncertainty %}<span class="uncert uncert-{{ f.uncertainty.level }}">{{ f.uncertainty.label }}</span><small>{{ f.uncertainty.reasons|join('; ') }}</small>{% else %}–{% endif %}</td>
+    <td data-label="Uncertainty">{% if f.uncertainty %}{% set u = f.uncertainty %}{% set reasons = u.reasons or [] %}
+      {%- set own = reasons|reject('in', ns.shared)|list %}{% set same = reasons|select('in', ns.shared)|list -%}
+      <span class="uncert uncert-{{ u.level }}">{{ u.label }}</span>
+      {%- if u.score is number %}<small class="uncert-score">score {{ u.score|count }} of 100</small>{% endif %}
+      {%- if own %}<small class="uncert-own">{{ own|join('; ') }}</small>{% endif %}
+      {%- if same %}<small class="uncert-shared">Same for every option: {{ same|join('; ') }}</small>{% endif %}
+      {%- else %}–{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody>

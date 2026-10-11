@@ -13,15 +13,28 @@
     return `${count(t.systems)}${shown ? `<small>${shown}${more}</small>` : ''}${f.dropoff ? `<small>drop-off ${esc(f.dropoff)}</small>` : ''}`;
   }
 
-  function uncertaintyCell(f) {
+  // Reasons every row gives word for word. They don't help choose, so cells list them last and muted.
+  function sharedReasons(rows) {
+    const lists = rows.map(r => (r.facts || {}).uncertainty).filter(Boolean).map(u => u.reasons || []);
+    if (lists.length < 2) return new Set();
+    return new Set(lists[0].filter(x => lists.every(l => l.includes(x))));
+  }
+
+  // Differing reasons first, shared ones after. Mirrors pi/_plan_compare.html.
+  function uncertaintyCell(f, shared) {
     const u = f.uncertainty;
     if (!u) return '–';
-    return `<span class="uncert uncert-${esc(u.level)}">${esc(u.label)}</span><small>${(u.reasons || []).map(esc).join('; ')}</small>`;
+    const reasons = u.reasons || [];
+    const own = reasons.filter(x => !shared.has(x)), same = reasons.filter(x => shared.has(x));
+    return `<span class="uncert uncert-${esc(u.level)}">${esc(u.label)}</span>`
+      + (u.score == null ? '' : `<small class="uncert-score">score ${count(u.score)} of 100</small>`)
+      + (own.length ? `<small class="uncert-own">${own.map(esc).join('; ')}</small>` : '')
+      + (same.length ? `<small class="uncert-shared">Same for every option: ${same.map(esc).join('; ')}</small>` : '');
   }
 
   // One row. r = {label, note, totals, facts, income, incomeUnit, week, actions, current}
   // `actions` is trusted HTML built by the caller; everything else is escaped here.
-  function rowHTML(r) {
+  function rowHTML(r, shared = new Set()) {
     const t = r.totals || {}, f = r.facts || {};
     const income = r.income ?? t.isk_per_day;
     const week = r.week ?? (income == null ? null : income * 7);
@@ -34,7 +47,7 @@
       systemsCell(t, f),
       `${count(t.restarts_per_week)} / week`,
       `${m3(t.m3_per_week)} / week${t.transfers ? `<small>${count(t.transfers)} transfer${t.transfers === 1 ? '' : 's'} between characters</small>` : ''}`,
-      uncertaintyCell(f),
+      uncertaintyCell(f, shared),
     ];
     return `<tr${r.current ? ' class="current" aria-current="true"' : ''}>
       <th scope="row">${esc(r.label)}${r.note ? `<small>${esc(r.note)}</small>` : ''}${r.actions || ''}</th>
@@ -43,12 +56,13 @@
 
   function compareTableHTML({caption, rows, first = 'Option'}) {
     if (!rows || !rows.length) return '';
+    const shared = sharedReasons(rows);
     return `<div class="scroll compare-scroll"><table class="compare-table">
       <caption>${esc(caption)}</caption>
       <thead><tr><th scope="col">${esc(first)}</th><th scope="col">Income</th><th scope="col">Your time</th>
         <th scope="col">Colonies</th><th scope="col">Characters</th><th scope="col">Systems</th>
         <th scope="col">Restarts</th><th scope="col">Haul</th><th scope="col">Uncertainty</th></tr></thead>
-      <tbody>${rows.map(rowHTML).join('')}</tbody></table></div>`;
+      <tbody>${rows.map(r => rowHTML(r, shared)).join('')}</tbody></table></div>`;
   }
 
   // ---- guided setup navigation ----------------------------------------------------------------

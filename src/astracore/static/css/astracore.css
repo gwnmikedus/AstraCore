@@ -1288,6 +1288,8 @@ html[data-menu-open] { overflow: hidden; }
 .compare-table .uncert { font-weight: 600; }
 .compare-table .uncert-lower { color: var(--status-ok); }
 .compare-table .uncert-medium, .compare-table .uncert-higher { color: var(--status-warn); }
+/* Reasons that differ between rows read in full ink; reasons every row shares stay muted. */
+.compare-table small.uncert-own { color: var(--ink); }
 .compare-note { font-size: 12px; line-height: 18px; max-width: 820px; }
 .page-guide .chips-note { font-size: 13px; margin: 0 0 var(--space-2); }
 @media (max-width: 640px) {

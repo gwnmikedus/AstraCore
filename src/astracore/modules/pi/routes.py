@@ -17,7 +17,7 @@ import json
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from astracore import db
@@ -463,10 +463,12 @@ async def operate_page(request: Request):
 async def _export_plan(request: Request) -> dict:
     pid = _pid(request)
     run = request.query_params.get("plan")
-    if run and run.isdigit():
-        saved = store.get_plan_run(pid, int(run))
-        if saved:
-            return saved["result"]
+    if run is not None:
+        # A named plan exports that plan or nothing: never quietly a different one.
+        saved = store.get_plan_run(pid, int(run)) if run.isdigit() else None
+        if not saved:
+            raise HTTPException(404, "That saved plan doesn't exist (any more).")
+        return saved["result"]
     if request.query_params.get("current") != "1":
         active = store.active_plan(pid)
         if active:

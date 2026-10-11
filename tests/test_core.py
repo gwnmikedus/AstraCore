@@ -570,8 +570,10 @@ def test_profiles_cannot_touch_each_other(browser, eve):
     r = cb.post("/pi/api/waypoints", json={"character_id": a1, "systems": ["Jita"]}, headers={"X-CSRF-Token": t})
     assert r.status_code == 403
     assert cb.get(f"/auth/upgrade/{a1}", follow_redirects=False).headers["location"].startswith("/profile")
-    for path in (f"/pi/export/plan.csv?plan={run}",):
-        assert "alice" not in cb.get(path).text.lower()
+    for path in (f"/pi/export/plan.csv?plan={run}", f"/pi/export/plan.md?plan={run}",
+                 f"/pi/export/templates.zip?plan={run}"):
+        r = cb.get(path)
+        assert r.status_code == 404 and "alice" not in r.text.lower()   # someone else's plan: not found, no solve
     export = cb.get("/profile/export.json").json()
     assert {c["character_id"] for c in export["characters"]} == {b1}
     assert "Alice" not in cb.get("/profile").text

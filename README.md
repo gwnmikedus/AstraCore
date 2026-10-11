@@ -7,7 +7,7 @@ and runs it day to day from **Operate**.
 Source and contributions: [gwnmikedus/AstraCore](https://github.com/gwnmikedus/AstraCore).
 Report bugs or suggest improvements through [GitHub Issues](https://github.com/gwnmikedus/AstraCore/issues/new/choose).
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup and pull requests, [SECURITY.md](SECURITY.md) for private vulnerability reports,
-and [docs/releases.md](docs/releases.md) for versioning and release notes.
+and [docs/releases.md](docs/releases.md) for versions, releases, merging and deployment.
 
 The original software is **source available under PolyForm Noncommercial 1.0.0**. Noncommercial use, modification
 and distribution are permitted subject to [LICENSE](LICENSE) and [NOTICE](NOTICE); commercial rights are not granted.

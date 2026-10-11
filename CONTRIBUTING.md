@@ -46,7 +46,7 @@ Install the test extras with `python -m pip install -e ".[test]"`. The test fixt
 
 Create a branch from `main`, keep the change small enough to review, and follow the existing Python, vanilla JavaScript and Jinja patterns. Use shared formatting, icons, asset helpers and brand tokens. Keep module-specific behavior in its module. Do not add secrets, hardcoded personal identifiers, real account fixtures or unnecessary dependencies.
 
-Use a short-lived branch named `feat/<topic>`, `fix/<topic>`, `docs/<topic>` or `chore/<topic>`; coding-agent branches use `codex/<topic>`. Outside contributors should open a pull request from their fork. Keep personal editor and agent configuration, local launchers and private reviews out of commits; use `.git/info/exclude` or your global Git ignore file for those local rules.
+Use a short-lived branch named `feat/<topic>`, `fix/<topic>`, `docs/<topic>` or `chore/<topic>`; coding-agent branches use `codex/<topic>`. Outside contributors should open a pull request from their fork. Keep personal editor and agent configuration, local launchers and private reviews out of commits; use `.git/info/exclude` or your global Git ignore file for those local rules. The shared rules for coding agents are in [AGENTS.md](AGENTS.md).
 
 For a behavior change, add a useful regression test. Verify the affected flow on the project's designated test deployment, including narrow screens where relevant. Do not restart or deploy the shared production instance as part of a contribution. Repository owners' local workflow instructions take precedence over these general development notes.
 
@@ -62,10 +62,17 @@ If you cannot run a check, state that in the pull request; do not report it as p
 
 ## Open a pull request
 
-`main` is protected, including for repository administrators. All changes go through a pull request with the branch up to date, resolved review conversations, and successful `Python 3.9`, `Python 3.13`, `Browser helper unit tests` and `Release metadata` checks. Direct pushes, force pushes and deletion of `main` are blocked. Do not skip required checks or change protection settings to merge a failing pull request.
+`main` is production, and only the maintainer ([@gwnmikedus](https://github.com/gwnmikedus)) merges into it. Everyone else, coding agents included, opens a pull request and stops there.
+
+`main` is protected, including for repository administrators. All changes go through a pull request with:
+- the branch up to date;
+- resolved review conversations;
+- successful `Python 3.9`, `Python 3.13`, `Browser helper unit tests` and `Release metadata` checks.
+
+Direct pushes, force pushes and deletion of `main` are blocked. Do not skip required checks or change protection settings to merge a failing pull request. The maintainer deploys straight after merging; see [Versions, releases and deployment](docs/releases.md).
 
 Maintainers merge using squash merge and a Conventional Commit title. GitHub deletes merged branches automatically. There is no mandatory approval count while the project has a sole maintainer; maintainers should obtain another contributor's review when available, especially for authentication, privacy or licensing changes. Revisit the approval requirement when there are multiple active maintainers.
 
-Explain the problem and resulting behavior, link the related issue, and describe validation and any remaining limitations. Use Conventional Commits for commit messages, for example `fix: keep factory restocks within storage capacity`. Include understandable release notes for changes pilots should know about, with implementation details kept separate. See [the release workflow](docs/releases.md).
+Explain the problem and resulting behavior, link the related issue, and describe validation and any remaining limitations. Use Conventional Commits for commit messages, for example `fix: keep factory restocks within storage capacity`. The squash commit title is the changelog entry for that patch, so write it for a reader. When pilots would notice the change, add a short user-facing note to the pull request; the maintainer collects these into the next minor release's notes.
 
-Do not bump the application version in every pull request. Maintainers group changes into a release and keep the package version, release entry, tag and GitHub release consistent. Public source, contribution and release pages do not automatically remove the hosted service's invite gate.
+AstraCore uses `0.MINOR.PATCH` versions. Every merged pull request is a patch, numbered automatically from git (`0.1.1`, `0.1.2`, …). Release notes, tags and GitHub Releases are only made for minor releases (`0.2.0`). Never change the version or `release_data.json` in a regular pull request. Public source, contribution and release pages do not automatically remove the hosted service's invite gate.

@@ -61,6 +61,8 @@ function planHTML(res) {
         <td><div class="cellimg">${AC.structureImg(c.kind === 'miner' ? 'miner' : (c.tier === 4 ? 'factory_p4' : 'factory'), 24)}<div>${AC.externalLink(c.template_url, c.template, {cls: `kind-${c.kind}`})}
             ${c.p0.length ? `<br><span class="muted">extract ${c.p0.map(esc).join(', ')}</span>` : ''}
             ${c.utilisation < 0.99 ? `<br><span class="muted">runs at ${Math.round(c.utilisation*100)}% (limited by inputs)</span>` : ''}
+            ${c.upkeep && c.upkeep.visit_every_days ? `<br><span class="muted">${c.kind === 'miner' ? 'visit' : 'restock'} every ${num(c.upkeep.visit_every_days, 1)} days · ${m3(c.upkeep.capacity_m3)} buffer</span>` : ''}
+            ${(c.upkeep && c.upkeep.issues || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}
             ${(c.notes || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}</div></div></td>
         <td><span class="itemlist">${outs}</span> <span class="muted">P${c.tier}</span></td>
         <td class="muted">${ins || '-'}</td>

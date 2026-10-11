@@ -75,6 +75,24 @@ def upgrade_isk(from_level: int, to_level: int) -> int:
     lo, hi = max(0, int(from_level)), min(5, int(to_level))
     return sum(CCU_UPGRADE_ISK[lo + 1:hi + 1]) if hi > lo else 0
 
+# Storage space (m3) of the structures that buffer imports and exports on a colony.
+# Factories and extractors only hold their own cycle's worth, so they are not counted.
+STORAGE_M3 = {"launchpad": 10_000, "storage": 12_000, "cc": 500}
+# Structure type ids (one per planet type), as ESI reports them in a colony's pins (verified against ESI).
+LAUNCHPAD_TYPES = {2256, 2542, 2543, 2544, 2552, 2555, 2556, 2557}
+STORAGE_TYPES = {2257, 2535, 2536, 2541, 2558, 2560, 2561, 2562}
+COMMAND_CENTER_PIN_TYPES = {2254, 2524, 2525, 2533, 2534, 2549, 2550, 2551}
+
+
+def storage_kind(type_id):
+    """'launchpad' / 'storage' / 'cc' for a colony pin's type id, else None."""
+    if type_id in LAUNCHPAD_TYPES:
+        return "launchpad"
+    if type_id in STORAGE_TYPES:
+        return "storage"
+    if type_id in COMMAND_CENTER_PIN_TYPES:
+        return "cc"
+    return None
 
 # Customs office "base" values used for export/import tax, by tier.
 POCO_BASE_VALUE = {0: 5, 1: 400, 2: 7200, 3: 60000, 4: 1200000}

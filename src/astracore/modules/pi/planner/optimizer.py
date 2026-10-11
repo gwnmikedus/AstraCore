@@ -30,7 +30,7 @@ from ..static_data import dalshooth, voc
 from ..static_data.pi_rules import HIGH_TECH_PLANETS, PLANET_TYPES
 from ..static_data.sde_loader import PIData
 from . import economics as eco
-from . import routing, setups, skills
+from . import routing, setups, skills, upkeep
 
 MINER_CCU = 4  # DalShooth nullsec miners fit a level-4 command center (lowsec miners need 5)
 
@@ -530,6 +530,15 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
             "action": action, "notes": notes,
         })
     colonies.sort(key=lambda c: (c["character"], c["system"], c["planet"]))
+    for c in colonies:
+        c["upkeep"] = upkeep.plan_buffer(pi, c, s.cycle_days)
+    tight = [c for c in colonies if c["upkeep"]["issues"]]
+    if tight:
+        warnings.append(f"Storage check: {len(tight)} colon{'y' if len(tight) == 1 else 'ies'} can't buffer "
+                        f"{s.cycle_days:g} days of inputs or products in their launchpad and storage space ("
+                        + ", ".join(f"{c['planet']} {c['product']}" for c in tight[:4])
+                        + (", …" if len(tight) > 4 else "") + "). Plan the extra visits shown per colony, "
+                        "or add storage in game.")
     for who, pairs in sorted(check_in_game.items()):
         tl, cl = max(pairs)
         warnings.append(f"Check in game: {who} has Command Center Upgrades {cl}, but the templates were saved "

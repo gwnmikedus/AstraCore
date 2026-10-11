@@ -422,3 +422,115 @@ def test_more_effort_never_shows_less_isk(pi):
                                   TEMPLATES)
     isk = [a["totals"]["isk_per_day"] for a in alts]
     assert isk == sorted(isk)
+
+
+# --- upkeep schedule (issue #4) ---------------------------------------------------------------
+import time  # noqa: E402
+
+from astracore.modules.pi.planner import upkeep  # noqa: E402
+
+LAUNCHPAD, CC = 2544, 2524
+
+
+def test_plan_buffer_checks_inputs_and_outputs_against_storage(pi):
+    tight = {"kind": "factory", "layout": {"advanced": 12, "launchpads": 1},
+             "in_per_day": {"Biofuels": 11520, "Precious Metals": 11520}, "out_per_day": {"Biocells": 1440}}
+    b = upkeep.plan_buffer(pi, tight, 3)
+    assert b["capacity_m3"] == 10_500                            # launchpad + command center
+    assert b["in_m3_day"] == pytest.approx(23040 * 0.38, abs=0.1)
+    assert b["visit_every_days"] == pytest.approx(10_500 / (23040 * 0.38), abs=0.05)
+    assert b["restock"]["Biofuels"] == round(11520 * 10_500 / (23040 * 0.38))   # one launchpad load
+    assert b["issues"] and "restock visit every 1.2 days" in b["issues"][0]
+    roomy = upkeep.plan_buffer(pi, {**tight, "layout": {"advanced": 12, "launchpads": 1, "storage": 2}}, 3)
+    assert roomy["issues"] == [] and roomy["fill_days"] > 3
+
+    miner = {"kind": "miner", "layout": {"launchpads": 1}, "out_per_day": {"Biofuels": 7680}}
+    m = upkeep.plan_buffer(pi, miner, 3)
+    assert m["issues"] == [] and m["visit_every_days"] == 3 and m["reason"] == "extractor restart"
+    m7 = upkeep.plan_buffer(pi, miner, 7)                        # a 7-day program outlasts the launchpad
+    assert m7["reason"] == "collection" and m7["visit_every_days"] < 7 and "before the 7-day" in m7["issues"][0]
+    bare = upkeep.plan_buffer(pi, {**miner, "layout": {}}, 3)
+    assert "No launchpad or storage facility" in bare["issues"][0]
+
+
+def test_plans_carry_a_storage_check_per_colony(pi):
+    chars = [{"character_id": i, "name": f"C{i}", "slots": 3, "ccu_level": 5, "colonies": []} for i in (1, 2)]
+    res = _plan(pi, chars=chars, prices={**PRICES, 2329: 400000.0}, max_tier=2, cross_character=True, max_jumps=2)
+    assert res["colonies"] and all("visit_every_days" in c["upkeep"] for c in res["colonies"])
+    tight = any(c["upkeep"]["issues"] for c in res["colonies"])
+    assert tight == any(w.startswith("Storage check") for w in res["warnings"])
+
+
+def _colonies(now):
+    def iso(h):
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + h * 3600))
+    factory = {"planet_id": 12, "last_update": iso(0), "pins": [
+        {"type_id": LAUNCHPAD, "contents": [{"type_id": 2396, "amount": 5760}, {"type_id": 2399, "amount": 960}]},
+        {"type_id": CC, "contents": []},
+        {"type_id": 2474, "schematic_id": 70}, {"type_id": 2474, "schematic_id": 70},
+    ]}
+    miner = {"planet_id": 11, "last_update": iso(-96), "pins": [
+        {"type_id": LAUNCHPAD, "contents": [{"type_id": 2396, "amount": 20000}]},
+        {"type_id": CC},
+        {"type_id": 2848, "extractor_details": {"product_type_id": 2288, "heads": [{}] * 10, "cycle_time": 3600,
+                                                "qty_per_cycle": 1500},
+         "install_time": iso(-24), "expiry_time": iso(48)},
+        {"type_id": 2473, "schematic_id": 121},
+    ]}
+    return factory, miner
+
+
+def test_upkeep_schedule_derives_visits_from_each_colony(pi):
+    now = time.time()
+    factory, miner = _colonies(now)
+    ch = {"character_id": 1, "name": "Test Pilot", "synced_at": now - 2 * 86400, "colonies": [factory, miner],
+          "wallet": {"sales": [{"date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 5 * 86400)),
+                                "type_id": 2329, "qty": 1, "unit_price": 1.0}]}}
+    plan = {"colonies": [
+        {"character_id": 1, "planet_id": 12, "character": "Test Pilot", "planet": "P12", "product": "Biocells",
+         "kind": "factory", "layout": {"advanced": 2, "launchpads": 1},
+         "in_per_day": {"Biofuels": 1920, "Precious Metals": 1920}, "out_per_day": {"Biocells": 480}},
+        {"character_id": 1, "planet_id": 13, "character": "Test Pilot", "planet": "P13", "product": "Coolant",
+         "kind": "factory", "layout": {"advanced": 12, "launchpads": 1},
+         "in_per_day": {"Electrolytes": 11520, "Water": 11520}, "out_per_day": {"Coolant": 1440}},
+    ]}
+    sch = upkeep.schedule(pi, Settings(ship_every_days=7, cycle_days=3), [ch], plan, now=now)
+    rows = {r["planet"]: r for r in sch["colonies"]}
+
+    f = rows["Planet 12"]
+    assert f["capacity_m3"] == 10_500 and f["used_m3"] == pytest.approx(6720 * 0.38, abs=0.1)
+    assert f["next"] == "restock" and f["next_hours"] == pytest.approx(12, abs=0.1)   # 960 PM at 1,920/day
+    assert f["visit_every_days"] == pytest.approx(10_500 / (3840 * 0.38), abs=0.05)
+    assert f["restock"]["Biofuels"] == pytest.approx(1920 * 10_500 / (3840 * 0.38), rel=0.01)
+    assert f["output"] == {"product": "Biocells", "actual": 240.0, "planned": 480, "pct": 50, "state": "soon"}
+    assert [s["item"] for s in sch["shortages"]] == ["Precious Metals"]
+    assert not f["stale"]
+
+    m = rows["Planet 11"]
+    p0_day = extraction.avg_per_hour(1500, 3600, 3 * 86400) * 24
+    assert m["next"] == "restart" and m["next_hours"] == pytest.approx(48, abs=0.1)
+    assert m["output"]["actual"] == pytest.approx(min(960.0, 960.0 * p0_day / 144_000), abs=0.1)
+    assert m["output"]["planned"] is None                     # not in the active plan
+    assert m["stale"] and 20000 * 0.38 < m["used_m3"] <= 10_500   # projected from the 4-day-old snapshot
+    assert m["visit_every_days"] == 3.0                       # the extractor program, not the launchpad
+
+    t = sch["tracks"]
+    assert t["restart"]["next_hours"] == pytest.approx(48, abs=0.1) and t["restart"]["every_days"] == 3.0
+    assert t["restock"]["colonies"] == 1 and t["restock"]["due"] == 1
+    assert t["ship"]["every_days"] == 7 and t["ship"]["next_days"] == pytest.approx(2, abs=0.05)
+    fr = sch["freshness"][0]
+    assert fr["sync_stale"] and fr["colony_stale"] and sch["stale"]
+    assert [c["planet"] for c in sch["plan_checks"]] == ["P13"]    # 12 Coolant factories can't buffer 3 days
+
+
+def test_upkeep_flags_missing_storage_and_idle_factories(pi):
+    now = time.time()
+    col = {"planet_id": 14, "pins": [{"type_id": CC, "contents": []}, {"type_id": 2474, "schematic_id": 66}]}
+    u = upkeep.colony_upkeep(pi, col, None, now)
+    assert u["capacity_m3"] == 500 and "No launchpad or storage facility" in u["issues"][0]
+    assert u["next"] == "restock" and u["next_hours"] == 0 and u["state"] == "expired"
+    assert u["output"] is None                                   # nothing made while inputs are missing
+    assert {s["item"] for s in u["shortages"]} == {"Electrolytes", "Water"}
+    unknown = upkeep.colony_upkeep(pi, {"planet_id": 15, "pins": [
+        {"schematic_id": 66}, {"contents": [{"type_id": 2390, "amount": 100}]}]}, None, now)
+    assert unknown["capacity_m3"] is None and "not recognised" in unknown["issues"][0]

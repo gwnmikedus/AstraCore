@@ -1,6 +1,6 @@
-"""Order-book prices for PI items at every place you could sell them:
-Jita 4-4, Amarr VIII and Delve (local), best buy and best sell for each, plus the visible
-buy/sell depth (price levels) and each region's recent daily trade history."""
+"""Order-book prices for PI items at every place you could sell them (and command centers,
+where you could buy them): Jita 4-4, Amarr VIII and Delve (local), best buy and best sell for each,
+plus the visible buy/sell depth (price levels) and each region's recent daily trade history."""
 from __future__ import annotations
 
 import time
@@ -11,6 +11,7 @@ from astracore import db
 from astracore.esi import public
 from astracore.esi.client import ESIClient
 from ..static_data import voc
+from ..static_data.pi_rules import COMMAND_CENTER_TYPES
 from ..static_data.sde_loader import PIData
 
 BOOKS_KEY = "price_books_v1"
@@ -29,7 +30,8 @@ MARKETS = {
 
 
 async def refresh(esi: ESIClient, pi: PIData) -> Dict[int, dict]:
-    items = [t for t in pi.items if pi.tier(t) >= 1]
+    # PI products plus the command centers on the first-build shopping list
+    items = [t for t in pi.items if pi.tier(t) >= 1] + list(COMMAND_CENTER_TYPES.values())
     books: Dict[int, dict] = {t: {} for t in items}
     for market, (region_id, station_id) in MARKETS.items():
         orders = await public.many(public.region_orders(esi, region_id, t, force=True) for t in items)

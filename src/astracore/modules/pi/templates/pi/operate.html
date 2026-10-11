@@ -43,7 +43,8 @@
   <progress value="{{ progress.done }}" max="{{ progress.total }}"></progress>
   <p class="muted">{{ progress.done }} of {{ progress.total }} planned colonies are built as planned ·
     {{ progress.new }} to build · {{ progress.rebuild }} to rebuild · {{ progress.removals }} to remove.
-    {% if progress.todo %}<a href="/pi/export/templates.zip?plan={{ active.id }}">Download its templates</a>{% endif %}</p>
+    {% if progress.todo %}<a href="#first-build">Shopping and build checklist</a> ·
+    <a href="/pi/export/templates.zip?plan={{ active.id }}">Download its templates</a>{% endif %}</p>
   {% endif %}
   {% if waypoints and plan %}
   <div class="toolbar">
@@ -71,6 +72,87 @@
   {% endif %}
 </div>
 
+{% endif %}
+
+{% if checklist and checklist.todo %}
+{% set k = checklist %}
+<div class="box first-build" id="first-build">
+  <h5>{{ icon('package') }} First build checklist
+    <span class="muted">· {{ k.todo }} colon{{ 'y' if k.todo == 1 else 'ies' }} to build{% if k.rebuild %}, {{ k.rebuild }} of them rebuilt{% endif %}</span></h5>
+  <p class="muted">AstraCore can’t buy anything or place market orders for you. Copy the list, paste it into EVE’s
+    Multibuy window (Market → Multibuy), check the prices and buy it yourself. Structures and command center
+    upgrades aren’t market items: the planetary interface charges them to your wallet when you submit.</p>
+  {% if k.blocked %}<div class="warnbox">{{ icon('triangle-alert') }} {{ k.blocked }} colon{{ 'y' if k.blocked == 1 else 'ies' }} can’t be built as planned yet. See <b>Train first</b> or <b>Template missing</b> below.</div>{% endif %}
+
+  <div class="cards">
+    <div class="card"><div class="v">{{ k.costs.total|isk }}</div><div class="l">estimated startup cost, without starter stock</div></div>
+    <div class="card"><div class="v">{{ k.costs.command_centers|isk }}</div><div class="l">{{ k.cc_qty }} command center{{ 's' if k.cc_qty != 1 }} (market){% if k.costs.estimated_cc %} · estimate{% endif %}</div></div>
+    <div class="card"><div class="v">{{ (k.costs.upgrades + k.costs.structures)|isk }}</div><div class="l">upgrades + structures (wallet, in game)</div></div>
+    <div class="card"><div class="v">{{ k.costs.supplies|isk }}</div><div class="l">optional factory starter stock</div></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <b>1 · Buy on the market</b>
+      {% if k.command_centers %}
+      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Each</th><th>Total</th></tr></thead><tbody>
+      {% for c in k.command_centers %}
+      <tr><td>{{ structure_img('command_center', 16) }}{{ c.name }}</td><td>{{ c.qty }}</td><td>{{ c.where }}</td>
+        <td>{{ c.unit_isk|isk }}{% if c.estimated %} <span class="muted">est.</span>{% endif %}</td><td>{{ c.isk|isk }}</td></tr>
+      {% endfor %}</tbody></table></div>
+      <textarea class="paste" readonly aria-label="Multibuy list: command centers">{{ k.multibuy }}</textarea>
+      <button class="copy outline" data-copy="{{ k.multibuy }}">{{ icon('copy') }} Copy Multibuy list</button>
+      <p class="muted">One command center per new planet, of that planet’s type. {{ k.cc_m3|m3 }} to carry
+        {%- if k.local %}; the Delve market saves you the haul when it lists them{% else %} from the trade hub to your systems{% endif %}.
+        {% if k.costs.estimated_cc %}No cached market price for some of them yet: the estimate uses a typical Jita price.{% endif %}</p>
+      {% else %}
+      <p class="empty">Nothing to buy: every colony still to build is a rebuild on a planet where you already have a command center.</p>
+      {% endif %}
+    </div>
+    {% if k.supplies %}
+    <div>
+      <b>Optional · Factory starter stock</b> <span class="muted">({{ k.supply_days|num(1) }} days of inputs)</span>
+      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Total</th></tr></thead><tbody>
+      {% for s in k.supplies %}
+      <tr><td>{{ eve_img(s.item, 16) }}{{ s.item }}<br><span class="muted">for {{ s['for']|join(', ') }}</span></td><td>{{ s.qty|num }}</td>
+        <td>{{ s.where or '–' }}</td><td>{{ s.isk|isk if s.where else '–' }}</td></tr>
+      {% endfor %}</tbody></table></div>
+      <textarea class="paste" readonly aria-label="Multibuy list: factory starter stock">{{ k.supplies_multibuy }}</textarea>
+      <button class="copy outline" data-copy="{{ k.supplies_multibuy }}">{{ icon('copy') }} Copy starter stock</button>
+      <p class="muted">Your miners in this plan make these inputs. Buy a starter stock only to run the factories
+        from day one instead of after the first pickup.{% if k.unpriced %} No seller cached for {{ k.unpriced|join(', ') }}.{% endif %}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <b>2 · Upgrade and build, per character and planet</b>
+  <p class="muted">Follow each character’s pickup route. Costs are EVE’s standard planetary prices
+    {%- if k.prices_at %}; market prices from {{ k.prices_at|ago }}{% endif %}. Customs import tax isn’t included.</p>
+  {% for ch in k.characters %}
+  <details class="build-char" {{ 'open' if loop.first }}>
+    <summary><b>{{ ch.name }}</b> <span class="muted">· {{ ch.planets|length }} planet{{ 's' if ch.planets|length != 1 }}
+      · Command Center Upgrades {{ ch.ccu_skill }}
+      {%- if ch.command_centers %} · bring {% for t, n in ch.command_centers.items() %}{{ n }}× {{ t }}{% if not loop.last %}, {% endif %}{% endfor %} Command Center{{ 's' if ch.command_centers.values()|sum != 1 }}{% endif %}
+      · ≈ {{ ch.isk|isk }} in game</span></summary>
+    {% if ch.removals %}
+    <p class="muted">First free the slots this plan doesn’t keep: pick up the products, then abandon
+      {% for r in ch.removals %}{{ r.planet }}{% if r.system %} ({{ r.system }}){% endif %}{% if r.current %}, {{ r.current }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}.</p>
+    {% endif %}
+    <ol class="build-planets">
+    {% for p in ch.planets %}
+      <li>
+        <p class="build-head">{{ planet_img(p.planet_type, 20) }}<b>{{ p.planet }}</b>
+          <span class="muted">{{ p.system }} · {{ p.planet_type }}</span> <span class="act {{ p.action }}">{{ p.action }}</span>
+          <span class="{{ p.compat.status }}">{{ p.compat.label }}</span></p>
+        <p class="muted">{{ external_link(p.template_url, p.template) if p.template_url else p.template }} · {{ p.compat.text }}
+          · ≈ {{ p.build_isk|isk }}{% if p.upgrade.isk %} (upgrade {{ p.upgrade.isk|isk }}){% endif %}</p>
+        <ol>{% for s in p.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+      </li>
+    {% endfor %}
+    </ol>
+  </details>
+  {% endfor %}
+</div>
 {% endif %}
 
 {% if active or status.extractors %}

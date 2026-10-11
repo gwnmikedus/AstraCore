@@ -1,6 +1,13 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content %}
-<div class="prose">
+<header class="ac-page-header context-header">
+  <div class="eyebrow">PI / Connect your operation</div>
+  <h1 class="page-title">Bring your characters aboard.</h1>
+  <p>One profile for all your alts. Read-only by default.</p>
+  {{ artwork('header-command', '(max-width: 760px) 120px, 320px', 'context-art') }}
+</header>
+<div class="prose connection-panel">
   <h2>Connect your characters to AstraCore PI</h2>
   <p>AstraCore PI reads your colonies, PI skills, hangars, contracts, sell orders and wallet (read-only) to plan and track
     your Planetary Interaction. That takes one EVE login per character with these permissions:</p>

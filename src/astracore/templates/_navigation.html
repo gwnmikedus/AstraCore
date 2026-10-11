@@ -32,7 +32,7 @@
             {% else %}
             <section class="menu-group" aria-labelledby="menu-start-title">
               <h2 id="menu-start-title">Start here</h2>
-              <ul>{{ menu_link('Home', '/', 'house', 'Meet your next PI operation') }}{{ menu_link('Explore PI', '/about#preview', 'orbit', 'Find a routine that fits your playtime') }}</ul>
+              <ul>{{ menu_link('Home', '/', 'house', 'All your alts. One operation.') }}{{ menu_link('Explore PI', '/about#preview', 'orbit', 'Find a routine that fits your playtime') }}</ul>
             </section>
             {% endif %}
             <section class="menu-group" aria-labelledby="menu-about-title">
@@ -59,6 +59,11 @@
     <a class="brand" href="/" aria-label="AstraCore home">{% with cls='wordmark', uid=1 %}{% include "_logo.html" %}{% endwith %}</a>
     {% if local_mode %}<span class="local-badge" title="Running in local mode">LOCAL</span>{% endif %}
   </div>
+  <nav class="header-shortcuts" aria-label="Quick navigation">
+    <a href="{{ '/pi/operate' if user else '/about#pi-today' }}"{% if request.url.path.startswith('/pi') %} aria-current="{{ 'page' if request.url.path == '/pi/operate' else 'true' }}"{% endif %}>PI</a>
+    <a href="/about"{% if request.url.path == '/about' %} aria-current="page"{% endif %}>About</a>
+    <a href="/roadmap"{% if request.url.path == '/roadmap' %} aria-current="page"{% endif %}>Community</a>
+  </nav>
   <div class="header-controls">
   <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
     <svg class="theme-sun ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>

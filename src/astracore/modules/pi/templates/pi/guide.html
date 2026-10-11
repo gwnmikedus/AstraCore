@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block head %}
 <link rel="stylesheet" href="{{ asset('css/money-slider.css') }}">
 <script src="{{ asset('js/money-slider.js') }}"></script>
 {% endblock %}
 {% block content %}
-<div class="g-head">
+<div class="g-head context-header">
   <div>
     <div class="eyebrow">PI / Mission planning</div>
     <h1>Build an operation that fits your life.</h1>
@@ -12,6 +13,7 @@
       {% if dropoff %}· drop-off {{ dropoff }}{% endif %}
       · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|num }} P0/h per head)</span>{% endif %}</div>
   </div>
+  {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
   <a class="adv" href="{{ advanced_url }}">Advanced: all options on one screen →</a>
 </div>
 

@@ -1,0 +1,308 @@
+{
+  "collection": "AstraCore Orbital Command",
+  "note": "Generated original marketing artwork. Blank alt is recommended when nearby HTML communicates the subject. Only PI is an available module; community directions are exploratory.",
+  "assets": [
+    {
+      "id": "hero-platform",
+      "title": "Platform hero",
+      "status": "platform",
+      "placement": "Landing hero and social cover",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2221126,
+      "sha256": "1299bc5909cb28b590a074cfdc121f7dc1deca528ae1aa92e7fd5bcf90f3c01e",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.78,
+        0.48
+      ],
+      "safeTextArea": "Left 48% intentionally quiet for live headline and CTA",
+      "requestedRatio": "16:9",
+      "actualRatio": 1.7768,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "hero-platform-480.webp",
+          "width": 480,
+          "height": 270,
+          "bytes": 14564,
+          "alpha": false
+        },
+        {
+          "path": "hero-platform-960.webp",
+          "width": 960,
+          "height": 540,
+          "bytes": 65444,
+          "alpha": false
+        },
+        {
+          "path": "hero-platform-1440.webp",
+          "width": 1440,
+          "height": 810,
+          "bytes": 127260,
+          "alpha": false
+        },
+        {
+          "path": "hero-platform-1672.webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 159580,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/hero-platform.png"
+    },
+    {
+      "id": "hero-platform-mobile",
+      "title": "Platform hero mobile",
+      "status": "platform",
+      "placement": "Mobile landing hero",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2151115,
+      "sha256": "f082da8bb00fe91c14657b3b70bd454a85203b82d6d8c3c844d216cacaf6067a",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.6,
+        0.64
+      ],
+      "safeTextArea": "Upper 38% quiet for mobile headline",
+      "requestedRatio": "2:3",
+      "actualRatio": 0.6667,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "hero-platform-mobile-480.webp",
+          "width": 480,
+          "height": 720,
+          "bytes": 29864,
+          "alpha": false
+        },
+        {
+          "path": "hero-platform-mobile-768.webp",
+          "width": 768,
+          "height": 1152,
+          "bytes": 87642,
+          "alpha": false
+        },
+        {
+          "path": "hero-platform-mobile-1024.webp",
+          "width": 1024,
+          "height": 1536,
+          "bytes": 136718,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/hero-platform-mobile.png"
+    },
+    {
+      "id": "pi-orbit",
+      "title": "Planetary operations",
+      "status": "available",
+      "placement": "PI feature card and module header",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2674489,
+      "sha256": "96cc832c049750590e6ccf186c61480dedda35cbde9c8678d24e2834e3884ed3",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.66,
+        0.51
+      ],
+      "safeTextArea": "Upper-left quarter quiet; centered subject survives card crop",
+      "requestedRatio": "3:2",
+      "actualRatio": 1.5,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "pi-orbit-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 22282,
+          "alpha": false
+        },
+        {
+          "path": "pi-orbit-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 103200,
+          "alpha": false
+        },
+        {
+          "path": "pi-orbit-1440.webp",
+          "width": 1440,
+          "height": 960,
+          "bytes": 206066,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/pi-orbit.png"
+    },
+    {
+      "id": "fittings-hangar",
+      "title": "Fittings",
+      "status": "community-direction",
+      "placement": "Possible directions card",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2526342,
+      "sha256": "0fc8bade0171c23ab671680d0f00510d70bea57a2e90ec2de8ee33c3ac20041a",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.6,
+        0.5
+      ],
+      "safeTextArea": "Upper-left quiet; complete hull inside frame",
+      "requestedRatio": "3:2",
+      "actualRatio": 1.5,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "fittings-hangar-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 21838,
+          "alpha": false
+        },
+        {
+          "path": "fittings-hangar-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 95762,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/fittings-hangar.png"
+    },
+    {
+      "id": "pvp-fleet",
+      "title": "PvP and fleets",
+      "status": "community-direction",
+      "placement": "Possible directions card",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2171797,
+      "sha256": "4164fe2ff705ddb6d64a0ee4f230205df7f62f469650482a9470f9f4f125c874",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.62,
+        0.54
+      ],
+      "safeTextArea": "Upper-left quiet; no simulated tactical UI",
+      "requestedRatio": "3:2",
+      "actualRatio": 1.5,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "pvp-fleet-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 11622,
+          "alpha": false
+        },
+        {
+          "path": "pvp-fleet-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 53920,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/pvp-fleet.png"
+    },
+    {
+      "id": "community-rendezvous",
+      "title": "Community",
+      "status": "platform",
+      "placement": "Community and contributor banner",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2200689,
+      "sha256": "c048a2866f50a3cca6c6722d4adde1b31de3b16fc3e881330663ed455de21b5b",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.66,
+        0.57
+      ],
+      "safeTextArea": "Left 42% quiet for community copy",
+      "requestedRatio": "16:9",
+      "actualRatio": 1.7768,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "community-rendezvous-480.webp",
+          "width": 480,
+          "height": 270,
+          "bytes": 16316,
+          "alpha": false
+        },
+        {
+          "path": "community-rendezvous-960.webp",
+          "width": 960,
+          "height": 540,
+          "bytes": 70424,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/community-rendezvous.png"
+    },
+    {
+      "id": "header-command",
+      "title": "Command center banner",
+      "status": "platform",
+      "placement": "Short dashboard header and branded background",
+      "provenance": "AI-generated original marketing concept; not CCP game imagery",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1814687,
+      "sha256": "4312df2f99889c9e6a07dfb3800571ab05c09d80f2113966c449bddb5ea5a040",
+      "hasAlpha": false,
+      "alpha": null,
+      "focal": [
+        0.75,
+        0.52
+      ],
+      "safeTextArea": "Left 55% quiet; use object-fit cover around right focal point",
+      "requestedRatio": "16:9",
+      "actualRatio": 1.7768,
+      "suggestedAlt": "",
+      "variants": [
+        {
+          "path": "header-command-480.webp",
+          "width": 480,
+          "height": 270,
+          "bytes": 7260,
+          "alpha": false
+        },
+        {
+          "path": "header-command-960.webp",
+          "width": 960,
+          "height": 540,
+          "bytes": 31570,
+          "alpha": false
+        },
+        {
+          "path": "header-command-1440.webp",
+          "width": 1440,
+          "height": 810,
+          "bytes": 60548,
+          "alpha": false
+        }
+      ],
+      "source_master": "artwork/masters/header-command.png"
+    }
+  ],
+  "source_library": "assets for possible usage/orbital-command/"
+}

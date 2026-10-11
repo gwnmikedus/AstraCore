@@ -13,7 +13,7 @@ Everything in AstraCore is quiet hull, with one point of heat in the middle: the
 ## Name and modules
 
 - Write **AstraCore**: one word, capital A and C. Never "Astracore", "Astra Core" or "ASTRACORE" in running text (the wordmark is uppercase; prose is not).
-- Modules are **AstraCore + a plain name**: AstraCore PI today; later AstraCore Skills, Logistics, Industry, Market, Intel, Fleet. Inside the app, drop the prefix: "PI", "Skills".
+- Modules are **AstraCore + a plain name**: AstraCore PI is available today. Fittings, PvP, fleets, logistics, industry, markets, skills and intel are possible community directions, not promised modules. The module registry decides availability. Inside the app, drop the prefix: "PI", "Skills".
 - Each module has a **code** set in `label` inside an `ac-tag--code`: PI, SKL, LOG, IND, MKT, INT, FLT. Codes lead panel heads and nav tabs that belong to a module.
 - Each module has a **glyph**: the frame of the mark with a different core shape. PI is a disc (a planet). The platform itself is the square. New modules get one simple solid shape (diamond, triangle, bar), always `signal`.
 
@@ -56,7 +56,7 @@ Two themes. **Hull** (dark) is the default and the brand's home; **Chart** (ligh
 - **`signal` is the core.** Primary button, current step, active tab underline, selected option, the mark's core. One or two per screen. Text on a `signal` fill is `on-signal`.
 - **`scan`** is the cold second voice: links inside prose, a second chart series, "you are here". Never a button.
 - **Status is blue/amber/red, and always worded.** `status-ok` is deliberately blue, so good and bad never depend on red/green vision. `status-danger` sits close to `signal` in lightness; that is acceptable only because every danger state carries a word and an icon. Text on status fills is `on-status`.
-- No gradients. No translucent glass. The only shadow is `shadow-lift`, for floating layers.
+- No gradients on operational surfaces. Restrained image blending may support cinematic marketing art. No translucent glass. The only shadow is `shadow-lift`, for floating layers.
 
 ## Typography
 
@@ -66,7 +66,7 @@ Three families, all on Google Fonts:
 - **Barlow** (`sans`): all running text in `body`, `body-strong`, `small`.
 - **IBM Plex Mono** (`mono`): every number a pilot compares: `figure-xl` for readouts, `figure` in tables and metrics, `code` for scopes and pasted in-game text. Numbers are tabular and right-aligned in columns.
 
-Rules: headings in sentence case; `label` in uppercase with its 0.12em tracking; no italics in UI; one `display-xl` per page at most. The landing display scales from 54px on phones to 88px on desktop. The root size is 15px.
+Rules: headings in sentence case; `label` in uppercase with its 0.12em tracking; no italics in UI; one `display-xl` per page at most. The static platform hero uses “All your alts. One operation.” and scales from 54px on narrow phones to 128px on wide desktops. Operational headings stay compact. The root size is 15px.
 
 ## Shape: cuts, not curves
 
@@ -100,14 +100,19 @@ The guided planner exposes the value of an hour with a native money slider, an i
 
 ## Imagery
 
-- Only CCP's own images (ships, structures, planets) on `void` or in a `chamfer-lg` frame. They are credited in the footer: "EVE Online and all related images are © CCP hf., used under the EVE Developer License."
-- No AI-generated nebulae, no lens flares, no gradient space backgrounds. Space is black; the hull is graphite.
-- Compose the EVE assets into equipment views: orbital network diagrams, production chains, and labelled ship plates. Diagrams are explicitly illustrations; income figures only come from the planner. The public preview shows operational trade-offs without inventing ISK forecasts.
-- The share cover uses the actual wordmark, outlined Barlow and IBM Plex Mono, theme tokens, and bundled EVE planets. Its editable source and generator live beside this book.
+The approved Orbital Command direction permits original generated marketing artwork for cinematic landing scenes, compact context headers, community storytelling and share covers. These illustrations establish atmosphere; they are not official EVE screenshots, named ships, planet types or accurate colony schematics.
+
+- Specific game items, ships, planets, structures and valid production chains continue to use official EVE images and game data. Preserve CCP attribution.
+- The broad platform hero uses `hero-platform` with its separately composed portrait source on phones. Keep headline, actions and permission language in HTML. Only the hero loads eagerly.
+- PI is available today. Fittings and fleet preparation imagery illustrates clearly marked community directions linking to `/roadmap` and `/feedback?kind=idea`; artwork never registers modules.
+- Operational context images occupy reserved compact regions. Controls and comparison tables stay on opaque Hull / Chart surfaces. CSS blending is permitted for image readability; glass and neon are not.
+- Selected responsive WebP exports live in `static/img/brand/orbital-command/`, with native dimensions and provenance in its manifest. The full source kit stays in the local asset library. Jinja uses `asset()` for every source, including `srcset`.
+- Original generated artwork is credited separately from CCP material in the footer and Credits page.
+- The general 1200 × 630 share cover uses the supplied `platform-og.png`; PI metadata uses `pi-og.png`. Both retain the real vector wordmark and outlined self-hosted fonts.
 
 ## Motion
 
-Instrument-like and short: 120ms linear for colour changes, 200ms ease-out for bars filling and panels opening. Nothing bounces, nothing floats on hover (no `translateY` lifts). Progress bars fill; numbers do not count up. The public hero tells the operation in four scenes: every character and colony system, a valid P1–P2–P3 production plan, the next operating actions and consolidated pickup, then the selected sale route. Give each scene ten seconds; its headline and artwork change together with a 550ms gradient reveal and restrained crossfade. Keep the call to action and scene frame stable. Feature tabs, keyboard navigation, and pause/resume give the pilot control; choosing a feature stops automatic advancement. Pause advancement during focus and stop motion when offscreen or the document is hidden. Routes follow actual source and destination ports across desktop and mobile layouts, with cargo completing one leg before the next begins. Use real schematics, valid planet resources, and supported courier destinations; label illustrative systems, player actions, and compressed time. The selling scene offers Jita, Amarr, and local RF-K9W routes; the local route bypasses the jump freighter. It never implies live ESI activity. Respect `prefers-reduced-motion` by disabling automatic advancement, transitions, animations, and smooth scrolling. The first scene and primary action remain visible without JavaScript.
+Instrument-like and short: 120ms linear for colour changes, 200ms ease-out for bars filling and panels opening. Nothing bounces, nothing floats on hover (no `translateY` lifts). Progress bars fill; numbers do not count up. The public platform hero is static. Below it, the existing illustrated PI walkthrough tells the operation in four scenes: every character and colony system, a valid P1–P2–P3 production plan, the next operating actions and consolidated pickup, then the selected sale route. Give each scene ten seconds; its headline and artwork change together with a 550ms gradient reveal and restrained crossfade. Keep the call to action and scene frame stable. Feature tabs, keyboard navigation, and pause/resume give the pilot control; choosing a feature stops automatic advancement. Pause advancement during focus and stop motion when offscreen or the document is hidden. Routes follow actual source and destination ports across desktop and mobile layouts, with cargo completing one leg before the next begins. Use real schematics, valid planet resources, and supported courier destinations; label illustrative systems, player actions, and compressed time. The selling scene offers Jita, Amarr, and local RF-K9W routes; the local route bypasses the jump freighter. It never implies live ESI activity. Respect `prefers-reduced-motion` by disabling automatic advancement, transitions, animations, and smooth scrolling. The first scene and primary action remain visible without JavaScript.
 
 Navigation uses the AstraCore mark as a 48px disclosure control on every page. Only this control stays fixed while scrolling; the wordmark and account controls scroll with the page. Reserve its place in the header and align its fixed position with the content gutter. The frame turns, the orange core resolves into a close mark, and the menu reveals over a softened backdrop in 320ms; closing takes 180ms. Keep the wordmark as a separate home link. Group operation, account, and information links, mark the current page, and preserve the same header dimensions on mobile. The native disclosure remains usable without JavaScript. Escape restores focus to the icon; outside clicks and keyboard focus leaving the menu dismiss it. The menu stays below the control and scrolls within short viewports. Reduced motion removes the reveal and mark animation.
 
@@ -117,7 +122,7 @@ Sections entering view and new planner questions use a brief 200ms fade with a 6
 
 The header always exposes theme switching beside the profile or login action. A sun invites Chart (light); a moon invites Hull (dark). Rotate and crossfade the icons while page colours settle in 350ms, preserve the choice across pages and tabs, and remove all motion for reduced-motion preferences. Keep both controls separate from the navigation disclosure.
 
-The introduction and credits pages lead with the people building AstraCore. Show public GitHub contributors in alphabetical order as a compact wrapping row, with 36px circular portraits and readable profile links. Opt-in EVE character portraits overlap the GitHub avatar slightly; the character name leads and the GitHub handle remains visible with its mark. Unlinked contributors keep their GitHub name and avatar. The origin plate uses a 48px circular founder portrait and explicitly links CosmicCarrot to @gwnmikedus. Preserve the shared typography, colour and focus tokens; avoid large contributor cards. Avoid commit-count rankings: code, documentation, testing, ideas and bug reports all help the project. Link to the contribution guide and GitHub discussion so newcomers have a clear way to join.
+The introduction follows the available PI product and possible community directions with the people building AstraCore. The credits page preserves the same contribution credit. Show public GitHub contributors in alphabetical order as a compact wrapping row, with 36px circular portraits and readable profile links. Opt-in EVE character portraits overlap the GitHub avatar slightly; the character name leads and the GitHub handle remains visible with its mark. Unlinked contributors keep their GitHub name and avatar. The origin plate uses a 48px circular founder portrait and explicitly links CosmicCarrot to @gwnmikedus. Preserve the shared typography, colour and focus tokens; avoid large contributor cards. Avoid commit-count rankings: code, documentation, testing, ideas and bug reports all help the project. Link to the contribution guide and GitHub discussion so newcomers have a clear way to join.
 
 The origin plate follows the contributor showcase and introduces CosmicCarrot as the founding capsuleer with the official EVE portrait and verified corporation/alliance names. Keep its coffee and permanent-hosting contributions optional, link both to the same Revolut destination, and describe hosting as a funding goal while the app still runs from the founder's own machine. Use the same plate on the introduction and credits pages; the footer carries a compact contributor link and support action. Keep the existing `/credits#creator` link available for the origin story.
 

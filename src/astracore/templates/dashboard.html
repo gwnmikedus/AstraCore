@@ -1,12 +1,15 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content_class %}ac-stack{% endblock %}
 {% block content %}
-<hgroup class="ac-page-header">
-  <div class="eyebrow">AstraCore / Command center</div>
-  <h1>Good to have you back, {{ user.display_name }}.</h1>
-  <p class="muted">Your operation at a glance. Pick up where you left off.</p>
-</hgroup>
-
+<header class="ac-page-header command-header">
+  <div class="command-header-copy">
+    <div class="eyebrow">AstraCore / Command center</div>
+    <h1>Your operation<span class="core-stop">.</span></h1>
+    <p>Welcome back, {{ user.display_name }}. Pick up where you left off.</p>
+  </div>
+  {{ artwork('header-command', '(max-width: 760px) 160px, (min-width: 1360px) 560px, 42vw', 'context-art') }}
+</header>
 {% if alerts %}
 <div class="alerts" role="status">
   {% for a in alerts %}
@@ -21,22 +24,21 @@
   {% endfor %}
 </div>
 {% endif %}
-
 <div class="tiles">
   {% for t in tiles %}
-  <section class="tile" aria-labelledby="tile-{{ t.module.id }}">
+  {% set incomplete = t.module.id == 'pi' and t.planned|default(0) > t.built|default(0) %}
+  <section class="tile command-tile" aria-labelledby="tile-{{ t.module.id }}">
     <div class="tile-head">
-      <h3 id="tile-{{ t.module.id }}"><img src="{{ asset(t.module.icon) }}" alt="">{{ t.module.name }}</h3>
-      <a role="button" href="{{ t.href or t.module.route_prefix }}">{{ t.cta or 'Open' }} {{ icon('arrow-right') }}</a>
+      <h2 id="tile-{{ t.module.id }}"><img src="{{ asset(t.module.icon) }}" alt="" width="32" height="32">{{ t.module.name }}</h2>
+      <span class="console-label">{{ 'Build in progress' if incomplete else ('Operation ready' if t.state == 'operate' else 'Setup in progress') }}</span>
+    </div>
+    <div class="command-next">
+      <div><div class="eyebrow">Next action</div>
+      <h3>{% if incomplete %}Continue your colony build.{% elif t.state == 'connect' %}Bring your characters aboard.{% elif t.state == 'area' %}Choose your operating area.{% elif t.state == 'plan' %}Find a routine that fits.{% else %}Check your planetary operation.{% endif %}</h3>
+      <p>{% if incomplete %}{{ t.built }} of {{ t.planned }} planned colonies built. Review your progress and download the templates in Operate.{% elif t.state == 'connect' %}Connect the characters you do PI on. AstraCore reads their colonies, skills and hangars.{% elif t.state == 'area' %}Choose the constellations your characters can use and where you drop products off.{% elif t.state == 'plan' %}Compare income, hauling and effort across all your characters.{% else %}Review restarts, factory inputs and products ready to collect.{% endif %}</p></div>
+      <a class="primary-link" href="{{ '/pi/operate#plan-status' if incomplete else (t.href or t.module.route_prefix) }}">{{ 'Review build progress' if incomplete else (t.cta or 'Open') }} {{ icon('arrow-right') }}</a>
     </div>
     {% if t.module.id == 'pi' %}
-      {% if t.state == 'connect' %}
-        <p>Log in with the characters you do PI on: AstraCore PI reads their colonies, skills and hangars.</p>
-      {% elif t.state == 'area' %}
-        <p>Next: choose the constellations your characters can use and where you drop products off.</p>
-      {% elif t.state == 'plan' %}
-        <p>Next: answer a few questions and get a plan for all your characters.</p>
-      {% endif %}
       {% if t.state in ('connect', 'area', 'plan') %}
       <div class="setup-path" aria-label="Setup progress">
         {% for key, label in [('connect', 'Connect characters'), ('area', 'Choose an area'), ('plan', 'Build your plan'), ('operate', 'Run the operation')] %}
@@ -45,25 +47,22 @@
       </div>
       {% endif %}
       {% if t.state in ('plan', 'operate') or t.plan_isk_per_day is defined %}
-      <div class="cards">
-        <div class="card"><div class="v">{{ t.plan_isk_per_day|isk if t.plan_isk_per_day is not none else '–' }}</div>
-          <div class="l">plan ISK / day{% if t.plan_label %} · {{ t.plan_label }}{% endif %}</div></div>
-        <div class="card"><div class="v">{% if t.planned %}{{ t.built }} / {{ t.planned }}{% else %}–{% endif %}</div>
-          <div class="l">colonies built / planned</div></div>
-        <div class="card"><div class="v {{ 'bad' if t.expired else ('warn' if t.extractors_24h else '') }}">{{ t.extractors_24h if t.extractors_24h is defined else '–' }}</div>
-          <div class="l">extractors ending within 24 h{% if t.expired %} ({{ t.expired }} stopped){% endif %}</div></div>
-        <div class="card"><div class="v">{{ t.pickup_m3|m3 if t.pickup_m3 is defined else '–' }}</div>
-          <div class="l">waiting for pickup</div></div>
-        <div class="card"><div class="v {{ 'ok' if t.earned_7d and t.earned_7d > 0 else '' }}">{{ t.earned_7d|isk if t.earned_7d is defined else '–' }}</div>
-          <div class="l">ISK earned, last 7 days</div></div>
+      <div class="command-readouts">
+        <section aria-label="Planned operation"><h3 class="console-label">Planned operation</h3><div class="cards">
+          <div class="card"><div class="v">{{ t.plan_isk_per_day|isk if t.plan_isk_per_day is defined and t.plan_isk_per_day is not none else '–' }}</div><div class="l">Forecast ISK / day{% if t.plan_label %} · {{ t.plan_label }}{% endif %}</div></div>
+          <div class="card"><div class="v">{% if t.planned|default(0) %}{{ t.built }} / {{ t.planned }}{% else %}–{% endif %}</div><div class="l">Colonies built / planned</div></div>
+        </div>{% if t.planned|default(0) %}<progress value="{{ t.built }}" max="{{ t.planned }}" aria-label="Planned colonies built"></progress>{% endif %}<p class="muted">Forecasts depend on yield, prices, taxes and hauling.</p></section>
+        <section aria-label="Running operation"><h3 class="console-label">Running operation</h3><div class="cards">
+          <div class="card"><div class="v {{ 'bad' if t.expired else ('warn' if t.extractors_24h else '') }}">{{ t.extractors_24h if t.extractors_24h is defined else '–' }}</div><div class="l">Extractors ending within 24 h{% if t.expired %} ({{ t.expired }} stopped){% endif %}</div></div>
+          <div class="card"><div class="v">{{ t.pickup_m3|m3 if t.pickup_m3 is defined else '–' }}</div><div class="l">Waiting for pickup</div></div>
+          <div class="card"><div class="v {{ 'ok' if t.earned_7d and t.earned_7d > 0 else '' }}">{{ t.earned_7d|isk if t.earned_7d is defined else '–' }}</div><div class="l">ISK earned, last 7 days</div></div>
+        </div></section>
       </div>
-      <p class="muted">Last ESI refresh: {{ t.synced_at|ago }}</p>
+      <p class="muted command-sync">Last ESI refresh: {{ t.synced_at|default(none)|ago }}</p>
       {% endif %}
-    {% else %}
-      <p>{{ t.module.tagline }}</p>
-    {% endif %}
+    {% else %}<p>{{ t.module.tagline }}</p>{% endif %}
   </section>
   {% endfor %}
-  <div class="coming">{{ icon('layers') }} PI is your first module. More of your operation will come together here.</div>
 </div>
+<div class="community-invitation"><div><div class="eyebrow">Built by capsuleers. Shaped together.</div><p>PI is available today. Help choose what comes next for the rest of your operation.</p></div><a class="text-action" href="/roadmap">Explore community directions {{ icon('arrow-right') }}</a></div>
 {% endblock %}

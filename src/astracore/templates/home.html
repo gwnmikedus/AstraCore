@@ -1,50 +1,31 @@
 {% extends "base.html" %}
-{% block title %}AstraCore · Your planets. Your pace.{% endblock %}
-{% block description %}A PI plan for all your EVE Online characters. Compare income against effort, download colony templates, and keep your planets running from one command center.{% endblock %}
+{% block title %}AstraCore · All your alts. One operation.{% endblock %}
+{% block description %}A command center for your EVE characters. Start with planetary operations. Help shape what comes next.{% endblock %}
+{% from '_artwork.html' import artwork %}
 {% block content %}
-<section class="landing-hero hero-tour" data-hero-tour aria-label="Explore AstraCore planetary operations">
-  <div class="hero-copy">
-    <div class="eyebrow">AstraCore PI <span class="label-divider">/</span> Your entire operation</div>
-    <div class="hero-copy-slides">
-      <div data-hero-copy="0">
-        <h1 id="hero-title">All your alts.<br><span>One operation.</span></h1>
-        <p class="lead">Your empire is bigger than one character.</p>
-        <p class="hero-description">Bring every alt, every colony, and every system into one plan. AstraCore connects the work so you can see what the whole operation needs.</p>
-      </div>
-      <div data-hero-copy="1" hidden>
-        <h2>Your planets.<br><span>Your pace.</span></h2>
-        <p class="lead">The complicated part gets a flight plan.</p>
-        <p class="hero-description">Choose the balance of ISK and effort that fits your playtime. Compare production chains across your characters, then build with ready-to-place colony templates.</p>
-      </div>
-      <div data-hero-copy="2" hidden>
-        <h2>Know what’s next.<br><span>Then go fly.</span></h2>
-        <p class="lead">Every character’s work, in one place.</p>
-        <p class="hero-description">See which extractors need a restart, which factories need inputs, and what is ready to collect. Consolidate your alts’ output into one pickup routine.</p>
-      </div>
-      <div data-hero-copy="3" hidden>
-        <h2>From your planets.<br><span>To your wallet.</span></h2>
-        <p class="lead">A plan that follows through to the sale.</p>
-        <p class="hero-description">VOC to Jita or Amarr? Buyback or a local sale in Delve? Compare selling channels after hauling, fees, and taxes—and use your best selling character.</p>
-      </div>
-    </div>
-    <div class="hero-actions"><a href="{{ '/pi' if user else '/auth/login' }}" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a><a href="#preview" class="text-action">Explore it first {{ icon('arrow-right') }}</a></div>
+<section class="platform-hero" aria-labelledby="hero-title">
+  <picture class="platform-scene">
+    <source media="(max-width: 760px)" srcset="{{ asset('img/brand/orbital-command/hero-platform-mobile-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-mobile-768.webp') }} 768w, {{ asset('img/brand/orbital-command/hero-platform-mobile-1024.webp') }} 1024w" sizes="100vw" width="1024" height="1536">
+    <img src="{{ asset('img/brand/orbital-command/hero-platform-1440.webp') }}" srcset="{{ asset('img/brand/orbital-command/hero-platform-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-960.webp') }} 960w, {{ asset('img/brand/orbital-command/hero-platform-1440.webp') }} 1440w, {{ asset('img/brand/orbital-command/hero-platform-1672.webp') }} 1672w" sizes="(min-width: 1672px) 1672px, 100vw" width="1672" height="941" alt="" fetchpriority="high">
+  </picture>
+  <div class="platform-copy">
+    <div class="eyebrow">AstraCore / Your entire operation</div>
+    <h1 id="hero-title">All your alts.<br>One operation<span class="core-stop">.</span></h1>
+    <p class="lead">A command center for your EVE characters.</p>
+    <p class="hero-description">Start with planetary operations.<br>Help shape what comes next.</p>
+    <div class="hero-actions"><a href="{{ '/pi' if user else '/auth/login' }}" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a><a href="#pi-today" class="text-action">Explore PI {{ icon('arrow-right') }}</a></div>
     <p class="hero-assurance">{{ icon('shield-check') }} EVE SSO · Read-only by default</p>
-    <div class="hero-contribute"><p>Help shape AstraCore. Code, documentation, ideas &amp; bug reports are welcome.</p><a class="text-action" href="/project">Contribute to AstraCore {{ icon('arrow-right') }}</a></div>
+    <p class="hero-access">{% if members %}For {% if members.corporation %}{{ members.corporation.name }}{% endif %}{% if members.corporation and members.alliance %}, {% endif %}{% if members.alliance %}{{ members.alliance.name }}{% endif %} and invited pilots.{% else %}Sign in to check your access.{% endif %}</p>
   </div>
-  {% include "_hero_tour.html" %}
-  <div class="hero-tour-controls" data-hero-controls hidden>
-    <div class="hero-tour-tabs" role="tablist" aria-label="AstraCore features">
-      <button id="hero-tab-0" type="button" role="tab" aria-controls="hero-scene-0" aria-selected="true" data-hero-tab="0"><span>01</span> All your alts</button>
-      <button id="hero-tab-1" type="button" role="tab" aria-controls="hero-scene-1" aria-selected="false" tabindex="-1" data-hero-tab="1"><span>02</span> Plan &amp; build</button>
-      <button id="hero-tab-2" type="button" role="tab" aria-controls="hero-scene-2" aria-selected="false" tabindex="-1" data-hero-tab="2"><span>03</span> Operate</button>
-      <button id="hero-tab-3" type="button" role="tab" aria-controls="hero-scene-3" aria-selected="false" tabindex="-1" data-hero-tab="3"><span>04</span> Sell</button>
-    </div>
-    <button class="hero-tour-pause" type="button" data-hero-pause aria-pressed="false">Pause tour</button>
-  </div>
+  <div class="hero-caption" aria-hidden="true"><span>PI available today</span><span>Orbital Command / AstraCore</span></div>
 </section>
 <div class="capability-strip" aria-label="What your plan includes"><span>{{ icon('users') }} Every alt, planned together</span><span>{{ icon('clock') }} Your time counts</span><span>{{ icon('download') }} Colony templates included</span><span>{{ icon('route') }} From extraction to selling</span></div>
+<section class="pi-story landing-section" id="pi-today" aria-labelledby="pi-today-title">
+  <div class="pi-story-copy"><div class="eyebrow">01 / PI available today</div><h2 id="pi-today-title">Your planets.<br>Your pace.</h2><p class="lead">Plan, build and run your planetary operation across all your characters.</p><p>Compare income against the time it takes. Build with colony templates. See the next restart, pickup and sale in one place.</p><a class="text-action" href="#preview">Find your routine {{ icon('arrow-right') }}</a><p class="muted">Forecasts account for taxes and hauling. Yield and prices can change.</p></div>
+  <div class="pi-story-art">{{ artwork('pi-orbit', '(max-width: 760px) 100vw, (min-width: 1360px) 680px, 50vw') }}<span class="art-caption">PI / Plan. Build. Operate.</span></div>
+</section>
 <section class="landing-section" id="preview" aria-labelledby="preview-title">
-  <div class="section-heading"><div><div class="eyebrow">01 / Find your rhythm</div><h2 id="preview-title">Good PI starts with how you play.</h2></div><p>Less hauling or longer production chains?<br>Try a direction. See what running it involves.</p></div>
+  <div class="section-heading"><div><div class="eyebrow">PI / Find your rhythm</div><h2 id="preview-title">Good PI starts with how you play.</h2></div><p>Less hauling or longer production chains?<br>Try a direction. See what running it involves.</p></div>
   <div class="preview-console" data-pi-preview>
     <div class="preview-controls">
       <span class="console-label">Choose your approach</span>
@@ -70,19 +51,68 @@
   </div>
   <noscript><p class="muted">Sign in to compare set and forget, balanced, and maximum ISK with your characters.</p></noscript>
 </section>
-<section class="landing-section" aria-labelledby="workflow-title">
-  <div class="section-heading"><div><div class="eyebrow">02 / From idea to operation</div><h2 id="workflow-title">The hard part gets a flight plan.</h2></div><p>No blank spreadsheet.<br>No guessing what comes next.</p></div>
+<section class="landing-section workflow-band" aria-labelledby="workflow-title">
+  <div class="section-heading"><div><div class="eyebrow">02 / Plan → Build → Operate</div><h2 id="workflow-title">The hard part gets a flight plan.</h2></div><p>No blank spreadsheet.<br>No guessing what comes next.</p></div>
   <div class="workflow-grid">
-    <div class="workflow-step"><span class="workflow-number">01</span>{{ icon('users', 'xl') }}<h3>Bring your characters.</h3><p>Log in through EVE. AstraCore reads their PI skills and existing colonies. Starting fresh works too.</p><span class="workflow-caption">One profile for all your alts</span></div>
-    <div class="workflow-step"><span class="workflow-number">02</span>{{ icon('route', 'xl') }}<h3>Choose your routine.</h3><p>Answer one question at a time. Compare the ISK, hauling, and weekly effort of each answer before you commit.</p><span class="workflow-caption">Your schedule sets the constraints</span></div>
-    <div class="workflow-step"><span class="workflow-number">03</span>{{ icon('factory', 'xl') }}<h3>Build. Then keep it running.</h3><p>Download the DalShooth templates and follow your character-by-character build list. Operate tracks the next restart, pickup, and sale.</p><span class="workflow-caption">A plan you can actually fly</span></div>
+    <div class="workflow-step"><span class="workflow-number">01</span>{{ icon('users', 'xl') }}<h3>Plan your operation.</h3><p>Connect your characters through EVE. Choose your area, schedule and balance of income against effort. Starting fresh works too.</p><span class="workflow-caption">Your schedule sets the constraints</span></div>
+    <div class="workflow-step"><span class="workflow-number">02</span>{{ icon('route', 'xl') }}<h3>Build with a clear list.</h3><p>Follow a character-by-character build list. Download the DalShooth colony templates and place them in EVE.</p><span class="workflow-caption">Ready-to-place colony templates</span></div>
+    <div class="workflow-step"><span class="workflow-number">03</span>{{ icon('factory', 'xl') }}<h3>Operate. Then go fly.</h3><p>Keep an eye on extractors, factory inputs and products waiting to collect. Compare selling channels after fees and taxes.</p><span class="workflow-caption">A plan you can actually fly</span></div>
   </div>
+</section>
+<section class="landing-section product-proof" aria-labelledby="proof-title"><div class="section-heading"><div><div class="eyebrow">03 / A closer look</div><h2 id="proof-title">From every alt to one operation.</h2></div><p>A walkthrough using official EVE assets.<br>Illustrative actions, never live character data.</p></div><section class="landing-hero hero-tour product-tour" data-hero-tour aria-label="Illustrative PI walkthrough">
+  <div class="hero-copy">
+    <div class="eyebrow">PI / Illustrated walkthrough</div>
+    <div class="hero-copy-slides">
+      <div data-hero-copy="0">
+        <h2>All your alts.<br><span>One operation.</span></h2>
+        <p class="lead">Your empire is bigger than one character.</p>
+        <p class="hero-description">Bring every alt, every colony, and every system into one plan. AstraCore connects the work so you can see what the whole operation needs.</p>
+      </div>
+      <div data-hero-copy="1" hidden>
+        <h2>Your planets.<br><span>Your pace.</span></h2>
+        <p class="lead">The complicated part gets a flight plan.</p>
+        <p class="hero-description">Choose the balance of ISK and effort that fits your playtime. Compare production chains across your characters, then build with ready-to-place colony templates.</p>
+      </div>
+      <div data-hero-copy="2" hidden>
+        <h2>Know what’s next.<br><span>Then go fly.</span></h2>
+        <p class="lead">Every character’s work, in one place.</p>
+        <p class="hero-description">See which extractors need a restart, which factories need inputs, and what is ready to collect. Consolidate your alts’ output into one pickup routine.</p>
+      </div>
+      <div data-hero-copy="3" hidden>
+        <h2>From your planets.<br><span>To your wallet.</span></h2>
+        <p class="lead">A plan that follows through to the sale.</p>
+        <p class="hero-description">VOC to Jita or Amarr? Buyback or a local sale in Delve? Compare selling channels after hauling, fees, and taxes—and use your best selling character.</p>
+      </div>
+    </div>
+    <div class="hero-actions"><a href="{{ '/pi' if user else '/auth/login' }}" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a><a href="/what-we-read" class="text-action">What we read {{ icon('arrow-right') }}</a></div>
+    <p class="hero-assurance">{{ icon('shield-check') }} EVE SSO · Read-only by default</p>
+
+  </div>
+  {% include "_hero_tour.html" %}
+  <div class="hero-tour-controls" data-hero-controls hidden>
+    <div class="hero-tour-tabs" role="tablist" aria-label="AstraCore features">
+      <button id="hero-tab-0" type="button" role="tab" aria-controls="hero-scene-0" aria-selected="true" data-hero-tab="0"><span>01</span> All your alts</button>
+      <button id="hero-tab-1" type="button" role="tab" aria-controls="hero-scene-1" aria-selected="false" tabindex="-1" data-hero-tab="1"><span>02</span> Plan &amp; build</button>
+      <button id="hero-tab-2" type="button" role="tab" aria-controls="hero-scene-2" aria-selected="false" tabindex="-1" data-hero-tab="2"><span>03</span> Operate</button>
+      <button id="hero-tab-3" type="button" role="tab" aria-controls="hero-scene-3" aria-selected="false" tabindex="-1" data-hero-tab="3"><span>04</span> Sell</button>
+    </div>
+    <button class="hero-tour-pause" type="button" data-hero-pause aria-pressed="false">Pause tour</button>
+  </div>
+</section>
 </section>
 <section class="operations-feature" aria-labelledby="operate-title">
   <div class="operations-art" aria-hidden="true"><span class="console-label">PI / Logistics</span><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="512" height="512" alt="" loading="lazy"><span class="art-caption">Epithal <span>/ Planetary transport</span></span></div>
-  <div class="operations-copy"><div class="eyebrow">03 / Keep the operation moving</div><h2 id="operate-title">Log in with a purpose.<br>Then get back to flying.</h2><p>Once your colonies are built, Operate puts the work in front of you. Across every character. In one place.</p>
+  <div class="operations-copy"><div class="eyebrow">04 / Keep the operation moving</div><h2 id="operate-title">Log in with a purpose.<br>Then get back to flying.</h2><p>Once your colonies are built, Operate puts the work in front of you. Across every character. In one place.</p>
     <ul class="operation-list"><li>{{ icon('timer') }}<div><strong>Restart before production stops.</strong><span>See which extractors have stopped or are ending soon.</span></div></li><li>{{ icon('package') }}<div><strong>Collect what’s ready.</strong><span>Find products waiting on launchpads and factories low on inputs.</span></div></li><li>{{ icon('wallet') }}<div><strong>Know how you get paid.</strong><span>Compare selling channels after fees and taxes, and track earned ISK against your active plan.</span></div></li></ul>
   </div>
+</section>
+<section class="landing-section directions-section" aria-labelledby="directions-title">
+  <div class="section-heading"><div><div class="eyebrow">05 / Shaped by capsuleers</div><h2 id="directions-title">Help shape what comes next.</h2></div><p>PI is available today.<br>Other operations are possible directions.</p></div>
+  <div class="direction-grid">
+    <div class="direction-card">{{ artwork('fittings-hangar', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}<div class="direction-copy"><span class="console-label">Community direction</span><h3>Fittings across your alts.</h3><p>The right ship, the right character, a shared preparation routine. What would help your operation?</p><a class="text-action" href="/feedback?kind=idea">Shape fittings {{ icon('arrow-right') }}</a></div></div>
+    <div class="direction-card">{{ artwork('pvp-fleet', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}<div class="direction-copy"><span class="console-label">Community direction</span><h3>Ready for the next fleet.</h3><p>PvP and fleet preparation across characters. Bring the problem you would like AstraCore to solve.</p><a class="text-action" href="/feedback?kind=idea">Shape fleet preparation {{ icon('arrow-right') }}</a></div></div>
+  </div>
+  <div class="directions-footer"><p>Help shape AstraCore. Logistics, industry, markets, skills and intel could follow. These are ideas to explore together, with no promised availability.</p><div class="ac-actions"><a class="text-action" href="/roadmap">Explore the roadmap {{ icon('arrow-right') }}</a><a class="text-action" href="/project">Contribute to AstraCore {{ icon('arrow-right') }}</a></div></div>
 </section>
 {% include "_contributors.html" %}
 {% include "_creator.html" %}

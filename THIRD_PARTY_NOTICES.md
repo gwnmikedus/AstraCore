@@ -12,6 +12,10 @@ EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All
 
 AstraCore is an independent fan project and is not endorsed or supported by EVE's owner. No EVE trademark rights are granted by AstraCore's license.
 
+## Original marketing artwork
+
+The Orbital Command marketing scenes were generated for AstraCore with OpenAI image generation. They are original atmospheric illustrations, not official EVE screenshots or named in-game items. Their served inventory and responsive dimensions are recorded in [the artwork manifest](src/astracore/static/img/brand/orbital-command/manifest.json). The general and PI share covers combine this original artwork with AstraCore’s existing vector identity and outlined font assets. CCP attribution applies separately to the official game imagery described above.
+
 ## Bundled fonts
 
 | Material | Publisher | Terms shipped with the fonts |

@@ -6,15 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% if page_title %}{{ page_title }} · {% endif %}{% if module %}{{ module.name }} · {% endif %}AstraCore{% endblock %}</title>
   <meta name="color-scheme" content="dark light">
-  <meta name="description" content="{% block description %}AstraCore turns your EVE Online characters into PI plans you can fly. Plan, build, and run your planetary operation in one place.{% endblock %}">
+  <meta name="description" content="{% block description %}{{ 'Plan, build and run your planetary operation across all your characters.' if module and module.id == 'pi' else 'A command center for your EVE characters. Start with planetary operations. Help shape what comes next.' }}{% endblock %}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AstraCore">
-  <meta property="og:title" content="AstraCore · Your planets. Your pace.">
-  <meta property="og:description" content="One PI operation across all your alts. Compare income and effort, build with colony templates, and keep production moving.">
-  <meta property="og:image" content="{{ request.base_url|string|trim('/') }}{{ asset('img/share-card.png') }}">
+  <meta property="og:title" content="AstraCore · {{ 'Your planets. Your pace.' if module and module.id == 'pi' else 'All your alts. One operation.' }}">
+  <meta property="og:description" content="{{ 'Plan, build and run your planetary operation across all your characters.' if module and module.id == 'pi' else 'A command center for your EVE characters. Start with planetary operations. Help shape what comes next.' }}">
+  <meta property="og:image" content="{{ request.base_url|string|trim('/') }}{{ asset('img/brand/orbital-command/pi-og.png' if module and module.id == 'pi' else 'img/share-card.png') }}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="AstraCore. Your planets. Your pace. One clear plan. An orbital network connects four EVE planets to the AstraCore core.">
+  <meta property="og:image:alt" content="AstraCore. {{ 'Your planets. Your pace.' if module and module.id == 'pi' else 'All your alts. One operation.' }} Original orbital station artwork.">
   <meta name="twitter:card" content="summary_large_image">
   {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
@@ -23,6 +23,7 @@
   <meta name="theme-color" content="#0b0c0d">
   <link rel="stylesheet" href="{{ asset('css/astracore.css') }}">
   <link rel="stylesheet" href="{{ asset('css/layout.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/orbital-command.css') }}">
   <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <script src="{{ asset('js/fmt.js') }}"></script>
   <script src="{{ asset('js/icons.js') }}"></script>
@@ -74,6 +75,7 @@
     <p><strong>AstraCore</strong> © 2026 · An independent, fan-made tool for EVE Online capsuleers.{% if app_release is defined %} <a href="/releases#release-{{ app_release.version }}">v{{ app_release.version }}</a>{% endif %}</p>
     <p class="legal">EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
       "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>
+    <p class="legal">Original marketing artwork was generated for AstraCore. Official EVE item imagery remains credited to CCP.</p>
   </footer>
 </main>
 {% block scripts %}{% endblock %}

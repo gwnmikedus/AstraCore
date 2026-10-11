@@ -1,12 +1,13 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content %}
 <div class="onb">
-  <div class="onboarding-header">
+  <div class="onboarding-header context-header">
     <div><div class="eyebrow">PI / Prepare your operation</div>
     <h1>Welcome aboard,<br>{{ user.display_name }}.</h1>
     <p>Your first character is connected. Add your alts now, or go straight to planning. You can come back any time.</p>
     <div class="onboarding-readout">{{ icon('circle-check', 'ok') }} <span><b>{{ chars|length }}</b> character{{ 's' if chars|length != 1 }} connected</span><span>{{ icon('shield-check') }} Read-only by default</span></div></div>
-    <img src="{{ asset('img/eve/renders/2863-primae-512.png') }}" width="240" height="240" alt="Primae planetary industry ship">
+    {{ artwork('header-command', '(max-width: 760px) 120px, 320px', 'context-art') }}
   </div>
 
   <section class="step {{ 'done' if chars|length > 1 else '' }}">

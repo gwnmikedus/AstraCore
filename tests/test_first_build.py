@@ -198,3 +198,88 @@ def test_local_market_is_only_credited_when_it_sells_the_command_centers(pi):
     assert _build(pi, barren, local=True)["cc_local"]                  # Delve lists Barren command centers
     gas = {**PLAN, "colonies": [_col(1, "Pilot One", 12, "Gas", "HUB", "miner")]}
     assert not _build(pi, gas, local=True)["cc_local"]                 # nobody sells Gas ones: estimate, no haul saved
+
+
+def _saved_plan(c, eve, pi, monkeypatch, name="Exporter"):
+    """A signed-in pilot with a two-colony plan and a faked (offline) planning context."""
+    cid = new_id()
+    sso_login(c, eve, cid, name)
+    pid = me(c)
+    extra = {"out_per_day": {}, "value_per_day": 0, "m3_per_week": 0}
+    plan = {**PLAN, "totals": {"isk_per_day": 1, "isk_per_week": 7, "colonies": 2, "slots_total": 6,
+                               "m3_per_week": 10, "systems": 2},
+            "colonies": [dict(_col(cid, name, 11, "Barren", "HUB", "miner"), **extra),
+                         dict(_col(cid, name, 21, "Barren", "NEXT", "factory"), **extra)],
+            "characters": [{"character_id": cid, "name": name, "used": 2, "slots": 6,
+                            "route": {"order": ["HUB", "NEXT"]}}],
+            "removals": [], "transfers": []}
+
+    async def fake_ctx(profile_id, *a, **kw):
+        chars = [dict(ch, ccu_level=5, colonies=[]) for ch in service.planning_characters(profile_id)]
+        return {"chars": chars, "pi": pi, "s": Settings(), "books": CC_BOOKS, "area": None, "tpl": _templates()}
+    monkeypatch.setattr(service, "planning_context", fake_ctx)
+    return pid, plan
+
+
+def test_plan_md_export_includes_the_first_build_checklist(browser, eve, pi, monkeypatch):
+    c = browser()
+    pid, plan = _saved_plan(c, eve, pi, monkeypatch)
+    run = store.save_plan_run(pid, "Exported", Settings(cycle_days=2), plan, active=True)
+    r = c.get(f"/pi/export/plan.md?plan={run}")
+    assert r.status_code == 200
+    md = r.text
+    assert "## First build" in md and "can't buy anything or place market orders" in md
+    assert "```\nBarren Command Center\t2\n```" in md                      # Multibuy list, ready to paste
+    assert "| Barren Command Center | 2 | Jita 4-4 |" in md
+    assert "```\nBiofuels\t1920\nPrecious Metals\t1920\n```" in md          # optional starter stock (2 days)
+    assert "Estimated startup cost" in md and "Command center upgrades (wallet, in game)" in md
+    assert "Structures (wallet, in game)" in md and "Optional factory starter stock (market)" in md
+    assert "#### Exporter" in md and "**Fits**" in md
+    assert "    1. Fly to HUB with a Barren Command Center" in md           # per-character steps, route order
+    assert md.index("**Planet 11**") < md.index("**Planet 21**")
+    assert c.get("/pi/export/plan.md").text == md                         # the active plan by default
+
+
+def test_shopping_csv_export_lists_purchases_and_in_game_costs(browser, eve, pi, monkeypatch):
+    import csv
+    import io
+    c = browser()
+    pid, plan = _saved_plan(c, eve, pi, monkeypatch, "Shopper")
+    run = store.save_plan_run(pid, "Shopping", Settings(cycle_days=2), plan, active=False)
+    r = c.get(f"/pi/export/shopping.csv?plan={run}")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert "astracore-pi-shopping.csv" in r.headers["content-disposition"]
+    rows = list(csv.DictReader(io.StringIO(r.text)))
+    cc = [x for x in rows if x["section"] == "command_center"]
+    assert cc == [{"section": "command_center", "item": "Barren Command Center", "qty": "2", "where": "Jita 4-4",
+                   "unit_isk": "100000", "isk": "200000", "estimated": "0", "for": ""}]
+    stock = {x["item"]: x for x in rows if x["section"] == "starter_stock"}
+    assert stock["Biofuels"]["qty"] == "1920" and stock["Biofuels"]["where"] == "Amarr VIII"
+    assert stock["Biofuels"]["isk"] == str(1920 * 550) and stock["Biofuels"]["for"] == "Planet 21"
+    in_game = {x["item"]: int(x["isk"]) for x in rows if x["section"] == "in_game"}
+    assert in_game["Command center upgrades"] == R.upgrade_isk(0, 4) + R.upgrade_isk(0, 5)
+    assert in_game["Structures"] == (45_000 + 8 * 75_000 + 900_000) + (12 * 250_000 + 900_000)
+    assert c.get("/pi/export/shopping.csv?plan=999999").status_code == 404   # unknown plan: never another one
+
+
+def test_unsaved_plan_exports_its_checklist_with_current_settings(browser, eve, pi, monkeypatch):
+    c = browser()
+    pid, plan = _saved_plan(c, eve, pi, monkeypatch, "Drafter")
+    s = store.load_settings(pid)
+    s.cycle_days = 1
+    store.save_settings(pid, s)
+
+    async def fake_solve(profile_id, s=None):
+        return plan
+    monkeypatch.setattr(service, "solve", fake_solve)
+    md = c.get("/pi/export/plan.md?current=1").text
+    assert "## First build" in md and "Biofuels\t960" in md                # one day of inputs, from settings
+    assert "Barren Command Center,2,Jita 4-4" in c.get("/pi/export/shopping.csv?current=1").text
+
+
+def test_operate_links_the_checklist_exports(browser, eve, pi, monkeypatch):
+    c = browser()
+    pid, plan = _saved_plan(c, eve, pi, monkeypatch, "Linker")
+    run = store.save_plan_run(pid, "Linked", Settings(cycle_days=2), plan, active=True)
+    html = c.get("/pi/operate").text
+    assert f'href="/pi/export/shopping.csv?plan={run}"' in html and f'href="/pi/export/plan.md?plan={run}"' in html

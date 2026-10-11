@@ -6,7 +6,7 @@
 /pi/area       -> constellations and drop-off
 /pi/settings   -> economics and yield
 /pi/api/...    -> JSON for the wizard and the advanced view (CSRF header required)
-/pi/export/... -> templates zip, plan .md / .csv
+/pi/export/... -> templates zip, plan .md / .csv, first-build shopping .csv
 """
 from __future__ import annotations
 
@@ -462,7 +462,8 @@ async def operate_page(request: Request):
 
 
 # ----------------------------------------------------------------------------- exports
-async def _export_plan(request: Request) -> dict:
+async def _export_run(request: Request) -> dict:
+    """{"result", "settings"} of the plan an export link names: ?plan=<id>, ?current=1 or the active one."""
     pid = _pid(request)
     run = request.query_params.get("plan")
     if run is not None:
@@ -470,13 +471,91 @@ async def _export_plan(request: Request) -> dict:
         saved = store.get_plan_run(pid, int(run)) if run.isdigit() else None
         if not saved:
             raise HTTPException(404, "That saved plan doesn't exist (any more).")
-        return saved["result"]
+        return saved
     if request.query_params.get("current") != "1":
         active = store.active_plan(pid)
         if active:
-            return active["result"]
+            return active
+    s = store.load_settings(pid)
     async with GATE.request(pid, "export"):
-        return await service.solve(pid)
+        res = await service.solve(pid, s)
+    return {"result": res, "settings": json.loads(s.to_json())}
+
+
+async def _export_plan(request: Request) -> dict:
+    return (await _export_run(request))["result"]
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def _first_build_md(k: Optional[dict]) -> list:
+    """The Operate first-build checklist as Markdown: Multibuy lists, cost split, steps per character."""
+    if not k:
+        return []
+    out = ["## First build", ""]
+    if not k.get("todo"):
+        return out + ["Every colony in this plan is already built.", ""]
+    c = k["costs"]
+    rebuilt = f", {k['rebuild']} of them rebuilt" if k.get("rebuild") else ""
+    out += [f"{_plural(k['todo'], 'colony', 'colonies')} to build{rebuilt}. AstraCore can't buy anything or place "
+            "market orders for you: paste the lists into EVE's Multibuy window (Market → Multibuy), check the "
+            "prices and buy it yourself. Structures and command center upgrades aren't market items: the "
+            "planetary interface charges them to your wallet when you submit.", ""]
+    if k.get("blocked"):
+        out += [f"**{_plural(k['blocked'], 'colony', 'colonies')} can't be built as planned yet** "
+                "(see Train first / Template missing below).", ""]
+    when = f" Market prices from {fmt.ago(k['prices_at'])}." if k.get("prices_at") else ""
+    out += [f"**Estimated startup cost: {fmt.isk(c['total'])} ISK** (without starter stock).{when} "
+            "Customs import tax isn't included.", "",
+            f"- Command centers (market): {fmt.isk(c['command_centers'])}"
+            + (" (includes an estimate: no cached market price for some)" if c.get("estimated_cc") else ""),
+            f"- Command center upgrades (wallet, in game): {fmt.isk(c['upgrades'])}",
+            f"- Structures (wallet, in game): {fmt.isk(c['structures'])}",
+            f"- Optional factory starter stock (market): {fmt.isk(c['supplies'])}", ""]
+    out += ["### 1 · Buy on the market", ""]
+    if k["command_centers"]:
+        out += ["| Item | Qty | Where | Each | Total |", "|---|---|---|---|---|"]
+        out += [f"| {x['name']} | {x['qty']} | {x['where']} | {fmt.isk(x['unit_isk'])}"
+                f"{' (est.)' if x['estimated'] else ''} | {fmt.isk(x['isk'])} |" for x in k["command_centers"]]
+        out += ["", "Multibuy list:", "", "```", k["multibuy"], "```", "",
+                f"{fmt.m3(k['cc_m3'])} to carry"
+                + ("; the Delve market sells them, which saves the haul." if k.get("cc_local")
+                   else " from the trade hub to your systems."), ""]
+    else:
+        out += ["Nothing to buy: every colony still to build is a rebuild on a planet where you already have "
+                "a command center.", ""]
+    if k.get("supplies"):
+        out += [f"### Optional · Factory starter stock ({fmt.num(k['supply_days'], 1)} days of inputs)", "",
+                "| Item | Qty | Where | Total | For |", "|---|---|---|---|---|"]
+        out += [f"| {x['item']} | {fmt.num(x['qty'])} | {x['where'] or '–'} "
+                f"| {fmt.isk(x['isk']) if x['where'] else '–'} | {', '.join(x['for'])} |" for x in k["supplies"]]
+        out += ["", "Multibuy list:", "", "```", k["supplies_multibuy"], "```", "",
+                "Your miners in this plan make these inputs. Buy a starter stock only to run the factories from "
+                "day one instead of after the first pickup."
+                + (f" No seller cached for {', '.join(k['unpriced'])}." if k.get("unpriced") else ""), ""]
+    out += ["### 2 · Upgrade and build, per character and planet", "",
+            "Follow each character's pickup route; costs are EVE's standard planetary prices.", ""]
+    for ch in k["characters"]:
+        bring = ", ".join(f"{n}× {t}" for t, n in ch["command_centers"].items())
+        if bring:
+            bring = f" · bring {bring} Command Center{'s' if sum(ch['command_centers'].values()) != 1 else ''}"
+        out += [f"#### {ch['name']}", "",
+                f"{_plural(len(ch['planets']), 'planet', 'planets')} · Command Center Upgrades {ch['ccu_skill']}"
+                f"{bring} · ≈ {fmt.isk(ch['isk'])} ISK in game", ""]
+        if ch.get("removals"):
+            gone = "; ".join(r["planet"] + (f" ({r['system']})" if r.get("system") else "")
+                             + (f", {r['current']}" if r.get("current") else "") for r in ch["removals"])
+            out += [f"First free the slots this plan doesn't keep: pick up the products, then abandon {gone}.", ""]
+        for i, p in enumerate(ch["planets"], 1):
+            upgrade = f" (upgrade {fmt.isk(p['upgrade']['isk'])})" if p["upgrade"]["isk"] else ""
+            out.append(f"{i}. **{p['planet']}** ({p['system']} · {p['planet_type']}) · {p['action']} · "
+                       f"{p['template']} · **{p['compat']['label']}**: {p['compat']['text']} · "
+                       f"≈ {fmt.isk(p['build_isk'])} ISK{upgrade}")
+            out += [f"    {j}. {step}" for j, step in enumerate(p["steps"], 1)]
+        out.append("")
+    return out
 
 
 @router.get("/export/templates.zip")
@@ -492,11 +571,13 @@ async def export_templates(request: Request):
 @router.get("/export/plan.md")
 async def export_md(request: Request):
     try:
-        res = await _export_plan(request)
+        run = await _export_run(request)
     except (Busy, Superseded):
         return Response("AstraCore is busy. Try again in a moment.", status_code=503)
+    res = run["result"]
     if "error" in res:
         return Response(res["error"], status_code=400)
+    checklist = await service.first_build_for(_pid(request), res, run.get("settings"))
     t = res["totals"]
     out = ["# AstraCore PI plan", "",
            f"Drop-off **{res['hub']}** · {t['colonies']}/{t['slots_total']} colonies · "
@@ -531,6 +612,9 @@ async def export_md(request: Request):
     if res.get("removals"):
         out += ["", "## Remove", ""]
         out += [f"- {x['character']}: planet {x['planet_id']} ({x['current']})" for x in res["removals"]]
+    first = _first_build_md(checklist)
+    if first:
+        out += [""] + first
     return Response("\n".join(out), media_type="text/markdown",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-plan.md"'})
 
@@ -551,6 +635,36 @@ async def export_csv(request: Request):
                     c["m3_per_week"], c["action"]])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-plan.csv"'})
+
+
+@router.get("/export/shopping.csv")
+async def export_shopping(request: Request):
+    """The first-build shopping list: command centers and optional factory starter stock, priced where the
+    checklist buys them, then the in-game costs (paid from the wallet, not on the market) as cost rows."""
+    try:
+        run = await _export_run(request)
+    except (Busy, Superseded):
+        return Response("AstraCore is busy. Try again in a moment.", status_code=503)
+    res = run["result"]
+    if "error" in res:
+        return Response(res["error"], status_code=400)
+    k = await service.first_build_for(_pid(request), res, run.get("settings")) or {}
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["section", "item", "qty", "where", "unit_isk", "isk", "estimated", "for"])
+    for c in k.get("command_centers", []):
+        w.writerow(["command_center", c["name"], c["qty"], c["where"], c["unit_isk"], c["isk"],
+                    int(bool(c["estimated"])), ""])
+    for x in k.get("supplies", []):
+        priced = bool(x["where"])
+        w.writerow(["starter_stock", x["item"], x["qty"], x["where"] or "", x["unit_isk"] if priced else "",
+                    x["isk"] if priced else "", "", "; ".join(x["for"])])
+    if k.get("todo"):
+        costs = k["costs"]
+        w.writerow(["in_game", "Command center upgrades", "", "Planetary interface", "", costs["upgrades"], "", ""])
+        w.writerow(["in_game", "Structures", "", "Planetary interface", "", costs["structures"], "", ""])
+    return Response(buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="astracore-pi-shopping.csv"'})
 
 
 # ----------------------------------------------------------------------------- settings

@@ -40,6 +40,8 @@ function planHTML(res) {
     <a href="${EXPORT}/templates.zip${EXPORT_Q}" data-export="templates.zip" role="button">${AC.icon('download')} Templates for this plan (${res.templates_needed.length})</a>
     <a href="${EXPORT}/plan.md${EXPORT_Q}" data-export="plan.md" role="button" class="outline">Export .md</a>
     <a href="${EXPORT}/plan.csv${EXPORT_Q}" data-export="plan.csv" role="button" class="outline">Export .csv</a>
+    ${res.colonies.some(c => c.action === 'new' || c.action === 'rebuild')
+      ? `<a href="${EXPORT}/shopping.csv${EXPORT_Q}" data-export="shopping.csv" role="button" class="outline" title="Command centers and starter stock to buy, with where and for how much. The .md export has the full first-build checklist.">${AC.icon('package')} Shopping list .csv</a>` : ''}
   </div>`;
   for (const ch of res.characters) {
     const mine = res.colonies.filter(c => c.character_id === ch.character_id);

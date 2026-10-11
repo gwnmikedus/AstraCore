@@ -337,6 +337,14 @@ def first_build(ctx: dict, active: Optional[dict]) -> Optional[dict]:
     return out
 
 
+async def first_build_for(profile_id: int, result: dict, settings: Optional[dict]) -> Optional[dict]:
+    """The same checklist for any plan, saved or not (the exports and the plan result use it)."""
+    if "colonies" not in (result or {}):
+        return None
+    ctx = await planning_context(profile_id, persist_default=False)
+    return first_build(ctx, {"result": result, "settings": settings})
+
+
 async def refresh_profile(profile_id: int, only: Optional[int] = None) -> Dict[str, str]:
     """Read every (or one) character of the profile from ESI. Returns {name: problem} for failures."""
     from astracore.esi import character as esi_char

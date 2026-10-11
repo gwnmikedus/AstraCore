@@ -81,6 +81,9 @@
   <p class="muted">AstraCore can’t buy anything or place market orders for you. Copy the list, paste it into EVE’s
     Multibuy window (Market → Multibuy), check the prices and buy it yourself. Structures and command center
     upgrades aren’t market items: the planetary interface charges them to your wallet when you submit.</p>
+  {% if active %}<div class="toolbar">
+    <a href="/pi/export/shopping.csv?plan={{ active.id }}" role="button" class="outline">{{ icon('download') }} Shopping list .csv</a>
+    <a href="/pi/export/plan.md?plan={{ active.id }}" role="button" class="outline">Checklist in plan .md</a></div>{% endif %}
   {% if k.blocked %}<div class="warnbox">{{ icon('triangle-alert') }} {{ k.blocked }} colon{{ 'y' if k.blocked == 1 else 'ies' }} can’t be built as planned yet. See <b>Train first</b> or <b>Template missing</b> below.</div>{% endif %}
 
   <div class="cards">

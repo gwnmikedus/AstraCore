@@ -25,6 +25,9 @@ SELL_CAPTURE = (0.10, 0.30)
 THIN_PRICE_DROP = 0.05     # walking the book costs more than 5% below the top buy price
 THIN_VOLUME_SHARE = 0.25   # daily output is more than a quarter of what the region trades per day
 REPLAN_MIN_DROP = 0.01     # re-plan only when a batch really fetches at least 1% less than quoted
+# For re-planning, buyers are assumed to absorb up to half of what the region trades per day; output beyond
+# that is valued at the alternative channel. (A quarter already earns the "Thin market" warning.)
+BUY_VOLUME_CAPTURE = 0.50
 
 
 def market_of(channel: str) -> str:
@@ -77,21 +80,38 @@ def _alternative(row: dict, channels: Dict[str, float], books: dict, history: di
 def realistic_values(assessment: dict, values: Dict[int, float]) -> Dict[int, float]:
     """Net ISK per unit that each flagged product's batch really fetches, for re-planning.
 
-    Only buy-order rows the visible book contradicts ("short" or "thin" on price) are re-valued:
-    the units the book takes at their walked price, the rest at the alternative channel that can
-    take the whole batch (0 if none can), or that alternative for everything if it pays more.
+    Re-valued, with the remainder at the alternative channel that can take the whole batch (0 if
+    none can), or that alternative for everything if it pays more:
+      buy orders   the units the visible book takes at their walked price; output above
+                   BUY_VOLUME_CAPTURE of the region's daily trades only up to that share.
+      sell orders  "slow" batches: only the share that sells within one shipping cycle.
     `values` = what the plan was valued at; only products that would be worth noticeably less
     than that are returned."""
     out: Dict[int, float] = {}
+    cycle = float(assessment.get("cycle_days") or 0)
     for r in assessment.get("rows", []):
-        im = r.get("immediate")
-        if r["hold"] or r["side"] != "buy" or r["status"] not in ("short", "thin") or not im:
-            continue
-        qty = im["filled"] + im["short"]
-        if qty <= 0:
+        if r["hold"] or r["status"] not in ("short", "thin", "slow"):
             continue
         alt = (r.get("alternative") or {}).get("value") or 0.0
-        real = max(alt, (im["filled"] * im["avg_net"] + im["short"] * alt) / qty, 0.0)
+        im = r.get("immediate")
+        if r["side"] == "buy" and im:
+            qty = im["filled"] + im["short"]
+            if qty <= 0:
+                continue
+            real = (im["filled"] * im["avg_net"] + im["short"] * alt) / qty
+            # steady state: buyers refill at the region's traded volume, not without limit
+            share = r.get("volume_share")
+            if share and share > BUY_VOLUME_CAPTURE:
+                frac = BUY_VOLUME_CAPTURE / share
+                real = frac * real + (1 - frac) * alt
+        elif r["side"] == "sell" and r.get("horizon_days") and cycle and r.get("value"):
+            # a batch that takes longer to sell than the shipping cycle piles up: only the share that
+            # sells within one cycle earns the sell-order price, the rest goes to the alternative
+            frac = min(1.0, cycle / (sum(r["horizon_days"]) / 2))
+            real = frac * r["value"] + (1 - frac) * alt
+        else:
+            continue
+        real = max(alt, real, 0.0)
         quoted = values.get(r["type_id"], 0.0)
         if real < quoted * (1 - REPLAN_MIN_DROP):
             out[r["type_id"]] = min(out.get(r["type_id"], quoted), real)
@@ -124,7 +144,8 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
                    "per_day": round(per_day, 1), "hold": bool(batch.get("hold")),
                    "visible_units": round(sum(u for _, u in depth)), "visible_levels": len(depth),
                    "history": hist, "volume_share": None, "immediate": None, "horizon_days": None,
-                   "price_uncertainty_pct": None, "status": "ok", "advice": "", "alternative": None}
+                   "price_uncertainty_pct": None, "status": "ok", "advice": "", "alternative": None,
+                   "value": round(value, 2)}
             vol = (hist or {}).get("avg_volume") or 0
             if vol:
                 row["volume_share"] = round(per_day / vol, 3)
@@ -189,4 +210,4 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
     return {"rows": rows, "warnings": warnings, "books_at": books_at, "history_at": history_at,
             "history_window": next((r["history"]["window"] for r in rows if r.get("history")), None),
             "history_days_min": min(covered) if covered else 0,
-            "capture": list(SELL_CAPTURE), "replanned": []}
+            "capture": list(SELL_CAPTURE), "replanned": [], "cycle_days": max(1.0, float(s.ship_every_days))}

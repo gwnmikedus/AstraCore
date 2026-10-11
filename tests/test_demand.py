@@ -229,3 +229,31 @@ class _NoNetwork:
 
     async def __aexit__(self, *exc):
         return False
+
+
+def test_slow_sell_orders_are_valued_at_what_sells_within_a_cycle(pi):  # noqa: F811
+    s = Settings(use_buyback=False, use_local=False, use_amarr=False, use_sell_orders=True, ship_every_days=7)
+    bk = books(jita_buy_depth=[[10000.0, 1_000_000]])
+    d = assess(pi, s, bk, history(avg_volume=100), "Jita", {BIOCELLS: 1000}, local=False)
+    row = d["rows"][0]
+    assert row["status"] == "slow" and row["alternative"]["channel"] == "jita_buy"
+    frac = 7 / ((row["horizon_days"][0] + row["horizon_days"][1]) / 2)          # ~10% sells within a cycle
+    expected = frac * row["value"] + (1 - frac) * row["alternative"]["value"]
+    real = demand.realistic_values(d, {BIOCELLS: row["value"]})
+    assert real[BIOCELLS] == pytest.approx(expected, rel=1e-3)
+    assert row["alternative"]["value"] < real[BIOCELLS] < row["value"]
+    fast = assess(pi, s, bk, history(avg_volume=1e6), "Jita", {BIOCELLS: 1000}, local=False)
+    assert demand.realistic_values(fast, {BIOCELLS: fast["rows"][0]["value"]}) == {}
+
+
+def test_output_far_above_daily_trades_is_only_partly_valued(pi):  # noqa: F811
+    s = Settings(use_buyback=False, use_local=False, use_amarr=False)
+    tax = 1 - s.sales_tax_pct / 100
+    bk = books(jita_buy_depth=[[10000.0, 1_000_000]])
+    d = assess(pi, s, bk, history(avg_volume=1000), "Jita", {BIOCELLS: 1000}, local=False)
+    row = d["rows"][0]
+    assert row["status"] == "thin" and row["volume_share"] == 1.0 and row["immediate"]["short"] == 0
+    real = demand.realistic_values(d, {BIOCELLS: 10000 * tax})
+    assert real[BIOCELLS] == pytest.approx(demand.BUY_VOLUME_CAPTURE * 10000 * tax, rel=1e-4)   # no alternative
+    calm = assess(pi, s, bk, history(avg_volume=3000), "Jita", {BIOCELLS: 1000}, local=False)  # 33%: warned only
+    assert calm["rows"][0]["status"] == "thin" and demand.realistic_values(calm, {BIOCELLS: 10000 * tax}) == {}

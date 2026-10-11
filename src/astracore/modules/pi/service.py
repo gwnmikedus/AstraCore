@@ -16,7 +16,7 @@ from . import store
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import checklist, demand, operate, optimizer, prices, selling
+from .planner import checklist, compare, demand, operate, optimizer, prices, selling
 from .planner import skills as skills_mod
 from .settings import Settings
 from .static_data import dalshooth, sde_loader, voc
@@ -189,7 +189,8 @@ async def solve(profile_id: int, s: Optional[Settings] = None) -> dict:
     return await GATE.cached(key, run_plan, ctx) if ctx else GATE._cache[key]
 
 
-def whatif_summary(res: dict) -> dict:
+def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
+    """One comparison row: totals plus effort (`minutes_per_week` for settings `s`) and uncertainty."""
     if "error" in res:
         return {"error": res["error"]}
     sp = res.get("selling") or {}
@@ -197,7 +198,7 @@ def whatif_summary(res: dict) -> dict:
             "sell_net_per_day": sp.get("net_per_day"), "sell_net_per_cycle": sp.get("net_per_cycle"),
             "holds": sum(1 for b in sp.get("batches", []) if b.get("hold")),
             "channels": sorted({b["label"] for b in sp.get("batches", []) if not b.get("hold")}),
-            "warnings": len(res.get("warnings", []))}
+            "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s)}
 
 
 # --------------------------------------------------------------------------- module entry + dashboard

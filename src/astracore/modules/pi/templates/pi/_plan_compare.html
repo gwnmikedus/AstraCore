@@ -1,0 +1,33 @@
+{# Saved plans side by side. Mirrors AC.compareTableHTML (static/js/plan-compare.js): same columns and units. #}
+{% macro plan_compare_table(plans, csrf_token, caption='Saved plans compared') -%}
+<div class="scroll compare-scroll"><table class="compare-table">
+  <caption>{{ caption }}</caption>
+  <thead><tr><th scope="col">Plan</th><th scope="col">Income</th><th scope="col">Your time</th>
+    <th scope="col">Colonies</th><th scope="col">Characters</th><th scope="col">Systems</th>
+    <th scope="col">Restarts</th><th scope="col">Haul</th><th scope="col">Uncertainty</th></tr></thead>
+  <tbody>
+  {% for p in plans %}{% set t = p.totals or {} %}{% set f = p.facts or {} %}
+  <tr{% if p.active %} class="current" aria-current="true"{% endif %}>
+    <th scope="row">{{ p.label }}<small>{{ 'active plan · ' if p.active }}saved {{ p.created|ago }}</small>
+      {% if not p.active %}
+      <form method="post" action="/pi/plans/{{ p.id }}/activate">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="outline">Set as active plan</button>
+      </form>
+      {% endif %}</th>
+    <td data-label="Income">{{ t.isk_per_day|isk }} ISK/day<small>{{ t.isk_per_week|isk }} ISK/week</small></td>
+    <td data-label="Your time">{% if f.minutes_per_week is number %}≈ {{ f.minutes_per_week|duration }} / week{% else %}–{% endif %}</td>
+    <td data-label="Colonies">{{ t.colonies|count }} of {{ t.slots_total|count }} slots{% if t.factories %}<small>{{ t.factories|count }} factory planet{{ 's' if t.factories != 1 }}</small>{% endif %}</td>
+    <td data-label="Characters">{% if f.characters_total %}{{ f.characters_used|count }} of {{ f.characters_total|count }}{% else %}{{ f.characters_used|count }}{% endif %}</td>
+    <td data-label="Systems">{{ t.systems|count }}
+      {%- set names = f.system_names or [] %}
+      {%- if names %}<small>{{ names[:4]|join(', ') }}{% if names|length > 4 %} +{{ names|length - 4 }} more{% endif %}</small>{% endif %}
+      {%- if f.dropoff or p.hub %}<small>drop-off {{ f.dropoff or p.hub }}</small>{% endif %}</td>
+    <td data-label="Restarts">{{ t.restarts_per_week|count }} / week</td>
+    <td data-label="Haul">{{ t.m3_per_week|m3 }} / week{% if t.transfers %}<small>{{ t.transfers|count }} transfer{{ 's' if t.transfers != 1 }} between characters</small>{% endif %}</td>
+    <td data-label="Uncertainty">{% if f.uncertainty %}<span class="uncert uncert-{{ f.uncertainty.level }}">{{ f.uncertainty.label }}</span><small>{{ f.uncertainty.reasons|join('; ') }}</small>{% else %}–{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{%- endmacro %}

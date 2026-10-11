@@ -4,6 +4,7 @@ Locale is fixed to EVE's own (`en`): `123,379 m³`, `46.2M ISK`, `1.24B ISK`, ne
 """
 from __future__ import annotations
 
+import math
 import time
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
@@ -99,4 +100,14 @@ def hours(h: Any) -> str:
     return f"{x:.1f} h"
 
 
-FILTERS = {"num": num, "isk": isk, "m3": m3, "count": count, "pct": pct, "ago": ago, "hours": hours}
+def duration(minutes: Any) -> str:
+    """Time spent, from minutes: '45 min', '1 h 05 min'."""
+    x = _f(minutes)
+    if x is None or math.isinf(x):
+        return "–"
+    m = int(Decimal(repr(max(0.0, x))).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return f"{m} min" if m < 60 else f"{m // 60} h {m % 60:02d} min"
+
+
+FILTERS = {"num": num, "isk": isk, "m3": m3, "count": count, "pct": pct, "ago": ago, "hours": hours,
+           "duration": duration}

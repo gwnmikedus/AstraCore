@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 
 from astracore import db
 
+from .planner.compare import plan_facts
 from .settings import ADMIN_FIELDS, Settings
 
 MODULE_ID = "pi"
@@ -90,13 +91,17 @@ def save_plan_run(profile_id: int, label: str, settings: Settings, result: dict,
 
 def list_plan_runs(profile_id: int, limit: int = MAX_PLANS) -> List[dict]:
     with db.session() as c:
-        rows = c.execute("SELECT id, created, label, active, result_json FROM plan_runs WHERE profile_id=? "
-                         "ORDER BY active DESC, id DESC LIMIT ?", (profile_id, limit)).fetchall()
+        rows = c.execute("SELECT id, created, label, active, settings_json, result_json FROM plan_runs "
+                         "WHERE profile_id=? ORDER BY active DESC, id DESC LIMIT ?", (profile_id, limit)).fetchall()
     out = []
     for r in rows:
         res = json.loads(r["result_json"])
+        try:
+            settings = json.loads(r["settings_json"] or "{}")
+        except ValueError:
+            settings = {}
         out.append(dict(id=r["id"], created=r["created"], label=r["label"], active=bool(r["active"]),
-                        totals=res.get("totals", {}), hub=res.get("hub")))
+                        totals=res.get("totals", {}), hub=res.get("hub"), facts=plan_facts(res, settings)))
     return out
 
 

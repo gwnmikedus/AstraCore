@@ -23,6 +23,11 @@
     return d < 120 ? 'just now' : d < 7200 ? `${Math.floor(d / 60)} min ago`
          : d < 172800 ? `${Math.floor(d / 3600)} h ago` : `${Math.floor(d / 86400)} days ago`;
   };
+  const duration = v => {     // minutes of your time: '45 min', '1 h 05 min'
+    if (!ok(v) || !Number.isFinite(+v)) return '–';
+    const m = Math.round(Math.max(0, +v));
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+  };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-  window.AC = Object.assign(window.AC || {}, {num, isk, m3, count, pct, ago, esc});
+  window.AC = Object.assign(window.AC || {}, {num, isk, m3, count, pct, ago, duration, esc});
 })();

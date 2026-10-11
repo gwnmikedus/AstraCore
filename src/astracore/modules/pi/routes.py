@@ -33,7 +33,7 @@ from astracore.esi.client import ESI_BASE
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import operate, optimizer, prices, upkeep
+from .planner import compare, operate, optimizer, prices, upkeep
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, Settings, effort_weights
 from .static_data import dalshooth, voc
@@ -260,6 +260,8 @@ async def api_suggest(request: Request):
     except Superseded:
         return superseded_response()
     res["weights"] = effort_weights(s.effort)
+    if "error" not in res:
+        res["facts"] = compare.plan_facts(res, s)
     return JSONResponse(res)
 
 
@@ -289,7 +291,7 @@ async def api_whatif(request: Request):
         if key in GATE._cache:
             return {"id": opt.get("id"), **GATE._cache[key]}
         ctx = await service.planning_context(pid, ss, persist_default=False)
-        res = await GATE.cached(key, lambda: service.whatif_summary(service.run_plan(ctx)))
+        res = await GATE.cached(key, lambda: service.whatif_summary(service.run_plan(ctx), ss))
         return {"id": opt.get("id"), **res}
 
     import asyncio

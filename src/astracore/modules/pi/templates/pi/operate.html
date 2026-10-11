@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_artwork.html" import artwork %}
+{% from "pi/_plan_compare.html" import plan_compare_table %}
 {% block content %}
 <hgroup class="operation-header context-header">
   <div><div class="eyebrow">PI / Operations deck</div><h1 class="page-title" style="margin-bottom:.2rem">Your planets, in motion.</h1>
@@ -60,14 +61,11 @@
   <p class="empty">No active plan yet. <a href="/pi/plan">Make a plan</a> and Operate compares what you've built against it.</p>
   {% endif %}
   {% if plans|rejectattr('active')|list %}
-  <details><summary class="muted">Saved plans ({{ plans|rejectattr('active')|list|length }})</summary>
-    {% for p in plans if not p.active %}
-    <form method="post" action="/pi/plans/{{ p.id }}/activate" class="charrow">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <span class="grow">{{ p.label }} <span class="muted">· {{ p.created|ago }} · {{ (p.totals.isk_per_day or 0)|isk }}/day</span></span>
-      <button class="outline">Set as active plan</button>
-    </form>
-    {% endfor %}
+  <details class="compare-box"><summary class="muted">Compare saved plans ({{ plans|rejectattr('active')|list|length }} saved)</summary>
+    {{ plan_compare_table(plans, csrf_token) }}
+    <p class="muted compare-note">Income is after taxes, hauling and fees. Your time is a rough weekly estimate for restarts,
+      logins, pickups, hauling, restocks, transfers and contracts. Uncertainty lists what can make real income differ
+      from the estimate; it is not a probability.</p>
   </details>
   {% endif %}
 </div>

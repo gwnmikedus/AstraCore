@@ -1,6 +1,21 @@
 {
-  "current_version": "1.2.1",
+  "current_version": "1.2.2",
   "releases": [
+    {
+      "version": "1.2.2",
+      "date": "2026-10-11",
+      "title": "Readable planner headers",
+      "changes": [
+        "The guided planner's Advanced link now sits with the planning text on a solid background, away from the cinematic artwork.",
+        "Context headers keep long text and controls within their reserved content area in both themes and on narrow screens."
+      ],
+      "technical": [
+        "Removed the guided header's competing flex layout and constrained shared header content to its available width. Artwork remains decorative; PI behavior and saved settings are unchanged.",
+        "Added a read-only browser audit for content overlapping header artwork and horizontal overflow, with a documented theme and breakpoint verification procedure."
+      ],
+      "limitations": [],
+      "references": []
+    },
     {
       "version": "1.2.1",
       "date": "2026-10-11",

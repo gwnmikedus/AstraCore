@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}"><script src="{{ asset('js/community.js') }}" defer></script>{% endblock %}
 {% block content %}
+<header class="ac-page-header context-header">
 <div class="eyebrow">AstraCore / Feedback</div><h1 class="page-title">Share an idea or report a bug</h1>
 <p>Describe what would help or what did not work. You will review the public content before submitting.</p>
 <p><a href="/roadmap">Browse existing issues first</a> to see whether someone has already reported it.</p>
+{{ artwork('community-rendezvous', '(max-width: 760px) 120px, 320px', 'context-art') }}
+</header>
 {% if not user %}<article><h2>Log in to submit</h2><p>Use your AstraCore EVE login. Your character identity will not be included in the public report. Platform access currently requires an invitation; the roadmap and GitHub repository are public.</p><a class="primary-link" href="{{ feedback_login_url }}">{{ icon('key-round') }} Log in for community feedback</a><p class="muted">You can also {{ external_link(github_url ~ '/issues/new/choose', 'report directly on GitHub', new_tab=false) }}.</p></article>{% else %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
 {% if not connected %}<p class="flash warn">GitHub is not connected yet. Your confirmed report can be saved here and published once the connection is available.</p>{% endif %}

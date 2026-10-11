@@ -1,7 +1,12 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content %}
+<header class="ac-page-header context-header">
 <div class="eyebrow">PI / Advanced planning</div>
 <h1 class="page-title">Your operation, fine-tuned.</h1>
+<p>Compare every option. Keep the yield, taxes and hauling trade-offs in view.</p>
+{{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
+</header>
 {% include "pi/_characters_panel.html" %}
 <div id="busy" role="status">updating…</div>
 <div class="layout">

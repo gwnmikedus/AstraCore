@@ -1,8 +1,13 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% from "pi/_fields.html" import num, check %}
 {% block content %}
+<header class="ac-page-header context-header">
 <div class="eyebrow">PI / Operation settings</div>
 <h1 class="page-title">Settings</h1>
+<p>Set the assumptions behind your plan. Real character data is used where available.</p>
+{{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
+</header>
 <form method="post" action="/pi/settings">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <article>

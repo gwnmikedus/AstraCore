@@ -1,6 +1,27 @@
 {
-  "current_version": "1.1.0",
+  "current_version": "1.2.0",
   "releases": [
+    {
+      "version": "1.2.0",
+      "date": "2026-10-11",
+      "title": "Orbital Command",
+      "changes": [
+        "Meet AstraCore\u2019s new Orbital Command identity: all your alts, one operation. PI is available today; help shape other operation tools through community ideas.",
+        "Explore a cinematic introduction with a dedicated mobile scene, the existing PI walkthrough, and clearer Plan \u2192 Build \u2192 Operate guidance.",
+        "See the next useful action, colony-build progress, forecasts and current operation readouts grouped on your dashboard.",
+        "Use a consistent visual system across PI planning, Operate, area selection, settings, character connection, onboarding, profile and community pages in both themes."
+      ],
+      "technical": [
+        "Selected responsive WebP artwork uses the existing content-hashed static asset system. Original marketing artwork is attributed separately from official EVE item imagery.",
+        "Shared navigation retains its disclosure fallback, keyboard handling and registered-module permissions. PI calculations, field names, saved-plan behavior and ESI scopes are unchanged.",
+        "General and PI social metadata use their corresponding Orbital Command share covers."
+      ],
+      "limitations": [
+        "Fittings, PvP and fleet preparation are illustrative community directions, not available modules or promised release dates.",
+        "PI forecasts still depend on yield, market prices, taxes and hauling assumptions. Existing invite and optional permission rules remain in effect."
+      ],
+      "references": []
+    },
     {
       "version": "1.1.0",
       "date": "2026-10-11",

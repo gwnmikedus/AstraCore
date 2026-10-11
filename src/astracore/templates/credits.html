@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content_class %}ac-stack ac-stack--major{% endblock %}
 {% block content %}
-<header class="ac-page-header">
+<header class="ac-page-header context-header">
 <div class="eyebrow">AstraCore / The people behind it</div>
 <h1 class="page-title">The people behind AstraCore.</h1>
+{{ artwork('community-rendezvous', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </header>
 {% include "_contributors.html" %}
 {% include "_creator.html" %}
@@ -22,6 +24,8 @@
       supported by Fenris Creations.</li>
   </ul>
 
+  <h3>Original marketing artwork</h3>
+  <p>The Orbital Command collection was generated for AstraCore. It illustrates the platform’s visual identity and possible community directions. It does not depict official EVE screenshots, named ships or accurate colony layouts. Official EVE item imagery and schematics remain separately credited to CCP.</p>
   <h3>EVE community</h3>
   <ul>
     <li>{{ external_link('https://github.com/DalShooth/EVE_PI_Templates', 'DalShooth/EVE_PI_Templates') }}: every PI template AstraCore PI suggests.</li>

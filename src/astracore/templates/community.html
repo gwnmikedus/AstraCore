@@ -1,11 +1,13 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
 {% block content %}
 <div class="ac-stack community-page">
-<header class="ac-page-header">
+<header class="ac-page-header community-header">
 <div class="eyebrow">AstraCore / Built with capsuleers</div>
 <h1 class="page-title">Roadmap & feedback</h1>
 <p class="community-intro">Help shape AstraCore. Browse the priorities, suggest something useful, or tell us what went wrong.</p>
+{{ artwork('community-rendezvous', '(max-width: 760px) 100vw, 480px', 'community-header-art') }}
 <div class="community-actions"><a class="primary-link" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a><a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a>{{ external_link(github_url, 'Source & contributions', new_tab=false) }}{% if user and user.is_admin %}<a href="/community/admin">Manage feedback</a>{% endif %}</div>
 <div class="community-status">
 <p class="muted">Priorities may change. These are proposed directions, not promised delivery dates or community vote counts. New suggestions are reviewed before becoming planned work.</p>

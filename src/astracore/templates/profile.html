@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content_class %}ac-stack ac-stack--major{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% endmacro %}
 
@@ -70,11 +71,12 @@
 {% endmacro %}
 
 {% block content %}
-<header class="ac-page-header">
+<header class="ac-page-header context-header">
   <div class="eyebrow">AstraCore / Your capsuleers</div>
   <h1 class="page-title">Your profile</h1>
   <p>{{ chars|length }} character{{ 's' if chars|length != 1 }}. Log in with any of them to open this profile.
     <a href="/what-we-read">What we read from them</a>.</p>
+{{ artwork('header-command', '(max-width: 760px) 120px, 320px', 'context-art') }}
 <div class="next-bar ac-actions">
   <a role="button" href="/auth/login?intent=add">{{ icon('plus') }} Add a character</a>
   <form method="post" action="/profile/refresh" class="inline">{{ csrf() }}

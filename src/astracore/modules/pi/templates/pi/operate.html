@@ -1,10 +1,12 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content %}
-<hgroup style="display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap">
+<hgroup class="operation-header context-header">
   <div><div class="eyebrow">PI / Operations deck</div><h1 class="page-title" style="margin-bottom:.2rem">Your planets, in motion.</h1>
     <p class="muted" style="margin:0">From planet to liquid ISK. Data from ESI, last refreshed {{ synced|ago }}.</p></div>
   <form method="post" action="/profile/refresh" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="back" value="/pi/operate"><button class="outline">{{ icon('refresh-cw') }} Refresh from ESI</button></form>
+  {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </hgroup>
 
 {% if not active %}
@@ -32,7 +34,7 @@
 </div>
 
 {% if active or plans %}
-<div class="box">
+<div class="box plan-status" id="plan-status">
   <h5>{{ icon('layers') }} Your plan</h5>
   {% if active %}
   <p style="margin:.2rem 0"><strong>{{ active.label }}</strong> <span class="muted">· saved {{ active.created|ago }}

@@ -1,10 +1,12 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content_class %}ac-stack ac-stack--major{% endblock %}
 {% block content %}
-<section class="project-intro ac-page-header" aria-labelledby="project-title">
+<section class="project-intro ac-page-header context-header" aria-labelledby="project-title">
   <div class="eyebrow">AstraCore / Community</div>
   <h1 class="page-title" id="project-title">Build a better operation together.</h1>
   <p>AstraCore is built by capsuleers for fellow EVE pilots. Explore the source, help improve the tools, or tell us what would make your next PI session easier.</p>
+  {{ artwork('community-rendezvous', '(max-width: 760px) 120px, 320px', 'context-art') }}
   {{ external_link(project.repository_url, 'Explore the source on GitHub', cls='text-action') }}
 </section>
 <section class="contribution-grid" aria-label="Ways to contribute">

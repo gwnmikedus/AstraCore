@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
 {% block content %}
-<hgroup>
+<hgroup class="ac-page-header context-header">
   <div class="eyebrow">PI / Your operating space</div>
   <h1 class="page-title">Area</h1>
   <p>Where your characters do PI, and where you collect products and ship them from.</p>
@@ -10,6 +11,7 @@
     {% for e in sources.extra %}<span class="pill">added: <b>{{ e }}</b></span>{% endfor %}
     {% if not sources.alliances and not sources.colony_constellations and not sources.extra %}nothing yet - add a region or system below.{% endif %}
   </p>
+{{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </hgroup>
 
 <form method="post" action="/pi/area">

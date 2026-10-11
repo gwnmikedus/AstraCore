@@ -1,0 +1,7 @@
+{% macro artwork(name, sizes='(max-width: 760px) 100vw, 50vw', cls='') %}
+{% set wide = name in ('header-command', 'community-rendezvous') %}
+{% set largest = 1440 if name in ('pi-orbit', 'header-command') else 960 %}
+<img class="{{ cls }}" src="{{ asset('img/brand/orbital-command/' ~ name ~ '-960.webp') }}"
+     srcset="{{ asset('img/brand/orbital-command/' ~ name ~ '-480.webp') }} 480w, {{ asset('img/brand/orbital-command/' ~ name ~ '-960.webp') }} 960w{% if largest == 1440 %}, {{ asset('img/brand/orbital-command/' ~ name ~ '-1440.webp') }} 1440w{% endif %}"
+     sizes="{{ sizes }}" width="{{ 1672 if wide else 1536 }}" height="{{ 941 if wide else 1024 }}" alt="" loading="lazy" decoding="async">
+{% endmacro %}

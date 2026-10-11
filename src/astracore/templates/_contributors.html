@@ -1,8 +1,10 @@
 {% from "_links.html" import external_link %}
+{% from "_artwork.html" import artwork %}
 <section class="contributors-section" id="contributors" aria-labelledby="contributors-title">
   <div class="eyebrow">AstraCore / Built together</div>
   <h2 id="contributors-title">For capsuleers. By capsuleers.</h2>
   <p class="contributors-intro">AstraCore started with one pilot’s planetary operation. Its next chapter is built together: code, documentation, testing, and ideas from fellow capsuleers.</p>
+  {{ artwork('community-rendezvous', '(max-width: 760px) 100vw, 640px', 'contributor-banner') }}
   <h3>The pilots behind the commits</h3>
   <p class="muted">GitHub contributors, listed alphabetically. Pilots can choose to share their EVE character alongside their GitHub profile.</p>
   {% if contributor_credits.people %}

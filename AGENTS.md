@@ -26,7 +26,8 @@ An earlier session's permission doesn't carry over.
   - link the issue (`Closes #n`);
   - give a short user-facing note for the next minor release when pilots would notice the change.
 - **Issues:**
-  - mark the issue you're working on `status:in-progress`;
+  - label issues as described in [docs/releases.md](docs/releases.md#issue-labels): one `type:` and, while open, one `status:` label;
+  - mark the issue you're working on `status:in-progress` (it comes off by itself when the issue closes);
   - post follow-ups you find as new issues labelled `type:idea` + `status:under-review`, and don't fix unrelated things in the same pull request.
 - **Product rules for AstraCore PI:**
   - never author or generate in-game PI templates; only refer to DalShooth templates;

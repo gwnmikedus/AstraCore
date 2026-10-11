@@ -82,8 +82,29 @@ After a deploy, check that the footer shows the expected build (`v0.2.<n>`). The
    ```
 
 4. Deploy that merge commit (`./astracore deploy`). The footer now reads `v0.2.0`, and the next merged pull request becomes `0.2.1`.
+5. Add `status:released` to the issues closed by the pull requests in this release, so the Community page shows them as Released.
 
 Tag only minor releases, never patches, and never move or reuse a published tag.
+
+## Issue labels
+
+Every issue has one **type** label and, while it's open, one **status** label. The Community page reads them.
+
+| Label | Meaning |
+|---|---|
+| `type:bug` | Something doesn't work as intended (shown as *Bug*) |
+| `type:idea` | An improvement or new feature (shown as *Idea*) |
+| `status:under-review` | Open: new, not yet triaged or decided |
+| `status:planned` | Open: accepted and planned, work not started |
+| `status:in-progress` | Open: someone is working on it |
+| `status:released` | Closed and shipped in a minor release |
+| `source:platform` | Submitted through the site's feedback form |
+| `roadmap` | A roadmap item (shown as *Planned* while open) |
+
+- Use the `type:` labels, not GitHub's default `bug` or `enhancement`: the Community page doesn't recognise those.
+- When an issue closes, its state and reason (*completed* or *not planned*) are its status. The `Issue labels` workflow removes `status:under-review`, `status:planned` and `status:in-progress` by itself, including when a merged pull request closes the issue.
+- Merged and deployed isn't released yet: `status:released` is added at the next minor release (step 5 above).
+- Reopening an issue: give it an open status label again.
 
 ## Who can merge
 

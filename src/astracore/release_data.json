@@ -1,6 +1,22 @@
 {
-  "current_version": "1.2.0",
+  "current_version": "1.2.1",
   "releases": [
+    {
+      "version": "1.2.1",
+      "date": "2026-10-11",
+      "title": "Motion and a clearer menu",
+      "changes": [
+        "Marketing sections now reveal more visibly as you scroll, with restrained parallax on the cinematic hero, PI story and community-direction artwork.",
+        "Find navigation more easily with a visible Menu label at the top of each page. The fixed control becomes compact during scrolling and shows Close when open."
+      ],
+      "technical": [
+        "Artwork updates only while nearby, coalesces scroll events into animation frames, pauses in hidden tabs and uses a smaller travel limit on phones. Copy, controls and operation figures stay stationary.",
+        "Reduced-motion changes cancel active entrances and reset artwork offsets. Native disclosures and unhidden content remain available without JavaScript.",
+        "The Menu caption sits below the original 28px icon and 48px button. Menu dismissal, focus restoration, permissions and PI behavior are preserved."
+      ],
+      "limitations": [],
+      "references": []
+    },
     {
       "version": "1.2.0",
       "date": "2026-10-11",

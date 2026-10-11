@@ -68,5 +68,12 @@
     menu.removeAttribute('data-closing');
     sync();
   });
+  const header = document.querySelector('.site-header');
+  if (header && window.IntersectionObserver) {
+    const headerVisibility = new window.IntersectionObserver(entries => {
+      document.documentElement.toggleAttribute('data-header-away', !entries[0].isIntersecting);
+    });
+    headerVisibility.observe(header);
+  }
   sync();
 })();

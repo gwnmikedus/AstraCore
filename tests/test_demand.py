@@ -117,3 +117,115 @@ def test_buyback_explains_unpublished_capacity(pi):  # noqa: F811
     d = assess(pi, Settings(), books(), history(), "7G-QIG", {BIOCELLS: 100})
     row = next(r for r in d["rows"] if r["channel"] == "buyback")
     assert row["side"] == "buyback" and row["status"] == "ok" and "doesn't publish" in row["advice"]
+
+
+# --- demand shapes the plan -------------------------------------------------------------
+def test_realistic_values_price_flagged_batches_at_what_buyers_pay(pi):  # noqa: F811
+    s = Settings(use_buyback=False, use_local=False, use_amarr=False)
+    tax = 1 - s.sales_tax_pct / 100
+    short = assess(pi, s, books(jita_buy_depth=[[10000.0, 300], [9900.0, 200]]), history(), "Jita",
+                   {BIOCELLS: 1000}, local=False)
+    walked = (300 * 10000 + 200 * 9900) * tax
+    real = demand.realistic_values(short, {BIOCELLS: 10000 * tax})
+    assert real[BIOCELLS] == pytest.approx(walked / 1000, rel=1e-4)    # unsold half earns nothing
+    ok = assess(pi, s, books(jita_buy_depth=[[10000.0, 1_000_000]]), history(), "Jita", {BIOCELLS: 1000}, local=False)
+    assert demand.realistic_values(ok, {BIOCELLS: 10000 * tax}) == {}
+    # a cheaper channel that takes the whole batch is worth more than leaving half of it unsold
+    s2 = Settings(use_buyback=False, use_local=False, use_amarr=True)
+    alt = assess(pi, s2, books(jita_buy_depth=[[10000.0, 300]], amarr_buy_depth=[[9500.0, 1_000_000]]),
+                 history(), "7G-QIG", {BIOCELLS: 20_000})          # big enough to beat VOC's minimum fee
+    row = alt["rows"][0]
+    assert row["status"] == "short" and row["alternative"]["channel"] == "amarr_buy"
+    expected = (300 * row["immediate"]["avg_net"] + 19_700 * row["alternative"]["value"]) / 20_000
+    real = demand.realistic_values(alt, {BIOCELLS: row["immediate"]["quoted_net"]})
+    assert real[BIOCELLS] == pytest.approx(expected, rel=1e-4)
+    held = {**alt, "rows": [{**row, "hold": True}]}
+    assert demand.realistic_values(held, {BIOCELLS: 10000.0}) == {}    # held batches aren't sold this cycle
+
+
+from astracore.modules.pi import service  # noqa: E402
+from astracore.modules.pi.planner import optimizer  # noqa: E402
+from test_planner import CHARS, TEMPLATES, _area  # noqa: E402
+
+BIOFUELS, OTHER_P1 = 2396, (2399, 2390, 3645)
+_real_warm_history = service.warm_history   # conftest swaps it for a no-op in every test
+
+
+def _ctx(pi, biofuels_depth):  # noqa: F811
+    """A miners-only plan sold in Jita: Biofuels quotes 2,000 ISK, everything else 800 with deep books."""
+    s = Settings(hub_system="HUB", max_jumps=1, max_systems=0, effort=100, max_tier=1,
+                 use_buyback=False, use_local=False, use_amarr=False)
+    bk = {t: {"jita_buy": 800.0, "jita_buy_depth": [[800.0, 10_000_000]]} for t in OTHER_P1}
+    bk[BIOFUELS] = {"jita_buy": 2000.0, "jita_buy_depth": biofuels_depth}
+    area = _area()
+    return dict(pi=pi, s=s, solve_s=s, area=area, systems={int(k): v for k, v in area["systems"].items()},
+                chars=CHARS, tpl=TEMPLATES, overrides={}, head_yield=s.head_yield_per_hour, books=bk,
+                books_at=1.0, history={}, history_at=None, dropoff="Jita", local=False, origin="Jita",
+                origin_jumps=0, seller=None, measured={}, manual_overrides={}, calibrated=None,
+                values=selling.best_values(pi, s, bk, "Jita", False, "Jita"))
+
+
+def _counting(monkeypatch):
+    calls = []
+    real = optimizer.plan
+
+    def plan(*a, **kw):
+        calls.append(a[5])
+        return real(*a, **kw)
+    monkeypatch.setattr(optimizer, "plan", plan)
+    return calls
+
+
+def test_plan_moves_off_a_market_that_cannot_take_the_batch(pi, monkeypatch):  # noqa: F811
+    calls = _counting(monkeypatch)
+    res = service.run_plan(_ctx(pi, [[2000.0, 500]]))       # 500 buyers for thousands of units a week
+    assert len(calls) == 2 and calls[1][BIOFUELS] < calls[0][BIOFUELS]
+    assert BIOFUELS not in {x["type_id"] for x in res["sold"]}
+    assert res["demand"]["replanned"][0]["item"] == "Biofuels"
+    assert any(w.startswith("Re-planned around thin markets: Biofuels") for w in res["warnings"])
+    # the demand table describes the plan that was kept
+    assert {r["type_id"] for r in res["demand"]["rows"]} == {x["type_id"] for x in res["sold"]}
+
+
+def test_plan_solves_once_when_buyers_can_take_everything(pi, monkeypatch):  # noqa: F811
+    calls = _counting(monkeypatch)
+    res = service.run_plan(_ctx(pi, [[2000.0, 10_000_000]]))
+    assert len(calls) == 1 and BIOFUELS in {x["type_id"] for x in res["sold"]}
+    assert res["demand"]["replanned"] == [] and not any("Re-planned" in w for w in res["warnings"])
+
+
+def test_plan_keeps_a_thin_product_that_still_pays_best(pi, monkeypatch):  # noqa: F811
+    calls = _counting(monkeypatch)
+    res = service.run_plan(_ctx(pi, [[2000.0, 500], [1700.0, 10_000_000]]))   # walking costs ~15%, still > 800
+    assert len(calls) == 2
+    assert BIOFUELS in {x["type_id"] for x in res["sold"]}
+    assert res["demand"]["replanned"] == [] and not any("Re-planned" in w for w in res["warnings"])
+    assert any(r["status"] == "thin" for r in res["demand"]["rows"])
+
+
+def test_startup_warms_stale_trade_history_without_blocking(pi, monkeypatch):  # noqa: F811
+    import asyncio
+    from astracore.modules.pi.planner import prices
+    from astracore.modules.pi.static_data import sde_loader
+    fetched = []
+
+    async def fake_refresh(esi, data):
+        fetched.append(data)
+
+    monkeypatch.setattr(service, "ESIClient", _NoNetwork)
+    monkeypatch.setattr(prices, "refresh_history", fake_refresh)
+    monkeypatch.setattr(sde_loader, "cached", lambda: pi)
+    monkeypatch.setattr(prices, "history_stale", lambda: True)
+    asyncio.run(_real_warm_history())
+    assert fetched == [pi]
+    monkeypatch.setattr(prices, "history_stale", lambda: False)
+    asyncio.run(_real_warm_history())
+    assert len(fetched) == 1                                 # fresh history: nothing to do
+
+
+class _NoNetwork:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False

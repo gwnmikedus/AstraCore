@@ -17,6 +17,7 @@ from .core import auth, community, pages, releases, sessions
 from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
 from .core.web import PKG, redirect, render
 from .modules.pi import module as _pi_module  # noqa: F401  (registers AstracorePI)
+from .modules.pi import service as pi_service
 from .modules.pi.routes import legacy as pi_legacy
 from .modules.pi.routes import router as pi_router
 
@@ -87,12 +88,14 @@ def create_app() -> FastAPI:
         sessions.purge_expired()
         log.info("Astracore started in %s mode on %s", config.MODE, config.PUBLIC_URL)
         sync_task = asyncio.create_task(community.run_sync_loop())
+        warm_task = asyncio.create_task(pi_service.warm_history())
         try:
             yield
         finally:
-            sync_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await sync_task
+            for task in (sync_task, warm_task):
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
     app = FastAPI(title="AstraCore", version=releases.current()["version"], debug=debug,
                   dependencies=[Depends(sessions.csrf_protect)],

@@ -129,6 +129,10 @@ function renderDemand(d) {
     trade history ${d.history_at ? esc(AC.ago(d.history_at)) + (d.history_window ? ` (last ${d.history_window} days)` : '') : 'not loaded yet: it refreshes in the background, check back shortly'}.
     Immediate sales walk the visible buy orders after sales tax and the same hauling cost as above.
     Sell-order times are <b>estimates</b>, assuming you capture ${lo}–${hi}% of the units the region trades per day.</p>`;
+  if (d.replanned && d.replanned.length)
+    h += `<p class="muted" style="font-size:.85rem">This plan was re-planned around thin markets: ` +
+         d.replanned.map(r => `${esc(r.item)} valued at ${num(r.realistic, 2)} instead of ${num(r.quoted, 2)} ISK per unit`).join(', ') +
+         `, what the visible buyers actually pay for a batch.</p>`;
   h += `<div class="scroll"><table class="demand"><thead><tr><th>Product</th><th>Sold via</th><th>Output / day</th><th>Per batch</th>
     <th>Visible buyers</th><th>Traded / day</th><th>Selling the batch</th><th>Assessment</th></tr></thead><tbody>`;
   for (const r of d.rows) {

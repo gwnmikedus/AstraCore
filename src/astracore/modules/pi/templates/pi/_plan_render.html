@@ -79,7 +79,7 @@ function planHTML(res) {
   }
   if (res.removals.length) {
     h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>
-      `<li>${esc(x.character)}: ${esc(x.current)} (planet ${x.planet_id})</li>`).join('') + `</ul>`;
+      `<li>${esc(x.character)}: ${esc(x.current)} (${x.planet ? esc(x.planet) : 'planet ' + esc(x.planet_id)})</li>`).join('') + `</ul>`;
   }
   h += renderSelling(res);
   h += `<p class="muted">Solved in ${res.solve_seconds}s over ${res.systems_in_scope} systems in reach.</p>`;

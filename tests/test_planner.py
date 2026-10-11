@@ -181,6 +181,13 @@ def test_existing_colony_kept_on_same_character(pi):
     assert kept and kept[0]["character_id"] == 1 and kept[0]["planet_id"] == 11
 
 
+def test_removals_name_the_planet(pi):
+    # a colony on FAR (2 jumps, out of reach) can't be kept, so it's listed by planet name, not id
+    chars = [dict(CHARS[0], colonies=[{"planet_id": 31, "pins": [{"schematic_id": 121}]}]), CHARS[1]]
+    res = _plan(pi, chars=chars)
+    assert {(r["planet_id"], r["planet"], r["system"]) for r in res["removals"]} == {(31, "P31", "FAR")}
+
+
 def test_ccu4_character_gets_only_fitting_templates(pi):
     tpls = [dict(t) for t in TEMPLATES]
     for t in tpls:

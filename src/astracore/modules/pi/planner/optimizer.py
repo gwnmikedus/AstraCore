@@ -30,7 +30,7 @@ from ..static_data import dalshooth, voc
 from ..static_data.pi_rules import HIGH_TECH_PLANETS, PLANET_TYPES
 from ..static_data.sde_loader import PIData
 from . import economics as eco
-from . import routing, setups, skills, upkeep
+from . import operate, routing, setups, skills, upkeep
 
 MINER_CCU = 4  # DalShooth nullsec miners fit a level-4 command center (lowsec miners need 5)
 
@@ -551,7 +551,9 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
 
     # removals: existing colonies not in the plan
     planned = {(c["character_id"], c["planet_id"]) for c in colonies}
+    names = operate.planet_names(area)
     removals = [{"character": by_id[cid]["name"], "planet_id": pid,
+                 "planet": names.get(pid, {}).get("name", ""), "system": names.get(pid, {}).get("system", ""),
                  "current": pi.name(prod) if prod else "?"}
                 for (cid, pid), prod in existing.items() if (cid, pid) not in planned]
 

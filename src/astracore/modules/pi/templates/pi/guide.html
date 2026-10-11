@@ -1,4 +1,8 @@
 {% extends "base.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ asset('css/money-slider.css') }}">
+<script src="{{ asset('js/money-slider.js') }}"></script>
+{% endblock %}
 {% block content %}
 <div class="g-head">
   <div>
@@ -123,6 +127,9 @@ const results = {};        // step id -> {option id: what-if result}
 let seq = 0;
 let comparisonRequest = null;
 let saving = false;
+let hourControl = null;
+let hourSave = Promise.resolve();
+let hourSaveRevision = 0;
 const STEP_CONTEXT = {
   goal: 'Choose the balance between income and upkeep. You can change this later.',
   cycle: 'Pick a restart schedule you can keep. The planner compares the income and effort.',
@@ -158,24 +165,28 @@ const goalId = () => STEPS[0].match(st);
 const iskPerHour = () => (+st.hour_isk >= 0 ? +st.hour_isk : HOUR_DEFAULT[goalId()]);
 
 function hourPicker() {
-  const vals = [0, 25e6, 50e6, 90e6, 150e6, 300e6, 500e6];
-  const curv = iskPerHour();
-  if (!vals.includes(curv)) vals.push(curv);
-  return `<label class="hourpick">An hour of my time is worth
-    <select id="hour">
-      ${vals.sort((a, b) => a - b).map(v => `<option value="${v}" ${v === curv ? 'selected' : ''}>${v ? isk(v) + ' ISK' : 'nothing (max ISK)'}${v === HOUR_DEFAULT[goalId()] ? ' (goal default)' : ''}</option>`).join('')}
-    </select></label>`;
+  return AC.moneySliderHTML('hour', iskPerHour());
 }
 function wireHour(step) {
-  const sel = $('hour'); if (!sel) return;
-  sel.onchange = () => {
-    const v = +sel.value;
-    st.hour_isk = v === HOUR_DEFAULT[goalId()] ? -1 : v;
-    AC.post(API + '/save', {hour_isk: st.hour_isk}).then(r => {
-      $('save-status').textContent = r.error ? 'Preference not saved. Continue to retry.' : 'Time preference saved';
-    });
-    paint(step);
-  };
+  const root = $('hour'); if (!root) return;
+  hourControl = AC.wireMoneySlider(root, {
+    value: iskPerHour(), defaultValue: HOUR_DEFAULT[goalId()], isDefault: +st.hour_isk < 0,
+    onCommit: (value, {useDefault}) => {
+      if (saving) return;
+      st.hour_isk = useDefault || value === HOUR_DEFAULT[goalId()] ? -1 : value;
+      const hourValue = st.hour_isk;
+      const revision = ++hourSaveRevision;
+      $('save-status').textContent = 'Saving time preference…';
+      // Keep an earlier request from reaching the server after a newer preference or answer.
+      hourSave = hourSave.then(() => revision === hourSaveRevision
+        ? AC.post(API + '/save', {hour_isk: hourValue}) : {superseded: true});
+      hourSave.then(r => {
+        if (saving || revision !== hourSaveRevision) return;
+        $('save-status').textContent = r.error ? 'Preference not saved. Continue to retry.' : 'Time preference saved';
+      });
+      paint(step);
+    },
+  });
 }
 const net = (step, o, r) => value(step, r) - minutesPerWeek(o, r) / 7 / 60 * iskPerHour();   // ISK/day minus time cost
 const byEffort = (step, res) => step.options.filter(o => res[o.id] && !res[o.id].error)
@@ -240,7 +251,6 @@ function go(i, focus = true) {
   });
   drawTrack();
   STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
-  AC.enterPanel($('q'));
   if (focus) {
     const title = $('question-title');
     if (title) title.focus({preventScroll: true});
@@ -268,7 +278,7 @@ function showQuestion(step) {
       </div>`).join('')}</div>
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
-    ${step.isGoal ? `<details class="question-explainer"><summary>Fine-tune the value of your time</summary>${hourPicker()}<p class="muted">Goal defaults: 300M ISK/hour for set and forget, 90M for balanced, zero for maximum ISK.</p></details>` : ''}
+    ${hourPicker()}
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} Back</button>
       <span class="hint" id="navhint" role="status">${step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…'}</span>
@@ -276,13 +286,16 @@ function showQuestion(step) {
     </div>`;
   $('back').onclick = () => go(cur - 1);
   $('next').onclick = async () => {
+    if (!hourControl.reportValidity()) return;
     saving = true;
+    hourControl.setDisabled(true);
     $('next').disabled = true;
     $('back').disabled = true;
     drawTrack();
     $('save-status').textContent = 'Saving your answer…';
     const result = await save(step);
     saving = false;
+    hourControl.setDisabled(false);
     if (result.error || result.superseded) {
       $('save-status').textContent = 'Answer not saved';
       $('navhint').textContent = result.error || 'Try saving your answer again.';
@@ -311,6 +324,7 @@ function showQuestion(step) {
     };
   });
   if (step.isArea) wireArea(step);
+  wireHour(step);
   // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
   if (picks[step.id] === undefined && (answered.has(step.id) || step.isGoal) && m != null) picks[step.id] = m;
   paint(step);
@@ -386,8 +400,8 @@ function paint(step) {
       <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>`;
   });
   $('advice').innerHTML = step.isGoal ? '' : advice(step, rec, pick);
-  if (step.isGoal && $('hour')) $('hour').closest('label').outerHTML = hourPicker();
-  wireHour(step);
+  hourControl.setValue(iskPerHour(), HOUR_DEFAULT[goalId()], +st.hour_isk < 0);
+  hourControl.setDisabled(saving);
 }
 
 function advice(step, rec, pick) {
@@ -412,7 +426,7 @@ function advice(step, rec, pick) {
     }
     if (!p.length) return '';
   }
-  return `<div class="advice"><h6>${AC.icon('lightbulb')} Our advice</h6>${p.map(x => `<p>${x}</p>`).join('')}${hourPicker()}
+  return `<div class="advice"><h6>${AC.icon('lightbulb')} Our advice</h6>${p.map(x => `<p>${x}</p>`).join('')}
     <p class="muted" style="font-size:.75rem">${TIME_NOTE}</p></div>`;
 }
 
@@ -474,6 +488,7 @@ async function wireArea(step) {
 
 // Next saves only what was picked (or seen pre-selected) on this question, never stale fields.
 async function save(step) {
+  await hourSave;
   const id = picks[step.id];
   const o = optOf(step, id);
   const body = {answered: [...new Set([...answered, step.id])], guide_step: cur + 1, hour_isk: st.hour_isk ?? -1};

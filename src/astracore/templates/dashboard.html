@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% block content_class %}ac-stack{% endblock %}
 {% block content %}
-<hgroup>
+<hgroup class="ac-page-header">
   <div class="eyebrow">AstraCore / Command center</div>
   <h1>Good to have you back, {{ user.display_name }}.</h1>
   <p class="muted">Your operation at a glance. Pick up where you left off.</p>

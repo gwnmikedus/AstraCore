@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block content_class %}ac-stack ac-stack--major{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% endmacro %}
 
 {% macro character(c) %}
@@ -69,21 +70,20 @@
 {% endmacro %}
 
 {% block content %}
-<hgroup>
+<header class="ac-page-header">
   <div class="eyebrow">AstraCore / Your capsuleers</div>
   <h1 class="page-title">Your profile</h1>
   <p>{{ chars|length }} character{{ 's' if chars|length != 1 }}. Log in with any of them to open this profile.
     <a href="/what-we-read">What we read from them</a>.</p>
-</hgroup>
-
-<div class="next-bar" style="justify-content:flex-start;margin-top:0">
+<div class="next-bar ac-actions">
   <a role="button" href="/auth/login?intent=add">{{ icon('plus') }} Add a character</a>
   <form method="post" action="/profile/refresh" class="inline">{{ csrf() }}
     <button class="outline" {{ 'disabled' if refresh_wait else '' }}>{{ icon('refresh-cw') }} Refresh all from ESI</button></form>
   {% if refresh_wait %}<span class="muted">Refresh again in {{ refresh_wait // 60 + 1 }} min.</span>{% endif %}
 </div>
+</header>
 
-<section class="section" aria-labelledby="acc-h">
+<section class="section ac-section" aria-labelledby="acc-h">
   <h3 id="acc-h">EVE accounts</h3>
   <p class="muted">EVE doesn't tell apps which characters share an account, so you group them here (up to {{ max_per_account }} per account).</p>
   <div class="accounts">
@@ -107,13 +107,13 @@
       <div class="unassigned-characters">{% for c in unassigned %}{{ character(c) }}{% else %}<p class="empty">Every character is in an account.</p>{% endfor %}</div>
     </div>
   </div>
-  <form method="post" action="/profile/accounts" class="grid" style="max-width:34rem;margin-top:1rem">{{ csrf() }}
+  <form method="post" action="/profile/accounts" class="grid" style="max-width:34rem">{{ csrf() }}
     <input name="name" placeholder="New EVE account, e.g. Alt account 2" required maxlength="60" aria-label="New EVE account name">
     <button class="outline">{{ icon('plus') }} Add EVE account</button>
   </form>
 </section>
 
-<section class="section" aria-labelledby="mod-h">
+<section class="section ac-section" aria-labelledby="mod-h">
   <h3 id="mod-h">Modules</h3>
   {% for m in modules %}
   <p><img src="{{ asset(m.icon) }}" alt="" width="20" height="20" style="vertical-align:-4px"> <strong>{{ m.name }}</strong>: enabled.
@@ -121,7 +121,7 @@
   {% endfor %}
 </section>
 
-<section class="section" aria-labelledby="ses-h">
+<section class="section ac-section" aria-labelledby="ses-h">
   <h3 id="ses-h">Signed-in browsers</h3>
   <div class="scroll"><table>
     <thead><tr><th>Browser</th><th>Network</th><th>Signed in</th><th>Last seen</th><th></th></tr></thead>
@@ -138,7 +138,7 @@
     <button class="outline secondary">{{ icon('log-out') }} Sign out everywhere</button></form>
 </section>
 
-<section class="section box danger-zone" aria-labelledby="dz-h">
+<section class="section ac-section box danger-zone" aria-labelledby="dz-h">
   <h3 id="dz-h">Danger zone</h3>
   <p><a role="button" class="outline" href="/profile/export.json">{{ icon('download') }} Download my data (JSON)</a></p>
   {% for m in modules if m.on_profile_reset %}

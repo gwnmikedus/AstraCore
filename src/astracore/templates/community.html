@@ -1,27 +1,34 @@
 {% extends "base.html" %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
 {% block content %}
+<div class="ac-stack community-page">
+<header class="ac-page-header">
 <div class="eyebrow">AstraCore / Built with capsuleers</div>
 <h1 class="page-title">Roadmap & feedback</h1>
 <p class="community-intro">Help shape AstraCore. Browse the priorities, suggest something useful, or tell us what went wrong.</p>
 <div class="community-actions"><a class="primary-link" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a><a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a>{{ external_link(github_url, 'Source & contributions', new_tab=false) }}{% if user and user.is_admin %}<a href="/community/admin">Manage feedback</a>{% endif %}</div>
+<div class="community-status">
 <p class="muted">Priorities may change. These are proposed directions, not promised delivery dates or community vote counts. New suggestions are reviewed before becoming planned work.</p>
 {% if sync.problem %}<p class="flash warn" role="status">{{ sync.problem }}</p>{% endif %}
 {% if sync.last_success %}<p class="muted">GitHub last checked {{ sync.last_success|ago }}. Issue links show the current discussion.</p>{% else %}<p class="muted">The roadmap is available below. GitHub issue status will appear after the first successful connection.</p>{% endif %}
-<section aria-labelledby="priorities-title">
+</div>
+<nav class="community-page-nav" aria-label="Roadmap sections"><a href="#priorities-title">Priorities</a><a href="#reports-title">Public issues & ideas</a>{% if user %}<a href="#my-reports-title">Your reports</a>{% endif %}</nav>
+</header>
+<section class="ac-section" aria-labelledby="priorities-title">
 <h2 id="priorities-title">Priorities</h2>
 <div class="community-roadmap">
-{% for item in roadmap %}<article>
+{% for item in roadmap %}<article class="ac-panel" aria-labelledby="priority-{{ item.slug }}">
   <header><span class="pill">{{ item.issue.status if item.issue else 'Proposed' }}</span></header>
-  <h3>{{ item.title }}</h3><p>{{ item.summary }}</p>
+  <h3 id="priority-{{ item.slug }}">{{ item.title }}</h3><p>{{ item.summary }}</p>
   <details><summary>Why this is on the roadmap</summary><p>{{ item.basis }}</p><p>{{ item.details }}</p>{% if item.slug == 'clearer-plan-comparison' %}<p>{{ external_link(research_url, 'Read the community feedback that informed this direction', new_tab=false) }}. This describes other tools and does not measure AstraCore demand.</p>{% endif %}</details>
   {% if item.issue %}<p>{% call external_link(item.issue.url, new_tab=false) %}Follow issue #{{ item.issue.number }}{% endcall %}</p>{% endif %}
 </article>{% endfor %}
 </div>
 </section>
-<section aria-labelledby="reports-title">
+<section class="ac-section" aria-labelledby="reports-title">
 <h2 id="reports-title">Public issues & ideas</h2>
 {% if issues %}<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for issue in issues %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ issue.title }}{% endcall %}</td><td><span class="pill">{{ issue.status }}</span></td><td>{{ 'Bug' if 'type:bug' in issue.labels else ('Idea' if 'type:idea' in issue.labels else 'Project work') }}</td></tr>{% endfor %}</tbody></table></div><p>{{ external_link(github_url ~ '/issues', 'See all issues and discussions on GitHub', new_tab=false) }}</p>{% else %}<p class="muted">No confirmed public issues are available here yet. Saved reports remain visible to their author until delivery is confirmed.</p>{% endif %}
 </section>
-{% if user %}<section aria-labelledby="my-reports-title"><h2 id="my-reports-title">Your reports</h2>{% if mine %}<ul class="community-report-list">{% for report in mine %}<li><a href="/community/reports/{{ report.id }}">{{ report.title }}</a><span class="muted">{{ 'Published' if report.delivery == 'published' else ('Withdrawn' if report.delivery == 'withdrawn' else ('Delivery being checked' if report.delivery == 'ambiguous' else 'Waiting for publication')) }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">You have not submitted a report yet.</p>{% endif %}</section>{% endif %}
+{% if user %}<section class="ac-section" aria-labelledby="my-reports-title"><h2 id="my-reports-title">Your reports</h2>{% if mine %}<ul class="community-report-list">{% for report in mine %}<li><a href="/community/reports/{{ report.id }}">{{ report.title }}</a><span class="muted">{{ 'Published' if report.delivery == 'published' else ('Withdrawn' if report.delivery == 'withdrawn' else ('Delivery being checked' if report.delivery == 'ambiguous' else 'Waiting for publication')) }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">You have not submitted a report yet.</p>{% endif %}</section>{% endif %}
+</div>
 {% endblock %}

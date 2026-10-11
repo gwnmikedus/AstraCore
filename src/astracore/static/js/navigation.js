@@ -31,11 +31,13 @@
     if (returnFocus) toggle.focus();
     menu.setAttribute('data-closing', '');
     sync();
-    closeTimer = setTimeout(() => {
+    function finishClose() {
       menu.open = false;
       menu.removeAttribute('data-closing');
       sync();
-    }, reducedMotion.matches ? 0 : 180);
+    }
+    if (reducedMotion.matches) finishClose();
+    else closeTimer = setTimeout(finishClose, 180);
   }
 
   toggle.addEventListener('click', event => {

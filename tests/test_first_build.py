@@ -236,6 +236,7 @@ def test_plan_md_export_includes_the_first_build_checklist(browser, eve, pi, mon
     assert r.status_code == 200
     md = r.text
     assert "## First build" in md and "can't buy anything or place market orders" in md
+    assert "| Goods | Hauling | Landed |" in md
     assert "```\nBarren Command Center\t2\n```" in md                      # Multibuy list, ready to paste
     assert "| Barren Command Center | 2 | Jita 4-4 |" in md
     assert "```\nBiofuels\t1920\nPrecious Metals\t1920\n```" in md          # optional starter stock (2 days)
@@ -258,8 +259,11 @@ def test_shopping_csv_export_lists_purchases_and_in_game_costs(browser, eve, pi,
     assert "astracore-pi-shopping.csv" in r.headers["content-disposition"]
     rows = list(csv.DictReader(io.StringIO(r.text)))
     cc = [x for x in rows if x["section"] == "command_center"]
-    assert cc == [{"section": "command_center", "item": "Barren Command Center", "qty": "2", "where": "Jita 4-4",
-                   "unit_isk": "100000", "isk": "200000", "estimated": "0", "for": ""}]
+    base = {"section": "command_center", "item": "Barren Command Center", "qty": "2", "where": "Jita 4-4",
+            "unit_isk": "100000", "isk": "200000", "estimated": "0", "for": ""}
+    assert len(cc) == 1 and {k: cc[0][k] for k in base} == base
+    # landed cost columns from the hauling check (#23): goods + hauling = landed, with how it gets there
+    assert int(cc[0]["landed_isk"]) == int(cc[0]["isk"]) + int(cc[0]["haul_isk"] or 0) and cc[0]["hauling"]
     stock = {x["item"]: x for x in rows if x["section"] == "starter_stock"}
     assert stock["Biofuels"]["qty"] == "1920" and stock["Biofuels"]["where"] == "Amarr VIII"
     assert stock["Biofuels"]["isk"] == str(1920 * 550) and stock["Biofuels"]["for"] == "Planet 21"

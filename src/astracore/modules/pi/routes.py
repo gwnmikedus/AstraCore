@@ -560,8 +560,11 @@ def _first_build_md(k: Optional[dict]) -> list:
             approx = (f" *Approximation: VOC's tariff lists {c['to']} → {c['from']} only; the same rate is assumed "
                       "this way. Check it on vochauling.com before you contract.*") if c.get("approx") else ""
             what = " (starter stock)" if c.get("section") == "starter_stock" else ""
+            diy = (f" The fee is more than these goods are worth: with a Deep Space Transport ({c['self_haul_trips']} "
+                   f"trip{'s' if c['self_haul_trips'] != 1 else ''} of ≈ 60,000 m³) flying it yourself may be cheaper; "
+                   "AstraCore doesn't price that trip or its risk.") if c.get("self_haul_trips") else ""
             out.append(f"- VOC courier {c['from']} → {c['to']}{what}: {fmt.m3(c['m3'])}, collateral "
-                       f"{fmt.isk(c['collateral'])},{extra} fee {fmt.isk(c['fee'])}{split}{carry}.{approx}")
+                       f"{fmt.isk(c['collateral'])},{extra} fee {fmt.isk(c['fee'])}{split}{carry}.{diy}{approx}")
         if hl.get("self_haul"):
             out.append(f"- From {' and '.join(hl['self_haul'])}: no VOC courier route to your drop-off is known, "
                        "so you haul it yourself and the hauling isn't priced.")

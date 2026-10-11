@@ -35,9 +35,15 @@ function navigation({reducedMotion = false, present = true} = {}) {
   const panel = element(menu);
   const label = element(menu);
   const backdrop = element(menu);
+  const header = element();
+  let headerVisibility;
+  window.IntersectionObserver = class {
+    constructor(callback) { headerVisibility = callback; }
+    observe(target) { assert.equal(target, header); }
+  };
   const parts = {summary: toggle, '.menu-panel': panel, '[data-menu-label]': label, '[data-menu-backdrop]': backdrop};
   menu.querySelector = selector => parts[selector];
-  document.querySelector = () => present ? menu : null;
+  document.querySelector = selector => !present ? null : (selector === '.site-header' ? header : menu);
   const timers = new Map();
   let timerId = 0;
   const context = {
@@ -48,6 +54,7 @@ function navigation({reducedMotion = false, present = true} = {}) {
   vm.runInNewContext(source, context);
   return {
     document, window, menu, toggle, panel, label, backdrop, timers,
+    headerVisible(visible) { headerVisibility([{isIntersecting: visible}]); },
     get focused() { return focused; },
     clickToggle() {
       let prevented = false;
@@ -171,4 +178,17 @@ test('native toggle events synchronize the accessible disclosure state', () => {
 
 test('pages without navigation initialize safely', () => {
   assert.doesNotThrow(() => navigation({present: false}));
+});
+
+test('the menu cue follows header visibility without changing disclosure state or focus', () => {
+  const ui = navigation();
+  ui.headerVisible(false);
+  assert.equal(ui.document.documentElement.hasAttribute('data-header-away'), true);
+  assert.equal(ui.menu.open, false);
+  assert.equal(ui.focused, null);
+  ui.clickToggle();
+  assert.equal(ui.label.textContent, 'Close');
+  ui.headerVisible(true);
+  assert.equal(ui.document.documentElement.hasAttribute('data-header-away'), false);
+  assert.equal(ui.menu.open, true);
 });

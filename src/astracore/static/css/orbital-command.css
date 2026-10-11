@@ -3,13 +3,15 @@
 .header-shortcuts a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink-muted); text-decoration: none; font: 600 16px var(--font-display); }
 .header-shortcuts a:hover, .header-shortcuts a[aria-current] { color: var(--ink); text-decoration: underline; text-decoration-color: var(--signal); text-underline-offset: 8px; }
 .core-stop { color: var(--signal); }
+.menu-label { position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%); background: var(--void); font: 600 11px/12px var(--font-display); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .platform-hero {
   --ink: #ece8df; --ink-muted: #b5b1a9; --signal: #ff6a1a; --signal-strong: #ff8a47; --on-signal: #1a0a00; --focus: #ff6a1a;
-  position: relative; isolation: isolate; width: min(100vw, 1672px); margin-inline: calc((100% - min(100vw, 1672px)) / 2);
+  position: relative; isolation: isolate; overflow: hidden; width: min(100vw, 1672px); margin-inline: calc((100% - min(100vw, 1672px)) / 2);
   min-height: clamp(660px, 50vw, 840px); display: flex; align-items: center; color: var(--ink); background: #0b0c0d;
 }
-.platform-scene { position: absolute; inset: 0; z-index: -2; }
-.platform-scene img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 78% center; }
+.platform-scene { position: absolute; inset: -48px 0; z-index: -2; }
+.platform-scene img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 78% center; transform: translate3d(0, var(--art-offset, 0px), 0); }
 .platform-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #0b0c0d 0%, rgba(11,12,13,.75) 23%, rgba(11,12,13,.15) 53%, transparent 72%); }
 .platform-copy { width: 53%; max-width: 900px; padding: 64px max(32px, calc((100vw - 1312px) / 2)); padding-right: 0; }
 .platform-copy .eyebrow { color: var(--signal); margin-bottom: 24px; }
@@ -32,7 +34,9 @@
 .pi-story-copy > p { max-width: 45ch; color: var(--ink-muted); font-size: 16px; line-height: 25px; }
 .pi-story-copy > .muted { margin-top: 24px; font-size: 13px; line-height: 20px; }
 .pi-story-art { min-width: 0; }
-.pi-story-art img { display: block; width: 100%; height: auto; clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px)); }
+.art-viewport { position: relative; overflow: hidden; aspect-ratio: 3 / 2; }
+.art-viewport > img { position: absolute; top: -32px; left: 0; display: block; width: 100%; height: calc(100% + 64px); object-fit: cover; transform: translate3d(0, var(--art-offset, 0px), 0); }
+.pi-story-art .art-viewport { clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px)); }
 .pi-story-art .art-caption { padding: 16px 0; color: var(--ink-muted); font-size: 9px; letter-spacing: .04em; }
 .workflow-band {
   --void: #e7e3da; --hull: #f4f1ea; --hull-raised: #fbf9f4; --ink: #17181a; --ink-muted: #5d5950;
@@ -128,6 +132,7 @@
 @media (max-width: 860px) { .header-shortcuts { display: none; } }
 @media (max-width: 760px) {
   .platform-hero { min-height: 780px; align-items: start; display: block; }
+  .platform-scene { inset-block: -24px; }
   .platform-scene img { object-position: center bottom; }
   .platform-hero::before { background: linear-gradient(180deg, #0b0c0d 0%, rgba(11,12,13,.93) 26%, rgba(11,12,13,.55) 48%, transparent 70%); }
   .platform-copy { width: 100%; max-width: none; padding: 32px 24px; background: #0b0c0d; }
@@ -178,6 +183,9 @@
   .community-header-art { grid-column: 1; grid-row: auto; aspect-ratio: 16 / 6; min-height: 0; height: auto; }
   .contributors-section { padding-right: 0; }
   .contributor-banner { position: static; width: 100%; height: auto; aspect-ratio: 16 / 6; margin-block: 16px 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .platform-scene img, .art-viewport > img { transform: none; }
 }
 @media (max-width: 390px) {
   .platform-copy { padding-inline: 20px; }

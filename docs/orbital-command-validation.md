@@ -24,7 +24,8 @@ used the same running server through its localhost origin, without production co
   inspection. Normal planner initialization can still persist its current view state.
 - Checked keyboard menu opening, Escape dismissal and focus restoration. Existing
   navigation and walkthrough tests cover outside dismissal, focus handling and reduced
-  motion. The new primary marketing scene is static; the existing global reduced-motion
+  motion. The primary marketing copy stays still; decorative scroll motion is covered by the
+  subsequent motion regression checks. The existing global reduced-motion
   CSS remains in place. An OS-level reduced-motion preference was not changed during QA.
 - Verified useful script-free public behavior through a temporary localhost-only GET
   proxy that omitted script elements from the real server's responses: native menu,

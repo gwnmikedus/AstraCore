@@ -4,8 +4,8 @@
 {% from '_artwork.html' import artwork %}
 {% block content %}
 <section class="platform-hero" aria-labelledby="hero-title">
-  <picture class="platform-scene">
-    <source media="(max-width: 760px)" srcset="{{ asset('img/brand/orbital-command/hero-platform-mobile-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-mobile-768.webp') }} 768w, {{ asset('img/brand/orbital-command/hero-platform-mobile-1024.webp') }} 1024w" sizes="100vw" width="1024" height="1536">
+  <picture class="platform-scene" data-parallax="hero">
+    <source media="(max-width: 760px)" srcset="{{ asset('img/brand/orbital-command/hero-platform-mobile-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-mobile-768.webp') }} 768w, {{ asset('img/brand/orbital-command/hero-platform-mobile-1024.webp') }} 1024w" sizes="(max-width: 390px) 600px, (max-width: 600px) 580px, 100vw" width="1024" height="1536">
     <img src="{{ asset('img/brand/orbital-command/hero-platform-1440.webp') }}" srcset="{{ asset('img/brand/orbital-command/hero-platform-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-960.webp') }} 960w, {{ asset('img/brand/orbital-command/hero-platform-1440.webp') }} 1440w, {{ asset('img/brand/orbital-command/hero-platform-1672.webp') }} 1672w" sizes="(min-width: 1672px) 1672px, 100vw" width="1672" height="941" alt="" fetchpriority="high">
   </picture>
   <div class="platform-copy">
@@ -22,7 +22,7 @@
 <div class="capability-strip" aria-label="What your plan includes"><span>{{ icon('users') }} Every alt, planned together</span><span>{{ icon('clock') }} Your time counts</span><span>{{ icon('download') }} Colony templates included</span><span>{{ icon('route') }} From extraction to selling</span></div>
 <section class="pi-story landing-section" id="pi-today" aria-labelledby="pi-today-title">
   <div class="pi-story-copy"><div class="eyebrow">01 / PI available today</div><h2 id="pi-today-title">Your planets.<br>Your pace.</h2><p class="lead">Plan, build and run your planetary operation across all your characters.</p><p>Compare income against the time it takes. Build with colony templates. See the next restart, pickup and sale in one place.</p><a class="text-action" href="#preview">Find your routine {{ icon('arrow-right') }}</a><p class="muted">Forecasts account for taxes and hauling. Yield and prices can change.</p></div>
-  <div class="pi-story-art">{{ artwork('pi-orbit', '(max-width: 760px) 100vw, (min-width: 1360px) 680px, 50vw') }}<span class="art-caption">PI / Plan. Build. Operate.</span></div>
+  <div class="pi-story-art"><div class="art-viewport" data-parallax="section">{{ artwork('pi-orbit', '(max-width: 760px) 100vw, (min-width: 1360px) 680px, 50vw') }}</div><span class="art-caption">PI / Plan. Build. Operate.</span></div>
 </section>
 <section class="landing-section" id="preview" aria-labelledby="preview-title">
   <div class="section-heading"><div><div class="eyebrow">PI / Find your rhythm</div><h2 id="preview-title">Good PI starts with how you play.</h2></div><p>Less hauling or longer production chains?<br>Try a direction. See what running it involves.</p></div>
@@ -109,8 +109,8 @@
 <section class="landing-section directions-section" aria-labelledby="directions-title">
   <div class="section-heading"><div><div class="eyebrow">05 / Shaped by capsuleers</div><h2 id="directions-title">Help shape what comes next.</h2></div><p>PI is available today.<br>Other operations are possible directions.</p></div>
   <div class="direction-grid">
-    <div class="direction-card">{{ artwork('fittings-hangar', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}<div class="direction-copy"><span class="console-label">Community direction</span><h3>Fittings across your alts.</h3><p>The right ship, the right character, a shared preparation routine. What would help your operation?</p><a class="text-action" href="/feedback?kind=idea">Shape fittings {{ icon('arrow-right') }}</a></div></div>
-    <div class="direction-card">{{ artwork('pvp-fleet', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}<div class="direction-copy"><span class="console-label">Community direction</span><h3>Ready for the next fleet.</h3><p>PvP and fleet preparation across characters. Bring the problem you would like AstraCore to solve.</p><a class="text-action" href="/feedback?kind=idea">Shape fleet preparation {{ icon('arrow-right') }}</a></div></div>
+    <div class="direction-card"><div class="art-viewport" data-parallax="section">{{ artwork('fittings-hangar', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}</div><div class="direction-copy"><span class="console-label">Community direction</span><h3>Fittings across your alts.</h3><p>The right ship, the right character, a shared preparation routine. What would help your operation?</p><a class="text-action" href="/feedback?kind=idea">Shape fittings {{ icon('arrow-right') }}</a></div></div>
+    <div class="direction-card"><div class="art-viewport" data-parallax="section">{{ artwork('pvp-fleet', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}</div><div class="direction-copy"><span class="console-label">Community direction</span><h3>Ready for the next fleet.</h3><p>PvP and fleet preparation across characters. Bring the problem you would like AstraCore to solve.</p><a class="text-action" href="/feedback?kind=idea">Shape fleet preparation {{ icon('arrow-right') }}</a></div></div>
   </div>
   <div class="directions-footer"><p>Help shape AstraCore. Logistics, industry, markets, skills and intel could follow. These are ideas to explore together, with no promised availability.</p><div class="ac-actions"><a class="text-action" href="/roadmap">Explore the roadmap {{ icon('arrow-right') }}</a><a class="text-action" href="/project">Contribute to AstraCore {{ icon('arrow-right') }}</a></div></div>
 </section>

@@ -1,11 +1,18 @@
-"""First-build checklist: Multibuy list, purchase locations, template compatibility, startup costs
-and the build sequence per character and planet. Fake pilots and planets only."""
+"""First-build checklist: Multibuy list, purchase locations, landed cost (price + hauling), template
+compatibility, startup costs and the build sequence per character and planet. Fake pilots, planets,
+markets and courier tariffs only."""
 from __future__ import annotations
 
+import asyncio
+
+import pytest
+
+from astracore.esi.client import ESIError
 from astracore.modules.pi import service, store
-from astracore.modules.pi.planner import checklist
+from astracore.modules.pi.planner import checklist, prices
 from astracore.modules.pi.settings import Settings
 from astracore.modules.pi.static_data import pi_rules as R
+from astracore.modules.pi.static_data import voc
 
 from test_core import browser, eve, me, new_id, sso_login  # noqa: F401 (fixtures)
 from test_planner import TEMPLATES, _plan, _tpl, pi  # noqa: F401 (fixtures)
@@ -283,3 +290,148 @@ def test_operate_links_the_checklist_exports(browser, eve, pi, monkeypatch):
     run = store.save_plan_run(pid, "Linked", Settings(cycle_days=2), plan, active=True)
     html = c.get("/pi/operate").text
     assert f'href="/pi/export/shopping.csv?plan={run}"' in html and f'href="/pi/export/plan.md?plan={run}"' in html
+
+
+# --------------------------------------------------------------------------- landed cost: price + hauling
+JITA_ROUTE = {"origin": "7G-QIG", "dest": voc.JITA, "min_fee": 10_000_000, "per_m3": 1000, "collateral_pct": 1.0,
+              "max_m3": 165_000}
+AMARR_ROUTE = {"origin": "7G-QIG", "dest": voc.AMARR, "min_fee": 20_000_000, "per_m3": 650, "collateral_pct": 1.0,
+               "max_m3": 165_000}
+ROUTES = [JITA_ROUTE, AMARR_ROUTE]                      # VOC lists Delve -> hub only, like the fallback tariff
+AREA = {"systems": {
+    "1": {"system_id": 1, "name": "7G-QIG", "region": "Delve", "neighbours": [2], "planets": []},
+    "2": {"system_id": 2, "name": "1DQ1-A", "region": "Delve", "neighbours": [1, 3], "planets": []},
+    "3": {"system_id": 3, "name": "NEXT", "region": "Delve", "neighbours": [2], "planets": []}}}
+DELVE_PLAN = {**PLAN, "hub": "7G-QIG"}
+
+
+def _cc_only(ptype="Barren", n=3, hub="7G-QIG"):
+    cols = [_col(1, "Pilot One", 40 + i, ptype, "HUB", "miner") for i in range(n)]
+    return {**PLAN, "hub": hub, "colonies": cols, "removals": []}
+
+
+def test_hauling_routes_use_voc_and_flag_an_assumed_return_tariff():
+    h = checklist.hauling_routes("7G-QIG", AREA, ROUTES)
+    assert h["jita"]["status"] == "courier" and h["jita"]["to"] == "7G-QIG" and h["jita"]["approx"]
+    both_ways = ROUTES + [{**JITA_ROUTE, "origin": voc.JITA, "dest": "7G-QIG"}]   # site said bidirectional
+    assert not checklist.hauling_routes("7G-QIG", AREA, both_ways)["jita"]["approx"]
+    assert checklist.hauling_routes("Jita", None, ROUTES)["jita"]["status"] == "free"
+    assert checklist.hauling_routes("Somewhere", None, ROUTES)["amarr"]["status"] == "unpriced"
+
+
+def test_delve_seller_beats_a_cheaper_hub_once_the_courier_is_counted(pi):
+    k = _build(pi, _cc_only(), local=True, area=AREA, voc_routes=ROUTES)
+    cc = k["command_centers"][0]
+    # Jita: 3 x 100k + a 10M minimum fee; Delve: 3 x 150k, no courier
+    assert cc["where"] == checklist.LOCAL_MARKET and cc["isk"] == 450_000 and cc["haul_isk"] == 0
+    assert k["costs"]["hauling"] == 0 and k["hauling"]["contracts"] == []
+
+
+def test_courier_fee_is_shown_separately_and_counts_in_the_startup_cost(pi):
+    books = {**CC_BOOKS, BARREN: {"jita_sell": 100_000.0, "amarr_sell": 120_000.0}}     # Delve doesn't list it
+    k = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES)
+    cc = k["command_centers"][0]
+    assert cc["where"] == "Jita 4-4" and cc["isk"] == 300_000          # goods
+    assert cc["haul_isk"] == 10_000_000 and cc["landed_isk"] == 10_300_000   # Jita's minimum fee
+    assert k["costs"]["hauling"] == 10_000_000
+    assert k["costs"]["total"] == (k["costs"]["command_centers"] + k["costs"]["hauling"] + k["costs"]["upgrades"]
+                                   + k["costs"]["structures"])
+    (contract,) = k["hauling"]["contracts"]
+    assert contract["from"] == "Jita 4-4" and contract["to"] == "7G-QIG" and contract["m3"] == 3000
+    assert contract["approx"] and k["hauling"]["approx"]                  # return direction assumed
+
+
+def test_starter_stock_rides_along_and_a_lower_price_can_lose_to_a_higher_minimum_fee(pi):
+    books = {**CC_BOOKS, BARREN: {"jita_sell": 100_000.0}}
+    k = _build(pi, DELVE_PLAN, local=True, books=books, area=AREA, voc_routes=ROUTES)
+    stock = {s["item"]: s for s in k["supplies"]}
+    # Biofuels are cheaper in Amarr (550 vs 600), but Amarr's 20M minimum fee isn't worth it
+    assert stock["Biofuels"]["where"] == "Jita 4-4"
+    cc_m3, cc_coll = 3 * R.COMMAND_CENTER_M3, 3 * 100_000
+    st_m3 = 1920 * (pi.volume(2396) + pi.volume(2399))
+    st_coll = 1920 * 600 + 1920 * 700
+    extra = voc.courier_fee(JITA_ROUTE, cc_m3 + st_m3, cc_coll + st_coll) - voc.courier_fee(JITA_ROUTE, cc_m3, cc_coll)
+    assert k["costs"]["supplies_hauling"] == round(extra)               # only what it adds to the same contract
+    assert sum(s["haul_isk"] for s in k["supplies"]) == pytest.approx(extra, abs=2)
+    shared = [c for c in k["hauling"]["contracts"] if c["section"] == "starter_stock"]
+    assert shared and shared[0]["shared"]
+
+
+def test_unknown_courier_route_keeps_the_local_preference_and_says_hauling_isnt_priced(pi):
+    k = _build(pi, {**_cc_only(hub="Far Away")}, local=False, area=None, voc_routes=ROUTES)
+    cc = k["command_centers"][0]
+    assert cc["where"] == "Jita 4-4" and cc["haul_isk"] == 0 and "not priced" in cc["haul_note"]
+    assert k["hauling"]["self_haul"] == ["Jita 4-4"] and k["costs"]["hauling"] == 0
+
+
+def test_delve_offer_names_the_station_and_the_jumps(pi):
+    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
+        "location_id": 60_000_001, "system_id": 2, "station": "1DQ1-A - Test Station", "system": "1DQ1-A",
+        "units": 2, "structure": False}}}
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES)["command_centers"][0]
+    assert cc["pickup"]["station"] == "1DQ1-A - Test Station" and cc["pickup"]["jumps"] == 1
+    assert "1 jump from 7G-QIG" in cc["pickup"]["text"] and cc["pickup"]["partial"]   # 2 there, 3 needed
+    books[BARREN]["delve_sell_at"] = {"location_id": 1_000_000_000_123, "system_id": 3, "station": None,
+                                      "system": None, "units": 5, "structure": True}
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES)["command_centers"][0]
+    assert cc["pickup"]["text"].startswith("a player structure in NEXT (2 jumps")    # system from the area
+
+
+def test_buying_walks_the_sell_depth_and_flags_a_short_book():
+    book = {"jita_sell": 100.0, "jita_sell_depth": [[100.0, 10], [120.0, 10]]}
+    o = checklist.offers(book, 15, local=False)["jita"]
+    assert o["unit"] == pytest.approx((10 * 100 + 5 * 120) / 15) and o["short"] == 0
+    assert checklist.offers(book, 30, local=False)["jita"]["short"] == 10
+
+
+def test_courier_splits_above_voc_size_limit():
+    h = {"route": JITA_ROUTE}
+    fee, n = checklist.courier_cost(h, 200_000, 0)
+    assert n == 2 and fee == 2 * voc.courier_fee(JITA_ROUTE, 100_000, 0)
+
+
+def test_cheapest_delve_order_location_is_named_without_auth(monkeypatch):
+    sells = [{"price": 120.0, "location_id": 60_000_001, "system_id": 2, "volume_remain": 5},
+             {"price": 100.0, "location_id": 1_000_000_000_123, "system_id": 3, "volume_remain": 4},
+             {"price": 100.0, "location_id": 1_000_000_000_123, "system_id": 3, "volume_remain": 1}]
+    at = prices.cheapest_at(sells)
+    assert at["location_id"] == 1_000_000_000_123 and at["units"] == 5 and at["structure"]
+    npc = prices.cheapest_at(sells[:1])
+    asked = []
+
+    async def names(esi, ids):
+        asked.append(set(ids))
+        return {2: "1DQ1-A", 3: "NEXT", 60_000_001: "1DQ1-A - Test Station"}
+    monkeypatch.setattr(prices.public, "ids_to_names", names)
+    asyncio.run(prices.name_locations(None, [at, npc, None]))
+    assert asked == [{2, 3, 60_000_001}]                             # structure ids never go to /universe/names
+    assert (at["station"], at["system"]) == (None, "NEXT")
+    assert (npc["station"], npc["system"]) == ("1DQ1-A - Test Station", "1DQ1-A")
+
+    async def down(esi, ids):
+        raise ESIError("down")
+    monkeypatch.setattr(prices.public, "ids_to_names", down)
+    later = prices.cheapest_at(sells[:1])
+    asyncio.run(prices.name_locations(None, [later]))
+    assert later["station"] is None and later["system"] is None       # unnamed, never a crash
+
+
+def test_operate_shows_landed_cost_and_hauling(browser, eve, pi, monkeypatch):
+    c = browser()
+    cid = new_id()
+    sso_login(c, eve, cid, "Hauler")
+    pid = me(c)
+    plan = {**PLAN, "hub": "7G-QIG", "totals": {"isk_per_day": 1}, "colonies": [
+        _col(cid, "Hauler", 11, "Barren", "HUB", "miner")],
+        "characters": [{"character_id": cid, "name": "Hauler", "route": {"order": ["HUB"]}}], "removals": []}
+    store.save_plan_run(pid, "Haul", Settings(cycle_days=2), plan, active=True)
+    books = {**CC_BOOKS, BARREN: {"jita_sell": 100_000.0}}
+
+    async def fake_ctx(profile_id, *a, **kw):
+        chars = [dict(ch, ccu_level=5, colonies=[]) for ch in service.planning_characters(profile_id)]
+        return {"chars": chars, "pi": pi, "s": Settings(), "books": books, "area": AREA, "tpl": _templates()}
+    monkeypatch.setattr(service, "planning_context", fake_ctx)
+    monkeypatch.setattr(voc, "routes_cached", lambda: ROUTES)
+    html = c.get("/pi/operate").text
+    assert "<th>Landed</th>" in html and "Hauling to 7G-QIG" in html
+    assert "VOC courier Jita 4-4 → 7G-QIG" in html and "Approximation:" in html

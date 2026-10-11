@@ -73,6 +73,14 @@
 
 {% endif %}
 
+{% macro buy_where(x) -%}
+  {{ x.where }}{% if x.pickup %}<br><span class="muted">{{ x.pickup.text }}</span>{% endif %}
+  {%- if x.short %}<br><span class="warn">only {{ (x.qty - x.short)|num }} listed in the cached price levels</span>{% endif %}
+{%- endmacro %}
+{% macro haul_cell(x) -%}
+  {% if x.haul_isk %}{{ x.haul_isk|isk }}<br><span class="muted">{{ x.haul_note }}</span>
+  {%- elif x.haul_note %}<span class="muted">{{ x.haul_note }}</span>{% else %}–{% endif %}
+{%- endmacro %}
 {% if checklist and checklist.todo %}
 {% set k = checklist %}
 <div class="box first-build" id="first-build">
@@ -87,7 +95,7 @@
   {% if k.blocked %}<div class="warnbox">{{ icon('triangle-alert') }} {{ k.blocked }} colon{{ 'y' if k.blocked == 1 else 'ies' }} can’t be built as planned yet. See <b>Train first</b> or <b>Template missing</b> below.</div>{% endif %}
 
   <div class="cards">
-    <div class="card"><div class="v">{{ k.costs.total|isk }}</div><div class="l">estimated startup cost, without starter stock</div></div>
+    <div class="card"><div class="v">{{ k.costs.total|isk }}</div><div class="l">estimated startup cost, without starter stock{% if k.costs.hauling %} · incl. {{ k.costs.hauling|isk }} courier{% endif %}</div></div>
     <div class="card"><div class="v">{{ k.costs.command_centers|isk }}</div><div class="l">{{ k.cc_qty }} command center{{ 's' if k.cc_qty != 1 }} (market){% if k.costs.estimated_cc %} · estimate{% endif %}</div></div>
     <div class="card"><div class="v">{{ (k.costs.upgrades + k.costs.structures)|isk }}</div><div class="l">upgrades + structures (wallet, in game)</div></div>
     <div class="card"><div class="v">{{ k.costs.supplies|isk }}</div><div class="l">optional factory starter stock</div></div>
@@ -97,10 +105,12 @@
     <div>
       <b>1 · Buy on the market</b>
       {% if k.command_centers %}
-      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Each</th><th>Total</th></tr></thead><tbody>
+      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Each</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
       {% for c in k.command_centers %}
-      <tr><td>{{ structure_img('command_center', 16) }}{{ c.name }}</td><td>{{ c.qty }}</td><td>{{ c.where }}</td>
-        <td>{{ c.unit_isk|isk }}{% if c.estimated %} <span class="muted">est.</span>{% endif %}</td><td>{{ c.isk|isk }}</td></tr>
+      <tr><td>{{ structure_img('command_center', 16) }}{{ c.name }}</td><td>{{ c.qty }}</td>
+        <td>{{ buy_where(c) }}</td>
+        <td>{{ c.unit_isk|isk }}{% if c.estimated %} <span class="muted">est.</span>{% endif %}</td><td>{{ c.isk|isk }}</td>
+        <td>{{ haul_cell(c) }}</td><td>{{ c.landed_isk|isk }}</td></tr>
       {% endfor %}</tbody></table></div>
       <textarea class="paste" readonly aria-label="Multibuy list: command centers">{{ k.multibuy }}</textarea>
       <button class="copy outline" data-copy="{{ k.multibuy }}">{{ icon('copy') }} Copy Multibuy list</button>
@@ -114,10 +124,11 @@
     {% if k.supplies %}
     <div>
       <b>Optional · Factory starter stock</b> <span class="muted">({{ k.supply_days|num(1) }} days of inputs)</span>
-      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Total</th></tr></thead><tbody>
+      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
       {% for s in k.supplies %}
       <tr><td>{{ eve_img(s.item, 16) }}{{ s.item }}<br><span class="muted">for {{ s['for']|join(', ') }}</span></td><td>{{ s.qty|num }}</td>
-        <td>{{ s.where or '–' }}</td><td>{{ s.isk|isk if s.where else '–' }}</td></tr>
+        <td>{{ buy_where(s) if s.where else '–' }}</td><td>{{ s.isk|isk if s.where else '–' }}</td>
+        <td>{{ haul_cell(s) if s.where else '–' }}</td><td>{{ s.landed_isk|isk if s.where else '–' }}</td></tr>
       {% endfor %}</tbody></table></div>
       <textarea class="paste" readonly aria-label="Multibuy list: factory starter stock">{{ k.supplies_multibuy }}</textarea>
       <button class="copy outline" data-copy="{{ k.supplies_multibuy }}">{{ icon('copy') }} Copy starter stock</button>
@@ -126,6 +137,22 @@
     </div>
     {% endif %}
   </div>
+  {% set hl = k.hauling %}
+  {% if hl and (hl.contracts or hl.self_haul) %}
+  <div class="haul-notes">
+    <b>{{ icon('truck') }} Hauling to {{ hl.dropoff }}</b>
+    <ul class="muted">
+    {% for c in hl.contracts %}
+      <li>VOC courier {{ c.from }} → {{ c.to }}{% if c.section == 'starter_stock' %} (starter stock{% if c.shared %}, added to the command center contract{% endif %}){% endif %}:
+        {{ c.m3|m3 }}, collateral {{ c.collateral|isk }}, {% if c.shared %}extra {% endif %}fee {{ c.fee|isk }}
+        {%- if c.contracts > 1 %} over {{ c.contracts }} contracts (VOC’s size limit){% endif %}
+        {%- if c.carry_jumps %}, then carry it {{ c.carry_jumps }} jump{{ 's' if c.carry_jumps != 1 }} to {{ hl.dropoff }} yourself{% endif %}.
+        {% if c.approx %}<span class="warn">Approximation:</span> VOC’s tariff lists {{ c.to }} → {{ c.from }} only; the same rate is assumed this way. Check it on <a href="{{ voc_site }}" target="_blank" rel="noopener">vochauling.com</a> before you contract.{% endif %}</li>
+    {% endfor %}
+    {% if hl.self_haul %}<li>From {{ hl.self_haul|join(' and ') }}: no VOC courier route to your drop-off is known, so you haul it yourself and the hauling isn’t priced.</li>{% endif %}
+    </ul>
+  </div>
+  {% endif %}
 
   <b>2 · Upgrade and build, per character and planet</b>
   <p class="muted">Follow each character’s pickup route. Costs are EVE’s standard planetary prices

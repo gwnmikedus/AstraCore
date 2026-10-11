@@ -62,7 +62,7 @@ If you cannot run a check, state that in the pull request; do not report it as p
 
 ## Open a pull request
 
-`main` is production, and only the maintainer ([@gwnmikedus](https://github.com/gwnmikedus)) merges into it. Everyone else, coding agents included, opens a pull request and stops there.
+`main` is the integration branch; production runs a commit of it that the maintainer deploys (see [docs/releases.md](docs/releases.md)). Only the maintainer ([@gwnmikedus](https://github.com/gwnmikedus)) merges into `main` and deploys. Everyone else, coding agents included, opens a pull request and stops there.
 
 `main` is protected, including for repository administrators. All changes go through a pull request with:
 - the branch up to date;

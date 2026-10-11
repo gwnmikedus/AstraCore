@@ -14,9 +14,9 @@ import time
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 
-from .config import ADMIN_CHARACTER_IDS, DB_PATH, LEGACY_DB_PATH, MODE, ROOT
+from .config import ADMIN_CHARACTER_IDS, DB_PATH, HOME, LEGACY_DB_PATH, MODE
 
-DEFAULT_LOCAL_DB = ROOT / "data" / "local" / "astracore.sqlite3"
+DEFAULT_LOCAL_DB = HOME / "data" / "local" / "astracore.sqlite3"
 
 log = logging.getLogger("astracore")
 

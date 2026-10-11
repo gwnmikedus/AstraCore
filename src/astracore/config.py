@@ -16,14 +16,17 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-ROOT = Path(__file__).resolve().parents[2]   # src/astracore/config.py -> repo root
+ROOT = Path(__file__).resolve().parents[2]   # src/astracore/config.py -> repo root (the code that runs)
+# Where env files and data/ live. Production runs a pinned checkout (`./astracore deploy`) whose code sits
+# elsewhere, so the launcher points this at the maintainer's checkout. Defaults to ROOT.
+HOME = Path(os.environ.get("ASTRACORE_HOME") or ROOT).resolve()
 MODE = os.environ.get("ASTRACORE_MODE", "local").strip().lower()
 if MODE not in ("local", "production"):
     raise SystemExit(f"ASTRACORE_MODE must be 'local' or 'production', not {MODE!r}")
 PRODUCTION = MODE == "production"
 
-ENV_PATH = Path(os.environ.get("ASTRACORE_ENV_FILE", ROOT / f".env.{MODE}"))
-LEGACY_ENV_PATH = ROOT / ".env"   # MVP file; only read when `.env.local` doesn't exist yet
+ENV_PATH = Path(os.environ.get("ASTRACORE_ENV_FILE", HOME / f".env.{MODE}"))
+LEGACY_ENV_PATH = HOME / ".env"   # MVP file; only read when `.env.local` doesn't exist yet
 
 
 def _parse_env(path: Path) -> Dict[str, str]:
@@ -85,7 +88,7 @@ def _ids(key: str) -> List[int]:
 def _data_dir() -> Path:
     raw = env("ASTRACORE_DATA", legacy="PI_PLANNER_DATA") or f"data/{MODE}"
     p = Path(raw)
-    return p if p.is_absolute() else ROOT / p
+    return p if p.is_absolute() else HOME / p
 
 
 HOST = "127.0.0.1"   # the tunnel is the only way in
@@ -96,13 +99,13 @@ DATA_DIR = _data_dir()
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "astracore.sqlite3"
 # Non-personal downloads (SDE csv, DalShooth templates) are shared by both modes.
-STATIC_DIR = Path(env("ASTRACORE_STATIC_DATA") or ROOT / "data")
+STATIC_DIR = Path(env("ASTRACORE_STATIC_DATA") or HOME / "data")
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
-LEGACY_DB_PATH = ROOT / "data" / "pi_planner.sqlite3"   # the MVP database (migrated into data/local)
+LEGACY_DB_PATH = HOME / "data" / "pi_planner.sqlite3"   # the MVP database (migrated into data/local)
 
-BACKUP_DIR = ROOT / "data" / "backups"
-LOG_DIR = ROOT / "data" / "logs"
-RUN_DIR = ROOT / "data" / "run"
+BACKUP_DIR = HOME / "data" / "backups"
+LOG_DIR = HOME / "data" / "logs"
+RUN_DIR = HOME / "data" / "run"
 
 ADMIN_CHARACTER_IDS = set(_ids("ASTRACORE_ADMIN_CHARACTER_IDS"))
 ALLOWED = {

@@ -1,24 +1,32 @@
 #!/bin/bash
 # Astracore on/off switch.
 #
-#   ./astracore start          local mode  (http://localhost:8765, .env.local, data/local)
-#   ./astracore start --prod   production  (public URL through the Cloudflare tunnel, .env.production, data/production)
+#   ./astracore start          local mode  (http://localhost:8765, .env.local, data/local), runs this checkout
+#   ./astracore start --prod   production  (public URL through the Cloudflare tunnel, .env.production, data/production),
+#                              runs the pinned production checkout
+#   ./astracore deploy [ref]   pin production to a commit on origin/main (default: its tip) and restart it
+#   ./astracore rollback       pin production back to the previously deployed commit and restart it
 #   ./astracore stop           stops the tunnel first (visitors get the offline page), then the app
 #   ./astracore restart [--prod]
 #   ./astracore status
 #   ./astracore logs           follow the app (and tunnel) logs
 #
 # The app listens on 127.0.0.1 only; in production the tunnel is the only way in.
+# Production code lives in its own git worktree (default: <this folder>-production, detached at the deployed
+# commit), so edits, branches and pulls in this checkout never reach the live site. Env files, data/, logs and
+# the virtualenv stay here. Every deploy is recorded in data/deploys.log.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROD_CODE="${ASTRACORE_PROD_CHECKOUT:-$ROOT-production}"
+DEPLOY_LOG="$ROOT/data/deploys.log"
 PY="$ROOT/.venv/bin/python"
 RUN="$ROOT/data/run"
 LOGS="$ROOT/data/logs"
 PORT=8765
 mkdir -p "$RUN" "$LOGS"
 chmod 700 "$RUN" 2>/dev/null || true
-export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+export ASTRACORE_HOME="$ROOT"
 
 say()  { printf '%s\n' "$*"; }
 die()  { printf 'astracore: %s\n' "$*" >&2; exit 1; }
@@ -69,19 +77,25 @@ cmd_start() {
   if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
     die "Port $PORT is already in use (another Astracore or app?). Free it first."
   fi
+  local code="$ROOT"
+  if [[ "$mode" == "production" ]]; then
+    code="$PROD_CODE"
+    [[ -f "$code/src/astracore/__init__.py" ]] || die "No production checkout at $code. Run: ./astracore deploy"
+  fi
+  export PYTHONPATH="$code/src"
   export ASTRACORE_MODE="$mode"
   "$PY" -m astracore.ops check || die "Not starting $mode mode."
   "$PY" -m astracore.ops backup
   "$PY" -m astracore.ops migrate
 
   unset ASTRACORE_COMMIT
-  if [[ -z "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]]; then
-    ASTRACORE_COMMIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null) || ASTRACORE_COMMIT=""
+  if [[ -z "$(git -C "$code" status --porcelain 2>/dev/null)" ]]; then
+    ASTRACORE_COMMIT=$(git -C "$code" rev-parse HEAD 2>/dev/null) || ASTRACORE_COMMIT=""
     export ASTRACORE_COMMIT
   fi
 
-  say "Starting Astracore ($mode)…"
-  nohup "$PY" -m astracore >>"$LOGS/app-$mode.out" 2>&1 &
+  say "Starting Astracore ($mode, $(git -C "$code" describe --tags --always --dirty 2>/dev/null || echo 'no git'))…"
+  (cd "$code" && exec nohup "$PY" -m astracore) >>"$LOGS/app-$mode.out" 2>&1 &
   echo $! >"$RUN/app.pid"
   echo "$mode" >"$RUN/mode"
   if ! wait_health; then
@@ -127,6 +141,78 @@ cmd_status() {
     say "App:    stopped"
   fi
   if alive "$RUN/tunnel.pid"; then say "Tunnel: running (pid $(cat "$RUN/tunnel.pid"))"; else say "Tunnel: stopped"; fi
+  if [[ -e "$PROD_CODE/.git" ]]; then
+    local dirty=""
+    [[ -z "$(git -C "$PROD_CODE" status --porcelain 2>/dev/null)" ]] || dirty=" (edited by hand! the next deploy discards that)"
+    say "Build:  $(git -C "$PROD_CODE" describe --tags --always 2>/dev/null) $(git -C "$PROD_CODE" log -1 --format='%h %s' 2>/dev/null)$dirty"
+    local behind; behind=$(git -C "$ROOT" rev-list --count "$(prod_commit)..origin/main" 2>/dev/null || echo '?')
+    say "        $behind merged commit(s) on origin/main not deployed (as of the last fetch)"
+  else
+    say "Build:  no production checkout yet (./astracore deploy)"
+  fi
+}
+
+prod_commit() { git -C "$PROD_CODE" rev-parse HEAD 2>/dev/null || true; }
+
+pin_production() {   # pin_production <sha>: put the production checkout on exactly that commit
+  local sha="$1"
+  if [[ -e "$PROD_CODE/.git" ]]; then
+    # --force + clean: whatever was changed in there by hand is discarded; production is the commit, nothing else.
+    git -C "$PROD_CODE" checkout --quiet --force --detach "$sha"
+    git -C "$PROD_CODE" clean --quiet -fd
+  else
+    [[ -e "$PROD_CODE" ]] && die "$PROD_CODE exists but isn't a git worktree; move it away first."
+    git -C "$ROOT" worktree add --quiet --detach "$PROD_CODE" "$sha"
+  fi
+}
+
+restart_production() {
+  if alive "$RUN/app.pid" && [[ "$(cat "$RUN/mode" 2>/dev/null)" != "production" ]]; then
+    die "Local mode is running. Stop it first (./astracore stop); production uses the same port."
+  fi
+  cmd_stop >/dev/null
+  # A separate process, so `set -e` still applies to every startup step (it's off inside an `if` condition).
+  "$ROOT/astracore" start --prod
+}
+
+cmd_deploy() {   # cmd_deploy [ref] [--rollback]
+  local ref="${1:-origin/main}" note="${2:-deploy}" sha prev
+  git -C "$ROOT" fetch --quiet --tags origin || die "git fetch failed."
+  sha=$(git -C "$ROOT" rev-parse --verify --quiet "$ref^{commit}") || die "Unknown commit or ref: $ref"
+  git -C "$ROOT" merge-base --is-ancestor "$sha" origin/main ||
+    die "$ref ($(git -C "$ROOT" rev-parse --short "$sha")) isn't on origin/main. Only merged, reviewed commits go to production."
+  git -C "$ROOT" grep --quiet ASTRACORE_HOME "$sha" -- src/astracore/config.py ||
+    die "$ref predates pinned production deploys (its config can't find data/ here). Deploy a newer commit."
+  prev=$(prod_commit)
+  if [[ -n "$prev" ]] && ! git -C "$ROOT" diff --quiet "$prev" "$sha" -- pyproject.toml requirements.txt; then
+    say "Note: dependencies changed since the running build. If startup fails, run: .venv/bin/pip install -r $PROD_CODE/requirements.txt"
+  fi
+  say "Pinning production to $(git -C "$ROOT" log -1 --format='%h %s' "$sha")"
+  pin_production "$sha"
+  if restart_production; then
+    printf '%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sha" \
+      "$(git -C "$PROD_CODE" describe --tags --always 2>/dev/null)" "$note" >>"$DEPLOY_LOG"
+    say "Deployed. Recorded in data/deploys.log."
+  elif [[ -n "$prev" && "$prev" != "$sha" ]]; then
+    say "The new build didn't come up. Putting $(git -C "$ROOT" rev-parse --short "$prev") back…"
+    pin_production "$prev"
+    restart_production || die "The previous build didn't come up either. See: tail -n 50 $LOGS/app-production.out"
+    die "Deploy of $(git -C "$ROOT" rev-parse --short "$sha") failed; production is back on the previous build."
+  else
+    die "Production didn't come up. See: tail -n 50 $LOGS/app-production.out"
+  fi
+}
+
+cmd_rollback() {
+  local current prev
+  current=$(prod_commit)
+  [[ -f "$DEPLOY_LOG" ]] || die "No deploys recorded yet."
+  # The most recent recorded deploy whose commit differs from the running one.
+  prev=$(awk -F'\t' -v cur="$current" '$2 != cur { last = $2 } END { print last }' "$DEPLOY_LOG")
+  [[ -n "$prev" ]] || die "No earlier deploy to roll back to."
+  say "Rolling back from $(git -C "$ROOT" rev-parse --short "$current" 2>/dev/null || echo '?') to $(git -C "$ROOT" rev-parse --short "$prev")."
+  say "Database migrations are not undone; a backup from before each start is in data/backups/production."
+  cmd_deploy "$prev" rollback
 }
 
 cmd_logs() {
@@ -140,7 +226,9 @@ case "${1:-}" in
   start)   shift; cmd_start "$@" ;;
   stop)    cmd_stop ;;
   restart) shift; cmd_stop; cmd_start "$@" ;;
+  deploy)  shift; cmd_deploy "${1:-origin/main}" ;;
+  rollback) cmd_rollback ;;
   status)  cmd_status ;;
   logs)    cmd_logs ;;
-  *) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

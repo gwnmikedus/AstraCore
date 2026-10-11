@@ -45,7 +45,7 @@ def backup() -> int:
     old = sorted(folder.glob("astracore-*.sqlite3"))[:-KEEP_BACKUPS]
     for f in old:
         f.unlink()
-    print(f"Backup: {dest.relative_to(config.ROOT)} ({len(old)} old removed)")
+    print(f"Backup: {dest.relative_to(config.HOME)} ({len(old)} old removed)")
     return 0
 
 

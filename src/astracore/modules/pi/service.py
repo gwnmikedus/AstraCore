@@ -16,7 +16,7 @@ from . import store
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import operate, optimizer, prices, selling
+from .planner import demand, operate, optimizer, prices, selling
 from .planner import skills as skills_mod
 from .settings import Settings
 from .static_data import dalshooth, sde_loader, voc
@@ -63,10 +63,32 @@ def calibrated_yield(chars, area) -> Optional[float]:
     return rich.calibrate_head_yield({c["character_id"]: c["colonies"] for c in chars}, sec, 1.0)
 
 
+_history_task: Optional[asyncio.Task] = None
+
+
+def refresh_history_soon(pi) -> None:
+    """Regional trade history changes once a day and takes a few hundred ESI calls, so it refreshes
+    in the background; plans use the last copy (or the order books alone) meanwhile."""
+    global _history_task
+    if _history_task and not _history_task.done():
+        return
+
+    async def run():
+        try:
+            async with ESIClient() as esi:
+                await prices.refresh_history(esi, pi)
+        except Exception:  # noqa: BLE001 - plans still work on order books alone
+            log.exception("market history")
+
+    _history_task = asyncio.get_running_loop().create_task(run())
+
+
 async def market_data(pi):
     if prices.stale():
         async with ESIClient() as esi:
             await prices.refresh(esi, pi)
+    if prices.history_stale():
+        refresh_history_soon(pi)
     info = voc.routes_info()
     if not info["at"] or time.time() - info["at"] > 86400:
         await voc.refresh_routes()
@@ -103,8 +125,10 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     solve_s = copy.deepcopy(sell_s)
     solve_s.hub_system = dropoff  # values below are computed for this drop-off
     values = selling.best_values(pi, sell_s, books, dropoff, local, origin)
+    hist = prices.history_cached()
     return dict(profile_id=profile_id, s=sell_s, solve_s=solve_s, chars=chars, pi=pi, tpl=tpl, area=area,
-                systems=systems, books=books, values=values, dropoff=dropoff, local=local, overrides=overrides,
+                systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
+                history_at=hist["at"], values=values, dropoff=dropoff, local=local, overrides=overrides,
                 manual_overrides=manual, origin=origin, origin_jumps=origin_jumps, seller=seller,
                 measured=measured, head_yield=head_yield, calibrated=cal)
 
@@ -122,6 +146,13 @@ def run_plan(ctx, s=None) -> dict:
         res["channels"] = selling.compare_table(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"],
                                                 list(units), ctx["local"], ctx["origin"])
         res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS}
+        res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], ctx.get("history") or {},
+                                      res["selling"], res["channels"], units,
+                                      ctx.get("books_at"), ctx.get("history_at"))
+        n_risky = len(res["demand"]["warnings"])
+        if n_risky:
+            res["warnings"].append(f"{n_risky} product(s) may not sell as planned at the chosen market: "
+                                   f"see Market demand under How you get paid.")
         res["dropoff"] = ctx["dropoff"]
         res["seller"] = ctx["seller"] if ctx["s"].taxes_from_skills else None
         res["taxes"] = {"sales_tax_pct": ctx["s"].sales_tax_pct, "broker_fee_pct": ctx["s"].broker_fee_pct,
@@ -145,7 +176,8 @@ def data_stamp(profile_id: int) -> tuple:
     chars = tuple((c["character_id"], c.get("synced_at"), c["enabled"], c["status"])
                   for c in db.list_characters(profile_id))
     return (profile_id, chars, tuple(sorted(store.planet_overrides(profile_id).items())),
-            prices.cached().get("at"), voc.routes_info().get("at"), tuple(sorted(store.admin_defaults().items())))
+            prices.cached().get("at"), prices.history_cached().get("at"), voc.routes_info().get("at"),
+            tuple(sorted(store.admin_defaults().items())))
 
 
 async def solve(profile_id: int, s: Optional[Settings] = None) -> dict:

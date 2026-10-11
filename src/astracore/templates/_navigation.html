@@ -65,9 +65,10 @@
     <a href="/roadmap"{% if request.url.path == '/roadmap' %} aria-current="page"{% endif %}>Community</a>
   </nav>
   <div class="header-controls">
-  <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
+  <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme" aria-describedby="theme-tip">
     <svg class="theme-sun ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
     {{ icon('moon', 'theme-moon') }}
+    <span class="theme-tip" id="theme-tip" role="tooltip"><strong>Flashbang warning</strong><span>Light theme ahead. Shield your eyes.</span></span>
   </button>
   {% if user %}
   <a href="/profile" class="header-action header-profile" aria-label="Your profile: {{ user.display_name }}">{% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" width="32" height="32" alt="">{% else %}{{ icon('user') }}{% endif %}<span>{{ user.display_name }}</span></a>

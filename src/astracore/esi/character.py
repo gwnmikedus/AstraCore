@@ -103,6 +103,20 @@ def locations() -> Dict[int, dict]:
     return out
 
 
+def _layout_network(det: dict) -> Dict[str, List[dict]]:
+    """A colony layout's links and routes, kept compactly for the upkeep route check.
+
+    Colonies stored before this existed have no `routes` key: that means "unknown until the
+    next ESI refresh", not "nothing routed"."""
+    return {
+        "links": [{"source_pin_id": ln.get("source_pin_id"), "destination_pin_id": ln.get("destination_pin_id"),
+                   "link_level": ln.get("link_level", 0)} for ln in det.get("links", []) or []],
+        "routes": [{"source_pin_id": r.get("source_pin_id"), "destination_pin_id": r.get("destination_pin_id"),
+                    "content_type_id": r.get("content_type_id"), "quantity": r.get("quantity", 0)}
+                   for r in det.get("routes", []) or []],
+    }
+
+
 async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     from astracore.core.auth import bundle_active
 
@@ -132,6 +146,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         col = dict(col)
         if not isinstance(det, Exception):
             col["pins"] = det.get("pins", [])
+            col.update(_layout_network(det))
         colonies.append(col)
 
     extra: Dict = {}

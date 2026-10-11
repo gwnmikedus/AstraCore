@@ -534,3 +534,66 @@ def test_upkeep_flags_missing_storage_and_idle_factories(pi):
     unknown = upkeep.colony_upkeep(pi, {"planet_id": 15, "pins": [
         {"schematic_id": 66}, {"contents": [{"type_id": 2390, "amount": 100}]}]}, None, now)
     assert unknown["capacity_m3"] is None and "not recognised" in unknown["issues"][0]
+
+
+# --- route check (issue #25) ------------------------------------------------------------------
+def _routed(col, routes):
+    """Give the fake colony ESI-style pin ids (in pin order) and the given routes."""
+    pins = [dict(p, pin_id=i + 1) for i, p in enumerate(col["pins"])]
+    return {**col, "pins": pins, "links": [], "routes": [
+        {"source_pin_id": a, "destination_pin_id": b, "content_type_id": t, "quantity": q} for a, b, t, q in routes]}
+
+
+def _route_issues(u):
+    return [i for i in u["issues"] if "routed" in i]
+
+
+def test_upkeep_flags_unrouted_factory_inputs_and_outputs(pi):
+    now = time.time()
+    factory, _ = _colonies(now)   # pins: 1 launchpad, 2 command center, 3 + 4 Biocells factories
+    full = [(1, f, t, 40) for f in (3, 4) for t in (2396, 2399)] + [(3, 1, 2329, 5), (4, 1, 2329, 5)]
+    legacy = upkeep.colony_upkeep(pi, factory, None, now)
+    assert not legacy["routes_known"] and not _route_issues(legacy)    # old stored colony: unknown, no error
+
+    ok = upkeep.colony_upkeep(pi, _routed(factory, full), None, now)
+    assert ok["routes_known"] and not _route_issues(ok)
+    assert ok["output"] == legacy["output"]
+
+    no_pm = upkeep.colony_upkeep(pi, _routed(factory, [r for r in full if r[1:3] != (4, 2399)]), None, now)
+    assert _route_issues(no_pm) == [
+        "Precious Metals isn't routed into 1 of 2 Advanced Industry Facilities making Biocells."]
+    assert no_pm["output"]["actual"] == pytest.approx(legacy["output"]["actual"] / 2, abs=0.1)
+
+    stuck = upkeep.colony_upkeep(pi, _routed(factory, [r for r in full if r[2] != 2329]), None, now)
+    assert _route_issues(stuck) == ["Biocells isn't routed out of all 2 Advanced Industry Facilities making "
+                                    "Biocells to storage, a launchpad or another factory."]
+    assert stuck["output"] is None and not stuck["has_imports"]          # neither factory can run
+
+    one = {**factory, "pins": factory["pins"][:3]}
+    lone = upkeep.colony_upkeep(pi, _routed(one, [(1, 3, 2396, 40)]), None, now)
+    assert "Precious Metals isn't routed into the Advanced Industry Facility making Biocells." in lone["issues"]
+
+
+def test_upkeep_flags_unrouted_extractor_but_keeps_its_restart(pi):
+    now = time.time()
+    _, miner = _colonies(now)     # pins: 1 launchpad, 2 command center, 3 extractor, 4 Biofuels factory
+    routed = upkeep.colony_upkeep(pi, _routed(miner, [(3, 4, 2288, 1500), (4, 1, 2396, 20)]), None, now)
+    assert not _route_issues(routed) and routed["output"]["actual"] > 0
+
+    lost = upkeep.colony_upkeep(pi, _routed(miner, [(4, 1, 2396, 20)]), None, now)
+    assert any(i.endswith("from an extractor isn't routed anywhere: the extracted product is lost.")
+               for i in lost["issues"])
+    assert "isn't routed into the Basic Industry Facility" in " ".join(lost["issues"])
+    assert lost["output"] is None                                          # nothing reaches the factory
+    assert lost["next"] == "restart" and lost["restart_hours"] == pytest.approx(48, abs=0.1)
+
+
+def test_character_sync_keeps_links_and_routes_compactly():
+    from astracore.esi.character import _layout_network
+    det = {"pins": [], "links": [{"source_pin_id": 1, "destination_pin_id": 3, "link_level": 2}],
+           "routes": [{"route_id": 9, "source_pin_id": 1, "destination_pin_id": 3, "content_type_id": 2396,
+                       "quantity": 40, "waypoints": [2]}]}
+    assert _layout_network(det) == {
+        "links": [{"source_pin_id": 1, "destination_pin_id": 3, "link_level": 2}],
+        "routes": [{"source_pin_id": 1, "destination_pin_id": 3, "content_type_id": 2396, "quantity": 40}]}
+    assert _layout_network({"pins": []}) == {"links": [], "routes": []}

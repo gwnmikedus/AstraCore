@@ -9,6 +9,11 @@ Four separate rhythms, never one general cadence:
 Colony contents in ESI are a snapshot from the last time the colony was viewed in game
 (`last_update`), so stock and storage levels are projected forward from that moment at the
 measured rates. Planned colonies are checked the same way from their template layout.
+
+Synced colonies are also checked for routes: a factory without a route for one of its inputs, or
+without a route taking its product away, and an extractor whose product goes nowhere, are flagged
+and left out of the measured output. Colonies stored before routes were synced are "routes unknown"
+until the next ESI refresh, never an error.
 """
 from __future__ import annotations
 
@@ -82,7 +87,8 @@ def plan_buffer(pi: PIData, col: dict, cycle_days: float) -> dict:
             "issues": issues}
 
 
-def _extractors(pins: List[dict], now: float) -> List[dict]:
+def _extractors(pins: List[dict], now: float, idle: frozenset = frozenset()) -> List[dict]:
+    """Extractor programs; `idle` pins (output not routed) still need restarts but deliver nothing."""
     out = []
     for p in pins:
         ex = p.get("extractor_details")
@@ -91,12 +97,84 @@ def _extractors(pins: List[dict], now: float) -> List[dict]:
         start, end = _ts(p.get("install_time")), _ts(p.get("expiry_time"))
         cycle = extraction.normalise_cycle_time(ex.get("cycle_time") or 0)
         per_day = 0.0
-        if start and end and end > now and cycle and ex.get("qty_per_cycle"):
+        if start and end and end > now and cycle and ex.get("qty_per_cycle") and p.get("pin_id") not in idle:
             per_day = extraction.avg_per_hour(ex["qty_per_cycle"], cycle, end - start) * 24
         out.append({"product": ex.get("product_type_id"), "per_day": per_day,
                     "hours_left": None if end is None else (end - now) / 3600,
                     "program_days": (end - start) / 86400 if start and end and end > start else None})
     return out
+
+
+def _factory_name(pi: PIData, sch, n: int = 1) -> str:
+    tier = pi.tier(sch.output)
+    key = "basic" if tier <= 1 else ("hightech" if tier >= 4 else "advanced")
+    name = R.STRUCTURE_NAMES[key]
+    if n == 1:
+        return name
+    return name[:-1] + "ies" if name.endswith("y") else name + "s"
+
+
+def route_check(pi: PIData, col: dict) -> Optional[dict]:
+    """Are the colony's factories and extractors actually routed? None when the stored colony has
+    no routes yet (synced before routes were kept): unknown until the next ESI refresh.
+
+    Returns the issues plus which factory and extractor pins really run, so the measured output
+    leaves out structures that can't receive their inputs or send their products anywhere."""
+    routes = col.get("routes")
+    if routes is None:
+        return None
+    pins = col.get("pins", []) or []
+    ids = {p["pin_id"] for p in pins if p.get("pin_id") is not None}
+    into, out_of = set(), set()     # (pin, content type) with a route arriving / leaving
+    for r in routes:
+        src, dst, t = r.get("source_pin_id"), r.get("destination_pin_id"), r.get("content_type_id")
+        if src in ids and dst in ids and (r.get("quantity") or 0) > 0:
+            into.add((dst, t))
+            out_of.add((src, t))
+
+    idle_pins, issues = set(), []
+    # group identical factories so 12 unrouted ones make one issue, not twelve
+    groups: Dict[int, List[dict]] = defaultdict(list)
+    for p in pins:
+        if p.get("schematic_id") in pi.schematics and p.get("pin_id") is not None:
+            groups[p["schematic_id"]].append(p)
+    for sid, group in groups.items():
+        sch = pi.schematics[sid]
+        product = pi.name(sch.output)
+        missing_in, missing_out = defaultdict(int), 0
+        for p in group:
+            pid, ok = p["pin_id"], True
+            for t in sch.inputs:
+                if (pid, t) not in into:
+                    missing_in[t] += 1
+                    ok = False
+            if (pid, sch.output) not in out_of:
+                missing_out += 1
+                ok = False
+            if not ok:
+                idle_pins.add(pid)
+        n = len(group)
+
+        def which(k):
+            return (f"the {_factory_name(pi, sch)}" if n == 1 else
+                    f"{'all ' if k == n else f'{k} of '}{n} {_factory_name(pi, sch, n)}") + f" making {product}"
+        for t, k in missing_in.items():
+            issues.append(f"{pi.name(t)} isn't routed into {which(k)}.")
+        if missing_out:
+            issues.append(f"{product} isn't routed out of {which(missing_out)} to storage, a launchpad or "
+                          "another factory.")
+
+    unrouted = defaultdict(int)
+    for p in pins:
+        ex = p.get("extractor_details")
+        if ex and p.get("pin_id") is not None and ex.get("product_type_id") \
+                and (p["pin_id"], ex["product_type_id"]) not in out_of:
+            unrouted[ex["product_type_id"]] += 1
+            idle_pins.add(p["pin_id"])
+    for t, k in unrouted.items():
+        what = "an extractor" if k == 1 else f"{k} extractors"
+        issues.append(f"{pi.name(t)} from {what} isn't routed anywhere: the extracted product is lost.")
+    return {"issues": issues, "idle_pins": idle_pins}
 
 
 def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -> dict:
@@ -119,11 +197,13 @@ def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -
         if kind or (not p.get("type_id") and not p.get("schematic_id") and not p.get("extractor_details")):
             used += sum(c["amount"] * pi.volume(c["type_id"]) for c in contents)
 
-    # what the structures consume and make at full speed
-    extractors = _extractors(pins, now)
+    # what the routed structures consume and make at full speed
+    routing = route_check(pi, col)
+    idle = frozenset(routing["idle_pins"]) if routing else frozenset()
+    extractors = _extractors(pins, now, idle)
     schems = defaultdict(int)
     for p in pins:
-        if p.get("schematic_id") in pi.schematics:
+        if p.get("schematic_id") in pi.schematics and p.get("pin_id") not in idle:
             schems[p["schematic_id"]] += 1
     need = defaultdict(float)
     for sid, n in schems.items():
@@ -187,6 +267,9 @@ def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -
         issues.append(f"Fills in {fill:.1f} days, before the {min(programs):.1f}-day extractor program ends: "
                       "collect in between or add storage.")
 
+    if routing:
+        issues += routing["issues"]
+
     shortages = [{"item": pi.name(t), "type_id": t, "have": int(stock_now[t]), "need_per_day": round(q),
                   "days_left": round(days_left[t], 1)} for t, q in imports.items() if days_left.get(t, 0) < 2]
 
@@ -215,6 +298,7 @@ def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -
             "collect_hours": None if collect_h is None else round(collect_h, 1),
             "program_days": round(min(programs), 1) if programs else None,
             "has_extractors": bool(extractors), "has_imports": bool(imports),
+            "routes_known": routing is not None,
             "output": output, "shortages": shortages, "issues": issues,
             "last_update": updated, "stale": bool(updated and age_days * 24 > COLONY_STALE_H)}
 

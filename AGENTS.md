@@ -5,7 +5,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/releases.md](docs/releases.md)
 ## Never without the maintainer's explicit request in this session
 
 - Merging a pull request, or pushing to `main`. Agents use the maintainer's GitHub account, so GitHub won't stop you: this rule does.
-- Deploying or restarting production (`./astracore start|restart --prod`). Production runs `main` from the maintainer's checkout.
+- Deploying, rolling back or restarting production (`./astracore deploy|rollback`, `./astracore start|restart --prod`). Production runs a pinned commit from its own checkout (`~/Eve-production`); merging doesn't deploy.
+- Editing anything in the production checkout (`~/Eve-production`). It's managed only by `./astracore deploy`.
 - Creating or moving tags, publishing or deleting GitHub Releases, or changing repository settings or branch protection.
 - Changing the version in `pyproject.toml` or `src/astracore/release_data.json`. That only happens in a minor release pull request.
 

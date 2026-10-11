@@ -86,7 +86,9 @@ it requests only the required bundle of the enabled modules; optional bundles ar
 ## On / off
 
 ```bash
-./astracore start --prod      # backup + migrations, app on 127.0.0.1:8765, then the tunnel; prints the URL
+./astracore deploy [commit]   # pin production to a commit on origin/main (default: its tip) and restart; see docs/releases.md
+./astracore rollback          # back to the previously deployed commit
+./astracore start --prod      # start the pinned build: backup + migrations, app on 127.0.0.1:8765, then the tunnel
 ./astracore stop              # tunnel first (visitors get Cloudflare's offline page), then the app
 ./astracore status
 ./astracore logs
@@ -201,8 +203,8 @@ Every static URL the app renders carries a content hash (`/static/img/logo.svg?v
   (a test fails if you forget).
 - Headers: versioned files `public, max-age=31536000, immutable`; unversioned or stale-version files `no-cache`;
   pages and API `private, no-cache`; `/favicon.ico` and `/apple-touch-icon.png` `no-cache`.
-- Templates and static files are read from disk on every request, so they go live without a restart; Python changes
-  need `./astracore stop` + `./astracore start --prod`.
+- Templates and static files are read from disk on every request. Production reads them from its pinned checkout,
+  so nothing goes live until `./astracore deploy`.
 
 ## Brand
 

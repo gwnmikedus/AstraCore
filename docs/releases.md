@@ -5,10 +5,10 @@ This is how AstraCore is versioned, merged, released and deployed. It applies to
 ## In short
 
 - **Versions are `0.MINOR.PATCH`** while AstraCore is in preview. Moving to `1.0.0` is a separate decision by the maintainer.
-- **`main` is production.** Whatever is on `main` is, or is about to be, the running site. Merge only what you're ready to deploy, and deploy straight after merging.
-- **Only the maintainer ([@gwnmikedus](https://github.com/gwnmikedus)) merges into `main`.** Everyone else, coding agents included, opens a pull request and stops there.
-- **Every merged pull request is a patch** (`0.1.1`, `0.1.2`, …). Patches have no release notes; their Conventional Commit messages are the changelog.
-- **A minor release** (`0.1.x` → `0.2.0`) is the curated update. It gets written release notes (the site's *What's new* page), a `v0.2.0` tag and a GitHub Release.
+- **`main` is the integration branch; production runs one pinned commit of it.** Merging doesn't deploy anything. The maintainer picks the commit that goes live with `./astracore deploy`, and production stays on it until the next deploy or a `rollback`. Small fixes can pile up on `main` and ship together.
+- **Only the maintainer ([@gwnmikedus](https://github.com/gwnmikedus)) merges into `main` and deploys.** Everyone else, coding agents included, opens a pull request and stops there.
+- **Every merged pull request is a patch build** (`0.1.1`, `0.1.2`, …), numbered automatically. Builds have no release notes; their Conventional Commit messages are the changelog. The footer shows the build production runs.
+- **A minor release** (`0.1.x` → `0.2.0`) is the curated update. It gets written release notes (the site's *What's new* page), a `v0.2.0` tag and a GitHub Release, and it describes what has actually been deployed.
 
 ## Version numbers
 
@@ -17,7 +17,7 @@ AstraCore follows [Semantic Versioning](https://semver.org/) in its `0.y.z` form
 | Part | Example | Meaning | Who sets it |
 |---|---|---|---|
 | MINOR | `0.1` → `0.2` | A curated release: a set of changes pilots should hear about, or a breaking change | The maintainer, in a release pull request |
-| PATCH | `0.2.0` → `0.2.7` | The seventh pull request merged into `main` since `v0.2.0` | Nobody: it's derived from git |
+| PATCH | `0.2.0` → `0.2.7` | The build: the seventh pull request merged into `main` since `v0.2.0`. Production may run an earlier build than `main`'s tip | Nobody: it's derived from git |
 
 The patch number is never written in a file. At startup the app runs `git describe --tags --match v<minor>` and counts the commits on `main` since the minor release's tag. `main` only takes squash merges, so that's one commit per pull request. Without git or the tag, the app shows the minor version itself, for example `0.2.0`. This works like [setuptools-scm](https://setuptools-scm.readthedocs.io/) and needs no version-bump commits, so pull requests never conflict over the version.
 
@@ -36,22 +36,29 @@ Builds before 0.1.0 were numbered 1.0 to 1.2.4 during early development. On 2026
 2. Use a Conventional Commit title, for example `fix: keep factory restocks within storage capacity`. The squash commit's title becomes the patch changelog entry, so write it for a reader.
 3. Fill in the pull request template, including a short user-facing note when pilots would notice the change. Those notes are collected at the next minor release.
 4. The required checks (`Python 3.9`, `Python 3.13`, `Browser helper unit tests`, `Release metadata`) must pass, the branch must be up to date with `main` and conversations must be resolved.
-5. **The maintainer squash-merges** and then deploys (see below). Nobody else merges, and agents never merge or push to `main` unless the maintainer explicitly asks for that in the current session.
+5. **The maintainer squash-merges.** Deploying is a separate step (see below), done whenever the maintainer decides. Nobody else merges or deploys, and agents never merge, push to `main` or deploy unless the maintainer explicitly asks for that in the current session.
 
 Do not change the version or `release_data.json` in a regular pull request.
 
-## Deploying (main = production)
+## Deploying (a pinned commit)
 
-After merging, the maintainer, or an agent the maintainer explicitly asked to deploy, updates production from `main`:
+Production never runs the maintainer's working checkout. It runs its own git worktree next to it (`~/Eve-production` for `~/Eve`), detached at exactly the deployed commit. Branches, pulls and edits in the working checkout, by the maintainer or any agent, never reach the live site. Env files, `data/`, logs and the virtualenv stay in the working checkout (`ASTRACORE_HOME`).
 
 ```sh
-git checkout main && git pull --ff-only --tags
-./astracore restart --prod
+./astracore deploy            # pin production to the tip of origin/main and restart it
+./astracore deploy 1a2b3c4    # or to any earlier commit on origin/main
+./astracore rollback          # back to the previously deployed commit
+./astracore status            # shows the running build and how many merged commits aren't deployed yet
 ```
 
-Then check that `/healthz` responds and that the footer shows the expected version (`v0.2.<n>`, where *n* is the number of merged pull requests since `v0.2.0`). The release page links those commits.
+`deploy` fetches, refuses commits that aren't on `origin/main`, takes a database backup, runs migrations, restarts, and waits for `/healthz`. If the new build doesn't come up, it puts the previous build back by itself. Every deploy and rollback is a line in `data/deploys.log` (time, commit, build, kind). `start|restart --prod` restarts whatever is pinned.
 
-If a merged change can't be deployed, revert it on `main` with a new pull request rather than leaving `main` ahead of production.
+After a deploy, check that the footer shows the expected build (`v0.2.<n>`). The release page links those commits.
+
+- Hand edits in the production checkout are flagged by `status` and discarded by the next deploy. Fix things through a pull request and deploy that.
+- A rollback doesn't undo database migrations. The backup taken before each start is in `data/backups/production/`.
+- If a deploy changes dependencies, `deploy` says so; install them with `.venv/bin/pip install -r ~/Eve-production/requirements.txt`.
+- A merged change that turns out wrong doesn't have to be deployed. Revert it on `main` with a new pull request before the next deploy.
 
 ## Making a minor release
 
@@ -74,7 +81,7 @@ If a merged change can't be deployed, revert it on `main` with a new pull reques
    gh release create v0.2.0 --title "AstraCore 0.2.0 · <title>" --notes-file release-notes.md
    ```
 
-4. Deploy as above. The footer now reads `v0.2.0`, and the next merged pull request becomes `0.2.1`.
+4. Deploy that merge commit (`./astracore deploy`). The footer now reads `v0.2.0`, and the next merged pull request becomes `0.2.1`.
 
 Tag only minor releases, never patches, and never move or reuse a published tag.
 

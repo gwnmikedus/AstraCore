@@ -129,3 +129,16 @@ test('external link helpers do not turn invalid destinations into executable lin
   }
   assert.doesNotMatch(AC.externalLink('https://github.com.evil.example/', 'Example'), /icon-github/);
 });
+
+test('relative times match the server-side ago filter', () => {
+  const context = {Intl};
+  context.window = context;
+  vm.runInNewContext(readFileSync(path.join(__dirname, '../src/astracore/static/js/fmt.js'), 'utf8'), context);
+  const {ago} = context.AC;
+  const now = 1_000_000;
+  assert.equal(ago(null, now), 'never');
+  assert.equal(ago(now - 30, now), 'just now');
+  assert.equal(ago(now - 600, now), '10 min ago');
+  assert.equal(ago(now - 3 * 3600, now), '3 h ago');
+  assert.equal(ago(now - 5 * 86400, now), '5 days ago');
+});

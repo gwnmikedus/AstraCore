@@ -16,6 +16,13 @@
   const m3 = v => ok(v) ? num(v, (Math.abs(+v) > 0 && Math.abs(+v) < 10) ? 1 : 0) + ' m³' : '–';
   const count = v => ok(v) ? num(Math.round(+v)) : '–';
   const pct = (v, d = 1) => ok(v) ? nz((+v).toFixed(d).replace(/\.?0+$/, '')) + '%' : '–';
+  // Mirrors fmt.ago(): how long ago a unix timestamp (seconds) was.
+  const ago = (ts, now = Date.now() / 1000) => {
+    if (!ok(ts) || !+ts) return 'never';
+    const d = now - +ts;
+    return d < 120 ? 'just now' : d < 7200 ? `${Math.floor(d / 60)} min ago`
+         : d < 172800 ? `${Math.floor(d / 3600)} h ago` : `${Math.floor(d / 86400)} days ago`;
+  };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-  window.AC = Object.assign(window.AC || {}, {num, isk, m3, count, pct, esc});
+  window.AC = Object.assign(window.AC || {}, {num, isk, m3, count, pct, ago, esc});
 })();

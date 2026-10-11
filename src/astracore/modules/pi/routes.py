@@ -348,6 +348,8 @@ async def api_prices_refresh(request: Request):
     from astracore.esi.client import ESIClient
     async with ESIClient() as esi:
         await prices.refresh(esi, pi)
+    if prices.history_stale():
+        service.refresh_history_soon(pi)
     await voc.refresh_routes()
     return JSONResponse({"ok": True, "at": prices.cached().get("at")})
 

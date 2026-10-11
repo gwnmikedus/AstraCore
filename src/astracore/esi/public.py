@@ -66,5 +66,13 @@ async def region_orders(esi: ESIClient, region_id: int, type_id: int, force: boo
         return []
 
 
+async def region_history(esi: ESIClient, region_id: int, type_id: int) -> List[dict]:
+    """Daily volume and average price of one type in a region (ESI refreshes it once a day)."""
+    try:
+        return await esi.get(f"/markets/{region_id}/history/", params={"type_id": type_id}, ttl=6 * 3600)
+    except ESIError:
+        return []
+
+
 async def many(coros: Iterable[Any]) -> List[Any]:
     return list(await asyncio.gather(*coros))

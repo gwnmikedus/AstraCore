@@ -490,6 +490,17 @@ def _plural(n: int, one: str, many: str) -> str:
     return f"{n} {one if n == 1 else many}"
 
 
+def _where_md(x: dict) -> str:
+    pickup = (x.get("pickup") or {}).get("text")
+    return f"{x['where']} ({pickup})" if pickup else x["where"]
+
+
+def _haul_md(x: dict) -> str:
+    if x.get("haul_isk"):
+        return fmt.isk(x["haul_isk"]) + (f" ({x['haul_note']})" if x.get("haul_note") else "")
+    return x.get("haul_note") or "–"
+
+
 def _first_build_md(k: Optional[dict]) -> list:
     """The Operate first-build checklist as Markdown: Multibuy lists, cost split, steps per character."""
     if not k:
@@ -516,9 +527,10 @@ def _first_build_md(k: Optional[dict]) -> list:
             f"- Optional factory starter stock (market): {fmt.isk(c['supplies'])}", ""]
     out += ["### 1 · Buy on the market", ""]
     if k["command_centers"]:
-        out += ["| Item | Qty | Where | Each | Total |", "|---|---|---|---|---|"]
-        out += [f"| {x['name']} | {x['qty']} | {x['where']} | {fmt.isk(x['unit_isk'])}"
-                f"{' (est.)' if x['estimated'] else ''} | {fmt.isk(x['isk'])} |" for x in k["command_centers"]]
+        out += ["| Item | Qty | Where | Each | Goods | Hauling | Landed |", "|---|---|---|---|---|---|---|"]
+        out += [f"| {x['name']} | {x['qty']} | {_where_md(x)} | {fmt.isk(x['unit_isk'])}"
+                f"{' (est.)' if x['estimated'] else ''} | {fmt.isk(x['isk'])} | {_haul_md(x)} "
+                f"| {fmt.isk(x.get('landed_isk', x['isk']))} |" for x in k["command_centers"]]
         out += ["", "Multibuy list:", "", "```", k["multibuy"], "```", "",
                 f"{fmt.m3(k['cc_m3'])} to carry"
                 + ("; the Delve market sells them, which saves the haul." if k.get("cc_local")
@@ -528,13 +540,32 @@ def _first_build_md(k: Optional[dict]) -> list:
                 "a command center.", ""]
     if k.get("supplies"):
         out += [f"### Optional · Factory starter stock ({fmt.num(k['supply_days'], 1)} days of inputs)", "",
-                "| Item | Qty | Where | Total | For |", "|---|---|---|---|---|"]
-        out += [f"| {x['item']} | {fmt.num(x['qty'])} | {x['where'] or '–'} "
-                f"| {fmt.isk(x['isk']) if x['where'] else '–'} | {', '.join(x['for'])} |" for x in k["supplies"]]
+                "| Item | Qty | Where | Goods | Hauling | Landed | For |", "|---|---|---|---|---|---|---|"]
+        out += [f"| {x['item']} | {fmt.num(x['qty'])} | {_where_md(x) if x['where'] else '–'} "
+                f"| {fmt.isk(x['isk']) if x['where'] else '–'} | {_haul_md(x) if x['where'] else '–'} "
+                f"| {fmt.isk(x.get('landed_isk', x['isk'])) if x['where'] else '–'} | {', '.join(x['for'])} |"
+                for x in k["supplies"]]
         out += ["", "Multibuy list:", "", "```", k["supplies_multibuy"], "```", "",
                 "Your miners in this plan make these inputs. Buy a starter stock only to run the factories from "
                 "day one instead of after the first pickup."
                 + (f" No seller cached for {', '.join(k['unpriced'])}." if k.get("unpriced") else ""), ""]
+    hl = k.get("hauling") or {}
+    if hl.get("contracts") or hl.get("self_haul"):
+        out += [f"### Hauling to {hl.get('dropoff')}", ""]
+        for c in hl.get("contracts", []):
+            extra = " extra" if c.get("shared") else ""
+            split = f" over {c['contracts']} contracts (VOC's size limit)" if c.get("contracts", 1) > 1 else ""
+            carry = (f", then carry it {c['carry_jumps']} jump{'s' if c['carry_jumps'] != 1 else ''} to "
+                     f"{hl.get('dropoff')} yourself") if c.get("carry_jumps") else ""
+            approx = (f" *Approximation: VOC's tariff lists {c['to']} → {c['from']} only; the same rate is assumed "
+                      "this way. Check it on vochauling.com before you contract.*") if c.get("approx") else ""
+            what = " (starter stock)" if c.get("section") == "starter_stock" else ""
+            out.append(f"- VOC courier {c['from']} → {c['to']}{what}: {fmt.m3(c['m3'])}, collateral "
+                       f"{fmt.isk(c['collateral'])},{extra} fee {fmt.isk(c['fee'])}{split}{carry}.{approx}")
+        if hl.get("self_haul"):
+            out.append(f"- From {' and '.join(hl['self_haul'])}: no VOC courier route to your drop-off is known, "
+                       "so you haul it yourself and the hauling isn't priced.")
+        out.append("")
     out += ["### 2 · Upgrade and build, per character and planet", "",
             "Follow each character's pickup route; costs are EVE's standard planetary prices.", ""]
     for ch in k["characters"]:
@@ -651,18 +682,25 @@ async def export_shopping(request: Request):
     k = await service.first_build_for(_pid(request), res, run.get("settings")) or {}
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["section", "item", "qty", "where", "unit_isk", "isk", "estimated", "for"])
+    w.writerow(["section", "item", "qty", "where", "unit_isk", "isk", "estimated", "for",
+                "haul_isk", "landed_isk", "hauling", "pickup"])
+
+    def haul(x):
+        return [x.get("haul_isk", ""), x.get("landed_isk", ""), x.get("haul_note") or "",
+                (x.get("pickup") or {}).get("text", "")]
     for c in k.get("command_centers", []):
         w.writerow(["command_center", c["name"], c["qty"], c["where"], c["unit_isk"], c["isk"],
-                    int(bool(c["estimated"])), ""])
+                    int(bool(c["estimated"])), ""] + haul(c))
     for x in k.get("supplies", []):
         priced = bool(x["where"])
         w.writerow(["starter_stock", x["item"], x["qty"], x["where"] or "", x["unit_isk"] if priced else "",
-                    x["isk"] if priced else "", "", "; ".join(x["for"])])
+                    x["isk"] if priced else "", "", "; ".join(x["for"])] + (haul(x) if priced else ["", "", "", ""]))
     if k.get("todo"):
         costs = k["costs"]
-        w.writerow(["in_game", "Command center upgrades", "", "Planetary interface", "", costs["upgrades"], "", ""])
-        w.writerow(["in_game", "Structures", "", "Planetary interface", "", costs["structures"], "", ""])
+        w.writerow(["in_game", "Command center upgrades", "", "Planetary interface", "", costs["upgrades"], "", "",
+                    "", "", "", ""])
+        w.writerow(["in_game", "Structures", "", "Planetary interface", "", costs["structures"], "", "",
+                    "", "", "", ""])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-shopping.csv"'})
 

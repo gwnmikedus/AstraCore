@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from astracore import db
 from astracore.esi import public
-from astracore.esi.client import ESIClient
+from astracore.esi.client import ESIClient, ESIError
 from ..static_data import voc
 from ..static_data.pi_rules import COMMAND_CENTER_TYPES
 from ..static_data.sde_loader import PIData
@@ -44,8 +44,40 @@ async def refresh(esi: ESIClient, pi: PIData) -> Dict[int, dict]:
             books[t][f"{market}_sell"] = min(o["price"] for o in sells) if sells else 0.0
             books[t][f"{market}_buy_depth"] = depth(buys, best_first=max)
             books[t][f"{market}_sell_depth"] = depth(sells, best_first=min)
+            if not station_id:
+                # region-wide book: remember where its cheapest seller is (to buy from, e.g. command centers)
+                books[t][f"{market}_sell_at"] = cheapest_at(sells)
+    await name_locations(esi, [b.get("delve_sell_at") for b in books.values()])
     db.kv_set(BOOKS_KEY, {"at": time.time(), "books": {str(k): v for k, v in books.items()}})
     return books
+
+
+def cheapest_at(sells: List[dict]) -> Optional[dict]:
+    """Location of the cheapest sell order in a region-wide book, and how many units sell at that
+    price there. Names are filled in by name_locations."""
+    if not sells:
+        return None
+    best = min(sells, key=lambda o: o["price"])
+    lid = best.get("location_id")
+    units = sum(int(o.get("volume_remain") or 0) for o in sells
+                if o.get("location_id") == lid and o["price"] == best["price"])
+    return {"location_id": lid, "system_id": best.get("system_id"), "price": best["price"], "units": units,
+            "station": None, "system": None, "structure": bool(lid and lid > 1_000_000_000_000)}
+
+
+async def name_locations(esi: ESIClient, locs: List[Optional[dict]]) -> None:
+    """Name NPC stations and systems through public ESI. A player structure's name needs a docking
+    character's token, so it keeps only its system's name."""
+    locs = [x for x in locs if x]
+    ids = {x["system_id"] for x in locs if x.get("system_id")}
+    ids |= {x["location_id"] for x in locs if x.get("location_id") and 60_000_000 <= x["location_id"] < 64_000_000}
+    try:
+        names = await public.ids_to_names(esi, ids) if ids else {}
+    except ESIError:
+        names = {}
+    for x in locs:
+        x["system"] = names.get(x.get("system_id"))
+        x["station"] = None if x.get("structure") else names.get(x.get("location_id"))
 
 
 def depth(orders: List[dict], best_first=max) -> List[List[float]]:

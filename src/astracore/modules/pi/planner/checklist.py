@@ -4,6 +4,8 @@ Three kinds of things go into a new colony, and the checklist keeps them apart:
   * bought on the market  - one command center per planet (of that planet's type), plus an optional
                             starter stock of factory inputs. AstraCore only produces a list to paste
                             into EVE's Multibuy window; it never buys anything or places market orders.
+                            Each item is bought where its landed cost (price + VOC courier to the drop-off)
+                            is lowest; the courier fee is shown separately, and Delve offers name the seller.
   * upgraded in game      - the command center level, paid from the wallet in the planetary interface
                             and capped by the Command Center Upgrades skill.
   * built in game         - the template's structures, also paid from the wallet when you submit.
@@ -15,8 +17,10 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from itertools import combinations
 from typing import Dict, List, Optional, Tuple
 
+from . import demand, selling
 from ..static_data import pi_rules as R
 from ..static_data import voc
 from ..static_data.sde_loader import PIData
@@ -27,8 +31,9 @@ DEFAULT_SUPPLY_DAYS = 3.0
 
 
 def buy_source(book: Optional[dict], local: bool) -> Optional[Tuple[str, float]]:
-    """Where to buy an item and the lowest sell price there. With colonies in Delve a local seller
-    saves hauling, so it wins whenever it lists the item; otherwise the cheaper trade hub."""
+    """Where to buy an item and the lowest sell price there, when hauling can't be priced. With
+    colonies in Delve a local seller saves hauling, so it wins whenever it lists the item; otherwise
+    the cheaper trade hub. (With a known courier route, `allocate` compares landed cost instead.)"""
     book = book or {}
     if local and book.get("delve_sell"):
         return LOCAL_MARKET, float(book["delve_sell"])
@@ -38,6 +43,227 @@ def buy_source(book: Optional[dict], local: bool) -> Optional[Tuple[str, float]]
         return None
     price, label = min(offers)
     return label, price
+
+
+# --------------------------------------------------------------------------- landed cost (price + hauling)
+LABELS = {**dict(HUBS), "delve": LOCAL_MARKET}
+COURIER_HUBS = {"jita": voc.JITA, "amarr": voc.AMARR}
+
+
+def hauling_routes(dropoff: str, area: Optional[dict], routes: Optional[List[dict]] = None) -> Dict[str, dict]:
+    """How a purchase gets from each trade hub to the drop-off, per hub key:
+      free      the drop-off is that hub;
+      courier   a VOC courier from the hub's station to VOC's pickup nearest the drop-off. VOC's tariff
+                lists Delve -> hub; when the reverse isn't listed, the same tariff is assumed (`approx`);
+      unpriced  no courier route is known: you haul it yourself and AstraCore doesn't price that."""
+    origin, origin_jumps = selling.courier_origin(dropoff, area) if dropoff else (None, 0)
+    out: Dict[str, dict] = {}
+    for key, label in HUBS:
+        if dropoff and dropoff == selling.HUB_SYSTEMS[key]:
+            out[key] = {"status": "free"}
+            continue
+        r = voc.route(COURIER_HUBS[key], origin, routes) if origin else None
+        approx = False
+        if origin and not r:
+            r = voc.route(origin, COURIER_HUBS[key], routes)
+            approx = bool(r)
+        if not r or origin in selling.HUB_SYSTEMS.values():
+            out[key] = {"status": "unpriced"}
+            continue
+        out[key] = {"status": "courier", "route": r, "approx": approx, "to": origin,
+                    "carry_jumps": origin_jumps if origin != dropoff else 0}
+    return out
+
+
+def courier_cost(h: dict, m3: float, collateral: float) -> Tuple[float, int]:
+    """VOC fee for one hub's purchases (split into several contracts above VOC's size limit)."""
+    if m3 <= 0 and collateral <= 0:
+        return 0.0, 0
+    r = h["route"]
+    n = max(1, math.ceil(m3 / r["max_m3"])) if r.get("max_m3") else 1
+    return n * voc.courier_fee(r, m3 / n, collateral / n), n
+
+
+def _variable(h: dict, m3: float, collateral: float) -> float:
+    r = h["route"]
+    return m3 * r["per_m3"] + collateral * r["collateral_pct"] / 100.0
+
+
+def offers(book: Optional[dict], qty: float, local: bool, estimate: Optional[float] = None) -> Dict[str, dict]:
+    """Price per unit to buy `qty` at each market, walking the sell depth when it's cached.
+    `short` = units the cached price levels don't cover (priced at the last level)."""
+    book = book or {}
+    out: Dict[str, dict] = {}
+    for m in ("jita", "amarr") + (("delve",) if local else ()):
+        best = float(book.get(f"{m}_sell") or 0)
+        if best <= 0:
+            continue
+        unit, short = best, 0
+        levels = book.get(f"{m}_sell_depth")
+        if levels and qty > 0:
+            f = demand.fill(levels, qty)
+            if f["filled"]:
+                unit = (f["gross"] + f["short"] * (f["worst_price"] or best)) / qty
+                short = int(f["short"])
+        out[m] = {"unit": unit, "short": short, "estimated": False}
+    if not out and estimate:
+        out["jita"] = {"unit": float(estimate), "short": 0, "estimated": True}
+    return out
+
+
+def allocate(lines: List[dict], hauls: Dict[str, dict], base: Optional[Dict[str, Tuple[float, float]]] = None):
+    """Pick a market per line for the lowest landed cost: goods + courier fees, minimum fee included.
+    Every combination of courier hubs is tried (two hubs: four cases), so a handful of command centers
+    doesn't pay a 10M minimum fee to save a few ISK each. `base` = (m3, collateral) per hub already in a
+    contract (the command centers, when pricing the optional starter stock): only the extra fee counts.
+    Returns ({line key: market or None}, {hub: contract})."""
+    base = base or {}
+    couriers = [k for k, h in hauls.items() if h["status"] == "courier"]
+    best = None
+    for n in range(len(couriers) + 1):
+        for used in combinations(couriers, n):
+            choice, ok = {}, True
+            for ln in lines:
+                cands = {}
+                for m, o in ln["offers"].items():
+                    status = "delve" if m == "delve" else hauls.get(m, {}).get("status", "unpriced")
+                    if status == "courier":
+                        if m not in used:
+                            continue
+                        cands[m] = o["unit"] + _variable(hauls[m], ln["vol"], o["unit"])
+                    elif status == "unpriced" and "delve" in ln["offers"]:
+                        continue          # a Delve seller saves a haul we can't price
+                    else:
+                        cands[m] = o["unit"]
+                if not cands and ln["offers"]:
+                    ok = False
+                    break
+                choice[ln["key"]] = min(cands, key=lambda m: (cands[m], m != "delve")) if cands else None
+            if not ok:
+                continue
+            contracts = _contracts(lines, choice, hauls, base)
+            total = sum(ln["qty"] * ln["offers"][choice[ln["key"]]]["unit"] for ln in lines if choice[ln["key"]])
+            total += sum(c["fee"] for c in contracts.values())
+            if best is None or total < best[0] - 0.5:
+                best = (total, choice, contracts)
+    return (best[1], best[2]) if best else ({ln["key"]: None for ln in lines}, {})
+
+
+def _contracts(lines: List[dict], choice: Dict[str, Optional[str]], hauls: Dict[str, dict],
+               base: Dict[str, Tuple[float, float]]) -> Dict[str, dict]:
+    agg: Dict[str, dict] = {}
+    for ln in lines:
+        m = choice.get(ln["key"])
+        if m in hauls and hauls[m]["status"] == "courier":
+            a = agg.setdefault(m, {"m3": 0.0, "collateral": 0.0, "lines": []})
+            a["m3"] += ln["qty"] * ln["vol"]
+            a["collateral"] += ln["qty"] * ln["offers"][m]["unit"]
+            a["lines"].append(ln["key"])
+    for m, a in agg.items():
+        b_m3, b_coll = base.get(m, (0.0, 0.0))
+        fee, n = courier_cost(hauls[m], b_m3 + a["m3"], b_coll + a["collateral"])
+        a["fee"] = fee - courier_cost(hauls[m], b_m3, b_coll)[0]
+        a["contracts"] = n
+        a["shared"] = bool(b_m3 or b_coll)
+    return agg
+
+
+def _pickup(book: Optional[dict], area: Optional[dict], dropoff: str, qty: float, dist: dict) -> dict:
+    """Where the cheapest Delve seller is: NPC station by name, a player structure by its system,
+    and jumps from the drop-off when that system is in your area."""
+    at = (book or {}).get("delve_sell_at") or {}
+    if not at:
+        return {"text": "location not cached yet: refresh prices", "jumps": None}
+    sid = at.get("system_id")
+    system = at.get("system") or ((area or {}).get("systems", {}).get(str(sid)) or {}).get("name")
+    if "start" not in dist and area and dropoff:
+        from ..intel import area as area_mod
+        start = area_mod.system_by_name(area, dropoff)
+        dist["start"] = area_mod.jumps_from(area, start["system_id"]) if start else {}
+    jumps = dist.get("start", {}).get(sid)
+    place = at.get("station") or (f"a player structure in {system}" if at.get("structure") and system
+                                  else system or "an unnamed location")
+    text = place
+    if jumps is not None:
+        text += f" ({jumps} jump{'s' if jumps != 1 else ''} from {dropoff})" if jumps else f" (in {dropoff})"
+    elif system:
+        text += " (outside your area: check the route)"
+    units = int(at.get("units") or 0)
+    partial = bool(units and units < qty)
+    if partial:
+        text += f"; only {units:,} at that price there, the rest is elsewhere in Delve"
+    return {"text": text, "station": at.get("station"), "system": system, "jumps": jumps,
+            "units": units, "partial": partial}
+
+
+def purchases(pi: PIData, cc_count: Dict[str, int], supply_need: Dict[str, float],
+              books: Dict[int, dict], local: bool, dropoff: str, area: Optional[dict],
+              routes: Optional[List[dict]] = None) -> dict:
+    """What to buy where, at the lowest landed cost. The command centers are priced first; the
+    optional starter stock then only adds what it costs on top of the same courier contracts."""
+    hauls = hauling_routes(dropoff, area, routes)
+    dist: dict = {}
+    cc_lines = []
+    for ptype, qty in sorted(cc_count.items()):
+        tid = R.COMMAND_CENTER_TYPES.get(ptype)
+        cc_lines.append({"key": f"{ptype} Command Center", "qty": qty, "vol": R.COMMAND_CENTER_M3,
+                         "type_id": tid, "planet_type": ptype, "book": books.get(tid) if tid else None,
+                         "offers": offers(books.get(tid) if tid else None, qty, local,
+                                          estimate=R.COMMAND_CENTER_ISK_ESTIMATE)})
+    st_lines = []
+    for item, qty in sorted(supply_need.items()):
+        tid = pi.by_name.get(item.lower())
+        st_lines.append({"key": item, "qty": int(qty), "vol": pi.volume(tid) if tid else 0.0, "type_id": tid,
+                         "book": books.get(tid), "offers": offers(books.get(tid), qty, local)})
+    cc_choice, cc_contracts = allocate(cc_lines, hauls)
+    base = {m: (c["m3"], c["collateral"]) for m, c in cc_contracts.items()}
+    st_choice, st_contracts = allocate(st_lines, hauls, base)
+
+    def rows(lines, choice, contracts):
+        out = []
+        for ln in lines:
+            m = choice.get(ln["key"])
+            o = ln["offers"].get(m) if m else None
+            unit = o["unit"] if o else 0.0
+            isk = unit * ln["qty"]
+            haul, haul_note = 0.0, None
+            h = hauls.get(m) if m else None
+            if h and h["status"] == "courier":
+                c = contracts[m]
+                # the contract's fee, shared by each line's part of the variable cost
+                weights = {x["key"]: _variable(h, x["qty"] * x["vol"], x["qty"] * x["offers"][m]["unit"])
+                           for x in lines if x["key"] in c["lines"]}
+                haul = c["fee"] * weights[ln["key"]] / (sum(weights.values()) or 1.0)
+                haul_note = "courier" + (", tariff assumed from the reverse route" if h["approx"] else "")
+            elif h and h["status"] == "unpriced":
+                haul_note = "haul it yourself (not priced)"
+            elif h and h["status"] == "free":
+                haul_note = "no hauling: your drop-off is here"
+            pickup = _pickup(ln["book"], area, dropoff, ln["qty"], dist) if m == "delve" else None
+            if m == "delve":
+                haul_note = "pick it up yourself in Delve"
+            out.append({"key": ln["key"], "qty": ln["qty"], "where": LABELS[m] if m else None, "market": m,
+                        "unit_isk": round(unit), "isk": round(isk), "haul_isk": round(haul),
+                        "landed_isk": round(isk + haul), "haul_note": haul_note, "pickup": pickup,
+                        "estimated": bool(o and o["estimated"]), "short": o["short"] if o else 0,
+                        "m3": ln["qty"] * ln["vol"]})
+        return out
+
+    def summary(contracts, section):
+        out = []
+        for m, c in sorted(contracts.items()):
+            h = hauls[m]
+            r = h["route"]
+            out.append({"section": section, "from": LABELS[m], "to": h["to"], "m3": round(c["m3"]),
+                        "collateral": round(c["collateral"]), "fee": round(c["fee"]), "contracts": c["contracts"],
+                        "shared": c["shared"], "approx": h["approx"], "carry_jumps": h["carry_jumps"],
+                        "tariff": f"max({r['min_fee']:,.0f}, m³ × {r['per_m3']:,.0f} + {r['collateral_pct']:g}% "
+                                  f"of collateral)", "items": c["lines"]})
+        return out
+
+    return {"hauls": hauls, "cc": rows(cc_lines, cc_choice, cc_contracts),
+            "stock": rows(st_lines, st_choice, st_contracts),
+            "contracts": summary(cc_contracts, "command_centers") + summary(st_contracts, "starter_stock")}
 
 
 def _compat(col: dict, tpl: Optional[dict], skill: int) -> dict:
@@ -105,9 +331,11 @@ def _steps(col: dict, compat: dict, upgrade: dict, structures: List[dict], suppl
 
 def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict], templates: List[dict],
           settings: Optional[dict] = None, local: bool = False,
-          planet_names: Optional[Dict[int, dict]] = None) -> Optional[dict]:
+          planet_names: Optional[Dict[int, dict]] = None, area: Optional[dict] = None,
+          voc_routes: Optional[List[dict]] = None) -> Optional[dict]:
     """The checklist for the colonies a saved plan still needs (action new or rebuild).
-    `plan` should already reflect what was built since it was saved (service.progress_against)."""
+    `plan` should already reflect what was built since it was saved (service.progress_against).
+    `area` (systems and gates) finds VOC's pickup and the jumps to a Delve seller; `voc_routes` = VOC tariff."""
     if not plan or "colonies" not in plan:
         return None
     settings = settings or {}
@@ -177,31 +405,27 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
             per_char[cid]["removals"].append({"planet": pn.get("name") or f"planet {r.get('planet_id')}",
                                               "system": pn.get("system", ""), "current": r.get("current")})
 
-    # command centers: what to buy and where
-    command_centers, cc_isk, estimated = [], 0.0, False
-    for ptype, qty in sorted(cc_count.items()):
-        tid = R.COMMAND_CENTER_TYPES.get(ptype)
-        src = buy_source(books.get(tid) if tid else None, local)
-        if src:
-            where, unit = src
-        else:
-            where, unit, estimated = "Jita 4-4", float(R.COMMAND_CENTER_ISK_ESTIMATE), True
-        name = f"{ptype} Command Center"
-        command_centers.append({"name": name, "type_id": tid, "planet_type": ptype, "qty": qty,
-                                "where": where, "unit_isk": round(unit), "isk": round(unit * qty),
-                                "estimated": not src})
-        cc_isk += unit * qty
-
-    supplies, supply_isk, unpriced = [], 0.0, []
-    for item, qty in sorted(supply_need.items()):
-        src = buy_source(books.get(pi.by_name.get(item.lower())), local)
-        unit = src[1] if src else 0.0
-        if not src:
-            unpriced.append(item)
-        supplies.append({"item": item, "qty": int(qty), "where": src[0] if src else None,
-                         "unit_isk": round(unit), "isk": round(unit * qty),
-                         "for": sorted(set(supply_for[item]))})
-        supply_isk += unit * qty
+    # what to buy and where: lowest landed cost (price + courier to the drop-off)
+    dropoff = plan.get("hub") or ""
+    buy = purchases(pi, cc_count, supply_need, books, local, dropoff, area, voc_routes)
+    command_centers, estimated = [], False
+    for r in buy["cc"]:
+        ptype = r["key"][:-len(" Command Center")]
+        estimated |= r["estimated"]
+        command_centers.append({"name": r["key"], "type_id": R.COMMAND_CENTER_TYPES.get(ptype), "planet_type": ptype,
+                                **{k: v for k, v in r.items() if k != "key"}})
+    supplies, unpriced = [], []
+    for r in buy["stock"]:
+        if not r["where"]:
+            unpriced.append(r["key"])
+        supplies.append({"item": r["key"], **{k: v for k, v in r.items() if k != "key"},
+                         "for": sorted(set(supply_for[r["key"]]))})
+    cc_isk = sum(c["isk"] for c in command_centers)
+    supply_isk = sum(x["isk"] for x in supplies)
+    cc_haul = sum(c["fee"] for c in buy["contracts"] if c["section"] == "command_centers")
+    st_haul = sum(c["fee"] for c in buy["contracts"] if c["section"] == "starter_stock")
+    used = {x["market"] for x in command_centers + supplies if x["market"]}
+    self_haul = sorted(LABELS[m] for m in used if buy["hauls"].get(m, {}).get("status") == "unpriced")
 
     cc_qty = sum(cc_count.values())
     return {
@@ -216,6 +440,9 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
         "unpriced": unpriced,
         "costs": {"command_centers": round(cc_isk), "upgrades": upgrades_isk, "structures": structures_isk,
                   "supplies": round(supply_isk), "estimated_cc": estimated,
-                  "total": round(cc_isk + upgrades_isk + structures_isk)},   # starter stock is optional
+                  "hauling": round(cc_haul), "supplies_hauling": round(st_haul),
+                  "total": round(cc_isk + cc_haul + upgrades_isk + structures_isk)},   # starter stock is optional
+        "hauling": {"contracts": buy["contracts"], "self_haul": self_haul, "dropoff": dropoff,
+                    "approx": any(c["approx"] for c in buy["contracts"])},
         "characters": sorted(per_char.values(), key=lambda e: e["name"]),
     }

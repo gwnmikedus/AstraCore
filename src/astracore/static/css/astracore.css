@@ -567,6 +567,8 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 .page-operate .box > .grid { margin-bottom: 0; }
 .page-operate > main .grid > .box, .grid > .box { margin-bottom: 0; }
 .page-operate .first-build .grid { margin-bottom: var(--space-4); }
+.page-operate .first-build .haul-notes { margin-bottom: var(--space-4); }
+.page-operate .first-build .haul-notes ul { margin: var(--space-2) 0 0; font-size: 14px; }
 .page-operate .build-char { margin-bottom: var(--space-3); }
 .page-operate .build-planets { padding-left: 1.3em; margin-top: var(--space-3); }
 .page-operate .build-planets > li { margin-bottom: var(--space-4); }

@@ -331,7 +331,7 @@ def first_build(ctx: dict, active: Optional[dict]) -> Optional[dict]:
     res = active["result"]
     out = checklist.build(ctx["pi"], _progress_against(res, ctx["chars"]), ctx["chars"], ctx["books"],
                           ctx["tpl"], active.get("settings"), selling.in_delve(res.get("hub") or "", ctx["area"]),
-                          operate.planet_names(ctx["area"]))
+                          operate.planet_names(ctx["area"]), area=ctx["area"])
     if out:
         out["prices_at"] = prices.cached().get("at")
     return out

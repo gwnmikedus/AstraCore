@@ -6,9 +6,9 @@ Describe the user problem and resulting behavior. Link the related issue.
 
 List the checks actually run and their results, including relevant browser verification. State any checks not run and remaining limitations.
 
-## Release notes
+## Note for the next release
 
-Give a short user-facing explanation where appropriate, followed by optional technical details. See `docs/releases.md`.
+If pilots would notice this change, write one or two plain sentences about what it means for them; the maintainer collects these into the next minor release's notes. Otherwise write "None". Don't change the version or `release_data.json`; see `docs/releases.md`.
 
 ## Contribution
 

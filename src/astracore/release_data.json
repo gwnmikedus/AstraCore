@@ -1,121 +1,31 @@
 {
-  "current_version": "1.2.4",
+  "current_version": "0.1.0",
   "releases": [
     {
-      "version": "1.2.4",
+      "version": "0.1.0",
       "date": "2026-10-11",
-      "title": "A continuous mobile navigation edge",
+      "title": "First public preview",
       "changes": [
-        "The floating mobile menu now blends from a solid top edge into its soft fade, addressing the seam seen below Safari’s status bar. Content width, the menu icon and touch behavior stay unchanged."
+        "Plan Planetary Interaction across all your characters with a guided setup that compares income, your weekly time and how certain the income is, and lets you go back to any answer without losing the others.",
+        "See whether each product can really be sold where AstraCore recommends: visible buyers, recent daily trades, what a full batch fetches, estimated sell-order times and how fresh the market data is. Plans steer around markets that can't take your output.",
+        "Start a plan with a first-build checklist: a copyable Multibuy list of command centers and optional starter stock, the cheapest place to buy them including courier costs, startup costs, whether each template fits its planet, and step-by-step build instructions per character. Take it with you in the plan export or the shopping list CSV.",
+        "Operate your colonies with an upkeep schedule worked out per colony: extractor restarts, factory restocks, collections when storage fills and market shipments, with shortages, output against the plan, unrouted structures and data freshness.",
+        "Follow the roadmap, suggest ideas and report bugs from the platform, and read release notes here.",
+        "A new look across the site, with motion, a clearer menu and navigation that works with one touch on phones."
       ],
       "technical": [
-        "A decorative fixed element with an opaque background colour provides Safari with a viewport-edge colour to sample. The gradient remains fully opaque over that element before fading, so there is no visible boundary between the layers. Both layers ignore pointer input."
-      ],
-      "limitations": [],
-      "references": []
-    },
-    {
-      "version": "1.2.3",
-      "date": "2026-10-11",
-      "title": "One-tap navigation",
-      "changes": [
-        "Open and close navigation with one touch. The original icon, button size and Menu caption are preserved.",
-        "Desktop navigation has its own gutter. Phones retain their full content width, with a soft fade behind the floating menu that continues through the top safe area."
-      ],
-      "technical": [
-        "Touch release activates the disclosure once and suppresses its duplicate compatibility click. Cancelled touches and scrolling gestures do not activate navigation; keyboard and mouse behavior remain available.",
-        "The desktop shell reserves 96px for navigation at widths of 1080px and above. Mobile uses a non-interactive, theme-aware gradient from the top edge, with viewport-fit and safe-area spacing for cutouts and browser chrome."
-      ],
-      "limitations": [],
-      "references": []
-    },
-    {
-      "version": "1.2.2",
-      "date": "2026-10-11",
-      "title": "Readable planner headers",
-      "changes": [
-        "The guided planner's Advanced link now sits with the planning text on a solid background, away from the cinematic artwork.",
-        "Context headers keep long text and controls within their reserved content area in both themes and on narrow screens."
-      ],
-      "technical": [
-        "Removed the guided header's competing flex layout and constrained shared header content to its available width. Artwork remains decorative; PI behavior and saved settings are unchanged.",
-        "Added a read-only browser audit for content overlapping header artwork and horizontal overflow, with a documented theme and breakpoint verification procedure."
-      ],
-      "limitations": [],
-      "references": []
-    },
-    {
-      "version": "1.2.1",
-      "date": "2026-10-11",
-      "title": "Motion and a clearer menu",
-      "changes": [
-        "Marketing sections now reveal more visibly as you scroll, with restrained parallax on the cinematic hero, PI story and community-direction artwork.",
-        "Find navigation more easily with a visible Menu label at the top of each page. The fixed control becomes compact during scrolling and shows Close when open."
-      ],
-      "technical": [
-        "Artwork updates only while nearby, coalesces scroll events into animation frames, pauses in hidden tabs and uses a smaller travel limit on phones. Copy, controls and operation figures stay stationary.",
-        "Reduced-motion changes cancel active entrances and reset artwork offsets. Native disclosures and unhidden content remain available without JavaScript.",
-        "The Menu caption sits below the original 28px icon and 48px button. Menu dismissal, focus restoration, permissions and PI behavior are preserved."
-      ],
-      "limitations": [],
-      "references": []
-    },
-    {
-      "version": "1.2.0",
-      "date": "2026-10-11",
-      "title": "Orbital Command",
-      "changes": [
-        "Meet AstraCore\u2019s new Orbital Command identity: all your alts, one operation. PI is available today; help shape other operation tools through community ideas.",
-        "Explore a cinematic introduction with a dedicated mobile scene, the existing PI walkthrough, and clearer Plan \u2192 Build \u2192 Operate guidance.",
-        "See the next useful action, colony-build progress, forecasts and current operation readouts grouped on your dashboard.",
-        "Use a consistent visual system across PI planning, Operate, area selection, settings, character connection, onboarding, profile and community pages in both themes."
-      ],
-      "technical": [
-        "Selected responsive WebP artwork uses the existing content-hashed static asset system. Original marketing artwork is attributed separately from official EVE item imagery.",
-        "Shared navigation retains its disclosure fallback, keyboard handling and registered-module permissions. PI calculations, field names, saved-plan behavior and ESI scopes are unchanged.",
-        "General and PI social metadata use their corresponding Orbital Command share covers."
+        "AstraCore now uses 0.MINOR.PATCH versions while it's in preview. Release notes are written for minor releases; the smaller updates in between are numbered automatically (0.1.1, 0.1.2, …) and described by their commits on GitHub.",
+        "Builds before this release were numbered 1.0 to 1.2.4 during early development. Their changes are part of 0.1.0; the commit history keeps the details.",
+        "The source is available under PolyForm Noncommercial 1.0.0; third-party material retains its own terms."
       ],
       "limitations": [
-        "Fittings, PvP and fleet preparation are illustrative community directions, not available modules or promised release dates.",
-        "PI forecasts still depend on yield, market prices, taxes and hauling assumptions. Existing invite and optional permission rules remain in effect."
+        "PI forecasts depend on yield, market prices, taxes and hauling assumptions. Yield is an estimate until your own extractors have run.",
+        "AstraCore can't buy, sell or place market orders for you. Courier rates in the return direction are estimated from VOC's published Delve → hub rates.",
+        "Fittings, PvP and fleet preparation are community directions, not available modules or promised dates."
       ],
-      "references": []
-    },
-    {
-      "version": "1.1.0",
-      "date": "2026-10-11",
-      "title": "Help shape AstraCore",
-      "changes": [
-        "Explore the roadmap and see which improvements are being considered, planned, or worked on.",
-        "Signed-in pilots can suggest ideas and report bugs, with a clear preview of what will be shared publicly.",
-        "Find the project source, contribution guide, and license directly from the platform.",
-        "Follow readable release notes, with technical details available when you choose to show them."
-      ],
-      "technical": [
-        "Release metadata ships with the application and is checked against the package version before publication.",
-        "Community reports have local tracking and a GitHub issue link when publication is configured and succeeds.",
-        "The source is available under PolyForm Noncommercial 1.0.0; third-party material retains its own terms.",
-        "The planner dependency is restricted to supported PuLP 3 releases (3.3 or newer, below 4) to preserve compatibility with the existing optimizer."
-      ],
-      "limitations": [
-        "The PI planner audit has identified market-liquidity and factory-restock improvements. Those changes are on the roadmap and are not included in this release.",
-        "A submitted idea is reviewed before it becomes a development commitment. GitHub publication depends on the operator's integration configuration."
-      ],
-      "references": []
-    },
-    {
-      "version": "1.0.0",
-      "date": null,
-      "kind": "baseline",
-      "title": "Existing PI platform baseline",
-      "changes": [
-        "AstraCore already offered EVE sign-in, character management, PI planning, colony templates, and operation tracking before this release history was introduced."
-      ],
-      "technical": [
-        "1.0.0 was the existing package version. It is recorded here as a baseline, not as a newly reconstructed historical release. No original release date is asserted."
-      ],
-      "limitations": [],
-      "references": []
+      "references": [
+        {"label": "Pull requests in this release", "url": "https://github.com/gwnmikedus/AstraCore/pulls?q=is%3Apr+is%3Amerged"}
+      ]
     }
   ]
 }

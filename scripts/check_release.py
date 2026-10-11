@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Validate release metadata without starting the app; optionally print GitHub release notes."""
+"""Validate release metadata without starting the app; optionally print GitHub release notes.
+
+Only minor releases (x.y.0) have metadata and tags; patch numbers come from git (docs/releases.md)."""
 from __future__ import annotations
 
 import argparse
@@ -27,8 +29,6 @@ def release_notes(entry: dict) -> str:
     lines = [f"# AstraCore {entry['version']} — {entry['title']}", ""]
     if entry["date"]:
         lines.extend([entry["date"], ""])
-    else:
-        lines.extend(["Historical baseline; original release date not recorded.", ""])
     for heading, field in (("Changes", "changes"), ("Good to know", "limitations"), ("Technical details", "technical")):
         if entry[field]:
             lines.extend([f"## {heading}", ""])
@@ -43,7 +43,7 @@ def release_notes(entry: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", help="Require an exact version tag, such as v1.1.0")
+    parser.add_argument("--tag", help="Require the minor release tag, such as v0.2.0")
     parser.add_argument("--notes", metavar="VERSION", help="Print the release notes for a version")
     args = parser.parse_args()
     try:

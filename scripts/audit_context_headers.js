@@ -38,6 +38,17 @@
   if (window.innerWidth >= 1080 && toggle && content && toggle.right > content.left) {
     failures.push({issue: 'Desktop menu overlaps content pane'});
   }
+  if (window.innerWidth < 1080 && document.documentElement.hasAttribute('data-header-away')) {
+    const edge = document.querySelector('.navigation-edge');
+    const bounds = edge?.getBoundingClientRect();
+    const style = edge && getComputedStyle(edge);
+    if (!bounds || bounds.top !== 0 || bounds.left !== 0 || bounds.height <= 0
+        || bounds.width !== document.documentElement.clientWidth
+        || style.backgroundColor !== getComputedStyle(document.body).backgroundColor
+        || style.pointerEvents !== 'none') {
+      failures.push({issue: 'Mobile navigation edge is missing, translucent or misplaced'});
+    }
+  }
   return {viewport: [window.innerWidth, window.innerHeight],
     theme: document.documentElement.dataset.theme || 'dark', headers, failures};
 })();

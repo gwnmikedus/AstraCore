@@ -1,6 +1,19 @@
 {
-  "current_version": "1.2.3",
+  "current_version": "1.2.4",
   "releases": [
+    {
+      "version": "1.2.4",
+      "date": "2026-10-11",
+      "title": "A continuous mobile navigation edge",
+      "changes": [
+        "The floating mobile menu now blends from a solid top edge into its soft fade, addressing the seam seen below Safari’s status bar. Content width, the menu icon and touch behavior stay unchanged."
+      ],
+      "technical": [
+        "A decorative fixed element with an opaque background colour provides Safari with a viewport-edge colour to sample. The gradient remains fully opaque over that element before fading, so there is no visible boundary between the layers. Both layers ignore pointer input."
+      ],
+      "limitations": [],
+      "references": []
+    },
     {
       "version": "1.2.3",
       "date": "2026-10-11",

@@ -1029,6 +1029,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 
 /* The same navigation shell on public, account, and module pages. */
 html[data-menu-open] { overflow: hidden; }
+.navigation-edge { display: none; }
 .site-header { position: relative; z-index: 30; flex-wrap: nowrap; align-items: center; background: var(--void); }
 .site-header .brandline { gap: 20px; min-width: 0; }
 .menu-slot { --menu-inset: max(var(--space-4), env(safe-area-inset-left)); --menu-top: calc(14px + env(safe-area-inset-top)); width: 48px; height: 48px; flex: none; }
@@ -1087,7 +1088,8 @@ html[data-menu-open] { overflow: hidden; }
 @keyframes menu-backdrop-out { to { opacity: 0; } }
 @media (min-width: 760px) { .menu-slot { --menu-inset: max(var(--space-6), env(safe-area-inset-left)); } }
 @media (max-width: 1079px) {
-  html[data-header-away] .site-menu::before { content: ''; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top) + 112px); z-index: -1; pointer-events: none; background: linear-gradient(to bottom, var(--void) 0, var(--void) env(safe-area-inset-top), transparent calc(env(safe-area-inset-top) + 72px)), radial-gradient(ellipse 96px 80px at calc(var(--menu-inset) + 24px) calc(env(safe-area-inset-top) + 38px), var(--void) 24%, color-mix(in srgb, var(--void) 88%, transparent) 43%, transparent 100%); }
+  html[data-header-away] .navigation-edge { display: block; position: fixed; inset: 0 0 auto; height: calc(14px + env(safe-area-inset-top)); background-color: var(--void); z-index: 29; pointer-events: none; }
+  html[data-header-away] .site-menu::before { content: ''; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top) + 128px); z-index: -1; pointer-events: none; background: linear-gradient(to bottom, var(--void) 0, var(--void) calc(env(safe-area-inset-top) + 14px), transparent calc(env(safe-area-inset-top) + 86px)), radial-gradient(ellipse 96px 80px at calc(var(--menu-inset) + 24px) calc(env(safe-area-inset-top) + 38px), var(--void) 24%, color-mix(in srgb, var(--void) 88%, transparent) 43%, transparent 100%); }
 }
 @media (max-width: 760px) {
   .site-header { min-height: 76px; gap: 8px; }

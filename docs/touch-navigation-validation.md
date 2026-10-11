@@ -48,3 +48,25 @@ was used to correct the top-edge treatment; a physical Safari recheck is still n
 confirm that device's final appearance. Public surfaces were inspected in the signed-in
 session; anonymous rendering remains covered by isolated application tests. No production
 account was logged out or changed for verification.
+
+## Safari edge follow-up (1.2.4)
+
+A second physical iPhone screenshot still showed page content behind Safari's status bar
+and a seam where the page's gradient began. Live asset URLs matched the files on disk;
+this was not treated as proof of a stale browser cache. Production was restarted on 1.2.3
+before preparing this follow-up.
+
+WebKit's [viewport-edge colour explanation](https://bugs.webkit.org/show_bug.cgi?id=301756)
+describes an opaque fixed/sticky edge as the source for an extended browser tint. A
+background gradient alone does not supply an opaque `background-color`. The page now has
+an explicit, non-interactive fixed edge in `void`, 14px plus the top safe inset in height.
+The fade is fully opaque across the same height before blending away. This provides the
+browser's sample colour without a visible boundary or an additional content gutter.
+
+Ten further Chrome checks covered 320, 390, 1079, 1080 and 1366px in both themes without
+geometry failures. At a settled scrolled position, the active edge was separately checked
+in each theme: top/left 0, full viewport content width, 14px with zero Chrome safe inset,
+opaque colour matching the body, and no pointer events. The expanded audit validates these
+properties on scrolled mobile pages. All 153 Python tests passed again; release and
+whitespace checks passed. The physical Safari limitation above still applies: its final
+status-bar tint cannot be confirmed with Chrome emulation.

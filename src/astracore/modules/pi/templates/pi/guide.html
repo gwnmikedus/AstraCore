@@ -251,7 +251,6 @@ function go(i, focus = true) {
   });
   drawTrack();
   STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
-  AC.enterPanel($('q'));
   if (focus) {
     const title = $('question-title');
     if (title) title.focus({preventScroll: true});

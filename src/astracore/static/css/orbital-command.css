@@ -125,6 +125,10 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .error-page h2 { font-size: 40px; }
 
 @media (min-width: 1672px) { .platform-copy { padding-left: 180px; } }
+@media (min-width: 1080px) {
+  .platform-hero { width: calc(100% + 48px); margin-inline: -24px; }
+  .platform-copy { padding-left: 24px; }
+}
 @media (max-width: 1080px) {
   .header-shortcuts { gap: 20px; margin-left: 24px; }
   .pi-story { gap: 32px; }

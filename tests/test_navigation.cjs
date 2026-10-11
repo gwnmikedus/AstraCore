@@ -31,7 +31,8 @@ function navigation({reducedMotion = false, present = true} = {}) {
   menu.open = false;
   const toggle = element(menu);
   let focused = null;
-  toggle.focus = () => { focused = toggle; };
+  let focusOptions;
+  toggle.focus = options => { focused = toggle; focusOptions = options; };
   const panel = element(menu);
   const label = element(menu);
   const backdrop = element(menu);
@@ -56,9 +57,14 @@ function navigation({reducedMotion = false, present = true} = {}) {
     document, window, menu, toggle, panel, label, backdrop, timers,
     headerVisible(visible) { headerVisibility([{isIntersecting: visible}]); },
     get focused() { return focused; },
-    clickToggle() {
+    get focusOptions() { return focusOptions; },
+    pointer(name, options = {}) {
+      toggle.dispatch(name, {pointerType: 'touch', pointerId: 1, isPrimary: true,
+        button: 0, clientX: 20, clientY: 30, preventDefault() {}, ...options});
+    },
+    clickToggle(options = {}) {
       let prevented = false;
-      toggle.dispatch('click', {preventDefault() { prevented = true; }});
+      toggle.dispatch('click', {detail: 1, preventDefault() { prevented = true; }, ...options});
       assert.equal(prevented, true);
     },
     finishClose() {
@@ -190,5 +196,67 @@ test('the menu cue follows header visibility without changing disclosure state o
   assert.equal(ui.label.textContent, 'Close');
   ui.headerVisible(true);
   assert.equal(ui.document.documentElement.hasAttribute('data-header-away'), false);
+  assert.equal(ui.menu.open, true);
+});
+
+test('the first touch opens and the next touch closes without a duplicate compatibility click', () => {
+  const ui = navigation();
+  ui.pointer('pointerdown');
+  ui.toggle.focus();
+  ui.pointer('pointerup');
+  assert.equal(ui.menu.open, true);
+  assert.equal(ui.toggle.attributes.get('aria-expanded'), 'true');
+  assert.equal(ui.focusOptions.preventScroll, true);
+  ui.clickToggle({pointerType: 'touch'});
+  assert.equal(ui.menu.open, true);
+  ui.pointer('pointerdown');
+  ui.pointer('pointerup');
+  assert.equal(ui.toggle.attributes.get('aria-expanded'), 'false');
+  ui.clickToggle({pointerType: 'touch'});
+  assert.equal(ui.menu.hasAttribute('data-closing'), true);
+  assert.equal(ui.timers.size, 1);
+  ui.finishClose();
+  assert.equal(ui.menu.open, false);
+});
+
+test('touch works without a compatibility click and can reopen during the closing transition', () => {
+  const ui = navigation();
+  for (let tap = 0; tap < 3; tap++) {
+    ui.pointer('pointerdown');
+    ui.pointer('pointerup');
+  }
+  assert.equal(ui.menu.open, true);
+  assert.equal(ui.menu.hasAttribute('data-closing'), false);
+  assert.equal(ui.timers.size, 0);
+});
+
+test('cancelled touches, scrolling gestures and secondary touches do not activate the menu', () => {
+  const cancelled = navigation();
+  cancelled.pointer('pointerdown');
+  cancelled.pointer('pointercancel');
+  cancelled.pointer('pointerup');
+  cancelled.clickToggle({pointerType: 'touch'});
+  assert.equal(cancelled.menu.open, false);
+  const scrolling = navigation();
+  scrolling.pointer('pointerdown');
+  scrolling.pointer('pointerup', {clientY: 80});
+  scrolling.clickToggle({pointerType: 'touch'});
+  assert.equal(scrolling.menu.open, false);
+  const secondary = navigation();
+  secondary.pointer('pointerdown', {isPrimary: false});
+  secondary.pointer('pointerup', {isPrimary: false});
+  assert.equal(secondary.menu.open, false);
+});
+
+test('keyboard activation is not suppressed after touch and mouse input activates once on click', () => {
+  const ui = navigation({reducedMotion: true});
+  ui.pointer('pointerdown');
+  ui.pointer('pointerup');
+  ui.clickToggle({detail: 0});
+  assert.equal(ui.menu.open, false);
+  ui.pointer('pointerdown', {pointerType: 'mouse'});
+  ui.pointer('pointerup', {pointerType: 'mouse'});
+  assert.equal(ui.menu.open, false);
+  ui.clickToggle({pointerType: 'mouse'});
   assert.equal(ui.menu.open, true);
 });

@@ -3,7 +3,7 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{% if page_title %}{{ page_title }} · {% endif %}{% if module %}{{ module.name }} · {% endif %}AstraCore{% endblock %}</title>
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="{% block description %}{{ 'Plan, build and run your planetary operation across all your characters.' if module and module.id == 'pi' else 'A command center for your EVE characters. Start with planetary operations. Help shape what comes next.' }}{% endblock %}">
@@ -37,6 +37,7 @@
 </head>
 <body class="page-{{ page or 'default' }}">
 <a class="skip-link" href="#main-content">Skip to content</a>
+<div class="site-shell">
 <main class="container">
   {% include "_navigation.html" %}
   {% if subnav %}
@@ -78,6 +79,7 @@
     <p class="legal">Original marketing artwork was generated for AstraCore. Official EVE item imagery remains credited to CCP.</p>
   </footer>
 </main>
+</div>
 {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -24,6 +24,15 @@
 .tiles, .accounts, .contribution-grid { gap: var(--panel-gap); }
 .prose > h2 { margin-top: var(--section-gap); }
 .prose > :first-child { margin-top: 0; }
+.site-shell { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+@media (min-width: 1080px) {
+  .site-shell { display: grid; grid-template-columns: 96px minmax(0, 1fr); max-width: calc(var(--container) + 96px); margin-inline: auto; }
+  .site-shell > main.container { grid-column: 2; min-width: 0; width: 100%; margin: 0; }
+  .menu-slot { display: contents; }
+  .site-menu { left: max(24px, calc((100% - var(--container) - 96px) / 2 + 24px)); }
+  .menu-panel { left: max(24px, calc((100% - var(--container) - 96px) / 2 + 24px)); right: max(24px, calc((100% - var(--container) - 96px) / 2 + 24px)); }
+}
 
 @media (max-width: 760px) {
   :root { --panel-padding: var(--space-4); }

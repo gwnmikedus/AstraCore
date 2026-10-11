@@ -35,3 +35,14 @@ def isolated_community_worker(monkeypatch):
     monkeypatch.setattr(community, "run_sync_loop", idle)
     for field in ("APP_ID", "INSTALLATION_ID", "PRIVATE_KEY_PATH", "WEBHOOK_SECRET", "TOKEN"):
         monkeypatch.setenv(f"ASTRACORE_GITHUB_{field}", "")
+
+
+@pytest.fixture(autouse=True)
+def isolated_market_history(monkeypatch):
+    from astracore.modules.pi import service
+
+    async def idle():
+        return None
+
+    # The startup warm-up of regional trade history calls ESI; tests never reach the network.
+    monkeypatch.setattr(service, "warm_history", idle)

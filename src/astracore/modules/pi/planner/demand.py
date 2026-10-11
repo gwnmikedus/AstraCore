@@ -9,7 +9,8 @@ buy orders you can see right now and the region's recent daily trade volume:
                the daily traded volume, and how much the price moved over the history window.
   buyback      VOC pays a share of the Jita buy price; its capacity is not published.
 
-When a market is too thin for the plan it says so and names a practical alternative."""
+When a market is too thin for the plan it says so and names a practical alternative, and
+`realistic_values` gives the planner what those batches really fetch so it can plan around them."""
 from __future__ import annotations
 
 from typing import Dict, List, Optional
@@ -23,6 +24,7 @@ MARKET_LABELS = {"jita": "Jita 4-4", "amarr": "Amarr VIII", "delve": "Delve (reg
 SELL_CAPTURE = (0.10, 0.30)
 THIN_PRICE_DROP = 0.05     # walking the book costs more than 5% below the top buy price
 THIN_VOLUME_SHARE = 0.25   # daily output is more than a quarter of what the region trades per day
+REPLAN_MIN_DROP = 0.01     # re-plan only when a batch really fetches at least 1% less than quoted
 
 
 def market_of(channel: str) -> str:
@@ -70,6 +72,30 @@ def _alternative(row: dict, channels: Dict[str, float], books: dict, history: di
                 continue
         return {"channel": c, "label": selling.LABELS[c], "value": round(channels[c], 2)}
     return None
+
+
+def realistic_values(assessment: dict, values: Dict[int, float]) -> Dict[int, float]:
+    """Net ISK per unit that each flagged product's batch really fetches, for re-planning.
+
+    Only buy-order rows the visible book contradicts ("short" or "thin" on price) are re-valued:
+    the units the book takes at their walked price, the rest at the alternative channel that can
+    take the whole batch (0 if none can), or that alternative for everything if it pays more.
+    `values` = what the plan was valued at; only products that would be worth noticeably less
+    than that are returned."""
+    out: Dict[int, float] = {}
+    for r in assessment.get("rows", []):
+        im = r.get("immediate")
+        if r["hold"] or r["side"] != "buy" or r["status"] not in ("short", "thin") or not im:
+            continue
+        qty = im["filled"] + im["short"]
+        if qty <= 0:
+            continue
+        alt = (r.get("alternative") or {}).get("value") or 0.0
+        real = max(alt, (im["filled"] * im["avg_net"] + im["short"] * alt) / qty, 0.0)
+        quoted = values.get(r["type_id"], 0.0)
+        if real < quoted * (1 - REPLAN_MIN_DROP):
+            out[r["type_id"]] = min(out.get(r["type_id"], quoted), real)
+    return out
 
 
 def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, Dict[int, dict]],
@@ -163,4 +189,4 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
     return {"rows": rows, "warnings": warnings, "books_at": books_at, "history_at": history_at,
             "history_window": next((r["history"]["window"] for r in rows if r.get("history")), None),
             "history_days_min": min(covered) if covered else 0,
-            "capture": list(SELL_CAPTURE)}
+            "capture": list(SELL_CAPTURE), "replanned": []}

@@ -23,6 +23,7 @@ from .static_data import dalshooth, sde_loader, voc
 
 log = logging.getLogger("astracore")
 REQUIRED_SCOPES = set(PI_REQUIRED.scopes)
+REPLAN_MIN_GAIN = 0.001   # a re-plan around thin markets must earn at least 0.1% more to replace the first
 
 
 def pi_ready(ch: dict) -> bool:
@@ -83,6 +84,25 @@ def refresh_history_soon(pi) -> None:
     _history_task = asyncio.get_running_loop().create_task(run())
 
 
+async def warm_history() -> None:
+    """At startup: fetch trade history in the background if it's missing or a day old, so the first
+    plan on a fresh install already has evidence of demand. Never blocks startup or fails it."""
+    if not prices.history_stale():
+        return
+    try:
+        pi = sde_loader.cached()
+        if pi is None:
+            async with ESIClient() as esi:
+                pi = await sde_loader.load(esi)
+        refresh_history_soon(pi)
+        if _history_task:
+            await _history_task
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001 - the first plan fetches it again on demand
+        log.exception("market history warm-up")
+
+
 async def market_data(pi):
     if prices.stale():
         async with ESIClient() as esi:
@@ -133,41 +153,86 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
                 measured=measured, head_yield=head_yield, calibrated=cal)
 
 
+def _sell_side(ctx, res: dict) -> None:
+    """Selling plan, channel table and market-demand check for a solved plan (in place)."""
+    units = {x["type_id"]: x["units_per_day"] for x in res["sold"]}
+    res["selling"] = selling.sell_plan(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"], units,
+                                       local=ctx["local"], origin=ctx["origin"],
+                                       origin_jumps=ctx["origin_jumps"])
+    res["channels"] = selling.compare_table(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"],
+                                            list(units), ctx["local"], ctx["origin"])
+    res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS}
+    res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], ctx.get("history") or {},
+                                  res["selling"], res["channels"], units,
+                                  ctx.get("books_at"), ctx.get("history_at"))
+
+
+def realistic_isk(res: dict, used: Dict[int, float], base: Dict[int, float]) -> float:
+    """ISK/day of a solved plan once its batches are really sold: products the demand check flags
+    at what the visible buyers pay for the batch, every other product at its quoted best value.
+    `used` = the values the plan was solved with."""
+    real = demand.realistic_values(res["demand"], base)
+    isk = float(res["totals"]["isk_per_day"])
+    for x in res["sold"]:
+        t = x["type_id"]
+        isk += x["units_per_day"] * (real.get(t, base.get(t, 0.0)) - used.get(t, 0.0))
+    return isk
+
+
 def run_plan(ctx, s=None) -> dict:
-    """One optimiser solve (blocking; call through GATE)."""
+    """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
+    whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
+    products valued at what the batch really fetches, and keeps whichever plan earns more that way."""
     s = s or ctx["solve_s"]
-    res = optimizer.plan(ctx["pi"], s, ctx["area"], ctx["systems"], ctx["chars"], ctx["values"],
-                         ctx["tpl"], ctx["overrides"], ctx["head_yield"])
-    if "error" not in res:
-        units = {x["type_id"]: x["units_per_day"] for x in res["sold"]}
-        res["selling"] = selling.sell_plan(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"], units,
-                                           local=ctx["local"], origin=ctx["origin"],
-                                           origin_jumps=ctx["origin_jumps"])
-        res["channels"] = selling.compare_table(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"],
-                                                list(units), ctx["local"], ctx["origin"])
-        res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS}
-        res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], ctx.get("history") or {},
-                                      res["selling"], res["channels"], units,
-                                      ctx.get("books_at"), ctx.get("history_at"))
-        n_risky = len(res["demand"]["warnings"])
-        if n_risky:
-            res["warnings"].append(f"{n_risky} product(s) may not sell as planned at the chosen market: "
-                                   f"see Market demand under How you get paid.")
-        res["dropoff"] = ctx["dropoff"]
-        res["seller"] = ctx["seller"] if ctx["s"].taxes_from_skills else None
-        res["taxes"] = {"sales_tax_pct": ctx["s"].sales_tax_pct, "broker_fee_pct": ctx["s"].broker_fee_pct,
-                        "from_skills": bool(ctx["s"].taxes_from_skills and ctx["seller"])}
-        res["yield"] = {"head_yield": round(ctx["head_yield"]), "calibrated": bool(ctx["calibrated"])}
-        if ctx["origin"] is None and ctx["dropoff"]:
-            res["warnings"].append(f"VOC doesn't pick up in {ctx['dropoff']} and no VOC pickup is reachable in your "
-                                   f"area, so products that need a courier are valued at 0. Pick a drop-off "
-                                   f"from {', '.join(voc.COURIER_ORIGINS)}.")
-        elif ctx["origin"] != ctx["dropoff"]:
-            res["warnings"].append(f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the "
-                                   f"goods to {ctx['origin']} ({ctx['origin_jumps']} jumps) first.")
-        n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
-        if n_measured:
-            res["warnings"].append(f"Richness of {n_measured} planet(s) comes from your own extractors.")
+    base = ctx["values"]
+
+    def solve_with(values):
+        r = optimizer.plan(ctx["pi"], s, ctx["area"], ctx["systems"], ctx["chars"], values,
+                           ctx["tpl"], ctx["overrides"], ctx["head_yield"])
+        if "error" not in r:
+            _sell_side(ctx, r)
+        return r
+
+    res = solve_with(base)
+    if "error" in res:
+        return res
+    real = demand.realistic_values(res["demand"], base)
+    if real:   # at most one extra solve: the GATE slot is held for both
+        values = {**base, **real}
+        again = solve_with(values)
+        if "error" not in again:
+            first, second = realistic_isk(res, base, base), realistic_isk(again, values, base)
+            if second - first > max(1.0, REPLAN_MIN_GAIN * abs(first)):   # not just rounding
+                name = ctx["pi"].name
+                again["solve_seconds"] = round(again["solve_seconds"] + res["solve_seconds"], 2)
+                again["demand"]["replanned"] = [
+                    {"type_id": t, "item": name(t), "quoted": round(base.get(t, 0.0), 2), "realistic": round(v, 2)}
+                    for t, v in sorted(real.items(), key=lambda kv: name(kv[0]))]
+                again["warnings"].append(
+                    "Re-planned around thin markets: "
+                    + ", ".join(f"{r['item']} valued at {r['realistic']:,.2f} ISK (what buyers actually pay for "
+                                f"a batch) instead of {r['quoted']:,.2f}" for r in again["demand"]["replanned"])
+                    + f". This mix earns ≈ {second - first:,.0f} ISK/day more once the batches are really sold.")
+                res = again
+    n_risky = len(res["demand"]["warnings"])
+    if n_risky:
+        res["warnings"].append(f"{n_risky} product(s) may not sell as planned at the chosen market: "
+                               f"see Market demand under How you get paid.")
+    res["dropoff"] = ctx["dropoff"]
+    res["seller"] = ctx["seller"] if ctx["s"].taxes_from_skills else None
+    res["taxes"] = {"sales_tax_pct": ctx["s"].sales_tax_pct, "broker_fee_pct": ctx["s"].broker_fee_pct,
+                    "from_skills": bool(ctx["s"].taxes_from_skills and ctx["seller"])}
+    res["yield"] = {"head_yield": round(ctx["head_yield"]), "calibrated": bool(ctx["calibrated"])}
+    if ctx["origin"] is None and ctx["dropoff"]:
+        res["warnings"].append(f"VOC doesn't pick up in {ctx['dropoff']} and no VOC pickup is reachable in your "
+                               f"area, so products that need a courier are valued at 0. Pick a drop-off "
+                               f"from {', '.join(voc.COURIER_ORIGINS)}.")
+    elif ctx["origin"] != ctx["dropoff"]:
+        res["warnings"].append(f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the "
+                               f"goods to {ctx['origin']} ({ctx['origin_jumps']} jumps) first.")
+    n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
+    if n_measured:
+        res["warnings"].append(f"Richness of {n_measured} planet(s) comes from your own extractors.")
     return res
 
 

@@ -189,7 +189,8 @@
     <td>{% if u.output %}{{ eve_img(u.output.product, 16) }}{{ u.output.actual|num }} {{ u.output.product }}/day
       {% if u.output.planned %}<br><span class="st-{{ u.output.state }}">{{ u.output.pct }}% of planned {{ u.output.planned|num }}</span>{% elif plan %}<br><span class="muted">not in the active plan</span>{% endif %}
       {% else %}<span class="muted">–</span>{% endif %}</td>
-    <td class="{{ 'warn' if u.stale else 'muted' }}">{{ u.last_update|ago if u.last_update else 'unknown' }}</td></tr>
+    <td class="{{ 'warn' if u.stale else 'muted' }}">{{ u.last_update|ago if u.last_update else 'unknown' }}
+      {% if not u.routes_known %}<br><span class="muted" title="Refresh from ESI to check that factories and extractors are routed.">routes not checked yet</span>{% endif %}</td></tr>
   {% if u.issues %}<tr><td colspan="6">{% for i in u.issues %}<span class="warn">{{ icon('triangle-alert') }} {{ i }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endif %}
   {% endfor %}</tbody></table></div>
   {% endif %}

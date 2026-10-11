@@ -136,3 +136,62 @@ def test_wizard_can_save_an_answer_while_jumping_to_a_later_step(browser, eve): 
     s = store.load_settings(pid)
     assert (s.cycle_days, s.max_tier, s.guide_step) == (1, 2, 3)      # later answers stay
     assert s.answered == ["goal", "cycle", "area", "tier"]
+
+
+def _sales(sell=0, courier=0, buyback=0, held_value=0):
+    """Batches worth these net ISK: Jita sell orders, Jita buy orders by courier, buyback, and one held batch."""
+    batches = [{"channel": c, "net": v, "jita_value": v} for c, v in
+               (("jita_sell", sell), ("jita_buy", courier), ("buyback", buyback)) if v]
+    if held_value:
+        batches.append({"channel": "amarr_buy", "net": -1, "jita_value": held_value, "hold": True})
+    return batches
+
+
+def test_uncertainty_grades_by_share_of_income_so_options_differ():
+    # Every option has estimated yield: that shared baseline alone no longer decides the level.
+    instant = compare.plan_facts(_fake_plan(batches=_sales(buyback=100)))["uncertainty"]
+    some = compare.plan_facts(_fake_plan(batches=_sales(sell=20, buyback=80)), {"use_sell_orders": True})["uncertainty"]
+    most = compare.plan_facts(_fake_plan(batches=_sales(sell=80, buyback=20)), {"use_sell_orders": True})["uncertainty"]
+    trip = compare.plan_facts(_fake_plan(batches=_sales(courier=50, buyback=50)))["uncertainty"]
+    assert (instant["level"], instant["score"]) == ("medium", 20)
+    assert (some["level"], some["score"]) == ("medium", 20 + 20)
+    assert (trip["level"], trip["score"]) == ("medium", 20 + 25)          # courier to buy orders counts half
+    assert (most["level"], most["score"]) == ("higher", 20 + 80)
+    assert "Sell orders: 20% of income; price and time to sell can change" in some["reasons"]
+    assert "Courier: 50% of income; prices can move during about 3 days in transit" in trip["reasons"]
+    assert instant["reasons"] == ["Yield is an estimate until your extractors have run"]
+    assert [f["key"] for f in some["factors"]] == ["sell_orders", "courier", "yield_estimated"]
+    assert some["factors"][0]["share"] == 0.2 and some["factors"][2]["share"] is None
+    measured = compare.plan_facts(_fake_plan(calibrated=True, batches=_sales(buyback=100)))["uncertainty"]
+    assert (measured["level"], measured["score"]) == ("lower", 0)
+
+
+def test_held_batches_count_by_value_and_shares_never_round_to_all_or_nothing():
+    held = compare.plan_facts(_fake_plan(calibrated=True, batches=_sales(buyback=75, held_value=25)))["uncertainty"]
+    assert (held["level"], held["score"]) == ("medium", 25)
+    assert "1 batch held until the courier fee is worth paying (about 25% of product value)" in held["reasons"]
+    assert compare._pct(0.996) == "99%" and compare._pct(0.001) == "1%" and compare._pct(1) == "100%"
+    assert compare.income_shares([{"channel": "jita_sell"}]) == {"sell": None, "courier": None, "held": None}
+    assert compare.uncertainty(False, True, True, 0, 1)["score"] == 100   # capped
+
+
+def test_saved_plan_table_mutes_reasons_every_plan_shares():
+    pid = db.create_profile("Compare shared")
+    try:
+        store.save_plan_run(pid, "Mostly orders", Settings(use_sell_orders=True),
+                            _fake_plan(batches=_sales(sell=80, buyback=20)))
+        store.save_plan_run(pid, "Mostly buyback", Settings(use_sell_orders=True),
+                            _fake_plan(batches=_sales(sell=20, buyback=80)))
+        macro = templates.env.get_template("pi/_plan_compare.html").module.plan_compare_table
+        html = str(macro(store.list_plan_runs(pid), "csrf-test"))
+        alone = str(macro(store.list_plan_runs(pid)[:1], "csrf-test"))
+    finally:
+        db.delete_profile(pid)
+    shared = ('<small class="uncert-shared">Same for every option: '
+              'Yield is an estimate until your extractors have run</small>')
+    assert html.count(shared) == 2
+    assert html.count('class="uncert-own">Sell orders: ') == 2         # what differs comes first, in full ink
+    assert "Sell orders: 80% of income" in html and "Sell orders: 20% of income" in html
+    assert "score 100 of 100" in html and "score 40 of 100" in html
+    assert "Higher" in html and "Medium" in html
+    assert "uncert-shared" not in alone and "Yield is an estimate" in alone     # one plan: nothing to contrast

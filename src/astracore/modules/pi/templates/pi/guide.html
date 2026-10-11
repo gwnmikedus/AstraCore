@@ -376,7 +376,9 @@ function compareHTML(step, rec, pick) {
     <summary>Compare answers side by side: income, your time and uncertainty</summary>
     ${AC.compareTableHTML({caption: `${step.title}: what each answer means for your plan`, rows, first: 'Answer'})}
     <p class="muted compare-note">Income is after taxes, hauling and fees. ${esc(TIME_NOTE)}
-      Uncertainty lists what can make real income differ from the estimate; it is not a probability.</p></details>`;
+      Uncertainty lists what can make real income differ from the estimate, scored by how much of the income
+      depends on sell orders, courier transit or held batches; it is not a probability. Reasons every answer
+      shares are greyed.</p></details>`;
 }
 
 function choose(step, id) {

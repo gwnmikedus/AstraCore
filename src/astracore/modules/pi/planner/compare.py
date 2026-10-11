@@ -20,7 +20,16 @@ MIN_PER_TRANSFER = 2
 MIN_PER_BATCH = 5
 MIN_SELL_ORDERS_WEEK = 20
 
-LEVELS = ((0, "lower", "Lower"), (1, "medium", "Medium"), (3, "higher", "Higher"))
+# Uncertainty score, 0-100: how much of the income rests on things that can move after you plan.
+# Market exposure counts by share of income, so options that sell differently get different scores.
+# Estimated yield (and unsellable products) add a flat baseline: it affects every option alike.
+LEVELS = ((0, "lower", "Lower"), (20, "medium", "Medium"), (50, "higher", "Higher"))
+SELL_ORDER_WEIGHT = 1.0      # listed sell orders: price and time to sell both move
+COURIER_WEIGHT = 0.5         # courier to buy orders: about 3 days of price movement only
+HELD_WEIGHT = 1.0            # held batches: not paid until a later shipment
+YIELD_BASELINE = 20
+UNSELLABLE_BASELINE = 20
+UNKNOWN_HELD_SHARE = 0.5     # held batches without values (old saved plans)
 
 
 def _get(settings: Any, name: str, default: Any) -> Any:
@@ -59,34 +68,77 @@ def effort_minutes(totals: dict, settings: Any, characters: int) -> Optional[flo
     return round(minutes, 1)
 
 
+def _pct(share: float) -> str:
+    """A share as a plain percentage that never rounds a part up to 100% or down to 0%."""
+    value = round(100 * share)
+    return f"{min(99, max(1, value)) if 0 < share < 1 else value}%"
+
+
 def uncertainty(yield_measured: Optional[bool], sell_orders: bool, courier: bool, held: int,
-                unsellable: int) -> Dict[str, Any]:
-    """How far the income can drift from the estimate, with the reasons. Not a probability."""
+                unsellable: int, sell_share: Optional[float] = None, courier_share: Optional[float] = None,
+                held_share: Optional[float] = None) -> Dict[str, Any]:
+    """How far the income can drift from the estimate, with the reasons. Not a probability.
+
+    Shares are fractions of the income (held: of all product value). `None` means unknown, for example
+    an old saved plan without batch values: that factor then counts in full.
+    `score` runs 0-100; `factors` gives each reason's key and share, in the same order as `reasons`.
+    """
+    sell = (sell_share if sell_share is not None else 1.0) if sell_orders else 0.0
+    trip = (courier_share if courier_share is not None else 1.0) if courier else 0.0
+    kept = (held_share if held_share is not None else UNKNOWN_HELD_SHARE) if held else 0.0
+    market = min(1.0, SELL_ORDER_WEIGHT * sell + COURIER_WEIGHT * max(0.0, trip - sell) + HELD_WEIGHT * kept)
+    factors: List[Dict[str, Any]] = []
     reasons: List[str] = []
-    score = 0
-    if yield_measured is False:
-        reasons.append("Yield is an estimate until your extractors have run")
-        score += 2
-    elif yield_measured is None:
-        reasons.append("This saved plan doesn't record whether yield was measured")
-        score += 1
+
+    def add(key: str, text: str, share: Optional[float] = None) -> None:
+        factors.append({"key": key, "share": None if share is None else round(share, 3)})
+        reasons.append(text)
+
     if sell_orders:
-        reasons.append("Sell orders: price and time to sell can change")
-        score += 1
+        add("sell_orders", f"Sell orders: {_pct(sell)} of income; price and time to sell can change"
+            if sell_share is not None else "Sell orders: price and time to sell can change", sell_share)
     if courier:
-        reasons.append("Courier: prices can move during about 3 days in transit")
-        score += 1
+        add("courier", f"Courier: {_pct(trip)} of income; prices can move during about 3 days in transit"
+            if courier_share is not None else "Courier: prices can move during about 3 days in transit",
+            courier_share)
     if held:
-        reasons.append(f"{held} batch{'es' if held != 1 else ''} held until the courier fee is worth paying")
-        score += 1
+        part = f" (about {_pct(kept)} of product value)" if held_share is not None else ""
+        add("held", f"{held} batch{'es' if held != 1 else ''} held until the courier fee is worth paying{part}",
+            held_share)
     if unsellable:
-        reasons.append(f"{unsellable} product{'s' if unsellable != 1 else ''} without an enabled way to sell")
-        score += 1
+        add("unsellable", f"{unsellable} product{'s' if unsellable != 1 else ''} without an enabled way to sell")
+    if yield_measured is False:
+        add("yield_estimated", "Yield is an estimate until your extractors have run")
+    elif yield_measured is None:
+        add("yield_unknown", "This saved plan doesn't record whether yield was measured")
+    score = min(100, round(100 * market) + (YIELD_BASELINE if yield_measured is not True else 0)
+                + (UNSELLABLE_BASELINE if unsellable else 0))
     level, label = "lower", "Lower"
     for threshold, code, text in LEVELS:
         if score >= threshold:
             level, label = code, text
-    return {"level": level, "label": label, "reasons": reasons or ["Measured yield and instant sales"]}
+    return {"level": level, "label": label, "score": score, "factors": factors,
+            "reasons": reasons or ["Measured yield and instant sales"]}
+
+
+def income_shares(batches: List[dict]) -> Dict[str, Optional[float]]:
+    """Share of the shipped income from sell orders and from couriers, and the held share of all
+    product value. `None` where the batches carry no values (old saved plans)."""
+    shipped = [b for b in batches if not b.get("hold")]
+    held = [b for b in batches if b.get("hold")]
+    if not all(isinstance(b.get("net"), (int, float)) for b in shipped):
+        return {"sell": None, "courier": None, "held": None}
+    total = sum(max(0.0, float(b["net"])) for b in shipped)
+
+    def part(test) -> Optional[float]:
+        if not total:
+            return None
+        return sum(max(0.0, float(b["net"])) for b in shipped if test(b.get("channel") or "")) / total
+
+    held_value = sum(float(b.get("jita_value") or 0) for b in held)
+    return {"sell": part(lambda c: c.endswith("_sell")),
+            "courier": part(lambda c: c.startswith(("jita", "amarr"))),
+            "held": held_value / (total + held_value) if held_value else None}
 
 
 def plan_facts(res: dict, settings: Any = None) -> Dict[str, Any]:
@@ -104,6 +156,7 @@ def plan_facts(res: dict, settings: Any = None) -> Dict[str, Any]:
     courier = any(c.startswith(("jita", "amarr")) for c in channels)
     held = sum(1 for b in batches if b.get("hold"))
     unsellable = len(selling.get("unsellable") or [])
+    shares = income_shares(batches)
     used = characters_used(res)
     systems = sorted({c.get("system") for c in res.get("colonies") or [] if c.get("system")})
     return {
@@ -117,5 +170,7 @@ def plan_facts(res: dict, settings: Any = None) -> Dict[str, Any]:
         "sell_orders": sell_orders,
         "courier": courier,
         "held_batches": held,
-        "uncertainty": uncertainty(yield_measured, sell_orders, courier, held, unsellable),
+        "uncertainty": uncertainty(yield_measured, sell_orders, courier, held, unsellable,
+                                   sell_share=shares["sell"], courier_share=shares["courier"],
+                                   held_share=shares["held"]),
     }

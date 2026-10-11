@@ -210,8 +210,8 @@ def run_plan(ctx, s=None) -> dict:
                     for t, v in sorted(real.items(), key=lambda kv: name(kv[0]))]
                 again["warnings"].append(
                     "Re-planned around thin markets: "
-                    + ", ".join(f"{r['item']} valued at {r['realistic']:,.2f} ISK (what buyers actually pay for "
-                                f"a batch) instead of {r['quoted']:,.2f}" for r in again["demand"]["replanned"])
+                    + ", ".join(f"{r['item']} valued at {r['realistic']:,.2f} ISK (what a batch really earns per "
+                                f"shipping cycle) instead of {r['quoted']:,.2f}" for r in again["demand"]["replanned"])
                     + f". This mix earns ≈ {second - first:,.0f} ISK/day more once the batches are really sold.")
                 res = again
     n_risky = len(res["demand"]["warnings"])

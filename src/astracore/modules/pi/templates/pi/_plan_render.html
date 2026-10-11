@@ -132,7 +132,7 @@ function renderDemand(d) {
   if (d.replanned && d.replanned.length)
     h += `<p class="muted" style="font-size:.85rem">This plan was re-planned around thin markets: ` +
          d.replanned.map(r => `${esc(r.item)} valued at ${num(r.realistic, 2)} instead of ${num(r.quoted, 2)} ISK per unit`).join(', ') +
-         `, what the visible buyers actually pay for a batch.</p>`;
+         `, what a batch really earns per shipping cycle: the price visible buyers pay, or the share of slow sell orders that sells in time.</p>`;
   h += `<div class="scroll"><table class="demand"><thead><tr><th>Product</th><th>Sold via</th><th>Output / day</th><th>Per batch</th>
     <th>Visible buyers</th><th>Traded / day</th><th>Selling the batch</th><th>Assessment</th></tr></thead><tbody>`;
   for (const r of d.rows) {

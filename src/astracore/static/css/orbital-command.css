@@ -5,14 +5,20 @@
 .core-stop { color: var(--signal); }
 .menu-label { position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%); background: var(--void); font: 600 11px/12px var(--font-display); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
 html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
+/* The hero follows the theme: the copy sits on a void plate that fades into the scene. The plate is a solid
+   void colour shaped by a mask (not a gradient), so it fades with the rest of the page on a theme switch.
+   Chart (light) needs a wider, denser plate because its ink is dark: ::after adds it and fades in by opacity. */
 .platform-hero {
-  --ink: #ece8df; --ink-muted: #b5b1a9; --signal: #ff6a1a; --signal-strong: #ff8a47; --on-signal: #1a0a00; --focus: #ff6a1a;
   position: relative; isolation: isolate; overflow: hidden; width: min(100vw, 1672px); margin-inline: calc((100% - min(100vw, 1672px)) / 2);
-  min-height: clamp(660px, 50vw, 840px); display: flex; align-items: center; color: var(--ink); background: #0b0c0d;
+  min-height: clamp(660px, 50vw, 840px); display: flex; align-items: center; color: var(--ink); background: var(--void);
 }
 .platform-scene { position: absolute; inset: -48px 0; z-index: -2; }
 .platform-scene img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 78% center; transform: translate3d(0, var(--art-offset, 0px), 0); }
-.platform-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #0b0c0d 0%, rgba(11,12,13,.75) 23%, rgba(11,12,13,.15) 53%, transparent 72%); }
+.platform-hero::before, .platform-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--void); pointer-events: none; }
+.platform-hero::before { mask-image: linear-gradient(90deg, #000 0%, rgba(0,0,0,.75) 23%, rgba(0,0,0,.15) 53%, transparent 72%); }
+.platform-hero::after { opacity: 0; transition: opacity .35s ease-out, background-color .35s ease-out;
+  mask-image: linear-gradient(90deg, #000 0%, #000 34%, rgba(0,0,0,.88) 46%, rgba(0,0,0,.4) 58%, transparent 74%); }
+:root[data-theme="light"] .platform-hero::after { opacity: 1; }
 .platform-copy { width: 53%; max-width: 900px; padding: 64px max(32px, calc((100vw - 1312px) / 2)); padding-right: 0; }
 .platform-copy .eyebrow { color: var(--signal); margin-bottom: 24px; }
 .platform-copy h1 { font-size: clamp(72px, 7.7vw, 128px); line-height: .98; letter-spacing: -.02em; margin: 0 0 32px; }
@@ -24,6 +30,7 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .hero-access { color: var(--ink-muted); font-size: 12px; line-height: 18px; max-width: 44ch; margin: 4px 0 0 24px; }
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .hero-caption > :first-child { color: var(--ink); border-left: 2px solid var(--signal); padding-left: 12px; }
+.hero-caption > :last-child { background: var(--void); padding: 2px 8px; }
 .page-home .capability-strip { margin: 0; padding-block: 24px; border-bottom: 1px solid var(--line); }
 .page-home .landing-section { margin-block: 80px; }
 .page-home .section-heading h2 { font-size: clamp(36px, 4.4vw, 60px); line-height: 1.04; letter-spacing: -.01em; }
@@ -38,11 +45,7 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .art-viewport > img { position: absolute; top: -32px; left: 0; display: block; width: 100%; height: calc(100% + 64px); object-fit: cover; transform: translate3d(0, var(--art-offset, 0px), 0); }
 .pi-story-art .art-viewport { clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px)); }
 .pi-story-art .art-caption { padding: 16px 0; color: var(--ink-muted); font-size: 9px; letter-spacing: .04em; }
-.workflow-band {
-  --void: #e7e3da; --hull: #f4f1ea; --hull-raised: #fbf9f4; --ink: #17181a; --ink-muted: #5d5950;
-  --line: #d3cdc0; --line-strong: #7e786c; --signal: #b03f08; --scan: #2a5f8a; --focus: #b03f08;
-  background: var(--hull); color: var(--ink); padding: 56px 40px;
-}
+.workflow-band { background: var(--hull); color: var(--ink); padding: 56px 40px; box-shadow: inset 0 0 0 1px var(--line); }
 .workflow-band .workflow-grid { gap: 32px; }
 .workflow-band .workflow-step { background: transparent; border: 0; border-top: 1px solid var(--line-strong); padding: 24px 0 0; }
 .workflow-band .workflow-number { top: 28px; right: 0; }
@@ -140,8 +143,9 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   .platform-hero { min-height: 780px; align-items: start; display: block; }
   .platform-scene { inset-block: -24px; }
   .platform-scene img { object-position: center bottom; }
-  .platform-hero::before { background: linear-gradient(180deg, #0b0c0d 0%, rgba(11,12,13,.93) 26%, rgba(11,12,13,.55) 48%, transparent 70%); }
-  .platform-copy { width: 100%; max-width: none; padding: 32px 24px; background: #0b0c0d; }
+  .platform-hero::before { mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.93) 26%, rgba(0,0,0,.55) 48%, transparent 70%); }
+  .platform-hero::after { mask-image: linear-gradient(180deg, #000 0%, #000 30%, rgba(0,0,0,.7) 50%, transparent 72%); }
+  .platform-copy { width: 100%; max-width: none; padding: 32px 24px; background: var(--void); }
   .platform-copy .eyebrow { font-size: 11px; margin-bottom: 20px; }
   .platform-copy h1 { font-size: clamp(54px, 12vw, 80px); margin-bottom: 24px; }
   .platform-copy .lead { font-size: 20px; line-height: 26px; max-width: 28ch; }

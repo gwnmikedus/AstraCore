@@ -40,12 +40,22 @@
     const root = document.documentElement;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let themeTimer;
+    // The tooltip warns before the switch: dark to light is a flashbang, light to dark is shore leave for the eyes.
+    const themeTips = {
+      dark: ['Flashbang warning', 'Light theme ahead. Shield your eyes.'],
+      light: ['Rest your eyes', 'Back to the dark hull. Stand down, pupils.']
+    };
     const themeLabel = () => {
       if (!tt) return;
       const light = root.dataset.theme === 'light';
       const label = `Switch to ${light ? 'dark' : 'light'} theme`;
       tt.setAttribute('aria-label', label);
-      tt.title = label;
+      const tip = tt.querySelector('.theme-tip');
+      if (tip) {
+        const [title, text] = themeTips[light ? 'light' : 'dark'];
+        tip.querySelector('strong').textContent = title;
+        tip.querySelector('span').textContent = text;
+      }
       const themeColor = document.querySelector('meta[name="theme-color"]');
       if (themeColor) themeColor.content = getComputedStyle(root).getPropertyValue('--void').trim();
     };
@@ -57,8 +67,11 @@
       root.dataset.theme = next;
       try { localStorage.setItem('ac_theme', next); } catch (e) {}
       themeLabel();
+      tt.classList.add('tip-quiet');
       themeTimer = setTimeout(() => root.removeAttribute('data-theme-changing'), 400);
     };
+    // After a switch the tooltip stays hidden until the pointer or focus leaves, so it never warns about the theme you just chose.
+    if (tt) ['pointerleave', 'blur'].forEach(type => tt.addEventListener(type, () => tt.classList.remove('tip-quiet')));
     window.addEventListener('storage', event => {
       if (event.key !== 'ac_theme') return;
       root.dataset.theme = event.newValue === 'light' ? 'light' : 'dark';

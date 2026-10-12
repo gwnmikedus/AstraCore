@@ -678,3 +678,23 @@ def test_solves_end_on_a_node_limit_so_results_dont_depend_on_machine_load(pi, m
     assert seen and all(k["maxNodes"] == optimizer.SOLVER_MAX_NODES and k["threads"] == 1 for k in seen)
     assert all(k["timeLimit"] >= optimizer.SOLVER_SAFETY_SECONDS for k in seen)
     assert first["totals"] == second["totals"] and first["colonies"] == second["colonies"]
+
+
+def test_plan_says_when_systems_are_out_of_reach_or_the_drop_off_isnt_in_the_area(pi):
+    codes = lambda res: {w["code"]: w for w in res["warnings"] if isinstance(w, dict)}
+    near = codes(_plan(pi, max_jumps=1))
+    assert "out_of_reach" in near and "1 selected system is" in near["out_of_reach"]["text"]
+    assert near["out_of_reach"]["steps"] == ["area"]
+    assert "out_of_reach" not in codes(_plan(pi, max_jumps=2))
+    moved = codes(_plan(pi, hub_system="Nowhere", max_jumps=2))
+    assert "Nowhere" in moved["hub_fallback"]["text"]
+    typo = codes(_plan(pi, product_blacklist=["Coolent"], max_jumps=2))
+    assert "Coolent" in typo["unknown_product"]["text"]
+
+
+def test_numeric_settings_are_kept_within_sensible_bounds():
+    s = Settings()
+    s.update({"sales_tax_pct": "250", "head_yield_per_hour": "-5", "stack_yield_pct": "150", "per_planet": "9",
+              "extra_area": "x" * 2000})
+    assert s.sales_tax_pct == 100 and s.head_yield_per_hour == 1 and s.stack_yield_pct == 100 and s.per_planet == 3
+    assert len(s.extra_area) == Settings.TEXT_LIMIT

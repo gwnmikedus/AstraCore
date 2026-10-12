@@ -503,7 +503,7 @@ async function wireArea(step) {
       <div class="cons">${(a.constellations || []).map(c => `<label><input type="checkbox" value="${c.id}" ${sel.has(c.id) ? 'checked' : ''}>
         ${esc(c.name)} <span class="muted">${esc(c.region)} · ${c.systems} systems${c.has_colonies ? ' · your colonies' : ''}</span></label>`).join('')}</div>
       <label>Drop-off (where you collect products and ship them from)
-        <select id="area-hub"><option value="">Auto (best spot in the selection, VOC pickups preferred)</option>
+        <select id="area-hub"><option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         ${(a.systems || []).map(n => `<option ${n === (st.hub_system || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {

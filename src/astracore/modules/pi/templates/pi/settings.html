@@ -28,8 +28,8 @@
     Training Accounting on the seller is the cheapest ISK gain (each level ≈ 0.8% of everything sold on the market).</small></p>
   {% endif %}
   <div class="grid">
-    {{ num(s, 'sales_tax_pct', 'Sales tax % (only when the switch above is off)', '') }}
-    {{ num(s, 'broker_fee_pct', 'Broker fee % (sell orders, only when the switch is off)', '') }}
+    {{ num(s, 'sales_tax_pct', 'Sales tax % (only when the switch above is off)', 'Read from your characters while the switch is on.' if s.taxes_from_skills else '', disabled=s.taxes_from_skills) }}
+    {{ num(s, 'broker_fee_pct', 'Broker fee % (sell orders, only when the switch is off)', '', disabled=s.taxes_from_skills) }}
   </div>
   <div class="grid">
     {{ num(s, 'poco_tax_pct', 'Customs office tax % (where the real rate isn’t known)', 'Import tax is half of this.') }}

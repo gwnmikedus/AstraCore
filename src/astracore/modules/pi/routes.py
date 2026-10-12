@@ -173,17 +173,23 @@ async def area_save(request: Request):
     pid = _pid(request)
     form = await request.form()
     s = store.load_settings(pid)
-    s.selected_constellations = [int(x) for x in form.getlist("con")]
-    s.hub_system = form.get("hub_system", "")
-    new_extra = form.get("extra_area", "").strip()
+    chosen = [int(x) for x in form.getlist("con")]
+    new_extra = form.get("extra_area", "").strip()[:500]
     extra_changed = new_extra != s.extra_area
+    refresh = bool(form.get("refresh"))
+    if not chosen and not (extra_changed or refresh):
+        # never save an empty selection: it would quietly turn back into the default on the next visit
+        return redirect("/pi/area", "Select at least one constellation. Nothing was changed.", "warn")
+    if chosen:
+        s.selected_constellations = chosen
+    s.hub_system = form.get("hub_system", "")[:100]
     s.extra_area = new_extra
     store.save_settings(pid, s)
-    if extra_changed or form.get("refresh"):
-        await service.load_space(service.planning_characters(pid), s, force=bool(form.get("refresh")))
-        return redirect("/pi/area", "Area updated.")
-    if not s.selected_constellations:
-        return redirect("/pi/area", "Select at least one constellation.", "warn")
+    if extra_changed or refresh:
+        await service.load_space(service.planning_characters(pid), s, force=refresh)
+        msg = ("Reloaded from ESI and saved your selection." if refresh else
+               "Added places are listed below: tick the constellations you want, then Save and plan.")
+        return redirect("/pi/area", msg)
     return redirect(form.get("next") or "/pi/plan")
 
 

@@ -143,38 +143,74 @@ async def area_page(request: Request):
         store.save_settings(pid, s)
     sel_systems = space_mod.selected_systems(area, s.selected_constellations)
     overrides = store.planet_overrides(pid)
-    planets = sorted(({"planet_id": p["planet_id"], "name": p["name"], "type": p["type"], "system": v["name"]}
-                      for v in sel_systems.values() for p in v["planets"] if p["type"] not in ("Shattered", "Unknown")),
-                     key=lambda p: p["name"])
     names = {p["planet_id"]: p["name"] for v in area["systems"].values() for p in v["planets"]}
+    measured = _measured_richness(chars, area, s)
     return render(request, "space.html", "area", "Area", area=area, groups=groups, s=s,
                   sources=area.get("sources", {}), selected=s.selected_constellations,
                   sel_systems=sorted(v["name"] for v in sel_systems.values()),
-                  voc_hubs=voc.COURIER_ORIGINS, planets=planets,
-                  overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v} for k, v in overrides.items()],
-                  richness_labels=RICHNESS_LABELS, esi_outage=banner)
+                  voc_hubs=voc.COURIER_ORIGINS,
+                  overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v,
+                              "label": richness_label(v)} for k, v in overrides.items()],
+                  measured=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v}
+                            for k, v in sorted(measured.items(), key=lambda kv: names.get(kv[0], str(kv[0])))
+                            if k not in overrides],
+                  esi_outage=banner)
 
 
+# What an in-game scan shows, as a richness multiplier. Set per planet on the plan result rows.
 RICHNESS_LABELS = [("poor", 0.6), ("average", 1.0), ("good", 1.25), ("rich", 1.5)]
+
+
+def richness_label(value: float) -> str:
+    return next((label for label, v in RICHNESS_LABELS if abs(v - float(value)) < 1e-6), "")
+
+
+def _measured_richness(chars: list, area: Optional[dict], s: Settings) -> dict:
+    """Per-planet richness measured from the pilot's own extractors (empty without 2+ extracting colonies)."""
+    if not chars or not area or not s.auto_calibrate:
+        return {}
+    from .intel import richness as rich
+    cal = service.calibrated_yield(chars, area)
+    return rich.measured_richness({c["character_id"]: c["colonies"] for c in chars}, cal) if cal else {}
+
+
+def _richness_value(planet, raw):
+    """(planet_id, richness or None) for a richness change, or an error text."""
+    if not str(planet).isdigit():
+        return None, None, "Pick a planet."
+    try:
+        value = float(raw) if raw not in (None, "") else None
+    except (TypeError, ValueError):
+        return None, None, "Richness must be a number."
+    if value is not None and not 0.1 <= value <= 3:
+        return None, None, "Richness must be between 0.1 and 3."
+    return int(planet), value, None
 
 
 @router.post("/area/richness")
 async def area_richness(request: Request):
-    """Richness of one planet after scanning it in game (ESI can't tell). Empty value = remove."""
+    """Remove (or set) one planet's scanned richness from the Area page's list. Empty value = remove."""
     pid = _pid(request)
     form = await request.form()
-    planet = form.get("planet_id", "")
-    if not str(planet).isdigit():
-        return redirect("/pi/area", "Pick a planet.", "warn")
-    raw = form.get("richness", "")
-    try:
-        value = float(raw) if raw else None
-    except ValueError:
-        value = None
-    if value is not None and not 0.1 <= value <= 3:
-        return redirect("/pi/area", "Richness must be between 0.1 and 3.", "warn")
-    store.set_planet_override(pid, int(planet), value)
+    planet, value, err = _richness_value(form.get("planet_id", ""), form.get("richness", ""))
+    if err:
+        return redirect("/pi/area#richness", err, "warn")
+    store.set_planet_override(pid, planet, value)
     return redirect("/pi/area#richness", "Planet richness saved." if value is not None else "Override removed.")
+
+
+@router.post("/api/richness")
+async def api_richness(request: Request):
+    """Richness of one planet after scanning it in game (ESI can't tell), from a plan result row.
+    Body: {planet_id, richness}; richness null = back to the estimate (or what your extractors measured).
+    Saved straight away: it is what the pilot saw in game, not a planner preference to preview."""
+    pid = _pid(request)
+    body = await request.json()
+    planet, value, err = _richness_value(body.get("planet_id"), body.get("richness"))
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    store.set_planet_override(pid, planet, value)
+    return JSONResponse({"ok": True, "planet_id": planet, "richness": value})
 
 
 @router.post("/area")
@@ -257,8 +293,20 @@ async def plan_page(request: Request):
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
-                  esi_outage=service.outage_banner(ctx),
+                  esi_outage=service.outage_banner(ctx), products=_product_names(ctx.get("pi")),
+                  richness_labels=RICHNESS_LABELS, expert_url=EXPERT_URL,
                   help_answers=glossary.answers(s, ctx["head_yield"], bool(ctx["calibrated"])), glossary_url=glossary.GLOSSARY_URL)
+
+
+EXPERT_URL = "/pi/settings?expert=1#expert"
+
+
+def _product_names(pi) -> list:
+    """Every PI product a plan can make (P1-P4), for the "Never produce" checkboxes: [{name, tier}]."""
+    if not pi:
+        return []
+    return sorted(({"name": pi.name(t), "tier": pi.tier(t)} for t in pi.items if 1 <= pi.tier(t) <= 4),
+                  key=lambda p: (p["tier"], p["name"]))
 
 
 # ----------------------------------------------------------------------------- glossary
@@ -937,6 +985,7 @@ async def settings_page(request: Request):
     measured = rich.measured_richness({c["character_id"]: c["colonies"] for c in chars}, cal) if cal else {}
     customs_on = [c["name"] for c in service.characters(pid) if bundle_active(c, "pi.optional.customs")]
     return render(request, "settings.html", "settings", "Settings", s=s, calibrated=cal, measured=measured,
+                  expert_open=request.query_params.get("expert") == "1",
                   rates=[skills_mod.character_rates(c) for c in chars if c.get("skills")],
                   seller=skills_mod.best_seller(chars), poco=skills_mod.customs_rates(chars),
                   routes=voc.routes_cached(), routes_info=voc.routes_info(), voc_site=voc.SITE,
@@ -953,7 +1002,7 @@ async def settings_save(request: Request):
     s = store.load_settings(pid)
     s.update(data)
     store.save_settings(pid, s)
-    return redirect("/pi/settings", "Saved.")
+    return redirect(EXPERT_URL, "Saved.")
 
 
 @router.get("/reset", response_class=HTMLResponse)

@@ -52,7 +52,7 @@
     <div class="ctl">
       <label>Your colonies per planet <output id="o-per_planet"></output></label>
       <input type="range" id="per_planet" min="1" max="3" step="1">
-      <div class="hint">More than 1 = your characters share planets. A 2nd/3rd colony on the same resource is counted at {{ s.stack_yield_pct|round|int }}% / {{ (s.stack_yield_pct ** 2 / 100)|round|int }}% yield (<a href="/pi/settings">adjust</a>).</div>
+      <div class="hint">More than 1 = your characters share planets. A 2nd/3rd colony on the same resource is counted at {{ s.stack_yield_pct|round|int }}% / {{ (s.stack_yield_pct ** 2 / 100)|round|int }}% yield (shared deposit: <a href="/pi/settings?expert=1#expert-sharing">Expert</a>).</div>
     </div>
     <div class="ctl">
       <label style="font-weight:600"><span><input type="checkbox" role="switch" id="cross_character"> Characters supply each other</span></label>
@@ -84,12 +84,16 @@
     </div>
     <div class="hint" style="margin-bottom:1rem">Prices updated {{ prices_at|ago }} · <a href="#" id="refresh-prices">refresh now</a></div>
     <div class="ctl">
-      <label>Never produce</label>
-      <input id="product_blacklist" placeholder="e.g. Water, Oxygen" style="margin:0">
+      <details class="never-list" id="never-list">
+        <summary>Never produce <output id="o-never"></output></summary>
+        {% for tier in (1, 2, 3, 4) %}<div class="never-tier"><span class="never-tier-name">P{{ tier }}</span>
+          {% for p in products if p.tier == tier %}<label><input type="checkbox" data-never-all value="{{ p.name }}"> {{ p.name }}</label>{% endfor %}</div>
+        {% endfor %}
+      </details>
     </div>
     <div class="hint">
-      Yield: {{ head_yield|num }} P0/h per head
-      {% if calibrated %}<span class="ok">(calibrated from your extractors)</span>{% else %}(estimate - <a href="/pi/settings">adjust</a>){% endif %}
+      {% if calibrated %}<span class="ok">Yield calibrated from your extractors: {{ head_yield|num }} P0/h per head</span>{% else %}Yield estimate: {{ head_yield|num }} P0/h per head{% endif %}
+      (<a href="{{ expert_url }}">Expert</a>)
       · <a href="/pi/area">change area</a> · when built: <a href="/pi/operate">Operate {{ icon('arrow-right') }}</a>
     </div>
   </aside>
@@ -148,10 +152,20 @@ function init() {
     $('hub_system').add(new Option(`${S.hub_system} (outside the selected area: Auto is used)`, S.hub_system));
   }
   $('hub_system').value = S.hub_system || '';
-  $('product_blacklist').value = (S.product_blacklist || []).join(', ');
+  setNever(S.product_blacklist || []);
   setTier(S.max_tier);
   showLabels();
 }
+// "Never produce": checkboxes of every PI product. Names are compared case-insensitively, so lists typed
+// before these checkboxes still match; a name that isn't a PI product isn't kept.
+const neverBoxes = () => [...document.querySelectorAll('input[data-never-all]')];
+function setNever(names) {
+  const want = new Set((names || []).map(n => String(n).trim().toLowerCase()));
+  neverBoxes().forEach(b => { b.checked = want.has(b.value.toLowerCase()); });
+  showNever();
+}
+const neverNames = () => neverBoxes().filter(b => b.checked).map(b => b.value);
+function showNever() { const n = neverNames().length; $('o-never').textContent = n ? n + ' left out' : 'none'; }
 function setTier(v) { S.max_tier = +v; document.querySelectorAll('#max_tier button').forEach(b => b.classList.toggle('on', +b.dataset.v === +v)); }
 function showLabels() { for (const k in labels) { const o = $('o-' + k); if (o) o.textContent = labels[k](+$(k).value); } }
 function state() {
@@ -160,7 +174,7 @@ function state() {
     effort: S.effort, hour_isk: +S.hour_isk, max_tier: S.max_tier, max_systems: ms >= 11 ? 0 : ms,
     max_jumps: +$('max_jumps').value, cycle_days: +$('cycle_days').value, per_planet: +$('per_planet').value,
     cross_character: $('cross_character').checked, hub_system: $('hub_system').value,
-    product_blacklist: $('product_blacklist').value, ship_every_days: +$('ship_every_days').value,
+    product_blacklist: neverNames(), ship_every_days: +$('ship_every_days').value,
     ...Object.fromEntries(CHANNELS.map(k => [k, $(k).checked])),
   };
 }
@@ -267,7 +281,10 @@ init();
 for (const k of ['max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
 document.querySelectorAll('#goal button').forEach(b => b.onclick = () => { setGoal(b.dataset.v); schedule(0); });
 for (const k of ['cross_character', 'hub_system', ...CHANNELS]) $(k).addEventListener('change', () => schedule(0));
-$('product_blacklist').addEventListener('change', () => schedule(0));
+neverBoxes().forEach(b => b.addEventListener('change', () => { showNever(); schedule(0); }));
+// The same choices from the plan result: a preview like every other control here, until Apply.
+function onNeverProduce(names) { setNever(names); schedule(0); }
+function onRichnessSaved() { schedule(0); }
 document.querySelectorAll('#max_tier button').forEach(b => b.onclick = () => { setTier(b.dataset.v); schedule(0); });
 $('refresh-prices').onclick = async e => { e.preventDefault(); $('busy').style.display = 'block';
   await AC.post(API + '/prices/refresh', {}); altKey = null; schedule(0); };

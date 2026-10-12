@@ -127,6 +127,7 @@ const STEPS = [
   {id: 'plan', title: 'Your plan'},
 ];
 const QUESTIONS = STEPS.length - 1;
+STEPS.find(s => s.id === 'share').intro += ` <a href="/pi/settings?expert=1#expert-sharing">Expert: how much an extra colony yields</a>`;
 STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after VOC’s fees and your taxes' +
   (SELLER.name ? ` (${esc(SELLER.name)} sells: ${AC.pct(SELLER.sales_tax_pct, 2)} sales tax, ${AC.pct(SELLER.broker_fee_pct, 2)} broker fee).` : '.');
 
@@ -714,7 +715,7 @@ async function showPlan() {
   $('q').innerHTML = `
     <div class="eyebrow">Done</div>
     <h2 id="question-title" tabindex="-1">Your operation, mapped out.</h2>
-    <p class="muted chips-note">Change any answer: the others stay as they are.</p>
+    <p class="muted chips-note">Change any answer: the others stay as they are. Yield, taxes and shared deposits are under <a href="{{ expert_url }}">Expert</a>.</p>
     <div class="chips">${chips}</div>
     <div id="planbar" role="status" aria-live="polite"></div>
     <div id="plan-compare"></div>
@@ -752,6 +753,16 @@ async function showPlan() {
   $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
   planBar(res.result_id);
 }
+
+// Ticking "Never produce" or saying what a scan showed on the result: saved, then the plan is worked out again.
+async function onNeverProduce(names) {
+  const my = seq;
+  const r = await AC.post(API + '/save', {product_blacklist: names});
+  if (my !== seq) return;
+  if (r.ok) { st.product_blacklist = saved.product_blacklist = names.join(', '); }
+  showPlan();
+}
+function onRichnessSaved() { showPlan(); }
 
 // Warnings on the result link to the question that changes them ("Change Area").
 const stepNames = () => Object.fromEntries(STEPS.filter(s => s.options).map(s => [s.id, s.title]));

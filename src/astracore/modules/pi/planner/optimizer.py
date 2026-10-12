@@ -513,8 +513,9 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
                                             overrides, head_yield, eligible)
     if err:
         return {"error": err, "warnings": warnings, **({"error_steps": ["area"]} if err == NO_FIT else {})}
-    known = {pi.name(t).lower() for t in pi.items}
+    known = {pi.name(t).lower(): pi.name(t) for t in pi.items}
     unknown = sorted(b for b in s.product_blacklist if b.strip() and b.strip().lower() not in known)
+    never = sorted({known[b.strip().lower()] for b in s.product_blacklist if b.strip().lower() in known})
     if unknown:
         warnings.append(notices.note(
             "unknown_product", f"Never produce: {notices.names(unknown)} isn't a PI product name, so nothing was "
@@ -680,6 +681,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         "transfers": transfer_rows, "sold": sold, "totals": totals, "warnings": warnings,
         "templates_needed": sorted({x["template_file"] for x in colonies}),
         "tier_need": tier_need(pi, s, templates, colonies),
+        "never_produce": never,     # "Never produce", as PI product names (the plan result's checkboxes)
     }
 
 

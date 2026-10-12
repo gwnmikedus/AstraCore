@@ -195,7 +195,7 @@ def test_marks_on_open_ideas_not_bugs_closed_or_hidden(browser, eve):
     client.post("/community/votes", data={"csrf_token": csrf(client), "target": "issue:701"})
     page = client.get("/community").text
     assert 'id="issue-701"' in page and "1 pilot would use this" in page
-    assert "Same problem? Add a 👍 or a comment on GitHub; it helps us prioritise." in page
+    assert "Same problem? Give it a thumbs-up or a comment on GitHub; it helps us prioritise." in page
 
 
 def test_marks_follow_a_profile_merge_and_go_with_profile_deletion():

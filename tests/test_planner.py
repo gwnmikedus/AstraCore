@@ -627,3 +627,19 @@ def test_character_sync_keeps_links_and_routes_compactly():
         "links": [{"source_pin_id": 1, "destination_pin_id": 3, "link_level": 2}],
         "routes": [{"source_pin_id": 1, "destination_pin_id": 3, "content_type_id": 2396, "quantity": 40}]}
     assert _layout_network({"pins": []}) == {"links": [], "routes": []}
+
+
+def test_solves_end_on_a_node_limit_so_results_dont_depend_on_machine_load(pi, monkeypatch):
+    seen = []
+    real = optimizer.pulp.PULP_CBC_CMD
+
+    def spy(**kw):
+        seen.append(kw)
+        return real(**kw)
+
+    monkeypatch.setattr(optimizer.pulp, "PULP_CBC_CMD", spy)
+    first = _plan(pi, max_tier=2, effort=50)
+    second = _plan(pi, max_tier=2, effort=50)
+    assert seen and all(k["maxNodes"] == optimizer.SOLVER_MAX_NODES and k["threads"] == 1 for k in seen)
+    assert all(k["timeLimit"] >= optimizer.SOLVER_SAFETY_SECONDS for k in seen)
+    assert first["totals"] == second["totals"] and first["colonies"] == second["colonies"]

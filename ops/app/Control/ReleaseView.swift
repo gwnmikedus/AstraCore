@@ -40,10 +40,10 @@ struct ReleaseView: View {
             }
             StepRow(done: release.deployed, title: "Deploy it",
                     detail: release.deployed ? "Production runs a build that includes \(tag)." : "Production doesn't include the release commit yet.") {
-                if let rc = release.releaseCommit {
+                if let rc = release.releaseCommit, release.canDeployForward {
                     Button("Deploy \(tag)…") { ops.deploy(runner, ref: rc, label: "\(tag) (\(rc.prefix(7)))") }
-                    if !ops.undeployed.isEmpty { Button("Deploy latest…") { ops.deploy(runner) } }
                 }
+                if !ops.undeployed.isEmpty { Button("Deploy latest…") { ops.deploy(runner) } }
             }
             StepRow(done: release.unreleasedIssues.isEmpty, title: "Mark the shipped issues released",
                     detail: release.previousTag == nil ? "No earlier release to compare with." :

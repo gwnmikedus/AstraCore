@@ -137,7 +137,7 @@
     <div>
       <b>1 · Buy on the market</b>
       {% if k.command_centers %}
-      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Each</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
+      <div class="scroll"><table><caption>Command centers to buy</caption><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Each</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
       {% for c in k.command_centers %}
       <tr><td>{{ structure_img('command_center', 16) }}{{ c.name }}</td><td>{{ c.qty }}</td>
         <td>{{ buy_where(c) }}</td>
@@ -156,7 +156,7 @@
     {% if k.supplies %}
     <div>
       <b>Optional · Factory starter stock</b> <span class="muted">({{ k.supply_days|num(1) }} days of inputs)</span>
-      <div class="scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
+      <div class="scroll"><table><caption>Factory starter stock to buy</caption><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
       {% for s in k.supplies %}
       <tr><td>{{ eve_img(s.item, 16) }}{{ s.item }}<br><span class="muted">for {{ s['for']|join(', ') }}</span></td><td>{{ s.qty|num }}</td>
         <td>{{ buy_where(s) if s.where else '–' }}</td><td>{{ s.isk|isk if s.where else '–' }}</td>
@@ -244,7 +244,7 @@
         {%- if not tr.ship.has_stock %} · no PI products in hangars{% endif %}</div></div>
   </div>
   {% if upkeep.colonies %}
-  <div class="scroll"><table><thead><tr><th>Colony</th><th>Next visit</th><th>Visit rhythm</th><th>Storage</th><th>Output vs plan</th><th>Colony data</th></tr></thead><tbody>
+  <div class="scroll"><table><caption>Colony visits and upkeep</caption><thead><tr><th>Colony</th><th>Next visit</th><th>Visit rhythm</th><th>Storage</th><th>Output vs plan</th><th>Colony data</th></tr></thead><tbody>
   {% for u in upkeep.colonies %}
   <tr><td>{{ u.character }} · {{ u.planet }} <span class="muted">{{ u.system }}</span></td>
     <td class="st-{{ u.state }}">{% if u.next %}{{ {'restart': 'Restart extractors', 'restock': 'Restock inputs', 'collect': 'Collect products'}[u.next] }}
@@ -278,10 +278,10 @@
 <div class="box" id="extractors">
   <h5>{{ icon('timer') }} Extractors</h5>
   {% if status.extractors %}
-  <div class="scroll"><table><thead><tr><th>Character</th><th>Planet</th><th>Extracting</th><th>Heads</th><th>Time left</th></tr></thead><tbody>
+  <div class="scroll"><table><caption>Extractor restart times</caption><thead><tr><th>Character</th><th>Planet</th><th>Extracting</th><th>Heads</th><th>Time left</th></tr></thead><tbody>
   {% for e in status.extractors %}
   <tr><td>{{ e.character }}</td><td>{{ e.planet }} <span class="muted">{{ e.system }}</span></td><td>{{ eve_img(e.product) }}{{ e.product }}</td><td>{{ e.heads }}</td>
-      <td class="st-{{ e.state }}">{% if e.state == 'expired' %}<b>stopped - restart</b>{% elif e.hours_left is none %}?{% else %}{{ e.hours_left|hours }}{% endif %}</td></tr>
+      <td class="st-{{ e.state }}">{% if e.state == 'expired' %}<b>stopped - restart</b>{% elif e.hours_left is none %}?{% else %}{{ e.hours_left|hours }}{% if e.state == 'soon' %} · soon{% endif %}{% endif %}</td></tr>
   {% endfor %}</tbody></table></div>
   {% else %}<p class="empty">No extractors running yet. Place the templates from your plan, then refresh.</p>{% endif %}
 </div>
@@ -410,7 +410,7 @@
   {% endif %}
   <b id="orders">Sell orders</b>
   {% if pipe.orders %}
-  <div class="scroll"><table><thead><tr><th>Character</th><th>Item</th><th>Where</th><th>Price</th><th>Left</th><th>Value</th><th></th></tr></thead><tbody>
+  <div class="scroll"><table><caption>PI sell orders</caption><thead><tr><th>Character</th><th>Item</th><th>Where</th><th>Price</th><th>Left</th><th>Value</th><th></th></tr></thead><tbody>
   {% for o in pipe.orders %}<tr><td>{{ o.character }}</td><td>{{ eve_img(o.item, 16) }}{{ o.item }}</td><td class="muted">{{ o.location }}</td><td>{{ o.price|num(2) }}</td>
     <td>{{ o.remaining|num }}/{{ o.total|num }}</td><td>{{ o.value|isk }}</td>
     <td>{% if o.undercut %}<span class="warn">undercut - best is {{ o.best_sell|num(2) }}</span>{% endif %}</td></tr>{% endfor %}

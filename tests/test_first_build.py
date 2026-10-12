@@ -288,6 +288,35 @@ def test_unsaved_plan_exports_its_checklist_with_current_settings(browser, eve, 
     assert "Barren Command Center,2,Jita 4-4" in c.get("/pi/export/shopping.csv?current=1").text
 
 
+def test_displayed_snapshot_exports_exact_colonies_settings_and_template_selection(browser, eve, pi, monkeypatch):
+    from astracore.modules.pi.routes import _result_stamp
+    from astracore.modules.pi.static_data import dalshooth
+
+    c = browser()
+    pid, plan = _saved_plan(c, eve, pi, monkeypatch, "Candidate exporter")
+    settings = store.load_settings(pid)
+    settings.cycle_days = 1
+    store.save_settings(pid, settings)
+    result_id = store.remember_plan_result(pid, settings, plan, _result_stamp(pid))
+
+    async def must_not_solve(*args, **kwargs):
+        raise AssertionError("Export must use the displayed snapshot")
+
+    monkeypatch.setattr(service, "solve", must_not_solve)
+    packed = []
+    monkeypatch.setattr(dalshooth, "zip_pack", lambda files: packed.append(files) or b"synthetic zip")
+    query = f"?result={result_id}"
+    md = c.get("/pi/export/plan.md" + query)
+    assert md.status_code == 200 and "Biofuels\t960" in md.text
+    csv = c.get("/pi/export/plan.csv" + query)
+    assert csv.status_code == 200 and "Planet 11" in csv.text and "Planet 21" in csv.text
+    shopping = c.get("/pi/export/shopping.csv" + query)
+    assert shopping.status_code == 200 and "Barren Command Center,2,Jita 4-4" in shopping.text
+    assert c.get("/pi/export/templates.zip" + query).content == b"synthetic zip"
+    assert packed == [plan.get("templates_needed", [])]
+    assert not store.list_plan_runs(pid)  # downloading never saves a candidate
+
+
 def test_operate_links_the_checklist_exports(browser, eve, pi, monkeypatch):
     c = browser()
     pid, plan = _saved_plan(c, eve, pi, monkeypatch, "Linker")

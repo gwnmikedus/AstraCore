@@ -136,6 +136,7 @@ class Settings:
 
 # What an hour of your time is worth when you haven't set it yourself, per goal (the guided setup's
 # first question). "Max ISK" values time at 0: only income counts.
+GOAL_EFFORT = {"passive": 0, "balanced": 50, "max": 100}
 HOUR_DEFAULTS = {"passive": 300e6, "balanced": 90e6, "max": 0.0}
 
 

@@ -678,3 +678,87 @@ def test_solves_end_on_a_node_limit_so_results_dont_depend_on_machine_load(pi, m
     assert seen and all(k["maxNodes"] == optimizer.SOLVER_MAX_NODES and k["threads"] == 1 for k in seen)
     assert all(k["timeLimit"] >= optimizer.SOLVER_SAFETY_SECONDS for k in seen)
     assert first["totals"] == second["totals"] and first["colonies"] == second["colonies"]
+
+
+# --- #89 consolidate & sell advice ------------------------------------------------------------
+def test_self_haul_sends_one_hangar_to_one_hub_unless_the_gain_beats_a_trip(pi):
+    s = Settings(use_buyback=False, use_local=False)
+    near = {2396: {"jita_buy": 800.0, "amarr_buy": 802.0}, 2329: {"jita_buy": 10000.0, "amarr_buy": 9500.0}}
+    plan = selling.sell_plan(pi, s, near, "Konora", {2396: 1000, 2329: 1000}, per_day=False, local=False,
+                             self_haul=True)
+    assert [b["channel"] for b in plan["batches"]] == ["jita_self"]     # 0.25% more in Amarr isn't a trip
+    far = {2396: {"jita_buy": 800.0, "amarr_buy": 1000.0}, 2329: {"jita_buy": 10000.0, "amarr_buy": 9500.0}}
+    plan = selling.sell_plan(pi, s, far, "Konora", {2396: 1_000_000, 2329: 100_000}, per_day=False, local=False,
+                             self_haul=True)
+    assert {b["channel"] for b in plan["batches"]} == {"jita_self", "amarr_self"}   # each hub pays 40M+ more: worth a trip
+    assert selling.extra_trip_isk(Settings(hour_isk=0)) == selling.EXTRA_TRIP_FLOOR_ISK
+    assert selling.extra_trip_isk(Settings(hour_isk=120e6)) == pytest.approx(60e6)
+
+
+def test_self_haul_note_only_names_a_voc_pickup_within_reach(pi, monkeypatch):
+    plan = selling.sell_plan(pi, Settings(), BOOKS, "Konora", {2396: 1000}, per_day=False, local=False,
+                             self_haul=True)
+    assert "VOC pickup" not in plan["batches"][0]["note"]
+    assert "7G-QIG" not in plan["batches"][0]["note"]
+    monkeypatch.setattr(selling.voc, "route", lambda *a, **k: None)     # pickup found, but no route from it
+    plan = selling.sell_plan(pi, Settings(), BOOKS, "HZAQ-W", {2396: 1000}, per_day=False, local=False,
+                             origin="7G-QIG", origin_jumps=2, self_haul=True)
+    assert "VOC pickup in 7G-QIG, 2 jumps" in plan["batches"][0]["note"]
+
+
+def test_no_access_structure_is_not_hauled_or_counted_in_the_hand_over(pi, monkeypatch):
+    from astracore.esi.character import unknown_location
+    citadel, station = 1_000_000_000_001, 60_000_001
+    monkeypatch.setattr(operate, "locations", lambda: {
+        citadel: unknown_location(citadel), station: {"name": "Station", "system": "Konora"}})
+    seller = {"character_id": 1, "name": "Seller", "skills": {"Accounting": 5}, "assets": []}
+    holder = {"character_id": 2, "name": "Holder", "skills": {"Accounting": 0}, "assets": [
+        {"type_id": 2396, "qty": 1000, "location_id": citadel, "flag": "Hangar"}]}
+    stock = operate.hangar_stock(pi, Settings(), BOOKS, [seller, holder])
+    assert len(stock) == 1 and stock[0]["no_access"] and stock[0]["plan"]["batches"] == []
+    assert "seller_gain" not in stock[0]["plan"]
+    c = operate.consolidate(stock)
+    assert c["net"] == 0 and c["seller_gain"] == 0 and c["handover"] == [] and not c["self_haul"]
+    assert c["advice"][0]["channel"] == "no_access" and "asset safety" in c["advice"][0]["label"]
+    assert "Haul it" not in str(c["advice"])
+
+    holder["assets"].append({"type_id": 2396, "qty": 1000, "location_id": station, "flag": "Hangar"})
+    c = operate.consolidate(operate.hangar_stock(pi, Settings(), BOOKS, [seller, holder]))
+    assert c["handover"] == ["Holder"] and c["seller_gain"] > 0 and c["self_haul"]
+
+
+def test_size_check_is_one_per_hangar():
+    batches = [{"channel": "jita_self", "label": "J", "m3": 40_000, "jita_value": 1e9, "net": 9e8},
+               {"channel": "amarr_self", "label": "A", "m3": 10_000, "jita_value": 1e8, "net": 9e7}]
+    stock = [{"character": "A", "location": "Station", "system": "Konora", "m3": 50_000, "jita_value": 1.1e9,
+              "plan": {"batches": batches, "unsellable": []}}]
+    c = operate.consolidate(stock)
+    assert len(c["reality"]) == 1
+    r = c["reality"][0]
+    assert r["m3"] == 50_000 and r["dest"] == "Jita and Amarr"
+    assert {t["ship"]: t["trips"] for t in r["trips"]} == {"Deep Space Transport": 2, "Freighter (high-sec only)": 2}
+
+
+# --- #67 feeder colonies ------------------------------------------------------------------------
+def test_feeder_colonies_say_which_factory_they_supply(pi):
+    cols = [{"idx": 0, "character": "A", "product": "Precious Metals", "product_id": 2399, "value_per_day": 0,
+             "out_per_day": {"Precious Metals": 100}},
+            {"idx": 1, "character": "A", "product": "Biofuels", "product_id": 2396, "value_per_day": 5000,
+             "out_per_day": {"Biofuels": 50}},
+            {"idx": 2, "character": "B", "product": "Biocells", "product_id": 2329, "value_per_day": 9000,
+             "out_per_day": {"Biocells": 10}}]
+    optimizer.add_feeds(pi, cols, [(0, 2, 2399, 60.0), (0, 2, 2399, 20.0), (1, 2, 2396, 40.0)], {2396: 100.0})
+    assert cols[0]["feeds"] == [{"character": "B", "product": "Biocells", "item": "Precious Metals", "units": 80.0}]
+    assert cols[0]["value_at_factory"] is True       # unpriced feeder: counted at the factory, never "0"
+    assert cols[1]["feeds"][0]["product"] == "Biocells" and cols[1]["value_at_factory"] is False
+    assert cols[2]["feeds"] == [] and cols[2]["value_at_factory"] is False
+
+
+def test_plans_link_feeders_to_their_factories(pi):
+    chars = [{"character_id": i, "name": f"C{i}", "slots": 3, "ccu_level": 5, "colonies": []} for i in (1, 2)]
+    res = _plan(pi, chars=chars, prices={**PRICES, 2329: 400000.0}, max_tier=2, cross_character=True, max_jumps=2)
+    factories = [c for c in res["colonies"] if c["kind"] == "factory"]
+    assert factories
+    assert all("feeds" in c and "value_at_factory" in c for c in res["colonies"])
+    fed = {(f["character"], f["product"]) for c in res["colonies"] for f in c["feeds"]}
+    assert fed and fed <= {(f["character"], f["product"]) for f in factories}

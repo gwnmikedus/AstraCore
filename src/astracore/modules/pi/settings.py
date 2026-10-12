@@ -102,7 +102,21 @@ class Settings:
                 except (TypeError, ValueError):
                     continue   # a value that doesn't parse leaves the setting as it was
 
+    # Sensible bounds for numbers a pilot can type: out-of-range values are clamped, not stored as is.
+    LIMITS = {
+        "effort": (0, 100), "max_tier": (1, 4), "max_systems": (0, 50), "max_jumps": (0, 20),
+        "cycle_days": (1, 30), "per_planet": (1, 3), "ship_every_days": (1, 90), "hour_isk": (-1, 1e12),
+        "buyback_pct": (0, 100), "buyback_pct_p1": (0, 100), "poco_tax_pct": (0, 100), "sales_tax_pct": (0, 100),
+        "broker_fee_pct": (0, 100), "stack_yield_pct": (0, 100), "head_yield_per_hour": (1, 100000),
+        "solver_time_limit": (1, 600),
+    }
     def _set(self, name: str, cur, val) -> None:
+        self._set_raw(name, cur, val)          # text and lists are cut to TEXT_LIMITS / LIST_MAX there
+        lo_hi = self.LIMITS.get(name)
+        if lo_hi:
+            setattr(self, name, type(cur)(min(max(getattr(self, name), lo_hi[0]), lo_hi[1])))
+
+    def _set_raw(self, name: str, cur, val) -> None:
         if isinstance(cur, list):
             if isinstance(val, str):
                 val = [x.strip() for x in val.split(",") if x.strip()]

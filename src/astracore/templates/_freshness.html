@@ -1,0 +1,15 @@
+{# How old the shown ESI data is, and a refresh on visit when it's stale (#75). `f` = core/freshness.state(). #}
+{% macro freshness_line(f, back, note) -%}
+<div class="freshness {{ 'is-fresh' if f.fresh and not f.stale else 'is-stale' }}" id="freshness"
+  {%- if f.auto %} data-auto-refresh="/refresh/auto"{% endif %}>
+  {{ icon('refresh-cw') }}
+  <span class="freshness-text" role="status">{% if f.synced_at %}Updated {{ f.synced_at|ago }}{% else %}Not read from ESI yet{% endif %}
+    {%- for b in f.behind %} · {{ b.name }} {{ b.synced_at|ago if b.synced_at else 'never read' }}{% endfor %}
+    {%- if f.auto %} · <span class="freshness-busy">refreshing…</span>{% endif %}</span>
+  {% if not f.auto and f.characters %}<form method="post" action="/profile/refresh" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="back" value="{{ back }}">
+    <button class="outline">Refresh now</button></form>{% endif %}
+  <details class="freshness-help"><summary><span class="sr-only">Why can colony data be older?</span><span aria-hidden="true">?</span></summary>
+    <p>{{ note }} AstraCore reads your characters again when you open Home or Operate and the data is over 15 minutes old.</p></details>
+</div>
+{%- endmacro %}

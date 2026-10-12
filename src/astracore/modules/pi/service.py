@@ -19,7 +19,7 @@ from .intel import area as area_mod
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import checklist, compare, demand, notices, operate, optimizer, prices, selling
+from .planner import checklist, compare, demand, nextup, notices, operate, optimizer, prices, selling, upkeep
 from .planner import skills as skills_mod
 from .settings import Settings
 from .static_data import dalshooth, sde_loader, voc
@@ -396,8 +396,26 @@ def entry_state(profile_id: int) -> str:
     return "operate"
 
 
+def operate_overview(pi, s: Settings, books: Dict[int, dict], chars: List[dict], area: Optional[dict],
+                     plan_result: Optional[dict]) -> dict:
+    """What Operate works out from synced data and the active plan, and the Next up list from it.
+    Operate and Home both use this, so Home's top three are Operate's top three."""
+    stock = operate.hangar_stock(pi, s, books, chars, area)
+    consolidated = operate.consolidate(stock, area)
+    pipe = operate.pipeline(pi, books, chars)
+    up = upkeep.schedule(pi, s, chars, plan_result, area)
+    prog = progress(plan_result, chars, pi)
+    drift = plan_drift(plan_result, chars, pi)
+    items = nextup.next_up(up, stock=stock, consolidated=consolidated, pipe=pipe, plan=plan_result,
+                           progress=prog, drift=drift)
+    return {"stock": stock, "consolidated": consolidated, "pipe": pipe, "upkeep": up, "progress": prog,
+            "drift": drift, "next_up": items, "all_clear": None if items else nextup.all_clear(up),
+            "has_colonies": any(ch.get("colonies") for ch in chars)}
+
+
 async def dashboard_tile(profile: dict) -> dict:
-    """Live status for the dashboard. Never solves: it reads the active plan and synced ESI data."""
+    """Home's launcher: Operate's top Next up items and one plan line. Never solves and never calls
+    ESI: it reads the active plan, synced character data and cached prices."""
     pid = profile["id"]
     state = entry_state(pid)
     tile = {"state": state, "href": {"connect": "/pi", "excluded": "/pi", "area": "/pi/area", "plan": "/pi/plan",
@@ -414,12 +432,18 @@ async def dashboard_tile(profile: dict) -> dict:
         prog = operate.build_progress(_progress_against(res, chars, pi))
         if prog:
             tile["built"], tile["planned"] = prog["done"], prog["total"]
-    if pi and chars:
+    if chars:
+        tile["has_colonies"] = any(ch.get("colonies") for ch in chars)
+    if pi is None and chars:
+        tile["static_missing"] = True     # game data isn't cached yet: Operate loads it on first visit
+    if pi and chars and state == "operate":
         try:
-            st = operate.colonies_status(pi, chars, None)
-            tile["extractors_24h"] = sum(1 for e in st["extractors"] if e["state"] in ("soon", "expired"))
-            tile["expired"] = sum(1 for e in st["extractors"] if e["state"] == "expired")
-            tile["pickup_m3"] = round(sum(p["m3"] for p in st["pickups"]))
+            ov = operate_overview(pi, store.load_settings(pid), prices.cached()["books"], chars, None,
+                                  plan["result"] if plan else None)
+            tile["next_up"] = ov["next_up"][:nextup.HOME_SHOWN]
+            tile["next_up_more"] = max(0, len(ov["next_up"]) - nextup.HOME_SHOWN)
+            tile["all_clear"] = ov["all_clear"]
+            tile["in_hangars"] = sum(g["jita_value"] for g in ov["stock"])
             tile["earned_7d"] = operate.earnings(pi, chars, 7)["net"]
         except Exception:  # noqa: BLE001 - a tile must never break the dashboard
             log.exception("PI tile")
@@ -465,15 +489,16 @@ async def first_build_for(profile_id: int, result: dict, settings: Optional[dict
 
 
 async def refresh_profile(profile_id: int, only: Optional[int] = None,
-                          waits: Optional[Dict[str, int]] = None) -> Dict[str, str]:
+                          waits: Optional[Dict[str, int]] = None, ids: Optional[set] = None) -> Dict[str, str]:
     """Read every (or one) character of the profile from ESI. Returns {name: problem} for failures.
+    `ids` limits it to those characters (the stale ones, when refreshing on a visit).
     `waits` collects {label: seconds} for data ESI hadn't updated yet (see esi_char.esi_waits)."""
     from astracore.esi import character as esi_char
     from astracore.esi import sso
     problems: Dict[str, str] = {}
     async with ESIClient() as esi:
         for c in characters(profile_id):
-            if only and c["character_id"] != only:
+            if only and c["character_id"] != only or ids is not None and c["character_id"] not in ids:
                 continue
             if not c.get("has_token"):
                 continue

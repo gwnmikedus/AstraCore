@@ -162,3 +162,18 @@ def test_plan_cache_ignores_wizard_bookkeeping_and_files_plans_under_the_data_th
     asyncio.run(service.solve(1, Settings(guide_step=5, answered=["goal", "cycle"])))
     assert runs == [2]
     GATE.clear()
+
+
+def test_area_save_never_stores_an_empty_selection(browser, eve):
+    from test_core import csrf, me, new_id, sso_login
+    from astracore.modules.pi import store
+
+    c = browser()
+    sso_login(c, eve, new_id(), "Picker")
+    pid = me(c)
+    s = store.load_settings(pid)
+    s.selected_constellations = [7]
+    store.save_settings(pid, s)
+    r = c.post("/pi/area", data={"csrf_token": csrf(c), "hub_system": ""}, follow_redirects=False)
+    assert r.status_code == 303 and "Nothing was changed" in r.headers["location"].replace("%20", " ").replace("+", " ")
+    assert store.load_settings(pid).selected_constellations == [7]

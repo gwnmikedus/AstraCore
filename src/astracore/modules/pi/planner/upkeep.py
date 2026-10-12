@@ -309,6 +309,7 @@ def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -
             "has_extractors": bool(extractors), "has_imports": bool(imports),
             "idle": bool(imports) and not exports,
             "routes_known": routing is not None,
+            "route_issues": len(routing["issues"]) if routing else 0,
             "output": output, "shortages": shortages, "issues": issues,
             "last_update": updated, "stale": bool(updated and age_days * 24 > COLONY_STALE_H)}
 
@@ -357,10 +358,13 @@ def schedule(pi: PIData, s: Settings, characters: List[dict], plan: Optional[dic
         for col in ch.get("colonies", []):
             pid = col["planet_id"]
             pn = colony_name(names, col)
-            u = colony_upkeep(pi, col, planned.get((ch.get("character_id"), pid)), now)
-            u.update(character=ch["name"], planet=pn["name"], system=pn["system"])
+            plan_col = planned.get((ch.get("character_id"), pid))
+            u = colony_upkeep(pi, col, plan_col, now)
+            u.update(character=ch["name"], planet=pn["name"], system=pn["system"],
+                     value_per_day=(plan_col or {}).get("value_per_day") or 0)
             rows.append(u)
-            shortages += [{**x, "character": ch["name"], "planet": pn["name"], "system": pn["system"]}
+            shortages += [{**x, "character": ch["name"], "planet": pn["name"], "system": pn["system"],
+                           "value_per_day": u["value_per_day"]}
                           for x in u["shortages"]]
             if u["last_update"]:
                 updates.append(u["last_update"])

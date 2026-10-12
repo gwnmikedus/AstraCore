@@ -462,6 +462,25 @@ def _assign_self_contained(pi: PIData, instances: List[dict], characters: List[d
     return sl.owner, [tuple(lk) for lk in links]
 
 
+def add_feeds(pi: PIData, colonies: List[dict], links: List[tuple], prices: Dict[int, float]) -> None:
+    """Which factories each colony supplies, from the feeder links (producer idx, consumer idx, type, units/day):
+    `feeds` = [{character, product, item, units}] per colony. `value_at_factory` marks a feeder whose own
+    market value is 0 or not meaningful (product not priced, e.g. after a thin-market re-plan): its ISK is
+    counted at the factory it feeds, so it shouldn't read as a worthless colony."""
+    by_idx = {c["idx"]: c for c in colonies}
+    feeds: Dict[int, Dict[tuple, float]] = defaultdict(lambda: defaultdict(float))
+    for p, c, t, q in links:
+        if p in by_idx and c in by_idx and q > 0:
+            fac = by_idx[c]
+            feeds[p][(fac["character"], fac["product"], pi.name(t))] += q
+    for col in colonies:
+        rows = feeds.get(col["idx"], {})
+        col["feeds"] = [{"character": ch, "product": prod, "item": item, "units": round(q, 1)}
+                        for (ch, prod, item), q in sorted(rows.items(), key=lambda kv: -kv[1])]
+        priced = prices.get(col["product_id"], 0) > 0
+        col["value_at_factory"] = bool(col["feeds"]) and (col["value_per_day"] <= 0 or not priced)
+
+
 # ----------------------------------------------------------------------------- public API
 def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characters: List[dict],
          prices: Dict[int, float], templates: List[dict], overrides: Optional[dict] = None,
@@ -475,10 +494,14 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         return {"error": "None of your characters can place the templates yet (Command Center Upgrades too low).",
                 "warnings": warnings}
     if not systems:
-        return {"error": "No area selected. Pick at least one constellation on the Area page."}
+        return {"error": "No area selected yet. Choose where your characters do PI first.", "error_steps": ["area"]}
     hub = resolve_hub(area, s, systems, overrides)
     if not hub:
-        return {"error": "Could not determine a drop-off system."}
+        return {"error": "Could not determine a drop-off system.", "error_steps": ["area"]}
+    if s.hub_system and hub["name"].lower() != s.hub_system.strip().lower():
+        warnings.append(notices.note(
+            "hub_fallback", f"Your drop-off {s.hub_system} isn't in the selected area, so {hub['name']} is used "
+            "instead. Pick another drop-off or add its constellation.", steps=["area"]))
 
     total_slots = sum(int(c["slots"]) for c in eligible)
     max_slots = max(int(c["slots"]) for c in eligible)
@@ -490,6 +513,20 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
                                             overrides, head_yield, eligible)
     if err:
         return {"error": err, "warnings": warnings, **({"error_steps": ["area"]} if err == NO_FIT else {})}
+    known = {pi.name(t).lower() for t in pi.items}
+    unknown = sorted(b for b in s.product_blacklist if b.strip() and b.strip().lower() not in known)
+    if unknown:
+        warnings.append(notices.note(
+            "unknown_product", f"Never produce: {notices.names(unknown)} isn't a PI product name, so nothing was "
+            "left out for it. Check the spelling (for example Coolant, Mechanical Parts).", level="info"))
+    far = len(systems) - len(scope)
+    if far > 0:
+        warnings.append(notices.note(
+            "out_of_reach", f"{notices.plural(far, 'selected system')} {'is' if far == 1 else 'are'} more than "
+            f"{notices.plural(s.max_jumps, 'jump')} from the drop-off {hub['name']} and not used. Raise max jumps "
+            "or pick a closer drop-off.",
+            guided=f"{notices.plural(far, 'system')} in your area {'is' if far == 1 else 'are'} too far from the "
+                   f"drop-off {hub['name']} for your answer and not used.", steps=["area"], level="info"))
 
     if s.cross_character:
         links = _links(pi, instances)
@@ -546,6 +583,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
             "action": action, "notes": notes,
         })
     colonies.sort(key=lambda c: (c["character"], c["system"], c["planet"]))
+    add_feeds(pi, colonies, links, prices)
     for c in colonies:
         c["upkeep"] = upkeep.plan_buffer(pi, c, s.cycle_days)
     tight = [c for c in colonies if c["upkeep"]["issues"]]

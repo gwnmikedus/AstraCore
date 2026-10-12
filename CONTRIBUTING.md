@@ -6,7 +6,7 @@ Thanks for helping fellow capsuleers. Bug reports, practical ideas, documentatio
 
 Read [LICENSE](LICENSE), [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) first. AstraCore's original software is **source available under PolyForm Noncommercial 1.0.0**, not an OSI-approved open-source license. The terms permit noncommercial use, changes and distribution; they do not grant commercial rights.
 
-By submitting original code or documentation for inclusion, you agree to provide it under the same PolyForm Noncommercial 1.0.0 license. You retain copyright in your work. Only submit material you are entitled to contribute, and identify any third-party material and its license explicitly. Existing third-party licenses must be preserved.
+By submitting original code or documentation for inclusion, you agree to provide it under the same PolyForm Noncommercial 1.0.0 license. You retain copyright in your work. Only submit material you are entitled to contribute, and identify any third-party material and its license explicitly. Existing third-party licenses must be preserved. Record any new data source or integration in [docs/third-party.md](docs/third-party.md).
 
 ## Report a bug or suggest an idea
 

@@ -5,6 +5,7 @@
 <script src="{{ asset('js/money-slider.js') }}"></script>
 <script src="{{ asset('js/plan-compare.js') }}"></script>
 <script src="{{ asset('js/plan-warnings.js') }}"></script>
+<script src="{{ asset('js/print-checklist.js') }}"></script>
 {% endblock %}
 {% block content %}
 <div class="g-head context-header">
@@ -15,13 +16,14 @@
       {% if dropoff %}· drop-off {{ dropoff }}{% endif %}
       · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|num }} P0/h per head)</span>{% endif %}</div>
     <a class="adv" href="{{ advanced_url }}">Advanced: all options on one screen →</a>
+    <p class="g-head-line">Plan · {{ chars|length }} character{{ 's' if chars|length != 1 }} · {{ slots }} slots · <a href="{{ advanced_url }}">Advanced</a></p>
   </div>
   {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </div>
 
 {% include "pi/_characters_panel.html" %}
 
-<div class="guide-progress"><span id="progress-label">Your setup</span><span id="save-status" role="status">Answers save as you continue</span></div>
+<div class="guide-progress"><span id="progress-label">Your setup</span><span id="step-name" class="step-name"></span><span id="save-status" role="status">Answers save as you continue</span></div>
 <ol class="track" id="track"></ol>
 <section class="q" id="q" aria-labelledby="question-title"></section>
 <noscript><div class="flash warn">The guided planner needs JavaScript. Enable it and reload to compare setups.</div></noscript>
@@ -243,6 +245,9 @@ function drawTrack() {
   $('track').style.setProperty('--progress', (cur / QUESTIONS) * 92 + '%');
   $('progress-label').textContent = cur === QUESTIONS ? 'Your flight plan is ready to calculate'
     : `Setup ${Math.round(done / QUESTIONS * 100)}% complete · ${QUESTIONS - done} question${QUESTIONS - done === 1 ? '' : 's'} remaining`;
+  // Phones show only numbers in the tracker: name the current step next to it.
+  $('step-name').textContent = cur === QUESTIONS ? STEPS[cur].title
+    : `Step ${cur + 1} of ${QUESTIONS} · ${STEPS[cur].title}`;
   document.querySelectorAll('.track li button:not(:disabled)').forEach(button => {
     const i = +button.parentElement.dataset.i;
     if (i !== cur) button.onclick = () => navigate(i);
@@ -279,12 +284,15 @@ function go(i, focus = true) {
   AC.post(API + '/save', {guide_step: cur}).then(r => {
     if (r.error && visit === seq) $('save-status').textContent = 'Position not saved. Continue to retry.';
   });
+  // After the first question the hero folds to one line on phones, so the question starts on the first screen.
+  document.body.classList.toggle('guide-later', cur > 0);
   drawTrack();
   STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
   if (focus) {
     const title = $('question-title');
     if (title) title.focus({preventScroll: true});
-    $('q').scrollIntoView({block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+    if (AC.tourScroll({top: $('q').getBoundingClientRect().top, viewport: window.innerHeight}))
+      $('q').scrollIntoView({block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
   }
 }
 
@@ -319,7 +327,7 @@ function showQuestion(step) {
     <div id="compare"></div>
     ${hourPicker()}
     <div class="nav">
-      <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} Back</button>
+      <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
       <span class="hint" id="navhint" role="status">${step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…'}</span>
       <button id="next" ${step.isGoal ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
@@ -503,7 +511,7 @@ async function wireArea(step) {
       <div class="cons">${(a.constellations || []).map(c => `<label><input type="checkbox" value="${c.id}" ${sel.has(c.id) ? 'checked' : ''}>
         ${esc(c.name)} <span class="muted">${esc(c.region)} · ${c.systems} systems${c.has_colonies ? ' · your colonies' : ''}</span></label>`).join('')}</div>
       <label>Drop-off (where you collect products and ship them from)
-        <select id="area-hub"><option value="">Auto (best spot in the selection, VOC pickups preferred)</option>
+        <select id="area-hub"><option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         ${(a.systems || []).map(n => `<option ${n === (st.hub_system || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {

@@ -105,28 +105,50 @@ def test_low_error_limit_header_pauses_before_any_420(fresh_budget):
     assert 25 < BUDGET.pause_until - time.time() <= 30
 
 
-def test_server_errors_back_off_then_everyone_fails_fast(fresh_budget):
+def test_one_route_answering_5xx_backs_off_but_never_stops_other_requests(fresh_budget):
     calls = []
 
     def handler(request):
         calls.append(request.url.path)
-        return httpx.Response(503, text=RAW)
+        if "broken" in request.url.path:
+            return httpx.Response(503, text=RAW)
+        return httpx.Response(200, json={"ok": True})
 
     async def go():
         async with fake_esi(handler)() as esi:
             with pytest.raises(ESIUnavailable) as first:
-                await esi.get("/outage-test/server/")
+                await esi.get("/outage-test/broken/")
+            n = len(calls)
+            other = await esi.get("/outage-test/fine/")   # a flaky route doesn't take the site down
+            return first.value, other, n
+
+    first, other, n = run(go())
+    assert n == esi_client.ATTEMPTS and first.kind == "server" and first.status == 503
+    assert fresh_budget == [esi_client.backoff(i) for i in range(esi_client.ATTEMPTS - 1)] == [1, 3, 5, 7]
+    assert other == {"ok": True} and len(calls) == n + 1
+    assert RAW not in esi_errors.explain(first) and "trouble" in esi_errors.explain(first)
+
+
+def test_esi_unreachable_makes_every_caller_fail_fast(fresh_budget):
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        raise httpx.ConnectError("no route to host")
+
+    async def go():
+        async with fake_esi(handler)() as esi:
+            with pytest.raises(ESIUnavailable) as first:
+                await esi.get("/outage-test/down/")
             n = len(calls)
             with pytest.raises(ESIUnavailable) as second:
                 await esi.get("/outage-test/next-caller/")
             return first.value, second.value, n
 
     first, second, n = run(go())
-    assert n == esi_client.ATTEMPTS and first.kind == "server" and first.status == 503
-    assert fresh_budget == [esi_client.backoff(i) for i in range(esi_client.ATTEMPTS - 1)] == [1, 3, 5, 7]
+    assert n == esi_client.ATTEMPTS and first.kind == "unreachable"
     assert len(calls) == n                          # ESI is down: the next caller doesn't ask again
-    assert second.kind == "server" and BUDGET.outage() == "server"
-    assert RAW not in esi_errors.explain(first) and "trouble" in esi_errors.explain(first)
+    assert second.kind == "unreachable" and BUDGET.outage() == "unreachable"
 
 
 def test_error_limit_that_never_lifts_is_reported_plainly():

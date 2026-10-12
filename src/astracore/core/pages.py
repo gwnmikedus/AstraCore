@@ -7,11 +7,11 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from astracore import config, db
 
-from . import accounts, contributors, registry, releases, sessions
+from . import accounts, contributors, freshness, registry, releases, sessions
 from .auth import bundle_active, missing_required
 from .web import redirect, render
 
@@ -62,11 +62,13 @@ async def home(request: Request, code: str = "", state: str = ""):
         tiles.append({"module": m, **tile})
     from astracore.esi import errors as esi_errors
     synced = [ch.get("synced_at") for ch in db.list_characters(user["id"])]
+    fresh = freshness.state(user["id"])
     return render(request, "dashboard.html", page="dashboard", page_title="Dashboard", tiles=tiles,
-                  alerts=_alerts(user["id"]), esi_outage=esi_errors.recent_banner(synced))
+                  alerts=_alerts(user["id"], refreshing=fresh["auto"]), freshness=fresh,
+                  colony_note=freshness.COLONY_NOTE, esi_outage=esi_errors.recent_banner(synced))
 
 
-def _alerts(profile_id: int) -> list:
+def _alerts(profile_id: int, refreshing: bool = False) -> list:
     out = [{"kind": n.get("kind", "warn"), "text": n["text"]} for n in db.pop_notices(profile_id)]
     now = time.time()
     for ch in db.list_characters(profile_id):
@@ -78,7 +80,7 @@ def _alerts(profile_id: int) -> list:
             if m.id in (ch.get("enabled_modules") or ["pi"]) and missing_required(ch, m.id):
                 out.append({"kind": "warn", "text": f"{ch['name']} needs one more EVE login for {m.name}.",
                             "href": f"/auth/upgrade/{ch['character_id']}", "action": "Log in again"})
-        if ch.get("synced_at") and now - ch["synced_at"] > STALE_AFTER:
+        if ch.get("synced_at") and now - ch["synced_at"] > STALE_AFTER and not refreshing:
             days = int((now - ch["synced_at"]) // 86400)
             out.append({"kind": "info", "text": f"{ch['name']}: last ESI refresh {days} days ago.",
                         "form": "/profile/refresh", "action": "Refresh now"})
@@ -165,6 +167,16 @@ async def profile_refresh(request: Request):
         return redirect(back, "Refreshed, with problems: " + "; ".join(f"{k}: {v}" for k, v in problems.items())
                         + note, "warn")
     return redirect(back, "Refreshed from ESI." + note)
+
+
+@router.post("/refresh/auto")
+async def refresh_auto(request: Request):
+    """Home and Operate call this after rendering when their data is stale (#75): it reads the stale
+    characters from ESI (or waits for the refresh already running) and the page reloads when it's done."""
+    user = _user(request)
+    if not user:
+        return JSONResponse({"error": "Signed out"}, status_code=401)
+    return JSONResponse(await freshness.refresh_stale(user["id"]))
 
 
 @router.post("/profile/main")

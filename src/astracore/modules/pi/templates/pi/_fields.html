@@ -1,8 +1,8 @@
-{% macro num(s, name, label, help='', step='any', min=None) -%}
+{% macro num(s, name, label, help='', step='any', min=None, disabled=False) -%}
 <label>{{ label }}
   {# text + inputmode: native number inputs show the OS locale ("90,0"); the site always shows "90.0" #}
   <input type="text" inputmode="decimal" name="{{ name }}" value="{{ s[name] }}" autocomplete="off"
-         pattern="-?[0-9]+([.,][0-9]+)?" {% if min is not none %}data-min="{{ min }}"{% endif %}>
+         pattern="-?[0-9]+([.,][0-9]+)?" {% if min is not none %}data-min="{{ min }}"{% endif %}{% if disabled %} disabled{% endif %}>
   {% if help %}<small>{{ help }}</small>{% endif %}
 </label>
 {%- endmacro %}

@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from astracore import db
-from astracore.core import fmt
+from astracore.core import fmt, freshness
 from astracore.core.registry import SCOPE_TEXT
 from astracore.core.auth import bundle_active
 from astracore.core.sessions import require_user
@@ -36,7 +36,7 @@ from astracore.esi.client import ESI_BASE, default_headers
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import compare, operate, optimizer, prices, setups, upkeep
+from .planner import compare, nextup, operate, optimizer, prices, setups
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, TEXT_LIMITS, Settings, time_weights
 from .static_data import dalshooth, voc
@@ -178,24 +178,30 @@ async def area_save(request: Request):
     pid = _pid(request)
     form = await request.form()
     s = store.load_settings(pid)
-    s.selected_constellations = [int(x) for x in form.getlist("con")]
-    s.hub_system = form.get("hub_system", "")[:TEXT_LIMITS["hub_system"]]
+    chosen = [int(x) for x in form.getlist("con")]
     new_extra = form.get("extra_area", "").strip()[:TEXT_LIMITS["extra_area"]]
     extra_changed = new_extra != s.extra_area
+    refresh = bool(form.get("refresh"))
+    if not chosen and not (extra_changed or refresh):
+        # never save an empty selection: it would quietly turn back into the default on the next visit
+        return redirect("/pi/area", "Select at least one constellation. Nothing was changed.", "warn")
+    if chosen:
+        s.selected_constellations = chosen
+    s.hub_system = form.get("hub_system", "")[:100]
     s.extra_area = new_extra
     store.save_settings(pid, s)
-    if extra_changed or form.get("refresh"):
+    if extra_changed or refresh:
         try:
-            await service.load_space(service.planning_characters(pid), s, force=bool(form.get("refresh")))
+            await service.load_space(service.planning_characters(pid), s, force=refresh)
         except Exception as e:  # noqa: BLE001 - the saved choice stays; say plainly what didn't happen
             if not esi_errors.is_outage(e):
                 raise
             log.warning("area refresh failed: %r", e)
             return redirect("/pi/area", "Your choices are saved, but the area couldn't be read from EVE. "
                             + esi_errors.explain(e), "warn")
-        return redirect("/pi/area", "Area updated.")
-    if not s.selected_constellations:
-        return redirect("/pi/area", "Select at least one constellation.", "warn")
+        msg = ("Reloaded from ESI and saved your selection." if refresh else
+               "Added places are listed below: tick the constellations you want, then Save and plan.")
+        return redirect("/pi/area", msg)
     return redirect(form.get("next") or "/pi/plan")
 
 
@@ -476,18 +482,17 @@ async def operate_page(request: Request):
     plan = active["result"] if active else None
     days = 30 if request.query_params.get("days") == "30" else 7
     missing = [c["name"] for c in chars if not service.pi_ready(c)]
-    stock = operate.hangar_stock(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"])
+    ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], plan)
     return render(request, "operate.html", "operate", "Operate", chars=chars,
                   status=operate.colonies_status(ctx["pi"], chars, ctx["area"]),
-                  upkeep=upkeep.schedule(ctx["pi"], ctx["s"], chars, plan, ctx["area"]),
-                  stock=stock, consolidated=operate.consolidate(stock, ctx["area"]),
-                  pipe=operate.pipeline(ctx["pi"], ctx["books"], chars),
+                  upkeep=ov["upkeep"], stock=ov["stock"], consolidated=ov["consolidated"], pipe=ov["pipe"],
+                  next_up=ov["next_up"][:nextup.SHOWN], next_up_more=max(0, len(ov["next_up"]) - nextup.SHOWN),
+                  all_clear=ov["all_clear"], has_colonies=ov["has_colonies"],
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,
-                  progress=service.progress(plan, chars, ctx["pi"]),
-                  drift=service.plan_drift(plan, chars, ctx["pi"]), plan=plan, active=active, missing=missing,
+                  progress=ov["progress"], drift=ov["drift"], plan=plan, active=active, missing=missing,
                   checklist=service.first_build(ctx, active),
-                  plans=store.list_plan_runs(pid),
-                  synced=min((c.get("synced_at") or 0) for c in chars), buyback_site=voc.BUYBACK_SITE,
+                  plans=store.list_plan_runs(pid), freshness=freshness.state(pid),
+                  colony_note=freshness.COLONY_NOTE, buyback_site=voc.BUYBACK_SITE,
                   voc_site=voc.SITE, waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))
 
 

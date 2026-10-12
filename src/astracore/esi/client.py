@@ -69,9 +69,9 @@ class _Budget:
     """One ESI budget for the whole process: every user shares this machine's IP, so the error limit,
     the rate limits and the number of requests in flight are tracked globally, not per client.
 
-    When a request still fails after its retries (ESI down, timing out or answering 5xx), every caller
-    fails fast for DOWN_COOLDOWN seconds instead of retrying on its own: pages then show their last
-    known data at once rather than waiting minutes for an ESI that isn't there."""
+    When ESI can't be reached at all (connection errors or timeouts, and nothing answered recently),
+    every caller fails fast for DOWN_COOLDOWN seconds instead of retrying on its own: pages then show
+    their last known data at once rather than waiting minutes for an ESI that isn't there."""
 
     MAX_IN_FLIGHT = 20
     DOWN_COOLDOWN = 30.0
@@ -111,10 +111,12 @@ class _Budget:
             self.pause_until = max(self.pause_until, time.time() + min(retry, 120))
 
     def trip(self, kind: str) -> None:
-        """A request gave up: remember the outage and let other callers fail fast for a while."""
+        """A request gave up. Other callers only fail fast when ESI as a whole looks down: the request
+        couldn't connect or timed out, and no route answered in the last DOWN_COOLDOWN seconds. One route
+        answering 5xx (or one flaky endpoint) never stops every other request and page."""
         now = time.time()
         self.last_failure, self.down_kind = now, kind
-        if kind != "error_limit":          # the error limit has its own pause (pause_until)
+        if kind in ("unreachable", "timeout") and now - self.last_ok > self.DOWN_COOLDOWN:
             self.down_until = max(self.down_until, now + self.DOWN_COOLDOWN)
 
     def outage(self) -> Optional[str]:

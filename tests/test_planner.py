@@ -147,6 +147,8 @@ def test_low_ccu_character_excluded(pi):
     res = _plan(pi, chars=CHARS + [{"character_id": 3, "name": "Low", "slots": 6, "ccu_level": 1, "colonies": []}])
     assert all(c["character"] != "Low" for c in res["colonies"])
     assert any("Low" in w for w in res["warnings"])
+    assert res["totals"]["slots_total"] == sum(c["slots"] for c in CHARS)
+    assert res["totals"]["slots_total"] == sum(c["slots"] for c in res["characters"])
 
 
 def test_no_transfers_when_cross_character_off(pi):

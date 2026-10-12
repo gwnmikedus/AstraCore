@@ -10,7 +10,7 @@
   <div>
     <div class="eyebrow">PI / Mission planning</div>
     <h1>Build an operation that fits your life.</h1>
-    <div class="ctx">{{ chars|length }} character{{ 's' if chars|length != 1 }} · {{ slots }} colony slots · {{ n_systems }} systems selected
+    <div class="ctx">{{ chars|length }} character{{ 's' if chars|length != 1 }}{% if eligible_characters < chars|length %} ({{ eligible_characters }} can plan){% endif %} · {{ slots }} colony slots · {{ n_systems }} systems selected
       {% if dropoff %}· drop-off {{ dropoff }}{% endif %}
       · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|num }} P0/h per head)</span>{% endif %}</div>
     <a class="adv" href="{{ advanced_url }}">Advanced: all options on one screen →</a>

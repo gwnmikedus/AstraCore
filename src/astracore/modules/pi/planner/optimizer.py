@@ -609,7 +609,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         "systems": len(used_sys),
         "system_visits": sum(len(c["systems"]) for c in chars_out),
         "colonies": len(colonies),
-        "slots_total": sum(int(c["slots"]) for c in characters),
+        "slots_total": total_slots,
         "miners": miners,
         "factories": len(colonies) - miners,
         "restarts_per_week": round(miners * 7 / max(0.5, s.cycle_days), 1),

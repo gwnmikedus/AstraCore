@@ -47,6 +47,31 @@ def test_wizard_save_changes_only_what_was_sent(browser, eve):
     assert s.buyback_pct == 90.0                                       # admin-only value can't be set by a profile
 
 
+def test_plan_header_distinguishes_connected_and_eligible_characters(browser, eve, monkeypatch):
+    from astracore.modules.pi import service
+
+    c = browser()
+    sso_login(c, eve, new_id(), "Planner")
+    chars = [
+        {"character_id": 1, "name": "Ready", "slots": 6, "ccu_level": 5},
+        {"character_id": 2, "name": "Training", "slots": 1, "ccu_level": 0},
+    ]
+
+    async def context(pid):
+        return {"s": Settings(), "chars": chars, "systems": {}, "area": {}, "calibrated": False,
+                "head_yield": 1500, "dropoff": None, "seller": None}
+
+    monkeypatch.setattr(service, "planning_context", context)
+    r = c.get("/pi/plan")
+    assert r.status_code == 200
+    assert "2 characters (1 can plan) · 6 colony slots" in r.text
+
+    chars[1]["ccu_level"] = 2
+    r = c.get("/pi/plan")
+    assert "2 characters · 7 colony slots" in r.text
+    assert "(2 can plan)" not in r.text
+
+
 def test_admin_values_override_profile_settings():
     pid = db.create_profile("Admin test")
     store.save_admin_settings({"buyback_pct": "85"})

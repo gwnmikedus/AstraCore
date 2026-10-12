@@ -66,17 +66,19 @@
       <div class="hint">VOC picks up couriers at {{ voc_hubs|join(', ') }}.</div>
     </div>
     <div class="ctl">
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_buyback"> VOC buyback</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_jita"> Courier to Jita</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_amarr"> Courier to Amarr</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_local"> Delve buy orders</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
+      <label data-local-channel style="font-weight:600" {% if not selling_coverage.local %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.local %}disabled{% endif %}> VOC buyback</span></label>
+      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_jita"> Sell at Jita</span></label>
+      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_amarr"> Sell at Amarr</span></label>
+      <label data-local-channel style="font-weight:600" {% if not selling_coverage.local %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Delve buy orders</span></label>
+      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_self_haul"> Haul to the trade hub myself</span></label>
+      <p class="hint">Your journey time, fuel and loss risk are not priced. {% if not selling_coverage.courier and not selling_coverage.trade_hub %}VOC has no route from this drop-off; enable your own trip to use Jita or Amarr.{% endif %}</p>
+      <label data-order-channel style="font-weight:600" {% if not selling_coverage.trade_hub and (s.use_self_haul or not selling_coverage.courier) %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
       <div class="hint">Each product goes to whichever enabled option pays most after fees. Sell orders pay more but you have to list and update them.</div>
     </div>
     <div class="ctl">
       <label>Sell a batch every <output id="o-ship_every_days"></output></label>
       <input type="range" id="ship_every_days" min="1" max="28" step="1">
-      <div class="hint">Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).</div>
+      <div class="hint" id="batch-transport-note">{% if s.use_self_haul %}Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.{% else %}Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).{% endif %}</div>
     </div>
     <div class="hint" style="margin-bottom:1rem">Prices updated {{ prices_at|ago }} · <a href="#" id="refresh-prices">refresh now</a></div>
     <div class="ctl">
@@ -104,7 +106,7 @@
 const S = JSON.parse({{ settings_json|tojson }});   // tojson: free-text settings can never end this script block
 const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}', EXPORT_Q = '?current=1';
 const WAYPOINT_CHARS = {{ waypoints|tojson }};
-const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders'];
+const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_self_haul', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, esc} = AC;
 
@@ -205,7 +207,22 @@ function markAlt() {
 
 // ---- rendering -------------------------------------------------------------------------
 {% include "pi/_plan_render.html" %}
+function updateSellingCoverage(coverage) {
+  if (!coverage) return;
+  const ownTrip = $('use_self_haul').checked;
+  const orders = document.querySelector('[data-order-channel]');
+  orders.hidden = !coverage.trade_hub && (ownTrip || !coverage.courier);
+  $('use_sell_orders').disabled = orders.hidden;
+  $('batch-transport-note').textContent = ownTrip
+    ? 'Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.'
+    : "Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).";
+  document.querySelectorAll("[data-local-channel]").forEach(label => {
+    label.hidden = !coverage.local;
+    label.querySelector("input").disabled = !coverage.local;
+  });
+}
 function render(res, st) {
+  updateSellingCoverage(res.selling_coverage);
   const w = res.weights || {};
   $('h-effort').textContent = w.isk_per_m3 !== undefined
     ? (w.isk_per_m3 > 0 ? `Weighed against your time: each m³ hauled costs ${num(w.isk_per_m3)} ISK, each system on the pickup round ` +

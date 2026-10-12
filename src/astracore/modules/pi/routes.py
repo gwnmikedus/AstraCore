@@ -36,7 +36,7 @@ from astracore.esi.client import ESI_BASE, default_headers
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import compare, nextup, operate, optimizer, prices, setups
+from .planner import compare, nextup, operate, optimizer, prices, selling, setups
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, TEXT_LIMITS, Settings, time_weights
 from .static_data import dalshooth, voc
@@ -48,7 +48,7 @@ PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
                "cross_character", "hub_system", "product_blacklist", "use_buyback", "use_jita",
-               "use_amarr", "use_local", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
+               "use_amarr", "use_local", "use_self_haul", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
                "answered", "selected_constellations", "extra_area"}
 
 
@@ -250,7 +250,7 @@ async def plan_page(request: Request):
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
                   blocked_characters=len(ctx["chars"]) - len(eligible),
                   n_systems=len(ctx["systems"]),
-                  dropoff=ctx["dropoff"], seller=ctx["seller"], api="/pi/api", export="/pi/export",
+                  dropoff=ctx["dropoff"], selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,

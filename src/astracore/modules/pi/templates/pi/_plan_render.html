@@ -51,7 +51,7 @@ function planHTML(res, opts = {}) {
   PRINT_PLAN = res;
   const t = res.totals;
   let h = `<div class="cards">
-    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">ISK / day, after taxes, hauling &amp; fees</div></div>
+    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">${res.self_haul ? "ISK / day, after taxes &amp; fees, before your own trip" : "ISK / day, after taxes, hauling &amp; fees"}</div></div>
     <div class="card"><div class="v">${isk(t.isk_per_week)}</div><div class="l">ISK / week</div></div>
     <div class="card"><div class="v">${m3(t.m3_per_week)}</div><div class="l">to haul / week</div></div>
     <div class="card"><div class="v">${t.systems}</div><div class="l">systems · drop-off ${esc(res.hub)}</div></div>

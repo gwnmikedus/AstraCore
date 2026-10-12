@@ -86,7 +86,7 @@
   <div class="grid" style="align-items:end">
     <label>Drop-off (where you collect products and ship them from)
       <select name="hub_system">
-        <option value="">Auto (best spot in the selection, VOC pickups preferred)</option>
+        <option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         <optgroup label="In your selection">
         {% for name in sel_systems %}<option {% if s.hub_system == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
         </optgroup>

@@ -60,7 +60,7 @@
     <div class="ctl">
       <label>Drop-off (where you bring products)</label>
       <select id="hub_system" style="margin:0">
-        <option value="">Auto (nearest VOC location)</option>
+        <option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         {% for n in systems %}<option>{{ n }}</option>{% endfor %}
       </select>
       <div class="hint">VOC picks up couriers at {{ voc_hubs|join(', ') }}.</div>
@@ -135,6 +135,11 @@ function init() {
   for (const k of CHANNELS) $(k).checked = !!S[k];
   $('max_systems').value = S.max_systems === 0 ? 11 : S.max_systems;
   $('cross_character').checked = !!S.cross_character;
+  // A drop-off saved on the Area page may not be in this list: show it rather than a blank select,
+  // which would save an empty drop-off on the next change.
+  if (S.hub_system && ![...$('hub_system').options].some(o => o.value === S.hub_system)) {
+    $('hub_system').add(new Option(`${S.hub_system} (outside the selected area: Auto is used)`, S.hub_system));
+  }
   $('hub_system').value = S.hub_system || '';
   $('product_blacklist').value = (S.product_blacklist || []).join(', ');
   setTier(S.max_tier);
@@ -172,10 +177,15 @@ async function update() {
   } catch (e) { if (e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
   finally { $('busy').style.display = 'none'; $('result').classList.remove('loading'); }
 }
+let altSeq = 0;
 async function loadAlts() {
+  const my = ++altSeq;            // only the newest comparison may draw (an older answer can arrive later)
   $('alts-note').textContent = '- comparing goals…';
-  const alts = await AC.post(API + '/alternatives', {});
-  if (alts.superseded || !Array.isArray(alts)) { $('alts-note').textContent = ''; return; }
+  let alts;
+  try { alts = await AC.post(API + '/alternatives', {}); } catch (e) { alts = {error: String(e)}; }
+  if (my !== altSeq) return;
+  if (alts.superseded) { $('alts-note').textContent = ''; return; }
+  if (!Array.isArray(alts)) { $('alts-note').textContent = '- comparison unavailable, change a setting to retry'; return; }
   $('alts').innerHTML = alts.map(a => a.error ? `<div class="alt"><div class="t">${a.name}</div><div class="bad muted">${esc(a.error)}</div></div>` : `
     <div class="alt" data-effort="${a.effort}" ${a.dominated ? 'style="opacity:.55"' : ''}>
       <div class="t">${a.name}${a.dominated ? ` <span class="muted">· no gain for the extra effort${a.same_as ? ' - same as ' + esc(a.same_as) : ''}</span>` : ''}</div>

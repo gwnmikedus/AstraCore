@@ -517,7 +517,7 @@ def roadmap_board(issues: list) -> dict:
 async def roadmap_page(request: Request):
     user = request.state.user
     mine = feedback_for(user["id"]) if user else []
-    return render(request, "community.html", page="community", page_title="Roadmap & feedback",
+    return render(request, "community.html", page="community", page_title="Community",
                   board=roadmap_board(public_issues()), mine=mine, sync=sync_state(), github_url=repository_url(),
                   research_url=RESEARCH_URL)
 

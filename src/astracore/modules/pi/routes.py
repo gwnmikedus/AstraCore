@@ -71,8 +71,9 @@ def superseded_response() -> JSONResponse:
 
 # ----------------------------------------------------------------------------- entry
 @router.get("", response_class=HTMLResponse)
-async def entry(request: Request):
+async def entry(request: Request, rhythm: str = ""):
     pid = _pid(request)
+    store.apply_preview_goal(pid, rhythm)
     db.update_profile(pid, onboarded=1)
     state = service.entry_state(pid)
     if state == "connect":

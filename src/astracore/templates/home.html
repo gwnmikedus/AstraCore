@@ -52,7 +52,7 @@
         <div><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="88" height="64" alt="Epithal PI hauler"><span>Collect &amp; sell</span></div>
       </div>
       <div class="preview-routine"><div><span class="console-label">On your planets</span><p data-preview-planets>Restart extractors. Pick up products.</p></div><div><span class="console-label">Your trade-off</span><p data-preview-tradeoff>Less upkeep; lower hourly extraction.</p></div></div>
-      <a href="{{ '/pi' if user else '/auth/login' }}" class="text-action">Find what works for my characters {{ icon('arrow-right') }}</a>
+      <a href="{{ '/pi' if user else '/auth/login' }}?rhythm=passive" class="text-action" data-preview-start>Find what works for my characters {{ icon('arrow-right') }}</a>
     </div>
   </div>
   <noscript><p class="muted">Sign in to compare set and forget, balanced, and maximum ISK with your characters.</p></noscript>

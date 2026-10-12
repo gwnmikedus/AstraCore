@@ -1,0 +1,88 @@
+# Integration register
+
+Every outside source AstraCore reads or shows, what we use it for, on what basis, and how it is
+credited. Keep this file up to date in the same pull request that adds or changes an integration.
+
+Rules for every source:
+
+- A public download is not permission to redistribute or relicense someone else's work. Record the
+  basis here; when it is unclear, ask the owner and link to their files instead of copying them.
+- Never forward a pilot's EVE tokens or data to another service.
+- New providers need a demonstrated PI problem they solve, the provider's own terms, and (when they
+  issue one) an app-specific key.
+- Credit sources where their results appear, not only on the Credits page.
+
+Status: **ok** (basis documented), **open** (needs an answer from the owner), **review** (check the
+terms again).
+
+---
+
+## EVE Online ESI and EVE SSO: ok
+
+| | |
+|---|---|
+| Owner / contact | Fenris Creations (formerly CCP Games), developers.eveonline.com |
+| URLs | `https://esi.evetech.net`, `https://login.eveonline.com`, `https://images.evetech.net` |
+| Basis | EVE Developer License Agreement (developers.eveonline.com/license-agreement); the copyright notice in the site footer |
+| What we read | Public universe, market, sovereignty and route data; per character, with the pilot's consent, only the scopes listed on What we read (`modules/pi/module.py`) |
+| Version | `X-Compatibility-Date` pinned in `esi/client.py` (`COMPATIBILITY_DATE`) |
+| Refresh | Respects each response's `Expires`; ETag revalidation; error-limit back-off (`esi/client.py`) |
+| Private fields | Character data is personal: cached per character, deleted with the character or profile, dropped once expired |
+| Attribution | Footer licence notice; What we read; Credits |
+| On failure | Pages fall back to the last stored copy and say so; nothing is valued at 0 because a fetch failed |
+| Removal | A pilot removes a character or resets the profile; tokens are revoked at EVE |
+
+## Fuzzwork static data export: ok
+
+| | |
+|---|---|
+| Owner / contact | Steve Ronuken, fuzzwork.co.uk |
+| URL | `https://www.fuzzwork.co.uk/dump/latest/csv/<table>.csv` (`modules/pi/static_data/sde_loader.py`) |
+| Basis | Public conversion of CCP's static data export; the SDE itself falls under the EVE Developer License. Credited as a courtesy |
+| What we use | Planet schematics, item names, volumes, tiers and groups needed for PI |
+| Stored | Downloaded at runtime into the ignored data directory; not committed |
+| Attribution | Credits page and THIRD_PARTY_NOTICES.md |
+| On failure | The last downloaded copy keeps working; CCP's official SDE is an alternative source |
+
+## DalShooth PI templates: open
+
+| | |
+|---|---|
+| Owner / contact | DalShooth, github.com/DalShooth/EVE_PI_Templates |
+| URLs | GitHub tree API and raw files (`modules/pi/static_data/dalshooth.py`) |
+| Basis | **Not settled.** The repository has no licence file. Permission to bundle the templates in `/pi/export/templates.zip` is being asked for in #71 |
+| What we use | Template layouts (structure counts, planet type, Command Center level) to plan colonies; AstraCore never authors or generates templates |
+| Attribution | Credits page, home page, and a link to each template's source file on plan rows |
+| Feedback upstream | Template issues the planner finds (planet type mismatch, CCU level) go back to the repository as issues (#71) |
+| Until settled | Prefer linking to the files on GitHub over redistributing copies |
+
+## VOC Hauling: review
+
+| | |
+|---|---|
+| Owner / contact | United East-Indian Compagnie, vochauling.com |
+| URLs | `https://vochauling.com/` (published courier tariff), `https://buyback.vochauling.com/` (link only) |
+| Basis | Published service information, read from the public tariff page; buyback terms are admin settings. Their names and published service details remain theirs (THIRD_PARTY_NOTICES.md) |
+| What we use | Courier routes, minimum fees and rates to price couriers; the buyback percentage for P2+ |
+| Refresh | Tariff page is re-read periodically (`voc.refresh_routes`); quotes show the tariff's date |
+| Attribution | Named wherever a VOC route, quote or buyback is shown; a quote is not a booking or a guarantee |
+| Open points | Confirm VOC is happy with the tariff being read automatically; make other couriers possible (#73) |
+
+## GitHub: ok
+
+| | |
+|---|---|
+| Owner | GitHub, Inc. |
+| URLs | `https://api.github.com` (issues, labels, contributors), `https://avatars.githubusercontent.com` |
+| Basis | GitHub API terms; the AstraCore repository's own issues |
+| What we use | Roadmap and issue status for the Community page; publishing feedback the pilot confirmed; contributor profiles for Credits |
+| Private fields | Feedback is published only after the pilot previews and confirms it; no identity, tokens or EVE data are attached |
+| Attribution | Links back to each issue and contributor profile |
+
+## Links only (no data read)
+
+| Source | Where | Note |
+|---|---|---|
+| EVE developer docs (extraction formula) | `modules/pi/static_data/extraction.py` | Formula source, credited in the code |
+| Reddit thread on PI tools | Community roadmap research link | Link only |
+| Other community tools | Community hub (#72, #108) | Neutral links; tool authors can ask for edits |

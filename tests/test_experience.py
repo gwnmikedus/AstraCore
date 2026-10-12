@@ -133,15 +133,14 @@ def test_feedback_menu_marks_only_the_selected_report_kind(browser):
         assert current == [f'/feedback?kind={kind}']
 
 
-def test_signed_in_pi_settings_use_the_shared_external_link(browser, eve):
+def test_voc_reference_uses_the_shared_external_link(browser, eve):
     from astracore.modules.pi.static_data.voc import SITE
 
     client = browser()
     sso_login(client, eve, new_id(), 'Link inspector', scopes='publicData')
-    response = client.get('/pi/settings')
+    assert 'href="/voc-hauling"' in client.get('/pi/settings').text   # settings point to the credited page
+    response = client.get('/voc-hauling')
     assert response.status_code == 200
     links = OutboundLinks.parse(response.text)
     voc = [link for link in links if link['attrs']['href'] == SITE]
-    assert len(voc) == 1
-    assert voc[0]['indicators'] == 1
-    assert 'opens in a new tab' in voc[0]['text']
+    assert voc and all(link['indicators'] == 1 and 'opens in a new tab' in link['text'] for link in voc)

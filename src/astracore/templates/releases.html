@@ -17,6 +17,12 @@
       <div class="eyebrow">Version {{ release.version }}{% if release.date %} · <time datetime="{{ release.date }}">{{ release.date }}</time>{% else %} · Historical baseline · date not recorded{% endif %}{% if release.version == app_release.base %} · Running here{% if app_release.patch %} (as {{ app_release.version }}){% endif %}{% endif %}</div>
       <h2 id="release-title-{{ loop.index }}">{{ release.title }}</h2>
       {% if release.changes %}<ul>{% for change in release.changes %}<li>{{ change }}</li>{% endfor %}</ul>{% else %}<p class="muted">Maintenance update. Technical details are available below.</p>{% endif %}
+      {% set credits = release_credits(release) if release_credits is defined else [] %}
+      {% if credits %}
+      <h3>Reported by pilots</h3>
+      <ul class="release-credits">{% for credit in credits %}<li>{% call external_link(credit.url) %}#{{ credit.number }} · {{ credit.title }}{% endcall %}: reported by {% for name in credit.names %}<strong>{{ name }}</strong>{{ ', ' if not loop.last }}{% endfor %}</li>{% endfor %}</ul>
+      <p class="muted">Thank you. Names appear only with the reporter’s permission.</p>
+      {% endif %}
       {% if release.limitations %}
       <h3>Good to know</h3>
       <ul>{% for limitation in release.limitations %}<li>{{ limitation }}</li>{% endfor %}</ul>

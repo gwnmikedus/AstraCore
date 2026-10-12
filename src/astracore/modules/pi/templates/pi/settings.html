@@ -8,12 +8,15 @@
 <p>Set the assumptions behind your plan. Real character data is used where available.</p>
 {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </header>
+{% set yield_live = s.auto_calibrate and calibrated %}
 <form method="post" action="/pi/settings">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <article>
   <header><strong>Selling &amp; taxes</strong></header>
   <p class="muted">Buyback terms and courier fees are shared site assumptions. See <a href="/voc-hauling">About VOC Hauling</a> for the credited tariff reference.</p>
-  {{ check(s, 'taxes_from_skills', 'Take sales tax and broker fee from my characters’ skills and standings (ESI)') }}
+  <p>{% if s.taxes_from_skills %}Sales tax and broker fee come from your characters’ skills and standings.
+    {% else %}You entered sales tax {{ s.sales_tax_pct|pct }} and broker fee {{ s.broker_fee_pct|pct }} yourself
+    (<a href="/pi/settings?expert=1#expert-taxes">Expert</a>).{% endif %}</p>
   {% if rates %}
   <div class="scroll"><table>
     <thead><tr><th>Character</th><th>Accounting</th><th>Sales tax</th><th>Broker Relations</th><th>Broker fee Jita / Amarr</th></tr></thead>
@@ -25,29 +28,52 @@
     The planner values products at the seller’s rates. Products other characters hold in hangars are valued at their own rates on Operate.
     Training Accounting on the seller is the cheapest ISK gain (each level ≈ 0.8% of everything sold on the market).</small></p>
   {% endif %}
-  <div class="grid">
-    {{ num(s, 'sales_tax_pct', 'Sales tax % (only when the switch above is off)', 'Read from your characters while the switch is on.' if s.taxes_from_skills else '', disabled=s.taxes_from_skills) }}
-    {{ num(s, 'broker_fee_pct', 'Broker fee % (sell orders, only when the switch is off)', '', disabled=s.taxes_from_skills) }}
-  </div>
-  <div class="grid">
-    {{ num(s, 'poco_tax_pct', 'Customs office tax % (where the real rate isn’t known)', 'Import tax is half of this.') }}
-  </div>
-  {% if poco %}<p class="ok"><small>Read from ESI for {{ poco|length }} system{{ '' if poco|length == 1 else 's' }}: {% for sid, r in poco.items() %}{{ r|pct }}{% if not loop.last %}, {% endif %}{% endfor %}. Used there instead of the value above.</small></p>
-  {% elif customs_on %}<p class="muted"><small>Real customs rates are switched on for {{ customs_on|join(', ') }}, but ESI shows them only to
-    Directors of the owning corporation. Ask your alliance what the POCO tax is for members.</small></p>
-  {% else %}<p class="muted"><small>For the real POCO tax, switch on <em>Real customs office tax</em> for a Director character on your
-    <a href="/profile">profile</a>. Otherwise the value above is used.</small></p>{% endif %}
 </article>
-<article>
-  <header><strong>Extraction yield</strong></header>
-  {{ check(s, 'auto_calibrate', 'Use yield measured from my characters’ real extractors when available') }}
-  {% if calibrated %}<p class="ok">Measured from your extractors: {{ calibrated|num }} P0/hour/head (EVE’s official extraction formula, normalised to richness 1.0 and a 3-day program).
-    {% if measured %}Richness of {{ measured|length }} planet{{ '' if measured|length == 1 else 's' }} is also taken from your extractors.{% endif %}</p>
-  {% else %}<p class="muted">No extractor data from your characters yet, so the value below is used.</p>{% endif %}
-  {{ num(s, 'head_yield_per_hour', 'Fallback: P0 per hour per extractor head (richness 1.0, 3-day cycle)') }}
-  {{ num(s, 'stack_yield_pct', 'Yield of each extra colony on the same resource on one planet (%)', 'Two of your colonies extracting the same P0 on one planet share its deposits. 70 = the 2nd gets 70%, the 3rd 49% of the first.') }}
-</article>
-<button>Save</button>
+
+{# One collapsed home for the planner's expert assumptions (issue #105). The guided setup never asks these. #}
+<details class="box expert" id="expert" {{ 'open' if expert_open }}>
+  <summary><strong>Expert</strong> <span class="muted">planner assumptions most pilots never need to change</span></summary>
+
+  <section class="expert-part" id="expert-yield">
+    <h3>Extraction yield</h3>
+    <p class="expert-status {{ 'ok' if yield_live else 'warn' }}" data-yield-status>
+      {% if yield_live %}Calibrated from your extractors: {{ calibrated|num }} P0/h per head
+        <small class="muted">(EVE’s extraction formula, normalised to richness 1.0 and a 3-day program)</small>
+      {% else %}Estimate: {{ s.head_yield_per_hour|num }} P0/h per head
+        <small class="muted">{% if calibrated %}(measuring from your extractors is switched off){% else %}(no extractor data from your characters yet){% endif %}</small>{% endif %}</p>
+    {% if yield_live and measured %}<p class="muted"><small>Richness of {{ measured|length }} planet{{ '' if measured|length == 1 else 's' }} is also taken from your extractors (listed on <a href="/pi/area#richness">Area</a>).</small></p>{% endif %}
+    {{ check(s, 'auto_calibrate', 'Use yield measured from my characters’ real extractors when available') }}
+    <details class="expert-edit" {{ 'open' if not yield_live }}>
+      <summary>{{ 'Change the estimate' if not yield_live else 'Estimate used without extractor data' }}</summary>
+      {{ num(s, 'head_yield_per_hour', 'Estimated P0 per hour per extractor head', 'At richness 1.0 on a 3-day program. Your plan’s ISK scales with this number.') }}
+    </details>
+  </section>
+
+  <section class="expert-part" id="expert-sharing">
+    <h3>Colonies sharing a planet</h3>
+    <p class="muted"><small>Used when “Your colonies per planet” is 2 or 3 (now {{ s.per_planet }}). Two of your colonies extracting the same
+      P0 on one planet share its deposits.</small></p>
+    {{ num(s, 'stack_yield_pct', 'Shared deposit: yield of each extra colony on the same resource (%)', '70 = the 2nd colony gets 70%, the 3rd 49% of the first.') }}
+  </section>
+
+  <section class="expert-part" id="expert-taxes">
+    <h3>Taxes</h3>
+    {{ check(s, 'taxes_from_skills', 'Take sales tax and broker fee from my characters’ skills and standings (ESI)') }}
+    <div class="tax-manual">
+      <div class="grid">
+        {{ num(s, 'sales_tax_pct', 'Sales tax %') }}
+        {{ num(s, 'broker_fee_pct', 'Broker fee % (sell orders)') }}
+      </div>
+    </div>
+    {{ num(s, 'poco_tax_pct', 'Customs tax % where the real rate is unknown (export; import is charged at half)') }}
+    {% if poco %}<p class="ok"><small>Read from ESI for {{ poco|length }} system{{ '' if poco|length == 1 else 's' }}: {% for sid, r in poco.items() %}{{ r|pct }}{% if not loop.last %}, {% endif %}{% endfor %}. Used there instead of the value above.</small></p>
+    {% elif customs_on %}<p class="muted"><small>Real customs rates are switched on for {{ customs_on|join(', ') }}, but ESI shows them only to
+      Directors of the owning corporation. Ask your alliance what the POCO tax is for members.</small></p>
+    {% else %}<p class="muted"><small>For the real POCO tax, switch on <em>Real customs office tax</em> for a Director character on your
+      <a href="/profile">profile</a>. Otherwise the value above is used.</small></p>{% endif %}
+  </section>
+  <button>Save</button>
+</details>
 </form>
 
 {% endblock %}

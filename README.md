@@ -70,7 +70,7 @@ Never commit them (`.env*` is gitignored) and keep them `chmod 600`. Keys (see `
 | `ASTRACORE_SESSION_SECRET` | keys the stored session ids and signed messages |
 | `ASTRACORE_ADMIN_CHARACTER_IDS` | characters whose profile is the admin (admin page, VOC buyback %, invite list) |
 | `ASTRACORE_ALLOWED_CHARACTERS` / `_CORPS` / `_ALLIANCES` | invite list (production); more can be added on `/admin` without a restart |
-| `ASTRACORE_SOLVE_CONCURRENCY` | plans solved at the same time (default 2) |
+| `ASTRACORE_SOLVE_CONCURRENCY` | plans solved at the same time (default: half the CPU cores, at least 2 and at most 4) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | production only; from the Cloudflare dashboard. Never printed or logged. |
 
 Generate keys with `.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
@@ -177,12 +177,15 @@ Command Center Upgrades (nullsec miners CCU 4, lowsec miners 5, factories 2–3)
   Once 2+ of your colonies extract, richness is measured from your extractors (manual values still win).
 - P0/hour/head is 1000 at richness 1.0 on a 3-day program until your characters have extractors; then it is calibrated
   with EVE's official extraction formula (<https://developers.eveonline.com/docs/guides/pi/>: bar width + decay).
-  While it's an estimate, the plan's headline says so and shows the ISK at 0.5× and 2× the yield.
+  While it's an estimate, the plan's headline says so and, on request, shows the ISK at 0.5× and 2× the yield.
 - Sales tax and broker fee come from the selling character's skills and standings. Customs tax is read from ESI for
   characters with the optional customs bundle switched on (needs a Director of the owning corp), otherwise the Settings value.
 - A 2nd/3rd colony on the same resource on one planet counts at 70% / 49% yield (Settings).
 - The engine solves a pooled integer program over (planet, template) pairs (PuLP/CBC). At most
-  `ASTRACORE_SOLVE_CONCURRENCY` solves run at once; one request per profile; results are cached.
+  `ASTRACORE_SOLVE_CONCURRENCY` solves run at once; one request per profile; results are cached and a solve
+  two requests need is shared. The guided setup streams each answer card as soon as it is planned, shows the
+  pilot's place in the queue when the planner is busy, and plans the next question's cards in the background
+  while the pilot reads (only in a free slot nobody waits for). `scripts/bench_guided_setup.py` measures it.
 
 ## Tests
 

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_links.html" import external_link %}
+{% block content %}
+<header class="ac-page-header">
+<div class="eyebrow">PI / Help</div>
+<h1 class="page-title">Glossary</h1>
+<p>The words AstraCore uses for planetary interaction, in plain English. The “?” buttons in your plan link here.</p>
+</header>
+<dl class="glossary">
+  {% for g in entries %}
+  <dt id="{{ g.id }}">{{ g.term }}</dt>
+  <dd>{{ g.text }}{% if g.link %} {% if g.link.startswith('/') %}<a href="{{ g.link }}">{{ g.link_label }}</a>{% else %}{{ external_link(g.link, g.link_label) }}{% endif %}{% endif %}</dd>
+  {% endfor %}
+</dl>
+<p class="muted"><a href="/pi/plan">Back to your plan</a></p>
+{% endblock %}

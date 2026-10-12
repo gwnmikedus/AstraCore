@@ -453,3 +453,20 @@ def test_token_key_rotation_with_multifernet(monkeypatch):
     finally:
         db.delete_profile(pid)
         crypto._fernet.cache_clear()
+
+
+def test_data_export_includes_community_marks_and_credit_choices(browser, eve):
+    c = browser()
+    cid = new_id()
+    sso_login(c, eve, cid, "Marker")
+    pid, now = me(c), time.time()
+    with db.session() as conn:
+        conn.execute("INSERT INTO community_feedback(id,profile_id,submission_key,kind,title,body,version,created_at,"
+                     "updated_at,delivery,issue_number) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                     (f"fb-m-{pid}", pid, "k2", "idea", "Marked idea", "Text", "0.2.0", now, now, "published", 7))
+        conn.execute("INSERT INTO community_votes(profile_id,target,created_at) VALUES(?,?,?)", (pid, "issue:7", now))
+        conn.execute("INSERT INTO community_credit(feedback_id,character_id,created_at) VALUES(?,?,?)",
+                     (f"fb-m-{pid}", cid, now))
+    export = c.get("/profile/export.json").json()
+    assert [m["target"] for m in export["community_marks"]] == ["issue:7"]
+    assert [(x["feedback_id"], x["character_id"]) for x in export["report_credits"]] == [(f"fb-m-{pid}", cid)]

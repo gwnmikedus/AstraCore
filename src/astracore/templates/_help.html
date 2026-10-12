@@ -1,0 +1,7 @@
+{#- The "?" help toggle: a small button that shows a 1-3 sentence answer below it, with an optional
+    "More" link (usually a glossary entry). js/help.js makes it work and AC.helpHTML() builds the same
+    markup in the browser. Without show_label the button is a bare "?" named by `label` for screen readers;
+    with it, `label` is visible next to the "?". `id` must be unique on the page. -#}
+{% macro help_toggle(id, text, label='What does this mean?', more=none, more_label='More', show_label=false) -%}
+<span class="help-toggle"><button type="button" class="help-btn{{ ' labelled' if show_label }}" aria-expanded="false" aria-controls="{{ id }}"{% if not show_label %} aria-label="{{ label }}" title="{{ label }}"{% endif %}><span class="help-mark" aria-hidden="true">?</span>{% if show_label %}<span class="help-q">{{ label }}</span>{% endif %}</button><span class="help-answer" id="{{ id }}" hidden>{{ text }}{% if more %} <a href="{{ more }}">{{ more_label }}</a>{% endif %}</span></span>
+{%- endmacro %}

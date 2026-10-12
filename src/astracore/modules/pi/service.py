@@ -207,7 +207,10 @@ def _sell_side(ctx, res: dict) -> None:
                                        origin_jumps=ctx["origin_jumps"])
     res["channels"] = selling.compare_table(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"],
                                             list(units), ctx["local"], ctx["origin"])
-    res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS}
+    available = {k for row in res["channels"] for k in row["channels"]}
+    res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS if k in available}
+    res["selling_coverage"] = selling.coverage(ctx["dropoff"], ctx["area"])
+    res["self_haul"] = any(b["channel"].endswith("_self") for b in res["selling"]["batches"])
     res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], ctx.get("history") or {},
                                   res["selling"], res["channels"], units,
                                   ctx.get("books_at"), ctx.get("history_at"))
@@ -278,6 +281,14 @@ def replan_summary(d: dict, gain: float) -> str:
             f"{fmt.isk(gain)} ISK/day more once the batches are really sold. Details under Market demand.")
 
 
+def richness_sources(colonies: List[dict], manual: dict, measured: dict) -> None:
+    """Where each planned planet's richness comes from, for the plan rows' "Scanned in game" control:
+    "scan" (the pilot's own override wins), "extractors" (measured) or "estimate" (from security)."""
+    for c in colonies:
+        pid = c.get("planet_id")
+        c["richness_source"] = "scan" if pid in manual else "extractors" if pid in measured else "estimate"
+
+
 def run_plan(ctx, s=None) -> dict:
     """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
     whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
@@ -294,7 +305,7 @@ def run_plan(ctx, s=None) -> dict:
 
     res = solve_with(base)
     if "error" in res:
-        return res
+        return {**res, "selling_coverage": selling.coverage(ctx["dropoff"], ctx["area"])}
     real = demand.realistic_values(res["demand"], base)
     if real:   # at most one extra solve: the GATE slot is held for both
         values = {**base, **real}
@@ -308,6 +319,11 @@ def run_plan(ctx, s=None) -> dict:
                 again["warnings"].append(notices.note("replan", replan_summary(again["demand"], second - first),
                                                       level="info"))
                 res = again
+    if res.get("self_haul"):
+        res["warnings"].append(notices.note(
+            "self_haul", "You haul to the trade hub yourself. Income includes sales tax, but excludes the "
+            "time, fuel and loss risk of that journey; the pickup-round time estimate does not include it.",
+            steps=("sell",), level="info"))
     n_risky = len(res["demand"]["warnings"])
     if n_risky:
         res["warnings"].append(notices.note(
@@ -323,15 +339,16 @@ def run_plan(ctx, s=None) -> dict:
     res["taxes"] = {"sales_tax_pct": ctx["s"].sales_tax_pct, "broker_fee_pct": ctx["s"].broker_fee_pct,
                     "from_skills": bool(ctx["s"].taxes_from_skills and ctx["seller"])}
     res["yield"] = {"head_yield": round(ctx["head_yield"]), "calibrated": bool(ctx["calibrated"])}
-    if ctx["origin"] is None and ctx["dropoff"]:
+    if not ctx["s"].use_self_haul and ctx["origin"] is None and ctx["dropoff"]:
         res["warnings"].append(notices.note(
             "voc_unreachable", f"VOC doesn't pick up in {ctx['dropoff']} and no VOC pickup is reachable in your "
             f"area, so products that need a courier are valued at 0. Pick a drop-off from "
             f"{', '.join(voc.COURIER_ORIGINS)}.", steps=("area", "sell")))
-    elif ctx["origin"] != ctx["dropoff"]:
+    elif not ctx["s"].use_self_haul and ctx["origin"] != ctx["dropoff"]:
         res["warnings"].append(notices.note(
             "voc_origin", f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the goods to "
             f"{ctx['origin']} ({notices.plural(ctx['origin_jumps'], 'jump')}) first.", steps=("area",), level="info"))
+    richness_sources(res["colonies"], ctx["manual_overrides"], ctx["measured"])
     n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
     if n_measured:
         res["warnings"].append(notices.note(
@@ -369,13 +386,14 @@ async def solve(profile_id: int, s: Optional[Settings] = None) -> dict:
 def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
     """One comparison row: totals plus effort (`minutes_per_week` for settings `s`) and uncertainty."""
     if "error" in res:
-        return {"error": res["error"]}
+        return {"error": res["error"], "selling_coverage": res.get("selling_coverage")}
     sp = res.get("selling") or {}
-    return {"totals": res["totals"], "mix": optimizer._mix(res["colonies"]), "hub": res["hub"],
+    return {"totals": res["totals"], "selling_coverage": res.get("selling_coverage"), "mix": optimizer._mix(res["colonies"]), "hub": res["hub"],
             "sell_net_per_day": sp.get("net_per_day"), "sell_net_per_cycle": sp.get("net_per_cycle"),
             "holds": sum(1 for b in sp.get("batches", []) if b.get("hold")),
             "channels": sorted({b["label"] for b in sp.get("batches", []) if not b.get("hold")}),
-            "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s)}
+            "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s),
+            "tier_need": res.get("tier_need")}
 
 
 # --------------------------------------------------------------------------- module entry + dashboard

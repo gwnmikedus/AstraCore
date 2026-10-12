@@ -40,7 +40,7 @@
             {% if user %}
             <section class="menu-group" aria-labelledby="menu-community-title">
               <h2 id="menu-community-title">AstraCore community</h2>
-              <ul>{{ menu_link('Community', '/community', 'orbit', 'Project, people, updates and feedback', section=true) }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
+              <ul>{% set moved = community_moved(user) if community_moved is defined else 0 %}{{ menu_link('Community', '/community', 'orbit', (moved ~ ' of your reports moved' if moved else 'Project, people, updates and feedback'), section=true) }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
             </section>
             {% else %}
             <section class="menu-group" aria-labelledby="menu-about-title">
@@ -49,7 +49,7 @@
             </section>
             <section class="menu-group" aria-labelledby="menu-community-title">
               <h2 id="menu-community-title">Build with us</h2>
-              <ul>{{ menu_link('Source & contribute', '/project', 'github', 'Explore the code and help improve AstraCore') }}{{ menu_link('Roadmap', '/roadmap', 'orbit', 'Follow what comes next') }}{{ menu_link('What’s new', '/releases', 'sparkles', 'Readable updates and release history') }}{{ menu_link('Suggest an idea', '/feedback?kind=idea', 'lightbulb', 'A bright idea for your next operation') }}{{ menu_link('Report a bug', '/feedback?kind=bug', 'bug', 'Found a stowaway? Help us catch it.') }}</ul>
+              <ul>{{ menu_link('Source & contribute', '/project', 'github', 'Explore the code and help improve AstraCore') }}{{ menu_link('Roadmap', '/roadmap', 'orbit', 'Follow what comes next') }}{{ menu_link('What’s new', '/releases', 'sparkles', 'Readable updates and release history') }}{{ menu_link('Suggest an idea', '/feedback?kind=idea', 'lightbulb', 'A bright idea for your next operation') }}{{ menu_link('Report a bug', '/feedback?kind=bug', 'bug', 'Something not working? Tell us where it hides.') }}</ul>
             </section>
             {% endif %}
           </nav>
@@ -85,7 +85,7 @@
   <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme" aria-describedby="theme-tip">
     <svg class="theme-sun ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
     {{ icon('moon', 'theme-moon') }}
-    <span class="theme-tip" id="theme-tip" role="tooltip"><strong>Flashbang warning</strong><span>Light theme ahead. Shield your eyes.</span></span>
+    <span class="theme-tip" id="theme-tip" role="tooltip"><strong>Light theme</strong><span>Easier in daylight.</span></span>
   </button>
   {% if user %}
   <a href="/profile" class="header-action header-profile" aria-label="Your profile: {{ user.display_name }}">{% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" width="32" height="32" alt="">{% else %}{{ icon('user') }}{% endif %}<span>{{ user.display_name }}</span></a>

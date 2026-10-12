@@ -72,6 +72,7 @@ The maintainer can do all of this, and the merging and release steps on this pag
      - `limitations`: what they need to know or do;
      - `technical`: implementation notes, collapsed by default on the site;
      - optional `references` to issues, pull requests or commits in this repository.
+       Link issues as `…/issues/<n>`: pilots who opted in to credit on a report for that issue are thanked as *Reported by* on the What's new page.
 2. Run `python scripts/check_release.py` and the test suites.
 3. The maintainer merges it, then tags **that merge commit** and publishes the GitHub Release from the same data:
 
@@ -108,6 +109,7 @@ Every issue has one **type** label and, while it's open, one **status** label. T
 - The Roadmap groups work by these labels: *Now* = `status:in-progress` and closed-but-not-yet-deployed, *Next* = `status:planned` or `roadmap`, *Exploring* = curated directions in `community.py` without an issue. `status:under-review` stays in the issue list until it's decided; released and closed work folds into *Released*. A curated direction moves lanes once a `roadmap` issue carries its `<!-- astracore-roadmap:<slug> -->` marker.
 - Minor releases (`0.x.0`) don't change labels: they're the curated notes on the *What's new* page.
 - Reopening an issue: give it an open status label again.
+- Pilots see their own reports in the same words as the roadmap: *Under review*, *Planned*, *Being built*, *Going live soon* (closed as completed, not yet deployed), *Live* (`status:released`) and *Not planned for now* (closed for any other reason; they're pointed to the reply on GitHub). Leave a short reply when you close an issue as not planned.
 
 ## Who can merge
 

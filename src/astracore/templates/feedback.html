@@ -10,6 +10,7 @@
 </header>
 {% if not user %}<article><h2>Log in to submit</h2><p>Use your AstraCore EVE login. Your character identity will not be included in the public report. Platform access currently requires an invitation; the roadmap and GitHub repository are public.</p><a class="primary-link" href="{{ feedback_login_url }}">{{ icon('key-round') }} Log in for community feedback</a><p class="muted">You can also {{ external_link(github_url ~ '/issues/new/choose', 'report directly on GitHub', new_tab=false) }}.</p></article>{% else %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+{% if direction %}<p class="flash" role="status">{{ icon('orbit') }}<span>You're shaping the roadmap direction <a href="/community#direction-{{ direction.slug }}">{{ direction.title }}</a>. {{ direction.details }}</span></p>{% endif %}
 {% if not connected %}<p class="flash warn">GitHub is not connected yet. Your confirmed report can be saved here and published once the connection is available.</p>{% endif %}
 <form action="/feedback/preview" method="post" class="community-form" data-feedback-form>
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

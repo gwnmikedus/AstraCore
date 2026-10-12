@@ -455,6 +455,23 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 .kind-miner { color: var(--scan); } .kind-factory { color: var(--status-warn); }
 .planbar { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; margin: var(--space-2) 0 var(--space-4); }
 .planbar input { width: 16rem; margin: 0; }
+/* Plan result: richness as scanned in game, per planet row; "Never produce" per product (issue #105) */
+.rich-pick { display: block; width: auto; min-width: 10.5rem; max-width: 100%; min-height: 28px; margin: var(--space-1) 0 0; padding: 0 var(--space-2); font-size: 12px; }
+.never-produce { background: var(--hull); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); border: 0; }
+.never-produce legend { font-family: var(--font-display); font-weight: 600; padding: 0; margin-bottom: var(--space-1); }
+.never-produce .never-items { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin-top: var(--space-2); }
+.never-produce label, .never-list label, .page-planner .ctl .never-list label { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0; font-size: 13px; font-weight: 400; }
+.never-list .never-tier { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: var(--space-1) 0 var(--space-3); }
+.never-list .never-tier-name { width: 100%; font-size: 12px; color: var(--ink-muted); }
+
+/* ------------------------------------------------------------------ PI: settings, the Expert panel */
+.expert .expert-part { padding: var(--space-3) 0; border-top: var(--stroke-hair) solid var(--line); }
+.expert .expert-part:first-of-type { border-top: 0; padding-top: 0; }
+.expert .expert-part h3 { font-size: 16px; margin: 0 0 var(--space-2); }
+.expert .expert-status { font-weight: 600; margin-bottom: var(--space-2); }
+.expert .expert-edit { margin: var(--space-2) 0 0; }
+.expert .tax-manual { display: none; }   /* manual sales tax / broker fee: only when "from skills" is off */
+.expert:has(input[name="taxes_from_skills"]:not(:checked)) .tax-manual { display: block; }
 
 /* ------------------------------------------------------------------ PI: plan wizard */
 .page-guide .g-head { display: flex; justify-content: space-between; align-items: end; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }

@@ -281,6 +281,14 @@ def replan_summary(d: dict, gain: float) -> str:
             f"{fmt.isk(gain)} ISK/day more once the batches are really sold. Details under Market demand.")
 
 
+def richness_sources(colonies: List[dict], manual: dict, measured: dict) -> None:
+    """Where each planned planet's richness comes from, for the plan rows' "Scanned in game" control:
+    "scan" (the pilot's own override wins), "extractors" (measured) or "estimate" (from security)."""
+    for c in colonies:
+        pid = c.get("planet_id")
+        c["richness_source"] = "scan" if pid in manual else "extractors" if pid in measured else "estimate"
+
+
 def run_plan(ctx, s=None) -> dict:
     """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
     whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
@@ -340,6 +348,7 @@ def run_plan(ctx, s=None) -> dict:
         res["warnings"].append(notices.note(
             "voc_origin", f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the goods to "
             f"{ctx['origin']} ({notices.plural(ctx['origin_jumps'], 'jump')}) first.", steps=("area",), level="info"))
+    richness_sources(res["colonies"], ctx["manual_overrides"], ctx["measured"])
     n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
     if n_measured:
         res["warnings"].append(notices.note(

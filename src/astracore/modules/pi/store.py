@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
+import secrets
 import time
 from dataclasses import fields
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from astracore import db
 
@@ -74,6 +75,72 @@ def set_planet_override(profile_id: int, planet_id: int, richness: Optional[floa
 
 
 # --------------------------------------------------------------------------- saved plans
+RESULT_MAX_AGE = 3600
+
+
+class StaleResult(ValueError):
+    """The displayed result can no longer be saved safely."""
+
+
+def plan_settings(settings: Settings) -> dict:
+    data = json.loads(settings.to_json())
+    for name in ("guide_step", "answered"):
+        data.pop(name, None)
+    return data
+
+
+def remember_plan_result(profile_id: int, settings: Settings, result: dict, stamp: str) -> str:
+    """One latest, expiring snapshot per profile; clients only receive its random handle."""
+    result_id = secrets.token_urlsafe(32)
+    with db.session() as c:
+        c.execute("DELETE FROM plan_results WHERE created < ?", (time.time() - RESULT_MAX_AGE,))
+        active = c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=1", (profile_id,)).fetchone()
+        c.execute("REPLACE INTO plan_results(profile_id, result_id, created, settings_json, stamp, "
+                  "result_json, active_id) VALUES(?,?,?,?,?,?,?)",
+                  (profile_id, result_id, time.time(), settings.to_json(), stamp, json.dumps(result),
+                   active["id"] if active else None))
+    return result_id
+
+
+def save_plan_result(profile_id: int, result_id: str, label: str, stamp: Callable[[], str],
+                     active: bool = False) -> dict:
+    """Atomically save the owned snapshot; repeat requests return the same saved plan."""
+    with db.session() as c:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute("SELECT * FROM plan_results WHERE profile_id=? AND result_id=?",
+                        (profile_id, result_id)).fetchone()
+        if not row or row["created"] < time.time() - RESULT_MAX_AGE:
+            raise StaleResult("This result has expired or been replaced. Recalculate your plan before saving.")
+        if row["run_id"]:
+            return get_plan_run(profile_id, row["run_id"])
+        original = Settings.from_json(row["settings_json"])
+        settings = load_settings(profile_id)
+        if plan_settings(original) != plan_settings(settings) or row["stamp"] != stamp():
+            raise StaleResult("Your planning data or answers changed. Recalculate your plan before saving.")
+        current = c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=1", (profile_id,)).fetchone()
+        current_id = current["id"] if current else None
+        if current_id != row["active_id"]:
+            raise StaleResult("Your active plan changed. Recalculate to compare before replacing it.")
+        active = bool(active) or current_id is None
+        if active:
+            c.execute("UPDATE plan_runs SET active=0 WHERE profile_id=?", (profile_id,))
+        count = c.execute("SELECT COUNT(*) FROM plan_runs WHERE profile_id=?", (profile_id,)).fetchone()[0]
+        label = label.strip()[:80] or f"Plan {count + 1}"
+        cur = c.execute("INSERT INTO plan_runs(profile_id, created, label, active, settings_json, result_json) "
+                        "VALUES(?,?,?,?,?,?)", (profile_id, time.time(), label, int(active),
+                                                row["settings_json"], row["result_json"]))
+        run_id = int(cur.lastrowid)
+        c.execute("UPDATE plan_results SET run_id=? WHERE profile_id=?", (run_id, profile_id))
+        _trim_plans(c, profile_id)
+    return get_plan_run(profile_id, run_id)
+
+
+def _trim_plans(c, profile_id: int) -> None:
+    old = [r[0] for r in c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=0 ORDER BY id DESC "
+                                   "LIMIT -1 OFFSET ?", (profile_id, MAX_PLANS))]
+    c.executemany("DELETE FROM plan_runs WHERE id=?", [(x,) for x in old])
+
+
 def save_plan_run(profile_id: int, label: str, settings: Settings, result: dict, active: bool = False) -> int:
     with db.session() as c:
         if active:
@@ -83,9 +150,7 @@ def save_plan_run(profile_id: int, label: str, settings: Settings, result: dict,
                                                 settings.to_json(), json.dumps(result)))
         rid = int(cur.lastrowid)
         # keep the newest MAX_PLANS (never drop the active one)
-        old = [r[0] for r in c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=0 ORDER BY id DESC "
-                                       "LIMIT -1 OFFSET ?", (profile_id, MAX_PLANS))]
-        c.executemany("DELETE FROM plan_runs WHERE id=?", [(x,) for x in old])
+        _trim_plans(c, profile_id)
     return rid
 
 
@@ -156,5 +221,6 @@ def reset_profile(profile_id: int) -> None:
     """Reset AstracorePI: settings, plans and overrides go; characters stay."""
     db.delete_module_settings(profile_id, MODULE_ID)
     with db.session() as c:
+        c.execute("DELETE FROM plan_results WHERE profile_id=?", (profile_id,))
         c.execute("DELETE FROM plan_runs WHERE profile_id=?", (profile_id,))
         c.execute("DELETE FROM planet_overrides WHERE profile_id=?", (profile_id,))

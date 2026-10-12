@@ -336,9 +336,12 @@ def _last_shipment(characters: List[dict]) -> Optional[float]:
     return max(seen) if seen else None
 
 
-def _has_stock_to_ship(pi: PIData, characters: List[dict]) -> bool:
-    """PI products sitting in station hangars (what a market shipment would take)."""
+def _has_stock_to_ship(pi: PIData, characters: List[dict], plan: Optional[dict] = None) -> bool:
+    """PI products sitting in station hangars that a market shipment would take: not the inputs the
+    plan's factories still need (bought or hauled P1 waiting to go up to a factory planet)."""
+    inputs = {name for c in (plan or {}).get("colonies", []) for name in (c.get("in_per_day") or {})}
     return any(pi.tier(a["type_id"]) >= 1 and a.get("flag") != "Deliveries" and (a.get("qty") or 0) > 0
+               and pi.name(a["type_id"]) not in inputs
                for ch in characters for a in ch.get("assets", []))
 
 
@@ -382,7 +385,7 @@ def schedule(pi: PIData, s: Settings, characters: List[dict], plan: Optional[dic
     restarts["expired"] = sum(1 for r in rows if r["restart_hours"] is not None and r["restart_hours"] <= 0)
     every_ship = float(((plan or {}).get("selling") or {}).get("every_days") or s.ship_every_days or 7)
     last = _last_shipment(characters)
-    ship = {"every_days": every_ship, "last": last, "has_stock": _has_stock_to_ship(pi, characters),
+    ship = {"every_days": every_ship, "last": last, "has_stock": _has_stock_to_ship(pi, characters, plan),
             "next_days": None if last is None else round(every_ship - (now - last) / 86400, 1)}
     ship["due"] = ship["has_stock"] and (last is None or ship["next_days"] <= 0)
 

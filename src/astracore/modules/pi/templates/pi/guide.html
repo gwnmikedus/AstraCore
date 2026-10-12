@@ -29,7 +29,7 @@
 
 {% block scripts %}
 <script nonce="{{ nonce }}">
-const S = {{ settings_json|safe }};
+const S = JSON.parse({{ settings_json|tojson }});   // tojson: free-text settings can never end this script block
 const SELLER = {{ (seller or {})|tojson }};
 const PLANS = {{ plans|tojson }};
 const WAYPOINT_CHARS = {{ waypoints|tojson }};

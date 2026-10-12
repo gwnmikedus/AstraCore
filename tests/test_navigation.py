@@ -15,7 +15,7 @@ def navigator(browser, eve, monkeypatch, pi):
     sso_login(client, eve, new_id(), "Navigation pilot")
     db.update_profile(me(client), onboarded=1)
 
-    async def no_space(chars, settings):
+    async def no_space(chars, settings, **kw):
         return None
 
     async def context(profile_id):

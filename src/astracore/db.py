@@ -592,6 +592,24 @@ def delete_token(character_id: int) -> None:
         c.execute("DELETE FROM tokens WHERE character_id=?", (character_id,))
 
 
+def reencrypt_tokens() -> int:
+    """After a key rotation (several keys in ASTRACORE_TOKEN_KEY): re-encrypt every stored token with the
+    first key, so the old key can be dropped. A token no listed key can read is left as it is (its
+    character needs a new login either way). Returns how many rows were rewritten."""
+    from .core import crypto
+    n = 0
+    with session() as c:
+        for row in c.execute("SELECT character_id, refresh_token_enc, access_token_enc FROM tokens").fetchall():
+            refresh = crypto.reencrypt(row["refresh_token_enc"])
+            if refresh is None:
+                continue
+            access = crypto.reencrypt(row["access_token_enc"])
+            c.execute("UPDATE tokens SET refresh_token_enc=?, access_token_enc=? WHERE character_id=?",
+                      (refresh, access, row["character_id"]))
+            n += 1
+    return n
+
+
 # --------------------------------------------------------------------------- module settings
 def module_settings(profile_id: int, module_id: str) -> Optional[dict]:
     with session() as c:

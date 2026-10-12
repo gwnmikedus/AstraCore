@@ -291,6 +291,10 @@ p.muted, div.muted { margin-top: 0; }
 .alerts .flash { margin: 0; align-items: center; }
 .alerts .flash > span { flex: 1; min-width: 12rem; }
 .alerts .flash form, .alerts .flash a { margin-left: auto; }
+.esi-outage { align-items: center; }
+.esi-outage > span { flex: 1; min-width: 12rem; }
+.esi-outage small { display: block; color: var(--ink-muted); }
+.esi-outage .esi-retry { margin-left: auto; white-space: nowrap; }
 
 .advice { background: var(--hull); padding: var(--space-4) var(--space-6); margin-bottom: var(--space-4); --edge: var(--scan); }
 .advice h6 { display: flex; gap: var(--space-2); align-items: center; color: var(--scan); margin-bottom: var(--space-2); }

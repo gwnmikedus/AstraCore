@@ -140,6 +140,10 @@ def export_profile(profile_id: int) -> Dict:
                                              (profile_id,))]
         sessions = [dict(r) for r in c.execute("SELECT created_at, last_seen_at, user_agent, ip_hint FROM sessions "
                                                "WHERE profile_id=?", (profile_id,))]
+        # Your bug reports and ideas, with where they went (published ones also live on GitHub).
+        feedback = [dict(r) for r in c.execute(
+            "SELECT id, kind, title, body, version, created_at, updated_at, delivery, issue_number "
+            "FROM community_feedback WHERE profile_id=? ORDER BY created_at", (profile_id,))]
     return {"exported_at": time.time(), "profile": p, "eve_accounts": db.list_accounts(profile_id),
             "characters": chars, "module_settings": modset, "plans": plans, "planet_overrides": overrides,
-            "sessions": sessions}
+            "sessions": sessions, "feedback": feedback}

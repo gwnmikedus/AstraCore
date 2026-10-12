@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from astracore import db
 from astracore.esi import public
-from astracore.esi.client import ESIClient, ESIError
+from astracore.esi.client import ESIClient, ESIError, ESIUnavailable
 from ..static_data import voc
 from ..static_data.pi_rules import COMMAND_CENTER_TYPES
 from ..static_data.sde_loader import PIData
@@ -142,11 +142,22 @@ def summarise_history(rows: List[dict], today: Optional[date] = None) -> dict:
 async def refresh_history(esi: ESIClient, pi: PIData) -> Dict[str, Dict[int, dict]]:
     """Recent trade history per market region (Jita = The Forge, Amarr = Domain, Delve)."""
     items = [t for t in pi.items if pi.tier(t) >= 1]
+    previous = history_cached()["markets"]
     out: Dict[str, Dict[int, dict]] = {}
     regions = {m: region_id for m, (region_id, _) in MARKETS.items()}
+    failed = 0
     for market, region_id in regions.items():
         rows = await public.many(public.region_history(esi, region_id, t) for t in items)
-        out[market] = {t: summarise_history(r) for t, r in zip(items, rows)}
+        out[market] = {}
+        for t, r in zip(items, rows):
+            if r is None:     # ESI didn't answer: keep the last summary rather than "nothing traded"
+                failed += 1
+                r_old = (previous.get(market) or {}).get(t)
+                out[market][t] = r_old if r_old is not None else summarise_history([])
+            else:
+                out[market][t] = summarise_history(r)
+    if items and failed == len(items) * len(regions):
+        raise ESIUnavailable("no trade history loaded", "unreachable")   # keep the last copy, retry later
     db.kv_set(HISTORY_KEY, {"at": time.time(), "markets": {m: {str(k): v for k, v in h.items()}
                                                            for m, h in out.items()}})
     return out

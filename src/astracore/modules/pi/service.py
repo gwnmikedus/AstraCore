@@ -11,9 +11,11 @@ from typing import Dict, List, Optional
 from astracore import db
 from astracore.core import fmt
 from astracore.core.solvegate import GATE, cache_key
+from astracore.esi import errors as esi_errors
 from astracore.esi.client import ESIClient
 
 from . import store
+from .intel import area as area_mod
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
@@ -49,9 +51,35 @@ async def load_static():
     return pi, tpl
 
 
-async def load_space(chars, s: Settings, force: bool = False):
-    async with ESIClient() as esi:
-        return await space_mod.load(esi, chars, s.extra_area, force=force)
+LAST_AREA_KEY = "pi_last_area_query:"
+
+
+def _area_owner(chars, s: Settings) -> str:
+    return LAST_AREA_KEY + ",".join(str(c["character_id"]) for c in sorted(chars, key=lambda c: c["character_id"])) \
+        + "|" + (s.extra_area or "").strip().lower()
+
+
+async def load_space(chars, s: Settings, force: bool = False, outage: Optional[esi_errors.Outage] = None):
+    """The characters' area. When ESI isn't answering, the area they last resolved (noted in `outage`)."""
+    try:
+        async with ESIClient() as esi:
+            area = await space_mod.load(esi, chars, s.extra_area, force=force)
+            if outage is not None and esi.stale:
+                outage.note(esi_errors.ESIUnavailable("served expired public copies", "unreachable"))
+    except Exception as e:  # noqa: BLE001 - falls back below, re-raised when there is nothing to show
+        if not esi_errors.is_outage(e):
+            raise
+        query = db.kv_get(_area_owner(chars, s))
+        area = area_mod.cached(query) if query else None
+        if area is None:
+            raise
+        log.warning("area: ESI unavailable, showing the last resolved area (%s)", e)
+        if outage is not None:
+            outage.note(e)
+        return area
+    if area and area.get("query"):
+        db.kv_set(_area_owner(chars, s), area["query"])
+    return area
 
 
 def calibrated_yield(chars, area) -> Optional[float]:
@@ -104,10 +132,18 @@ async def warm_history() -> None:
         log.exception("market history warm-up")
 
 
-async def market_data(pi):
+async def refresh_prices(pi) -> bool:
+    """Fetch the order books now. False when ESI returned none (the last books stay in use)."""
+    async with ESIClient() as esi:
+        await prices.refresh(esi, pi)
+    return not prices.stale()
+
+
+async def market_data(pi, outage: Optional[esi_errors.Outage] = None):
     if prices.stale():
-        async with ESIClient() as esi:
-            await prices.refresh(esi, pi)
+        if not await refresh_prices(pi) and outage is not None:
+            # no order book loaded: plans use the last ones (refresh keeps them)
+            outage.note(None, prices.cached().get("at"))
     if prices.history_stale():
         refresh_history_soon(pi)
     info = voc.routes_info()
@@ -120,8 +156,9 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     """Everything a plan needs. `s` = settings to plan with (default: the profile's saved ones)."""
     s = s or store.load_settings(profile_id)
     chars = planning_characters(profile_id)
+    outage = esi_errors.Outage()     # what couldn't be refreshed: pages show a banner, not an error
     pi, tpl = await load_static()
-    area = await load_space(chars, s) if chars else None
+    area = await load_space(chars, s, outage=outage) if chars else None
     if area and not s.selected_constellations:
         s.selected_constellations = space_mod.default_selection(space_mod.grouped(area, chars))
         if persist_default:
@@ -129,7 +166,7 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
             saved.selected_constellations = s.selected_constellations
             store.save_settings(profile_id, saved)
     systems = space_mod.selected_systems(area, s.selected_constellations) if area else {}
-    books = await market_data(pi)
+    books = await market_data(pi, outage)
     cal = calibrated_yield(chars, area) if s.auto_calibrate else None
     head_yield = cal or s.head_yield_per_hour
     # planet richness: your manual overrides win, then what your own extractors measured
@@ -151,7 +188,15 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
                 systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
                 history_at=hist["at"], values=values, dropoff=dropoff, local=local, overrides=overrides,
                 manual_overrides=manual, origin=origin, origin_jumps=origin_jumps, seller=seller,
-                measured=measured, head_yield=head_yield, calibrated=cal)
+                measured=measured, head_yield=head_yield, calibrated=cal, outage=outage)
+
+
+def outage_banner(ctx: dict) -> Optional[dict]:
+    """The ESI banner for a page built from `planning_context` (None: everything was fresh)."""
+    outage = ctx.get("outage")
+    if not outage:
+        return None
+    return outage.banner(c.get("synced_at") for c in ctx.get("chars") or [])
 
 
 def _sell_side(ctx, res: dict) -> None:
@@ -437,11 +482,9 @@ async def refresh_profile(profile_id: int, only: Optional[int] = None,
                 if waits is not None:
                     for label, seconds in synced.get("esi_waits", {}).items():
                         waits[label] = max(waits.get(label, 0), seconds)
-            except sso.Transferred:
-                problems[c["name"]] = "transferred to another player and removed"
-            except sso.NeedsLogin:
-                problems[c["name"]] = "needs a new EVE login"
-            except Exception as e:  # noqa: BLE001 - report per character
-                problems[c["name"]] = str(e)[:160]
+            except Exception as e:  # noqa: BLE001 - report per character, in plain words
+                if not isinstance(e, (sso.NeedsLogin, sso.Transferred)):
+                    log.warning("ESI refresh of character %s failed: %r", c["character_id"], e)
+                problems[c["name"]] = esi_errors.explain(e)
             await asyncio.sleep(0)
     return problems

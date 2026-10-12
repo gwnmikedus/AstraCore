@@ -14,6 +14,7 @@ import copy
 import csv
 import io
 import json
+import logging
 from typing import Optional
 
 import httpx
@@ -28,17 +29,19 @@ from astracore.core.sessions import require_user
 from astracore.core.solvegate import GATE, Busy, Superseded, cache_key
 from astracore.core.web import redirect
 from astracore.core.web import render as core_render
+from astracore.esi import errors as esi_errors
 from astracore.esi import sso
-from astracore.esi.client import ESI_BASE
+from astracore.esi.client import ESI_BASE, default_headers
 
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
 from .planner import compare, operate, optimizer, prices, setups, upkeep
 from .planner import skills as skills_mod
-from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, Settings, time_weights
+from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, TEXT_LIMITS, Settings, time_weights
 from .static_data import dalshooth, voc
 
+log = logging.getLogger("astracore")
 router = APIRouter(prefix="/pi", dependencies=[Depends(require_user)])
 legacy = APIRouter()     # old MVP paths -> 301 (one release)
 PRICE_REFRESH_EVERY = 600
@@ -124,10 +127,12 @@ async def area_page(request: Request):
     if not chars:
         return redirect("/pi")   # /pi says why: connect, or include one
     s = store.load_settings(pid)
-    area = await service.load_space(chars, s)
+    outage = esi_errors.Outage()
+    area = await service.load_space(chars, s, outage=outage)
+    banner = outage.banner(c.get("synced_at") for c in chars)
     if not area:
         return render(request, "space.html", "area", "Area", area=None, groups=[], s=s, sources={}, selected=[],
-                      sel_systems=[])
+                      sel_systems=[], esi_outage=banner)
     groups = space_mod.grouped(area, chars, store.planet_overrides(pid))
     if not s.selected_constellations:
         s.selected_constellations = space_mod.default_selection(groups)
@@ -143,7 +148,7 @@ async def area_page(request: Request):
                   sel_systems=sorted(v["name"] for v in sel_systems.values()),
                   voc_hubs=voc.COURIER_ORIGINS, planets=planets,
                   overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v} for k, v in overrides.items()],
-                  richness_labels=RICHNESS_LABELS)
+                  richness_labels=RICHNESS_LABELS, esi_outage=banner)
 
 
 RICHNESS_LABELS = [("poor", 0.6), ("average", 1.0), ("good", 1.25), ("rich", 1.5)]
@@ -174,13 +179,20 @@ async def area_save(request: Request):
     form = await request.form()
     s = store.load_settings(pid)
     s.selected_constellations = [int(x) for x in form.getlist("con")]
-    s.hub_system = form.get("hub_system", "")
-    new_extra = form.get("extra_area", "").strip()
+    s.hub_system = form.get("hub_system", "")[:TEXT_LIMITS["hub_system"]]
+    new_extra = form.get("extra_area", "").strip()[:TEXT_LIMITS["extra_area"]]
     extra_changed = new_extra != s.extra_area
     s.extra_area = new_extra
     store.save_settings(pid, s)
     if extra_changed or form.get("refresh"):
-        await service.load_space(service.planning_characters(pid), s, force=bool(form.get("refresh")))
+        try:
+            await service.load_space(service.planning_characters(pid), s, force=bool(form.get("refresh")))
+        except Exception as e:  # noqa: BLE001 - the saved choice stays; say plainly what didn't happen
+            if not esi_errors.is_outage(e):
+                raise
+            log.warning("area refresh failed: %r", e)
+            return redirect("/pi/area", "Your choices are saved, but the area couldn't be read from EVE. "
+                            + esi_errors.explain(e), "warn")
         return redirect("/pi/area", "Area updated.")
     if not s.selected_constellations:
         return redirect("/pi/area", "Select at least one constellation.", "warn")
@@ -234,7 +246,8 @@ async def plan_page(request: Request):
                   dropoff=ctx["dropoff"], seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
-                  plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS)
+                  plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
+                  esi_outage=service.outage_banner(ctx))
 
 
 def _waypoint_chars(pid: int) -> list:
@@ -355,9 +368,9 @@ async def api_prices_refresh(request: Request):
     if _t.time() - at < PRICE_REFRESH_EVERY:
         return JSONResponse({"ok": True, "at": at, "note": "Prices are less than 10 minutes old."})
     pi, _ = await service.load_static()
-    from astracore.esi.client import ESIClient
-    async with ESIClient() as esi:
-        await prices.refresh(esi, pi)
+    if not await service.refresh_prices(pi):      # no order book loaded: the last ones stay in use
+        return JSONResponse({"ok": False, "at": at, "error": esi_errors.HEADLINE + " Prices weren't refreshed; "
+                             "plans keep using the last ones. Try again in a few minutes."}, status_code=503)
     if prices.history_stale():
         service.refresh_history_soon(pi)
     await voc.refresh_routes()
@@ -444,7 +457,7 @@ async def api_waypoints(request: Request):
         for i, sid in enumerate(ids):
             r = await c.post(f"{ESI_BASE}/ui/autopilot/waypoint/", params={
                 "destination_id": sid, "add_to_beginning": "false", "clear_other_waypoints": "true" if i == 0 else "false"},
-                headers={"Authorization": f"Bearer {token}"})
+                headers={**default_headers(), "Authorization": f"Bearer {token}"})
             if r.status_code >= 400:
                 return JSONResponse({"error": f"EVE refused the waypoint ({r.status_code}). Is {ch['name']} online?"},
                                     status_code=502)
@@ -475,7 +488,7 @@ async def operate_page(request: Request):
                   checklist=service.first_build(ctx, active),
                   plans=store.list_plan_runs(pid),
                   synced=min((c.get("synced_at") or 0) for c in chars), buyback_site=voc.BUYBACK_SITE,
-                  voc_site=voc.SITE, waypoints=_waypoint_chars(pid))
+                  voc_site=voc.SITE, waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))
 
 
 # ----------------------------------------------------------------------------- exports
@@ -736,7 +749,8 @@ async def settings_page(request: Request):
     pid = _pid(request)
     s = store.load_settings(pid)
     chars = service.planning_characters(pid)
-    area = await service.load_space(chars, s) if chars else None
+    outage = esi_errors.Outage()
+    area = await service.load_space(chars, s, outage=outage) if chars else None
     cal = service.calibrated_yield(chars, area) if chars else None
     from .intel import richness as rich
     measured = rich.measured_richness({c["character_id"]: c["colonies"] for c in chars}, cal) if cal else {}
@@ -745,7 +759,8 @@ async def settings_page(request: Request):
                   rates=[skills_mod.character_rates(c) for c in chars if c.get("skills")],
                   seller=skills_mod.best_seller(chars), poco=skills_mod.customs_rates(chars),
                   routes=voc.routes_cached(), routes_info=voc.routes_info(), voc_site=voc.SITE,
-                  customs_on=customs_on, is_admin=request.state.user.get("is_admin"))
+                  customs_on=customs_on, is_admin=request.state.user.get("is_admin"),
+                  esi_outage=outage.banner(c.get("synced_at") for c in chars))
 
 
 @router.post("/settings")

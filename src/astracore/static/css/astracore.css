@@ -566,6 +566,49 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 .st-expired, .st-outstanding { color: var(--status-danger); } .st-soon, .st-in_progress { color: var(--status-warn); }
 .st-ok, .st-finished { color: var(--status-ok); }
 .page-operate textarea.paste { height: 6.5rem; margin-bottom: var(--space-2); }
+
+/* Freshness line (#75), Next up (#90) and the Operate sections */
+.freshness { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); font-size: 13px; color: var(--ink-muted); }
+.freshness > .ic { color: var(--status-ok); flex: none; }
+.freshness.is-stale > .ic, .freshness.is-stale .freshness-busy { color: var(--status-warn); }
+.freshness[data-auto-refresh] > .ic { animation: freshness-spin 1.6s linear infinite; }
+@keyframes freshness-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .freshness[data-auto-refresh] > .ic { animation: none; } }
+.freshness-help > summary { width: 22px; height: 22px; justify-content: center; border: 1px solid var(--line-strong); border-radius: 50%; font: 600 12px var(--font-mono); color: var(--ink-muted); }
+.freshness-help > summary::before { display: none; }
+.freshness-help[open] { flex-basis: 100%; }
+.freshness-help[open] > summary { margin-bottom: var(--space-1); }
+.freshness-help p { margin: 0; max-width: 64ch; }
+.next-up-title { font-size: 22px; line-height: 28px; margin: 0 0 var(--space-3); }
+.next-up-list { list-style: none; margin: 0; padding: 0; }
+.next-up-item { display: flex; align-items: baseline; gap: var(--space-2) var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.next-up-item:first-child { border-top: 0; }
+.next-up-item > .ic { flex: none; align-self: center; color: var(--ink-muted); }
+.next-up-item.level-bad > .ic { color: var(--status-danger); }
+.next-up-item.level-warn > .ic { color: var(--status-warn); }
+.next-up-text { flex: 1 1 18rem; min-width: 0; overflow-wrap: anywhere; }
+.next-up-when { font: 500 13px var(--font-mono); color: var(--ink-muted); white-space: nowrap; }
+.next-up-item.level-bad .next-up-when { color: var(--status-danger); }
+.next-up-item.level-warn .next-up-when { color: var(--status-warn); }
+.next-up-more { margin: var(--space-2) 0 0; font-size: 13px; }
+.operate-nav { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-4); }
+.operate-nav a { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-3); font-size: 14px;
+  background: var(--hull); box-shadow: inset 0 0 0 var(--stroke-hair) var(--line); color: var(--ink); text-decoration: none; }
+.operate-nav a:hover, .operate-nav a:focus-visible { box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong); }
+.operate-section { scroll-margin-top: var(--space-6); }
+.operate-section [id] { scroll-margin-top: var(--space-6); }
+.operate-section-title { font: 500 12px/18px var(--font-mono); text-transform: uppercase; letter-spacing: .12em; color: var(--ink-muted);
+  margin: var(--space-8) 0 var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+.first-build > summary h5 { display: inline-flex; margin: 0; padding: 0; border: 0; flex-wrap: wrap; }
+.first-build:not([open]) { padding-block: var(--space-3); }
+.plan-line { margin: var(--space-4) 0 0; font-size: 14px; color: var(--ink-muted); }
+.plan-line b { font-family: var(--font-mono); font-weight: 500; color: var(--ink); }
+.command-next-up > div { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 760px) {
+  .page-operate .flow .arrow { display: none; }
+  .operate-nav a { flex: 1 1 calc(50% - var(--space-2)); justify-content: center; min-height: 44px; }
+  .command-next-up { flex-direction: column; align-items: stretch; }
+}
 .page-operate .kv { display: grid; grid-template-columns: auto auto; gap: 2px var(--space-4); font-size: 13px; width: max-content; max-width: 100%; }
 .page-operate .kv b { font-family: var(--font-mono); font-weight: 500; color: var(--ink); }
 .page-operate .locs { margin: var(--space-2) 0 0 var(--space-4); }

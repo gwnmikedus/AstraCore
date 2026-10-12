@@ -1,0 +1,21 @@
+{# The Next up list (#90): items from planner/nextup.next_up, already cut to what the page shows.
+   `base` prefixes in-page links ("" on Operate, "/pi/operate" on Home). #}
+{% set NEXT_ICONS = {'refresh': 'refresh-cw', 'view': 'eye', 'restart': 'timer', 'restock': 'factory',
+  'collect': 'package', 'ship': 'store', 'undercut': 'trending-up', 'recalculate': 'layers', 'build': 'rocket',
+  'rebuild': 'rocket', 'remove': 'trash-2', 'replan': 'layers', 'routes': 'route'} %}
+{% macro next_up_list(items, base='', more=0, more_href='') -%}
+<ol class="next-up-list">
+  {% for i in items %}
+  <li class="next-up-item level-{{ i.level }}">
+    {{ icon(NEXT_ICONS.get(i.kind, 'arrow-right')) }}
+    <span class="next-up-text">
+      <a href="{{ (base ~ i.href) if i.href.startswith('#') else i.href }}"><b>{{ i.verb }}</b></a>
+      {%- if i.where %}<span class="sep" aria-hidden="true"> · </span><span>{{ i.where }}{% if i.system and i.system != i.where %} <span class="muted">{{ i.system }}</span>{% endif %}</span>{% endif %}
+      {%- if i.character %}<span class="sep" aria-hidden="true"> · </span><span class="muted">{{ i.character }}</span>{% endif %}
+    </span>
+    {% if i.when %}<span class="next-up-when">{{ i.when }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% if more %}<p class="muted next-up-more">{% if more_href %}<a href="{{ more_href }}">{% endif %}{{ more }} more {{ 'action' if more == 1 else 'actions' }}{% if more_href %}</a>{% else %} in the sections below{% endif %}.</p>{% endif %}
+{%- endmacro %}

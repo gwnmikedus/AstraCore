@@ -25,8 +25,8 @@ def test_dashboard_action_follows_setup_and_colony_progress(browser, eve, monkey
                   "plan": "/pi/plan", "operate": "/pi/operate"}[state], "cta": "Continue"}
         if planned:
             result.update(planned=planned, built=built, plan_isk_per_day=7_300_000,
-                          plan_label="Test plan", expired=2, extractors_24h=3,
-                          pickup_m3=415, earned_7d=8_200_000, synced_at=0)
+                          plan_label="Test plan", has_colonies=True, in_hangars=650_800_000,
+                          earned_7d=8_200_000, synced_at=0, next_up=[])
         return result
 
     monkeypatch.setattr(registry.get("pi"), "dashboard_tile", tile)
@@ -34,12 +34,12 @@ def test_dashboard_action_follows_setup_and_colony_progress(browser, eve, monkey
     assert response.status_code == 200
     assert f'class="primary-link" href="{href}"' in response.text
     assert ('class="console-label">Build in progress' in response.text) == (built < planned)
-    if planned:
-        assert f'value="{built}" max="{planned}"' in response.text
-        for value in ('7.3M', '415 m³', '8.2M', '(2 stopped)'):
-            assert value in response.text
+    if planned:   # one plan line: forecast/day · built X/Y · earned 7d · in hangars (#109)
+        assert (f"Forecast <b>7.3M</b> ISK/day · Built <b>{built} / {planned}</b> · Earned 7d <b>8.2M</b>"
+                " · In hangars <b>650.8M</b>") in response.text
     else:
-        assert 'aria-label="Planned colonies built"' not in response.text
+        assert 'class="plan-line"' not in response.text
+    assert ('class="setup-path"' in response.text) == (state != "operate")
 
 
 def test_responsive_sources_are_served_with_valid_hashes(browser):

@@ -225,6 +225,39 @@ def test_github_failure_keeps_private_report_and_retries_without_exposing_text(m
     assert not community.public_issues()
 
 
+def test_roadmap_board_groups_work_by_horizon(browser):
+    def labelled(number, *names, **updates):
+        return issue(number, labels=[{"name": n} for n in names], **updates)
+
+    community.cache_issue(labelled(2, "roadmap", "type:idea", "status:released", state="closed", state_reason="completed",
+                                   body="<!-- astracore-roadmap:reliable-market-advice -->"))
+    community.cache_issue(labelled(5, "roadmap", "type:idea", "status:planned",
+                                   body="<!-- astracore-roadmap:fittings -->"))
+    community.cache_issue(labelled(10, "type:bug", "status:in-progress", title="Planet names are missing"))
+    community.cache_issue(labelled(11, "type:idea", state="closed", state_reason="completed", title="Merged, not deployed"))
+    community.cache_issue(labelled(12, "type:idea", "status:planned", title="A planned idea"))
+    community.cache_issue(labelled(13, "type:idea", "status:under-review", title="A fresh idea"))
+    community.cache_issue(labelled(14, "type:idea", state="closed", state_reason="not_planned", title="Declined idea"))
+    board = community.roadmap_board(community.public_issues())
+
+    def titles(lane):
+        return [item["title"] for item in board[lane]]
+
+    assert titles("now") == ["Merged, not deployed", "Planet names are missing"]
+    assert titles("next") == ["Fittings across your alts", "A planned idea"]
+    assert "Reminders when a colony needs you" in titles("exploring")
+    assert "Fittings across your alts" not in titles("exploring")
+    assert "A fresh idea" not in titles("now") + titles("next") + titles("exploring")
+    assert titles("released") == ["PI recommendations that account for real market demand"]
+    assert titles("closed") == ["Declined idea"]
+    assert [i["number"] for i in board["open"]] == [13, 12, 10, 5] and board["under_review"] == 1
+
+    page = browser().get("/roadmap").text
+    assert "Going live soon" in page and "1 idea is under review" in page
+    assert page.index('id="roadmap-title"') < page.index("Planet names are missing") < page.index('id="released-title"')
+    assert "Show 1 released item and 1 closed without changes" in page
+
+
 def test_public_roadmap_sync_without_credentials_never_publishes_queued_feedback():
     _, fid = create_saved()
     calls = []

@@ -4,18 +4,6 @@
 .community-page-nav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); padding-block: var(--space-3); border-block: 1px solid var(--line); }
 .community-page-nav a { display: inline-flex; align-items: center; min-height: var(--control-h); }
 .community-page .ac-section > h2 { scroll-margin-top: calc(var(--bar-h) + var(--space-6)); }
-.community-roadmap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--panel-gap); align-items: start; }
-.community-roadmap article { display: grid; gap: var(--space-4); min-width: 0; margin: 0; transition: background-color .12s linear; }
-.community-roadmap article:hover, .community-roadmap article:focus-within { background: var(--hull-raised); }
-.community-roadmap article > * { margin: 0; }
-.community-roadmap article > header { padding-bottom: var(--space-3); }
-.community-roadmap h3 { font-size: 28px; line-height: 1.2; }
-.community-roadmap article > p { color: var(--ink-muted); }
-.community-roadmap details { padding-top: var(--space-3); border-top: 1px solid var(--line); }
-.community-roadmap summary { min-height: var(--control-h); color: var(--scan); }
-.community-roadmap details[open] > summary { margin-bottom: var(--space-4); }
-.community-roadmap details p { color: var(--ink-muted); }
-.community-roadmap details > :last-child { margin-bottom: 0; }
 .community-status { max-width: 76ch; padding-left: var(--space-4); border-left: 2px solid var(--line-strong); }
 .community-status p:last-child { margin-bottom: 0; }
 .community-form { max-width: 780px; margin: var(--space-6) 0; }
@@ -30,8 +18,45 @@
 .community-report-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: var(--space-4) 0; border-bottom: 1px solid var(--line); }
 .community-report-list li:first-child { padding-top: 0; }
 .community-edit-form { margin: var(--space-4) 0; }
+/* Roadmap horizon: three lanes on one track, the line turns from solid (now) to dashed (exploring). */
+.horizon-live { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--ink-muted); }
+.horizon-live .ic { color: var(--status-ok); }
+.horizon-live strong { color: var(--ink); }
+.horizon-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--panel-gap); align-items: start; }
+.horizon-lane { --lane: var(--signal); display: grid; gap: var(--space-4); min-width: 0; }
+.horizon-next { --lane: var(--scan); }
+.horizon-exploring { --lane: var(--ink-faint); }
+.horizon-lane-head { position: relative; display: grid; gap: var(--space-1); padding-top: var(--space-6); border-top: var(--stroke-bar) solid var(--lane); }
+.horizon-exploring .horizon-lane-head { border-top-style: dashed; }
+.horizon-station { position: absolute; top: -7px; left: 0; width: 12px; height: 12px; background: var(--lane); box-shadow: 0 0 0 4px var(--void); }
+.horizon-exploring .horizon-station { background: var(--void); box-shadow: inset 0 0 0 var(--stroke-bar) var(--lane), 0 0 0 4px var(--void); }
+.horizon-lane-head h3 { display: flex; align-items: baseline; gap: var(--space-3); margin: 0; font-size: 32px; line-height: 1.1; }
+.horizon-count { font: 500 14px/1 var(--font-mono); color: var(--ink-muted); }
+.horizon-lane-head p { margin: 0; color: var(--ink-muted); }
+.horizon-cards { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.horizon-card { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 2px);
+  box-shadow: inset var(--stroke-bar) 0 0 var(--lane), inset 0 0 0 var(--stroke-hair) var(--line); transition: background-color .12s linear; }
+.horizon-card:hover, .horizon-card:focus-within { background: var(--hull-raised); }
+.horizon-card > * { margin: 0; }
+.horizon-card-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.horizon-soon { color: var(--status-ok); box-shadow: inset 0 0 0 var(--stroke-hair) var(--status-ok); }
+.horizon-card h4 { margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 1.2; font-weight: 600; }
+.horizon-card > p { color: var(--ink-muted); }
+.horizon-card details { padding-top: var(--space-2); border-top: 1px solid var(--line); }
+.horizon-card summary { min-height: var(--control-h); color: var(--scan); }
+.horizon-card details p { color: var(--ink-muted); }
+.horizon-card details > :last-child { margin-bottom: 0; }
+.horizon-empty { margin: 0; padding: var(--space-4); color: var(--ink-muted); box-shadow: inset 0 0 0 var(--stroke-hair) var(--line); border-left: 0; }
+.horizon-review { margin: 0; color: var(--ink-muted); }
+.horizon-archive > summary { min-height: var(--control-h); color: var(--scan); }
+.horizon-archive > p:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .horizon-now:has(.horizon-cards) .horizon-station { animation: horizon-pulse 2.4s ease-out infinite; }
+  @keyframes horizon-pulse { 0% { box-shadow: 0 0 0 4px var(--void), 0 0 0 4px var(--lane); } 100% { box-shadow: 0 0 0 4px var(--void), 0 0 0 14px transparent; } }
+}
+@media (max-width: 900px) {
+  .horizon-board { grid-template-columns: 1fr; gap: var(--space-8); }
+}
 @media (max-width: 720px) {
-  .community-roadmap { grid-template-columns: 1fr; }
   .community-actions > a { width: 100%; }
-  .community-roadmap h3 { font-size: 26px; }
 }

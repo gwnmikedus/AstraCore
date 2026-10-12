@@ -41,14 +41,15 @@ GLOSSARY: List[Dict[str, str]] = [
              "resource, they share its deposits, so each extra colony is counted at a lower yield (by default the "
              "second at 70% of the first, the third at 49%). Placing their heads on different hotspots helps."},
     {"id": "drop-off", "term": "Drop-off",
-     "text": "The system where you collect your products and from where they're sold or shipped. Usually a VOC "
-             "pickup point near your colonies. Your pickup round starts and ends there."},
+     "text": "The system where you collect your products before selling or shipping them. Choose somewhere you "
+             "can reach near your colonies; available selling routes depend on this choice. Your pickup round "
+             "starts and ends there."},
     {"id": "batch", "term": "Batch",
      "text": "Everything you sell in one go: the products collected since the last shipment, sent off together "
              "every week, two weeks or month. Bigger batches spread a courier's minimum fee; smaller ones pay out sooner."},
     {"id": "transfer", "term": "Transfer",
      "text": "Moving products between your own characters, for example one character's P1 feeding another's factory. "
-             "You do it with a 0 ISK item exchange contract."},
+             "You move the items in EVE yourself, for example with an item exchange contract."},
     {"id": "buffer", "term": "Buffer",
      "text": "The space on a colony that holds stock between visits: its launchpads, storage facilities and command "
              "center. The buffer decides how many days a factory can run on one restock, or how long a miner can "
@@ -91,6 +92,11 @@ def _num(x: float) -> str:
     return f"{x:g}"
 
 
+def _term_answer(term_id: str, label: str) -> Dict[str, str]:
+    entry = next(entry for entry in GLOSSARY if entry["id"] == term_id)
+    return {"label": label, "text": entry["text"], "more": term_id}
+
+
 def time_note() -> str:
     """How the time estimate adds up: the minutes from planner/compare.py, so they can't drift apart."""
     c = compare
@@ -116,6 +122,9 @@ def answers(settings: Any = None, head_yield: float = 0.0, calibrated: bool = Fa
                       "Until your extractors have run, AstraCore estimates the yield. Build 2–3 colonies and "
                       "come back: the plan then measures the real rate from your extractors.")
     return {
+        "dropoff": _term_answer("drop-off", "What is a drop-off?"),
+        "transfer": _term_answer("transfer", "What is a transfer between characters?"),
+        "batch": _term_answer("batch", "What is a batch?"),
         "isk": {"label": "Why this ISK figure?", "more": "isk-vs-time",
                 "text": "The plan weighs ISK against your time: hauling, extra systems and factory restocks cost "
                         "time, valued at what an hour is worth to you. So a wider or deeper option can show a bit "

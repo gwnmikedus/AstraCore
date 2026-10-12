@@ -187,7 +187,7 @@ def test_new_pilot_can_choose_home_without_completing_welcome(browser, eve):
     sso_login(c, eve, new_id(), "New navigator")
     assert not db.get_profile(me(c))["onboarded"]
     response = c.get("/", follow_redirects=False)
-    assert response.status_code == 200 and "Choose your operating area" in response.text
+    assert response.status_code == 200 and "Make a plan" in response.text
     assert c.get("/welcome").status_code == 200
 
 

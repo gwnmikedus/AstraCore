@@ -108,7 +108,7 @@ function wizard(events) {
   let release;
   const timers = [];
   const context = {
-    STEPS: steps, cur: 0, st: {cycle_days: 3, max_tier: 2}, seq: 0, comparisonRequest: null, saving: false,
+    STEPS: steps, cur: 0, st: {cycle_days: 3, max_tier: 2, selected_constellations: [1]}, seq: 0, comparisonRequest: null, saving: false,
     results: {}, complete: {}, picks: {}, SELL_COVERAGE: {}, API: '/pi/api', AbortController, JSON, Object,
     setTimeout: callback => timers.push(callback), clearTimeout: id => { if (id) timers[id - 1] = null; },
     $: () => ({innerHTML: '', textContent: '', set onclick(f) {}}),
@@ -125,7 +125,7 @@ function wizard(events) {
     },
   };
   vm.createContext(context);
-  vm.runInContext(code, context);
+  vm.runInContext(guide.match(/^const routineOnly = .*$/m)[0] + code, context);
   const flush = () => { const due = timers.splice(0); due.forEach(f => f && f()); };
   return {context, steps, posts, painted, chosen, hints, flush, release: () => release()};
 }

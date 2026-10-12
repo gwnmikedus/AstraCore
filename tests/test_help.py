@@ -17,7 +17,7 @@ REQUIRED_TERMS = ["drop-off", "batch", "transfer", "buffer", "restock", "buyback
 def _guide_context(monkeypatch, calibrated=False):
     from astracore.modules.pi import service
 
-    async def context(pid):
+    async def context(pid, **kwargs):
         return {"s": Settings(stack_yield_pct=70), "chars": [{"character_id": 1, "name": "Ready", "slots": 6,
                                                              "ccu_level": 5}],
                 "systems": {}, "area": {}, "calibrated": calibrated, "head_yield": 1500, "dropoff": None,

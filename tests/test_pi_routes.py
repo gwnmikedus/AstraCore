@@ -17,7 +17,7 @@ def test_pi_entry_lands_where_it_should(browser, eve):
     r = c.get("/pi", follow_redirects=False)
     assert r.status_code == 200 and "Connect your characters" in r.text
     db.save_token(cid, "rt", "at", 1199, PI_SCOPES)                   # PI login done
-    assert c.get("/pi", follow_redirects=False).headers["location"] == "/pi/area"
+    assert c.get("/pi", follow_redirects=False).headers["location"] == "/pi/plan"
     s = store.load_settings(pid)
     s.selected_constellations = [20000001]
     store.save_settings(pid, s)
@@ -57,7 +57,7 @@ def test_plan_header_distinguishes_connected_and_eligible_characters(browser, ev
         {"character_id": 2, "name": "Training", "slots": 1, "ccu_level": 0},
     ]
 
-    async def context(pid):
+    async def context(pid, **kw):
         return {"s": Settings(), "chars": chars, "systems": {}, "area": {}, "calibrated": False,
                 "head_yield": 1500, "dropoff": None, "seller": None}
 

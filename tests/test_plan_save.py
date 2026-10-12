@@ -164,3 +164,40 @@ def test_concurrent_retries_create_only_one_plan(plan_client):
         first, second = list(pool.map(lambda _: persist(), range(2)))
     assert first["id"] == second["id"]
     assert len(store.list_plan_runs(profile_id)) == len(calls) == 1
+
+
+@pytest.mark.parametrize("export", ["plan.md", "plan.csv", "shopping.csv", "templates.zip"])
+def test_candidate_exports_reject_foreign_missing_and_changed_data(plan_client, browser, eve, monkeypatch, export):
+    from astracore.modules.pi import routes
+    client, _, _, _, calls = plan_client
+    displayed = suggest(client)
+    other = browser()
+    sso_login(other, eve, new_id(), "Other export pilot")
+    path = f"/pi/export/{export}?result={displayed['result_id']}"
+    assert other.get(path).status_code == 409
+    assert client.get(f"/pi/export/{export}?result=missing").status_code == 409
+    monkeypatch.setattr(routes, "_result_stamp", lambda pid: "Changed market data")
+    response = client.get(path)
+    assert response.status_code == 409 and "Recalculate" in response.text
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("change", ["settings", "expiry", "replacement", "active"])
+def test_candidate_exports_have_the_same_stale_protections_as_saving(plan_client, change):
+    client, pid, _, _, calls = plan_client
+    displayed = suggest(client)
+    if change == "settings":
+        settings = store.load_settings(pid)
+        settings.cycle_days = 7
+        store.save_settings(pid, settings)
+    elif change == "expiry":
+        with db.session() as c:
+            c.execute("UPDATE plan_results SET created=0 WHERE profile_id=?", (pid,))
+    elif change == "replacement":
+        suggest(client)
+    else:
+        store.save_plan_run(pid, "Another active plan", store.load_settings(pid), {}, active=True)
+    count = len(calls)
+    response = client.get(f"/pi/export/plan.csv?result={displayed['result_id']}")
+    assert response.status_code == 409 and "Recalculate" in response.text
+    assert len(calls) == count

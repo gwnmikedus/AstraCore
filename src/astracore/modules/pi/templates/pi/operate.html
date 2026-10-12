@@ -288,10 +288,14 @@
 </div>
 {% endif %}
 
-{% if active or status.pickups or upkeep.shortages %}
+{% if has_colonies or active or status.pickups or upkeep.shortages %}
 <div class="grid">
   <div class="box" id="pickups">
     <h5>{{ icon('package') }} Ready to pick up from planets</h5>
+    <p><a role="button" class="outline" href="/pi/export/pickup.csv">{{ icon('download') }} Download pickup CSV</a></p>
+    <p class="muted">Cached colony stock for included characters. The CSV keeps colony snapshot times;
+      customs-office access and cargo capacity are not checked. Empty stock gives a CSV with headings only.
+      Missing item metadata must load before unknown stock can be exported.</p>
     {% for p in status.pickups %}
       <p style="margin:.2rem 0"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
       <span class="muted itemlist">{% for k, v in p['items'].items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</span></p>

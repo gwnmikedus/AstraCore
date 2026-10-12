@@ -15,7 +15,9 @@ function fixture(noArea = false) {
   const options = [1, 2, 3].map(id => ({dataset: {id: JSON.stringify(id)}, tabIndex: -1,
     getAttribute() { return this.failed ? 'true' : 'false'; }, focus() { context.focused = id; }}));
   const chosen = [];
-  const context = {$, cur: 1, QUESTIONS: 8, st: {selected_constellations: noArea ? [] : [1]}, saving: false, results: {}, picks: {},
+  const context = {OPTIONAL_IDS: new Set(['share','chain','batch']), questionPosition: () => 2,
+    additionalChoicesHTML: () => '', wireAdditionalChoices() {}, backIndex: () => 0, nextIndex: () => 2,
+    $, cur: 1, QUESTIONS: 8, st: {selected_constellations: noArea ? [] : [1]}, saving: false, results: {}, picks: {},
     SELL_COVERAGE: {local: true, courier: true, trade_hub: false}, saved: {},
     answered: new Set(), STEP_CONTEXT: {cycle: 'Pick a rhythm'}, esc: String,
     AC: {icon: () => ''}, hourPicker: () => '', blockedNote: () => '', stepHelp: () => '', wireHour() {}, navigate() {}, commit() {}, go() {},

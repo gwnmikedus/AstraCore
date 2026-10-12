@@ -115,6 +115,7 @@ function wizard(events) {
     needsOwnTrip: () => false, setHint: text => hints.push(text),
     recommend: () => 3,
     paint: step => painted.push(JSON.stringify(Object.keys(context.results[step.id] || {})) + (context.complete[step.id] ? ' done' : '')),
+    nextIndex(index) { return index + 1; },
     choose(step, id) { chosen.push(id); context.picks[step.id] = id; Object.assign(context.st, step.options.find(o => o.id === id).patch); context.prefetchNext(step); },
     AC: {
       post: async (url, body) => { posts.push({url, body}); return {queued: 2}; },

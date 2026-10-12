@@ -12,6 +12,13 @@ struct OverviewView: View {
                         Text(err).font(.callout).textSelection(.enabled)
                     }
                 }
+                if wrongCheckout, let s = ops.status {
+                    Card(title: "This copy of the app may be in the wrong checkout", systemImage: "exclamationmark.triangle") {
+                        Text("It works on \(s.home), but there's no production checkout at \(s.production.checkout) and nothing runs here. If production runs from another checkout (for example ~/Eve), build and open the app there: ops/app/build.sh in that checkout. Production actions are off here; for a genuine first deploy, run ./astracore deploy in Terminal.")
+                            .font(.callout).textSelection(.enabled)
+                        Button("Show this app in Finder") { reveal(Bundle.main.bundlePath) }
+                    }
+                }
                 production
                 undeployedCard
                 HStack(alignment: .top, spacing: 16) {
@@ -22,6 +29,12 @@ struct OverviewView: View {
             .padding(20)
         }
         .navigationTitle("Production")
+    }
+
+    /// Nothing runs from this checkout and it has no production checkout: likely a copy built in another clone.
+    private var wrongCheckout: Bool {
+        guard let s = ops.status else { return false }
+        return !s.production.exists && !s.app.running && !s.tunnel.running
     }
 
     // MARK: production
@@ -101,7 +114,7 @@ struct OverviewView: View {
                         .disabled(s?.production.exists != true)
                 }
             }
-            .disabled(runner.busy || s == nil)
+            .disabled(runner.busy || s == nil || wrongCheckout)
         }
     }
 

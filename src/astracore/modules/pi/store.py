@@ -11,7 +11,7 @@ from astracore import db
 
 from .planner import notices
 from .planner.compare import plan_facts
-from .settings import ADMIN_FIELDS, Settings
+from .settings import ADMIN_FIELDS, GOAL_EFFORT, Settings
 
 MODULE_ID = "pi"
 MAX_PLANS = 30
@@ -41,6 +41,23 @@ def save_settings(profile_id: int, s: Settings) -> None:
 
 def has_settings(profile_id: int) -> bool:
     return db.module_settings(profile_id, MODULE_ID) is not None
+
+
+def apply_preview_goal(profile_id: int, rhythm: str) -> bool:
+    """A landing choice is a starting point until the pilot answers the goal question."""
+    if rhythm not in GOAL_EFFORT:
+        return False
+    with db.session() as c:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute("SELECT settings_json FROM module_settings WHERE profile_id=? AND module_id=?",
+                        (profile_id, MODULE_ID)).fetchone()
+        settings = json.loads(row["settings_json"]) if row else {}
+        if "goal" in (settings.get("answered") or []):
+            return False
+        settings["effort"] = GOAL_EFFORT[rhythm]
+        c.execute("REPLACE INTO module_settings(profile_id, module_id, settings_json) VALUES(?,?,?)",
+                  (profile_id, MODULE_ID, json.dumps(settings)))
+    return True
 
 
 def admin_settings() -> Settings:
@@ -114,14 +131,7 @@ def save_plan_result(profile_id: int, result_id: str, label: str, stamp: Callabl
             raise StaleResult("This result has expired or been replaced. Recalculate your plan before saving.")
         if row["run_id"]:
             return get_plan_run(profile_id, row["run_id"])
-        original = Settings.from_json(row["settings_json"])
-        settings = load_settings(profile_id)
-        if plan_settings(original) != plan_settings(settings) or row["stamp"] != stamp():
-            raise StaleResult("Your planning data or answers changed. Recalculate your plan before saving.")
-        current = c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=1", (profile_id,)).fetchone()
-        current_id = current["id"] if current else None
-        if current_id != row["active_id"]:
-            raise StaleResult("Your active plan changed. Recalculate to compare before replacing it.")
+        current_id = _check_result_inputs(c, profile_id, row, stamp)
         active = bool(active) or current_id is None
         if active:
             c.execute("UPDATE plan_runs SET active=0 WHERE profile_id=?", (profile_id,))
@@ -134,6 +144,29 @@ def save_plan_result(profile_id: int, result_id: str, label: str, stamp: Callabl
         c.execute("UPDATE plan_results SET run_id=? WHERE profile_id=?", (run_id, profile_id))
         _trim_plans(c, profile_id)
     return get_plan_run(profile_id, run_id)
+
+
+def _check_result_inputs(c, profile_id: int, row, stamp: Callable[[], str]) -> Optional[int]:
+    original = Settings.from_json(row["settings_json"])
+    settings = load_settings(profile_id)
+    if plan_settings(original) != plan_settings(settings) or row["stamp"] != stamp():
+        raise StaleResult("Your planning data or answers changed. Recalculate your plan before continuing.")
+    current = c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=1", (profile_id,)).fetchone()
+    current_id = current["id"] if current else None
+    if current_id != row["active_id"]:
+        raise StaleResult("Your active plan changed. Recalculate to compare before continuing.")
+    return current_id
+
+
+def get_plan_result(profile_id: int, result_id: str, stamp: Callable[[], str]) -> dict:
+    """Read the displayed candidate for export without saving or solving again."""
+    with db.session() as c:
+        row = c.execute("SELECT * FROM plan_results WHERE profile_id=? AND result_id=?",
+                        (profile_id, result_id)).fetchone()
+        if not row or row["created"] < time.time() - RESULT_MAX_AGE:
+            raise StaleResult("This result has expired or been replaced. Recalculate your plan before downloading.")
+        _check_result_inputs(c, profile_id, row, stamp)
+        return {"result": json.loads(row["result_json"]), "settings": json.loads(row["settings_json"])}
 
 
 def _trim_plans(c, profile_id: int) -> None:

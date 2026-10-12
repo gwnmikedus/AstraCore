@@ -71,8 +71,9 @@ def superseded_response() -> JSONResponse:
 
 # ----------------------------------------------------------------------------- entry
 @router.get("", response_class=HTMLResponse)
-async def entry(request: Request):
+async def entry(request: Request, rhythm: str = ""):
     pid = _pid(request)
+    store.apply_preview_goal(pid, rhythm)
     db.update_profile(pid, onboarded=1)
     state = service.entry_state(pid)
     if state == "connect":
@@ -498,8 +499,14 @@ async def operate_page(request: Request):
 
 # ----------------------------------------------------------------------------- exports
 async def _export_run(request: Request) -> dict:
-    """{"result", "settings"} of the plan an export link names: ?plan=<id>, ?current=1 or the active one."""
+    """Export a displayed result handle, named saved plan, current solve or active plan."""
     pid = _pid(request)
+    result_id = request.query_params.get("result")
+    if result_id is not None:
+        try:
+            return store.get_plan_result(pid, result_id, lambda: _result_stamp(pid))
+        except store.StaleResult as exc:
+            raise HTTPException(409, str(exc)) from exc
     run = request.query_params.get("plan")
     if run is not None:
         # A named plan exports that plan or nothing: never quietly a different one.
@@ -780,9 +787,19 @@ async def settings_save(request: Request):
     return redirect("/pi/settings", "Saved.")
 
 
+@router.get("/reset", response_class=HTMLResponse)
+async def reset_pi_page(request: Request):
+    return render(request, "reset.html", "profile", "Reset AstraCore PI", profile=db.get_profile(_pid(request)))
+
+
 @router.post("/reset")
 async def reset_pi(request: Request):
-    store.reset_profile(_pid(request))
+    pid = _pid(request)
+    profile = db.get_profile(pid)
+    form = await request.form()
+    if form.get("confirm", "") != profile["display_name"]:
+        return redirect("/pi/reset", f"Type {profile['display_name']} exactly to confirm.", "warn")
+    store.reset_profile(pid)
     return redirect("/profile", "AstraCore PI was reset: settings, plans and planet overrides are gone. "
                                 "Your characters are still linked.")
 

@@ -115,7 +115,9 @@ def test_operate_shows_the_upkeep_schedule(browser, eve, monkeypatch):
     sso_login(c, eve, cid, "Upkeep Pilot")
     pid = me(c)
     db.save_token(cid, "rt", "at", 1199, PI_SCOPES)
-    db.set_character(cid, colonies=list(_colonies(time.time())), synced_at=time.time())
+    colonies = list(_colonies(time.time()))
+    colonies[1]["pins"][2]["expiry_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 3 * 3600))
+    db.set_character(cid, colonies=colonies, synced_at=time.time())
     s = Settings()
     store.save_plan_run(pid, "upkeep", s, {"totals": {}, "colonies": [
         {"character_id": cid, "planet_id": 12, "character": "Upkeep Pilot", "planet": "P12", "product": "Biocells",
@@ -135,6 +137,9 @@ def test_operate_shows_the_upkeep_schedule(browser, eve, monkeypatch):
     assert "market shipment · every 7 days" in html
     assert "Precious Metals" in html and "doesn't send reminders" in html
     assert "50% of planned 480" in html and "not in the active plan" in html
+    assert '<caption>Colony visits and upkeep</caption>' in html
+    assert '<caption>Extractor restart times</caption>' in html
+    assert "3.0 h · soon" in html
 
 
 def test_plan_cache_ignores_wizard_bookkeeping_and_files_plans_under_the_data_they_used(monkeypatch):

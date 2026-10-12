@@ -17,8 +17,8 @@ function fixture(active = false) {
   const calls = [];
   const context = {seq: 0, PLANS: active ? [{id: 5, active: true, label: 'Original', totals: {isk_per_day: 100}}] : [],
     $, API: '/pi/api', EXPORT: '/pi/export', EXPORT_Q: '', STEPS: [], cur: 8,
-    AC: {icon: () => '', post: (url, body) => new Promise(resolve => calls.push({url, body, resolve}))},
-    document: {querySelectorAll: () => []}, esc: String, isk: String,
+    AC: {icon: () => '', compareTableHTML: () => '', post: (url, body) => new Promise(resolve => calls.push({url, body, resolve}))},
+    document: {querySelectorAll: () => []}, esc: String, isk: String, encodeURIComponent,
     planHTML: () => 'Displayed build list', fillYieldBand() {}, navigate() { context.seq += 1; }};
   vm.createContext(context);
   vm.runInContext(resultCode, context);
@@ -26,7 +26,7 @@ function fixture(active = false) {
 }
 
 function saved(id = 11) {
-  return {ok: true, id, label: 'Plan 1', active: true, plans: [{id, label: 'Plan 1', active: true}]};
+  return {ok: true, id, label: 'Plan 1', active: true, plans: [{id, label: 'Plan 1', active: true, totals: {}}]};
 }
 
 test('first-plan handoff has no link until the save resolves successfully', async () => {
@@ -97,6 +97,20 @@ test('existing active plan needs an explicit save or replacement choice', async 
   assert.equal(calls[1].body.active, true);
   calls[1].resolve(saved());
   await replace;
+});
+
+test('a new displayed candidate resets downloads after saving an earlier plan', async () => {
+  const {context, $, calls} = fixture(true);
+  context.setSaved(saved(11));
+  assert.equal(context.EXPORT_Q, '?plan=11');
+  let queryAtRender;
+  context.planHTML = () => { queryAtRender = context.EXPORT_Q; return 'New candidate'; };
+  const work = context.showPlan();
+  calls[0].resolve({result_id: 'new/result', facts: {}, totals: {}});
+  await work;
+  assert.equal(queryAtRender, '?result=new%2Fresult');
+  assert.equal(context.EXPORT_Q, '?result=new%2Fresult');
+  assert.equal($('tpl-link').href, '/pi/export/templates.zip?result=new%2Fresult');
 });
 
 test('shared API keeps a stale 409 response readable for the save retry UI', async () => {

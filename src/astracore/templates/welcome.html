@@ -16,36 +16,21 @@
     {% for c in chars %}
     <div class="charrow">
       <img src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64" alt="">
-      <div class="grow"><strong>{{ c.name }}</strong><br><span class="muted">{{ c.corporation_name or '' }}{% if c.alliance_name %} · {{ c.alliance_name }}{% endif %}</span></div>
-      {{ icon('circle-check', 'ok') }}
+      <div class="grow"><strong>{{ c.name }}</strong>
+        {% if c.corporation_name or c.alliance_name %}<br><span class="muted">{{ c.corporation_name or '' }}{% if c.alliance_name %} · {{ c.alliance_name }}{% endif %}</span>{% endif %}
+        <p class="{{ c.readiness.status }}">{{ c.readiness.label }}</p>
+        {% if c.synced_at %}<p class="muted">Command Center Upgrades {{ c.ccu_level or 0 }} · {{ c.slots or 0 }} colony slot{{ 's' if c.slots != 1 else '' }}</p>{% endif %}
+        {% if c.readiness.next %}<p class="muted">{{ c.readiness.next }}{% if c.readiness.href %} <a href="{{ c.readiness.href }}">{{ c.readiness.action }}</a>{% endif %}</p>{% endif %}
+      </div>
+      {{ icon('circle-check' if c.readiness.status == 'ok' else 'info', c.readiness.status) }}
     </div>
     {% endfor %}
     <p><a role="button" href="/auth/login?intent=add">{{ icon('plus') }} Add a character</a></p>
-    <p class="muted">Tip: in EVE's login screen, pick a different character each time. The list fills as they come back.</p>
+    <p class="muted">In EVE's login screen, pick a different character each time. For an alt on another EVE account,
+      choose <strong>Switch account</strong> there and sign in to that account first.</p>
+    <p class="muted">You can <a href="/profile#acc-h">group characters by EVE account on your profile</a> later.
+      Grouping doesn't affect your PI plan.</p>
   </section>
-
-  <details class="step account-optional" {{ 'open' if accounts else '' }}>
-    <summary><strong>{{ icon('users') }} Group by EVE account</strong><span class="muted">Optional · doesn’t affect your PI plan</span></summary>
-    <p class="muted">EVE doesn't tell apps which characters share an account, so you decide. Up to {{ max_per_account }} characters per account.</p>
-    <form method="post" action="/profile/accounts" class="grid">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="back" value="/welcome">
-      <input name="name" placeholder="Account name, e.g. Main" required maxlength="60" aria-label="New EVE account name">
-      <button class="outline">{{ icon('plus') }} Add EVE account</button>
-    </form>
-    {% if accounts %}
-    {% for c in chars %}
-    <form method="post" action="/profile/characters/{{ c.character_id }}/account" class="charrow">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="back" value="/welcome">
-      <span class="grow">{{ c.name }}</span>
-      <select name="account_id" aria-label="EVE account for {{ c.name }}" data-autosubmit>
-        <option value="">Unassigned</option>
-        {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if c.eve_account_id == a.id else '' }}>{{ a.name }}</option>{% endfor %}
-      </select>
-      <noscript><button class="outline">Save</button></noscript>
-    </form>
-    {% endfor %}
-    {% endif %}
-  </details>
 
   <section class="step launch-step">
     <h3>{{ icon('route', 'lg') }} Ready to put your planets to work?</h3>

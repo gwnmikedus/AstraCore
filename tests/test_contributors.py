@@ -123,7 +123,11 @@ def test_public_pages_show_contributors_before_origin_story_without_network_read
     for path in ("/", "/about", "/credits"):
         response = client.get(path)
         assert response.status_code == 200
-        assert response.text.index('id="contributors"') < response.text.index('id="creator"')
+        # The introduction keeps a short founder teaser; the full story lives on /credits and /community.
+        founder = 'id="founder"' if path in ("/", "/about") else 'id="creator"'
+        assert response.text.index('id="contributors"') < response.text.index(founder)
+        if path in ("/", "/about"):
+            assert 'id="creator"' not in response.text and 'href="/credits#creator"' in response.text
         assert 'href="https://github.com/FellowPilot"' in response.text
         assert "Founding capsuleer" in response.text
         assert "CosmicCarrot" in response.text

@@ -3,7 +3,9 @@
 {% block head %}{{ super() }}<link rel="stylesheet" href="{{ asset('css/money-slider.css') }}">
 <script src="{{ asset('js/money-slider.js') }}"></script>
 <script src="{{ asset('js/plan-warnings.js') }}"></script>
-<script src="{{ asset('js/print-checklist.js') }}"></script>{% endblock %}
+<script src="{{ asset('js/print-checklist.js') }}"></script>
+<script src="{{ asset('js/help.js') }}"></script>
+<script src="{{ asset('js/plan-help.js') }}"></script>{% endblock %}
 {% block content %}
 <header class="ac-page-header context-header">
 <div class="eyebrow">PI / Advanced planning</div>
@@ -66,17 +68,19 @@
       <div class="hint">VOC picks up couriers at {{ voc_hubs|join(', ') }}.</div>
     </div>
     <div class="ctl">
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_buyback"> VOC buyback</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_jita"> Courier to Jita</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_amarr"> Courier to Amarr</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_local"> Delve buy orders</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
+      <label data-local-channel style="font-weight:600" {% if not selling_coverage.local %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.local %}disabled{% endif %}> VOC buyback</span></label>
+      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_jita"> Sell at Jita</span></label>
+      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_amarr"> Sell at Amarr</span></label>
+      <label data-local-channel style="font-weight:600" {% if not selling_coverage.local %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Delve buy orders</span></label>
+      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_self_haul"> Haul to the trade hub myself</span></label>
+      <p class="hint">Your journey time, fuel and loss risk are not priced. {% if not selling_coverage.courier and not selling_coverage.trade_hub %}VOC has no route from this drop-off; enable your own trip to use Jita or Amarr.{% endif %}</p>
+      <label data-order-channel style="font-weight:600" {% if not selling_coverage.trade_hub and (s.use_self_haul or not selling_coverage.courier) %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
       <div class="hint">Each product goes to whichever enabled option pays most after fees. Sell orders pay more but you have to list and update them.</div>
     </div>
     <div class="ctl">
       <label>Sell a batch every <output id="o-ship_every_days"></output></label>
       <input type="range" id="ship_every_days" min="1" max="28" step="1">
-      <div class="hint">Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).</div>
+      <div class="hint" id="batch-transport-note">{% if s.use_self_haul %}Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.{% else %}Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).{% endif %}</div>
     </div>
     <div class="hint" style="margin-bottom:1rem">Prices updated {{ prices_at|ago }} · <a href="#" id="refresh-prices">refresh now</a></div>
     <div class="ctl">
@@ -93,6 +97,8 @@
   <section>
     <h4 style="margin-bottom:.5rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap"><span>Suggestions <span class="muted" id="alts-note"></span></span>
       <a href="/pi/plan" style="font-size:.85rem;font-weight:400">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
+    <div class="toolbar"><button type="button" id="apply-preview" disabled>Apply these settings</button>
+      <span id="preview-status" role="status">Preview only. Your guided answers stay unchanged until you apply.</span></div>
     <div class="alts" id="alts"></div>
     <div class="result" id="result"><p class="muted">Working out the first suggestion…</p></div>
   </section>
@@ -102,9 +108,10 @@
 {% block scripts %}
 <script nonce="{{ nonce }}">
 const S = JSON.parse({{ settings_json|tojson }});   // tojson: free-text settings can never end this script block
-const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}', EXPORT_Q = '?current=1';
+const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}';
+let EXPORT_Q = '';
 const WAYPOINT_CHARS = {{ waypoints|tojson }};
-const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders'];
+const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_self_haul', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, esc} = AC;
 
@@ -159,30 +166,44 @@ function state() {
 }
 
 // ---- live updates -------------------------------------------------------------------
-let timer = null, ctrl = null, altKey = null;
-function schedule(delay = 300) { showLabels(); clearTimeout(timer); timer = setTimeout(update, delay); }
-async function update() {
+let timer = null, ctrl = null, altKey = null, updateSeq = 0, applying = false;
+let baseline = null;
+function invalidatePreview() {
+  ++updateSeq; ++altSeq; altKey = null;
+  $('apply-preview').disabled = true;
+  $('preview-status').textContent = 'Preview only. Your guided answers stay unchanged until you apply.';
+  document.querySelectorAll('#result [data-export]').forEach(a => { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); });
+}
+function schedule(delay = 300) { invalidatePreview(); showLabels(); clearTimeout(timer); timer = setTimeout(update, delay); }
+async function update(apply = false) {
+  const my = ++updateSeq;
+  if (apply) applying = true;
+  $('apply-preview').disabled = true;
   if (ctrl) ctrl.abort();
   ctrl = new AbortController();
   $('busy').style.display = 'block'; $('result').classList.add('loading');
   const st = state();
   try {
-    const res = await AC.post(API + '/suggest', st, {signal: ctrl.signal,
+    const res = await AC.post(API + (apply ? '/apply' : '/preview'), {settings: st, baseline}, {signal: ctrl.signal,
       onBusy: () => { $('busy').textContent = 'AstraCore is busy, your plan is queued…'; }});
+    if (my !== updateSeq) return;
     $('busy').textContent = 'updating…';
     if (res.superseded) return;
+    baseline = res.baseline || baseline;
+    $('apply-preview').disabled = !!res.error || apply;
+    $('preview-status').textContent = res.error ? 'Preview unavailable. Your settings were not applied.' : apply ? 'Settings applied. Downloads now match this plan; your guided answers and place are retained.' : 'Preview only. Apply these settings before downloading this plan.';
     render(res, st);
     const key = JSON.stringify({...st, effort: null, hour_isk: null});
-    if (key !== altKey) { altKey = key; loadAlts(); } else markAlt();
-  } catch (e) { if (e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
-  finally { $('busy').style.display = 'none'; $('result').classList.remove('loading'); }
+    if (key !== altKey) { altKey = key; loadAlts(st); } else markAlt();
+  } catch (e) { if (my === updateSeq && e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
+  finally { if (apply) applying = false; if (my === updateSeq) { $('busy').style.display = 'none'; $('result').classList.remove('loading'); } }
 }
 let altSeq = 0;
-async function loadAlts() {
+async function loadAlts(st) {
   const my = ++altSeq;            // only the newest comparison may draw (an older answer can arrive later)
   $('alts-note').textContent = '- comparing goals…';
   let alts;
-  try { alts = await AC.post(API + '/alternatives', {}); } catch (e) { alts = {error: String(e)}; }
+  try { alts = await AC.post(API + '/alternatives', {base: st}); } catch (e) { alts = {error: String(e)}; }
   if (my !== altSeq) return;
   if (alts.superseded) { $('alts-note').textContent = ''; return; }
   if (!Array.isArray(alts)) { $('alts-note').textContent = '- comparison unavailable, change a setting to retry'; return; }
@@ -205,16 +226,36 @@ function markAlt() {
 
 // ---- rendering -------------------------------------------------------------------------
 {% include "pi/_plan_render.html" %}
+function updateSellingCoverage(coverage) {
+  if (!coverage) return;
+  const ownTrip = $('use_self_haul').checked;
+  const orders = document.querySelector('[data-order-channel]');
+  orders.hidden = !coverage.trade_hub && (ownTrip || !coverage.courier);
+  $('use_sell_orders').disabled = orders.hidden;
+  $('batch-transport-note').textContent = ownTrip
+    ? 'Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.'
+    : "Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).";
+  document.querySelectorAll("[data-local-channel]").forEach(label => {
+    label.hidden = !coverage.local;
+    label.querySelector("input").disabled = !coverage.local;
+  });
+}
 function render(res, st) {
+  updateSellingCoverage(res.selling_coverage);
   const w = res.weights || {};
   $('h-effort').textContent = w.isk_per_m3 !== undefined
     ? (w.isk_per_m3 > 0 ? `Weighed against your time: each m³ hauled costs ${num(w.isk_per_m3)} ISK, each system on the pickup round ` +
        `${isk(w.isk_per_system)}/day and each factory to restock ${isk(w.isk_per_factory)}/day.` : 'Only income counts: your time is valued at 0.') : '';
+  EXPORT_Q = res.result_id ? '?result=' + encodeURIComponent(res.result_id) : '';
   $('result').innerHTML = planHTML(res);
-  fillYieldBand();
+  if (!res.result_id) {
+    document.querySelectorAll('#result [data-export]').forEach(a => { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); });
+  }
+  fillYieldBand(st);
 }
 
 // ---- wire up -------------------------------------------------------------------------------
+$('apply-preview').onclick = () => { if (!applying) { clearTimeout(timer); update(true); } };
 init();
 for (const k of ['max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
 document.querySelectorAll('#goal button').forEach(b => b.onclick = () => { setGoal(b.dataset.v); schedule(0); });

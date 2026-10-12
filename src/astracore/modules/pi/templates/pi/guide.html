@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% from "_artwork.html" import artwork %}
+{% from "_help.html" import help_toggle %}
 {% block head %}
 <link rel="stylesheet" href="{{ asset('css/money-slider.css') }}">
 <script src="{{ asset('js/money-slider.js') }}"></script>
 <script src="{{ asset('js/plan-compare.js') }}"></script>
 <script src="{{ asset('js/plan-warnings.js') }}"></script>
 <script src="{{ asset('js/print-checklist.js') }}"></script>
+<script src="{{ asset('js/help.js') }}"></script>
+<script src="{{ asset('js/plan-help.js') }}"></script>
 {% endblock %}
 {% block content %}
 <div class="g-head context-header">
@@ -14,7 +17,8 @@
     <h1>Build an operation that fits your life.</h1>
     <div class="ctx">{{ chars|length }} character{{ 's' if chars|length != 1 }}{% if eligible_characters < chars|length %} ({{ eligible_characters }} can plan){% endif %} · {{ slots }} colony slots · {{ n_systems }} systems selected
       {% if dropoff %}· drop-off {{ dropoff }}{% endif %}
-      · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|num }} P0/h per head)</span>{% endif %}</div>
+      · {% if calibrated %}<span class="ok">yield measured from your extractors</span>{% else %}<span class="warn">yield is an estimate ({{ head_yield|num }} P0/h per head)</span>{% endif %}
+      {%- if help_answers %}{{ help_toggle('help-yield-head', help_answers.yield.text, help_answers.yield.label, glossary_url ~ '#' ~ help_answers.yield.more) }}{% endif %}</div>
     <a class="adv" href="{{ advanced_url }}">Advanced: all options on one screen →</a>
     <p class="g-head-line">Plan · {{ chars|length }} character{{ 's' if chars|length != 1 }} · {{ slots }} slots · <a href="{{ advanced_url }}">Advanced</a></p>
   </div>
@@ -25,6 +29,7 @@
 
 <div class="guide-progress"><span id="progress-label">Your setup</span><span id="step-name" class="step-name"></span><span id="save-status" role="status">Answers save as you continue</span></div>
 <ol class="track" id="track"></ol>
+<div id="wizard-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <section class="q" id="q" aria-labelledby="question-title"></section>
 <noscript><div class="flash warn">The guided planner needs JavaScript. Enable it and reload to compare setups.</div></noscript>
 {% endblock %}
@@ -47,10 +52,12 @@ let EXPORT = '{{ export }}', EXPORT_Q = '?current=1';
 // Lifestyle constraints first (goal, logins, area), then how to produce, then how to sell.
 // Options are listed from least to most effort; the suggestion is the cheapest answer that earns
 // close enough to the best, where "close enough" comes from what an hour of your time is worth.
+let SELL_COVERAGE = {{ selling_coverage|tojson }};
 const SELL = {
-  nohaul: {use_buyback: true, use_local: true, use_jita: false, use_amarr: false, use_sell_orders: false},
-  courier: {use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: false},
-  orders: {use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: true},
+  nohaul: {use_self_haul: false, use_buyback: true, use_local: true, use_jita: false, use_amarr: false, use_sell_orders: false},
+  courier: {use_self_haul: false, use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: false},
+  self: {use_self_haul: true, use_buyback: false, use_local: false, use_jita: true, use_amarr: true, use_sell_orders: false},
+  orders: {use_self_haul: false, use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: true},
 };
 const STEPS = [
   {id: 'goal', title: 'Goal', q: 'What do you want from PI?', isGoal: true,
@@ -83,7 +90,7 @@ const STEPS = [
   {id: 'tier', title: 'Products', q: 'How far should your planets process?',
    intro: 'Miner planets turn raw resources (P0) into P1 on their own. Factory planets turn P1 into P2 and up: worth more per m³, so less hauling, and VOC buyback takes P2+ (not P1). But a factory has to be stocked with its inputs on every run.',
    options: [
-     {id: 1, icon: 'pickaxe', label: 'Only P1 (miners)', patch: {max_tier: 1}, blurb: 'Every planet works alone: restart, pick up, sell. P1 goes by courier, since the buyback refuses it.'},
+     {id: 1, icon: 'pickaxe', label: 'Only P1 (miners)', patch: {max_tier: 1}, blurb: 'Every planet works alone: restart, pick up, sell. P1 sells through trade-hub or local buy orders; VOC buyback refuses it.'},
      {id: 2, icon: 'factory', label: 'Up to P2', patch: {max_tier: 2}, blurb: 'Adds factories that combine two P1 into P2, where that pays.'},
      {id: 3, icon: 'factory', label: 'Up to P3', patch: {max_tier: 3}, blurb: 'Longer chains: more inputs to move between planets.'},
      {id: 4, icon: 'rocket', label: 'Up to P4', patch: {max_tier: 4}, blurb: 'Allows any factory. The planner only uses one if the ISK justifies it.'}],
@@ -106,14 +113,15 @@ const STEPS = [
    options: [
      {id: 'nohaul', icon: 'house', label: 'Sell in Delve only', patch: SELL.nohaul, blurb: 'VOC buyback (P2+) and Delve buy orders. Nothing leaves null, but P1 is worth little here.'},
      {id: 'courier', icon: 'truck', label: 'Also courier to Jita / Amarr', patch: SELL.courier, blurb: 'VOC hauls it, you sell into buy orders on arrival.'},
+     {id: 'self', icon: 'truck', label: 'Haul to Jita / Amarr myself', patch: SELL.self, blurb: 'Sell to visible buy orders. Your journey time, fuel and loss risk are not priced.'},
      {id: 'orders', icon: 'trending-up', label: 'Also list sell orders', patch: SELL.orders, blurb: 'Better prices, but you list orders and update them when undercut.'}],
    match: st => Object.keys(SELL).find(k => Object.entries(SELL[k]).every(([f, v]) => !!st[f] === v)) || null},
   {id: 'batch', title: 'Batches', q: 'How often do you want to sell a batch?', metric: 'sell',
    intro: 'VOC charges a minimum fee per courier contract (10M to Jita, 20M to Amarr). Bigger, less frequent batches spread that fee; smaller ones turn into ISK sooner.',
    options: [
-     {id: 7, icon: 'package', label: 'Every week', patch: {ship_every_days: 7}, blurb: 'ISK comes in quickly; small batches may wait for the minimum fee.'},
+     {id: 7, icon: 'package', label: 'Every week', patch: {ship_every_days: 7}, blurb: 'ISK comes in quickly; more frequent trips with smaller batches.'},
      {id: 14, icon: 'package', label: 'Every 2 weeks', patch: {ship_every_days: 14}, blurb: ''},
-     {id: 28, icon: 'boxes', label: 'Every 4 weeks', patch: {ship_every_days: 28}, blurb: 'One big haul a month: lowest fee per m³.'}],
+     {id: 28, icon: 'boxes', label: 'Every 4 weeks', patch: {ship_every_days: 28}, blurb: 'One big haul a month: fewer trips with more cargo.'}],
    match: st => +st.ship_every_days,
    custom: st => ({id: +st.ship_every_days, icon: 'map-pin', label: `Every ${st.ship_every_days} days`, patch: {ship_every_days: +st.ship_every_days}, blurb: 'Your current setting.'})},
   {id: 'plan', title: 'Your plan'},
@@ -149,14 +157,21 @@ const STEP_CONTEXT = {
   batch: 'Balance quicker payouts against courier minimum fees.',
 };
 
+// A "?" under a question's explanation, for the outcomes that surprise pilots (glossary.answers()).
+// [answer key, question shown] per step; no question = the answer's own label.
+const STEP_HELP = {area: ['isk', 'Why can a wider area show less ISK?'], tier: ['tier'], share: ['share'], sell: ['voc']};
+const stepHelp = step => {
+  const [key, label] = STEP_HELP[step.id] || [];
+  const answer = key && HELP[key];
+  return answer ? `<p class="help-line">${AC.helpFor(label ? {...answer, label} : answer, {glossary: GLOSSARY, showLabel: true})}</p>` : '';
+};
+
 const value = (step, r) => r && !r.error ? (step.metric === 'sell' ? r.sell_net_per_day : r.totals.isk_per_day) : null;
 const optOf = (step, id) => (step.options || []).find(o => o.id === id);
 
 // Estimated minutes of your time per week for an answer (worked out with the plan, see
 // planner/compare.py). Rough, but the same yardstick for every question, so ISK can be weighed against time.
-const TIME_NOTE = 'Time estimate: 1.5 min per extractor restart, 1 min per character login, 1 min per colony pickup and ' +
-  '5 min per system on every pickup round, 20 min per 60,000 m³ hauled, 3 min per factory restock, 2 min per transfer ' +
-  'and 5 min of contracts per batch (+20 min/week to keep sell orders up to date).';
+// How it adds up is behind the "?" on "Your time / week" (HELP.time, from glossary.time_note()).
 function minutesPerWeek(o, r) {
   const m = r && !r.error && r.facts ? r.facts.minutes_per_week : null;
   return m == null ? Infinity : m;
@@ -208,7 +223,7 @@ function diffs(step, a, b) {          // what answer b means compared with answe
   const res = results[step.id], ra = res[a.id], rb = res[b.id];
   const out = {isk: 0, parts: []};
   const va = value(step, ra), vb = value(step, rb), dv = vb - va;
-  if (Math.abs(dv) >= Math.max(0.5e6, 0.01 * Math.max(Math.abs(va), Math.abs(vb)))) out.isk = dv;
+  if (!AC.aboutSame(va, vb)) out.isk = dv;
   const dm = minutesPerWeek(b, rb) - minutesPerWeek(a, ra);
   if (Math.abs(dm) >= 5) out.parts.push(`${duration(Math.abs(dm))} ${dm > 0 ? 'more' : 'less'} of your time a week`);
   const ta = ra.totals, tb = rb.totals;
@@ -303,24 +318,42 @@ function blockedNote() {
     '<a href="#characters-panel" id="see-characters">see Characters in this plan</a></span></div>';
 }
 
+function setHint(text) {
+  if ($('navhint')) $('navhint').textContent = text;
+  $('wizard-status').textContent = text;
+}
+
+function needsOwnTrip() {
+  return !SELL_COVERAGE.local && !SELL_COVERAGE.courier && !SELL_COVERAGE.trade_hub && !st.use_self_haul;
+}
 function showQuestion(step) {
   $('q').dataset.step = step.id;
   step.options = step.options.filter(o => !o.isCustom);
+  if (step.id === 'sell') {
+    step.allOptions ||= [...step.options];
+    step.options = step.allOptions.filter(o => o.id === 'self' ||
+      (o.id === 'nohaul' ? SELL_COVERAGE.local : SELL_COVERAGE.courier || SELL_COVERAGE.trade_hub));
+    if (SELL_COVERAGE.trade_hub && !SELL_COVERAGE.courier)
+      step.options = step.options.map(o => o.id === 'courier' ? {...o, label: 'Sell at the trade hub', blurb: 'Your drop-off is already at a trade hub. Sell to buy orders there.'} : o);
+  }
   const m = step.match(st);
   if (step.custom && m != null && !step.options.some(o => o.id === m))
     step.options.push({...step.custom(st), isCustom: true});
   $('q').innerHTML = `
     <div class="eyebrow">Step ${cur + 1} of ${QUESTIONS}</div>
     <h2 id="question-title" tabindex="-1">${step.q}</h2>
-    <p class="intro">${STEP_CONTEXT[step.id]}</p>
+    <p class="intro">${step.id === 'batch' && st.use_self_haul ? 'Balance quicker payouts against fewer trips and more cargo.' : STEP_CONTEXT[step.id]}</p>
     ${cur <= 1 ? blockedNote() : ''}
-    <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.intro}</p></details>
-    <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map(o => `
-      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false">
+    <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.id === 'batch' && st.use_self_haul ? 'You make the trip yourself. Bigger batches mean fewer journeys, but more cargo to move. Journey time, fuel and loss risk are not priced.' : step.intro}</p></details>
+    ${stepHelp(step)}
+    ${needsOwnTrip() ? '<div class="flash warn"><div><strong>No selling route from this drop-off yet.</strong><p>VOC does not serve this drop-off. You can haul to Jita or Amarr yourself; journey time, fuel and loss risk are not priced.</p><button type="button" id="enable-own-trip">Use my own trip to a trade hub</button><p id="own-trip-status" role="status"></p></div></div>' : ''}
+    <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map((o, index) => `
+      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false"
+        aria-labelledby="answer-name-${index}" aria-describedby="answer-blurb-${index}${step.isGoal ? '' : ' answer-results-' + index}">
         <div class="badges"></div>
-        <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm">${esc(o.label)}</div>
-        <div class="bl">${esc(o.blurb || '')}</div>
-        ${step.isGoal ? '' : '<div class="res"><div class="skel"></div><div class="skel" style="width:60%"></div></div>'}
+        <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm" id="answer-name-${index}">${esc(o.label)}</div>
+        <div class="bl" id="answer-blurb-${index}">${esc(o.blurb || '')}</div>
+        ${step.isGoal ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel" style="width:60%"></div></div>`}
       </div>`).join('')}</div>
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
@@ -328,26 +361,54 @@ function showQuestion(step) {
     ${hourPicker()}
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
-      <span class="hint" id="navhint" role="status">${step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…'}</span>
+      <span class="hint" id="navhint"></span>
       <button id="next" ${step.isGoal ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
+  const ownTrip = $('enable-own-trip');
+  if (ownTrip) ownTrip.onclick = async () => {
+    ownTrip.disabled = true;
+    const result = await AC.post(API + '/save', SELL.self);
+    if (!ownTrip.isConnected) return;
+    if (result.error) {
+      $('own-trip-status').textContent = result.error;
+      ownTrip.disabled = false;
+      return;
+    }
+    Object.assign(st, SELL.self);
+    Object.assign(saved, SELL.self);
+    for (const key of Object.keys(results)) delete results[key];
+    showQuestion(step);
+  };
   const see = $('see-characters');
   if (see) see.onclick = () => { $('characters-panel').open = true; };
   $('back').onclick = () => navigate(cur - 1);
   $('next').onclick = async () => { if (await commit(step, cur + 1)) go(cur + 1); };
   document.querySelectorAll('.opt').forEach(el => {
-    const pick = () => { if (!saving && el.getAttribute('aria-disabled') !== 'true') choose(step, JSON.parse(el.dataset.id)); };
+    const pick = () => {
+      const id = JSON.parse(el.dataset.id);
+      if (saving || el.getAttribute('aria-disabled') === 'true' ||
+          (!step.isGoal && !(results[step.id] || {})[id])) {
+        setHint(saving ? 'Saving your answer. Please wait.' :
+          (!results[step.id] ? 'Comparing setups. You can explore the answers while they load.' :
+            'This answer is unavailable. Choose another answer.'));
+        return;
+      }
+      choose(step, id);
+    };
     el.onclick = pick;
     el.onkeydown = e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
       if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
       e.preventDefault();
-      const options = [...document.querySelectorAll('.opt:not([aria-disabled="true"])')];
-      if (!options.length || saving) return;
+      const options = [...document.querySelectorAll('.opt')];
+      if (!options.length) return;
       const position = options.indexOf(el);
       const index = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 :
         (position + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1) + options.length) % options.length;
-      choose(step, JSON.parse(options[index].dataset.id));
+      options.forEach(option => option.tabIndex = option === options[index] ? 0 : -1);
+      const id = JSON.parse(options[index].dataset.id);
+      if (!saving && options[index].getAttribute('aria-disabled') !== 'true' &&
+          (step.isGoal || (results[step.id] || {})[id])) choose(step, id);
       options[index].focus();
     };
   });
@@ -356,7 +417,9 @@ function showQuestion(step) {
   // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
   if (picks[step.id] === undefined && (answered.has(step.id) || step.isGoal) && m != null) picks[step.id] = m;
   paint(step);
-  if (!step.isGoal) load(step);
+  setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
+  if (needsOwnTrip()) $('next').disabled = true;
+  else if (!step.isGoal) load(step);
 }
 
 async function load(step) {
@@ -367,20 +430,25 @@ async function load(step) {
   paint(step);
   const base = {...st};
   const rows = await AC.post(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
-    {signal: comparisonRequest.signal, onBusy: () => { if (my === seq) $('navhint').textContent = 'AstraCore is busy, your plan is queued…'; }});
+    {signal: comparisonRequest.signal, onBusy: () => { if (my === seq) setHint('AstraCore is busy, your plan is queued…'); }});
   if (my !== seq || rows.superseded) return;            // user moved on
   if (!Array.isArray(rows)) {
-    $('navhint').textContent = rows.error || 'Could not compare these setups.';
+    setHint(rows.error || 'Could not compare these setups.');
     $('advice').innerHTML = '<div class="flash warn"><span>Comparison unavailable. Your saved answers are safe.</span><button class="outline" id="retry-comparison">Retry comparison</button></div>';
     $('retry-comparison').onclick = () => { $('advice').innerHTML = ''; load(step); };
     return;
   }
+  const coverage = rows.find(r => r.selling_coverage)?.selling_coverage;
+  if (coverage && JSON.stringify(coverage) !== JSON.stringify(SELL_COVERAGE)) {
+    SELL_COVERAGE = coverage;
+    if (step.id === "sell" || needsOwnTrip()) { showQuestion(step); return; }
+  }
   results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
   if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st)); else paint(step);
   const kept = results[step.id][picks[step.id]];
-  $('navhint').textContent = kept && kept.error
+  setHint(kept && kept.error
     ? 'Your earlier answer no longer works with your other choices. Pick another to continue.'
-    : 'Click an answer to compare. You can come back and change it later.';
+    : 'Click an answer to compare. You can come back and change it later.');
 }
 
 // The same answers as a table: income, your time, effort and uncertainty in one place.
@@ -396,10 +464,11 @@ function compareHTML(step, rec, pick) {
   return `<details class="compare-box" id="compare-details" ${compareOpen ? 'open' : ''}>
     <summary>Compare answers side by side: income, your time and uncertainty</summary>
     ${AC.compareTableHTML({caption: `${step.title}: what each answer means for your plan`, rows, first: 'Answer'})}
-    <p class="muted compare-note">Income is after taxes, hauling and fees. ${esc(TIME_NOTE)}
+    <p class="muted compare-note">Income is after taxes, hauling and fees. Your time is a rough estimate, the same for every answer.
       Uncertainty lists what can make real income differ from the estimate, scored by how much of the income
       depends on sell orders, courier transit or held batches; it is not a probability. Reasons every answer
-      shares are greyed.</p></details>`;
+      shares are greyed.</p>
+    <p class="help-line">${AC.helpFor(HELP.time, {glossary: GLOSSARY, showLabel: true})}</p></details>`;
 }
 
 function choose(step, id) {
@@ -414,7 +483,7 @@ function paint(step) {
   const rec = recommend(step);
   const pick = picks[step.id];
   const valid = step.isGoal || !!(res[pick] && !res[pick].error);
-  if ($('next')) $('next').disabled = saving || !valid;
+  if ($('next')) $('next').disabled = saving || !valid || needsOwnTrip();
   $('opts').setAttribute('aria-busy', String(!step.isGoal && !results[step.id]));
   const vals = step.options.map(o => value(step, res[o.id])).filter(v => v != null);
   const top = Math.max(1, ...vals);
@@ -423,7 +492,7 @@ function paint(step) {
     el.classList.toggle('pick', id === pick);
     el.classList.toggle('recd', id === rec && id === pick);
     el.setAttribute('aria-checked', id === pick ? 'true' : 'false');
-    el.setAttribute('aria-disabled', String(saving || (!step.isGoal && (!r || !!r.error))));
+    el.setAttribute('aria-disabled', String(saving || !!r?.error));
     el.tabIndex = id === pick || (pick == null && el === $('opts').firstElementChild) ? 0 : -1;
     el.classList.toggle('err', !!r?.error);
     // One badge story: the picked card says "Suggested" when it is the suggestion, otherwise "Your pick".
@@ -432,8 +501,10 @@ function paint(step) {
     if (step.isGoal || !r) return;
     if (r.error) { el.classList.add('err'); el.querySelector('.res').innerHTML = `<div class="bad" style="font-size:.82rem">${esc(r.error)}</div>`; return; }
     const v = value(step, r), t = r.totals;
+    // The card's "?" buttons sit next to their figures; their answers open below the figures, at full card width.
+    const iskHelp = AC.helpPartsFor(HELP.isk, {glossary: GLOSSARY}), timeHelp = AC.helpPartsFor(HELP.time, {glossary: GLOSSARY});
     const rows = [
-      [AC.icon('clock') + 'Your time / week', '≈ ' + duration(minutesPerWeek(o, r))],
+      [AC.icon('clock') + 'Your time / week' + timeHelp.button, '≈ ' + duration(minutesPerWeek(o, r))],
       [AC.icon('truck') + 'Haul / week', m3(t.m3_per_week)],
       [AC.icon('refresh-cw') + 'Restarts / week', count(t.restarts_per_week)],
       [AC.icon('map') + 'Systems', t.systems],
@@ -444,16 +515,28 @@ function paint(step) {
     if (step.metric === 'sell') rows.unshift([AC.icon('coins') + 'Per batch', isk(r.sell_net_per_cycle)]);
     if (r.holds) rows.push([AC.icon('pause') + 'Batches held back', r.holds]);
     el.querySelector('.res').innerHTML = `
-      <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small></div>
+      <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small>${iskHelp.button}</div>
       <div class="bar"><i style="width:${Math.max(3, v / top * 100)}%"></i></div>
       <div class="metrics">${rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
-      <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>`;
+      <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>
+      ${iskHelp.answer}${timeHelp.answer}
+      ${step.id === 'tier' ? samePlanHTML(step, o, r, res) : ''}`;
   });
   $('advice').innerHTML = step.isGoal ? '' : advice(step, rec, pick);
   $('compare').innerHTML = step.isGoal ? '' : compareHTML(step, rec, pick);
   $('compare-details')?.addEventListener('toggle', e => { compareOpen = e.target.open; });
   hourControl.setValue(iskPerHour(), HOUR_DEFAULT[goalId()], +st.hour_isk < 0);
   hourControl.setDisabled(saving);
+}
+
+// Products step: a card whose plan stops below the tier it allows says so, and why ("Same plan as Up to P2").
+function samePlanHTML(step, o, r, res) {
+  const need = r.tier_need;
+  if (!need || need.allowed !== o.patch.max_tier) return '';
+  const lower = optOf(step, need.used), lr = lower && res[lower.id];
+  const same = !!(lr && !lr.error && lower.id !== o.id && lr.mix === r.mix && AC.aboutSame(value(step, lr), value(step, r)));
+  const t = AC.tierHelp(need, {same, sameLabel: lower ? lower.label : ''});
+  return t ? `<div class="same-plan">${esc(t.short)}${AC.helpHTML({text: t.text, label: t.question, more: GLOSSARY + '#higher-tiers'})}</div>` : '';
 }
 
 function advice(step, rec, pick) {
@@ -478,8 +561,7 @@ function advice(step, rec, pick) {
     }
     if (!p.length) return '';
   }
-  return `<div class="advice"><h6>${AC.icon('lightbulb')} Our advice</h6>${p.map(x => `<p>${x}</p>`).join('')}
-    <p class="muted" style="font-size:.75rem">${TIME_NOTE}</p></div>`;
+  return `<div class="advice"><h6>${AC.icon('lightbulb')} Our advice</h6>${p.map(x => `<p>${x}</p>`).join('')}</div>`;
 }
 
 // ---- Area step: constellations + drop-off (advanced) --------------------------------------------
@@ -516,7 +598,7 @@ async function wireArea(step) {
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {
       const ids = [...det.querySelectorAll('input[type=checkbox]:checked')].map(x => +x.value);
-      if (!ids.length) { $('next').disabled = true; $('navhint').textContent = 'Select at least one constellation.'; return; }
+      if (!ids.length) { $('next').disabled = true; setHint('Select at least one constellation.'); return; }
       st.selected_constellations = ids; st.hub_system = $('area-hub').value;
       delete results[step.id];
       paint(step);
@@ -552,7 +634,7 @@ async function commit(step, target) {
   hourControl.setDisabled(false);
   if (result.error || result.superseded) {
     $('save-status').textContent = 'Answer not saved';
-    $('navhint').textContent = result.error || 'Try saving your answer again.';
+    setHint(result.error || 'Try saving your answer again.');
     $('next').disabled = false;
     $('back').disabled = cur === 0;
     drawTrack();
@@ -615,6 +697,7 @@ async function showPlan() {
     linkSteps($('planres'));
     return;
   }
+  EXPORT_Q = '?result=' + encodeURIComponent(res.result_id);
   $('planres').innerHTML = planHTML(res, {steps: stepNames()});
   linkSteps($('planres'));
   $('plan-compare').innerHTML = activeComparison(res);

@@ -5,6 +5,7 @@
 /pi/plan       -> the guided wizard (?view=advanced: every option on one screen)
 /pi/area       -> constellations and drop-off
 /pi/settings   -> economics and yield
+/pi/glossary   -> plain-English PI terms, linked from the "?" answers
 /pi/api/...    -> JSON for the wizard and the advanced view (CSRF header required)
 /pi/export/... -> templates zip, plan .md / .csv, first-build shopping .csv
 """
@@ -33,10 +34,10 @@ from astracore.esi import errors as esi_errors
 from astracore.esi import sso
 from astracore.esi.client import ESI_BASE, default_headers
 
-from . import service, store
+from . import glossary, service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import compare, nextup, operate, optimizer, prices, setups
+from .planner import compare, nextup, operate, optimizer, prices, selling, setups
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, TEXT_LIMITS, Settings, time_weights
 from .static_data import dalshooth, voc
@@ -48,7 +49,7 @@ PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
                "cross_character", "hub_system", "product_blacklist", "use_buyback", "use_jita",
-               "use_amarr", "use_local", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
+               "use_amarr", "use_local", "use_self_haul", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
                "answered", "selected_constellations", "extra_area"}
 
 
@@ -71,8 +72,9 @@ def superseded_response() -> JSONResponse:
 
 # ----------------------------------------------------------------------------- entry
 @router.get("", response_class=HTMLResponse)
-async def entry(request: Request):
+async def entry(request: Request, rhythm: str = ""):
     pid = _pid(request)
+    store.apply_preview_goal(pid, rhythm)
     db.update_profile(pid, onboarded=1)
     state = service.entry_state(pid)
     if state == "connect":
@@ -249,11 +251,18 @@ async def plan_page(request: Request):
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
                   blocked_characters=len(ctx["chars"]) - len(eligible),
                   n_systems=len(ctx["systems"]),
-                  dropoff=ctx["dropoff"], seller=ctx["seller"], api="/pi/api", export="/pi/export",
+                  dropoff=ctx["dropoff"], selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
-                  esi_outage=service.outage_banner(ctx))
+                  esi_outage=service.outage_banner(ctx),
+                  help_answers=glossary.answers(s, ctx["head_yield"], bool(ctx["calibrated"])), glossary_url=glossary.GLOSSARY_URL)
+
+
+# ----------------------------------------------------------------------------- glossary
+@router.get("/glossary", response_class=HTMLResponse)
+async def glossary_page(request: Request):
+    return render(request, "glossary.html", "glossary", "Glossary", entries=glossary.entries())
 
 
 def _waypoint_chars(pid: int) -> list:
@@ -289,6 +298,55 @@ async def api_suggest(request: Request):
         res["facts"] = compare.plan_facts(res, s)
         res["result_id"] = store.remember_plan_result(pid, s, res, _result_stamp(pid))
     return JSONResponse(res)
+
+
+ADVANCED_FIELDS = LIVE_FIELDS - {"guide_step", "answered"}
+
+
+@router.post("/api/preview")
+async def api_preview(request: Request):
+    return await _advanced_result(request, apply=False)
+
+
+@router.post("/api/apply")
+async def api_apply(request: Request):
+    return await _advanced_result(request, apply=True)
+
+
+async def _advanced_result(request: Request, apply: bool):
+    """Experimental controls never change confirmed answers until explicitly applied."""
+    pid = _pid(request)
+    body = await request.json()
+    try:
+        async with GATE.request(pid, "advanced"):
+            original = store.load_settings(pid)
+            baseline = store.plan_settings(original)
+            if apply and body.get("baseline") != baseline:
+                return JSONResponse({"error": "Your saved settings changed. Reload before applying this preview.",
+                                     "stale": True}, status_code=409)
+            s = copy.deepcopy(original)
+            s.update({k: v for k, v in body.get("settings", {}).items() if k in ADVANCED_FIELDS})
+            before = _result_stamp(pid)
+            res = copy.deepcopy(await service.solve(pid, s))
+            if before != _result_stamp(pid) or baseline != store.plan_settings(store.load_settings(pid)):
+                return JSONResponse({"error": "Your planning data or answers changed. Recalculate your preview.",
+                                     "stale": True}, status_code=409)
+            if "error" not in res and apply:
+                # Navigation may have changed during the solve; retain its newest values.
+                current = store.load_settings(pid)
+                s.guide_step, s.answered = current.guide_step, current.answered
+                store.save_settings(pid, s)
+            res["weights"] = time_weights(s)
+            if "error" not in res and apply:
+                res["facts"] = compare.plan_facts(res, s)
+                res["result_id"] = store.remember_plan_result(pid, s, res, _result_stamp(pid))
+            res["preview"] = not apply
+            res["baseline"] = store.plan_settings(s) if apply and "error" not in res else baseline
+            return JSONResponse(res)
+    except Busy:
+        return busy_response()
+    except Superseded:
+        return superseded_response()
 
 
 @router.post("/api/save")
@@ -337,7 +395,10 @@ async def api_alternatives(request: Request):
     pid = _pid(request)
     try:
         async with GATE.request(pid, "alternatives"):
-            ctx = await service.planning_context(pid)
+            body = await request.json()
+            s = store.load_settings(pid)
+            s.update({k: v for k, v in body.get("base", {}).items() if k in ADVANCED_FIELDS})
+            ctx = await service.planning_context(pid, s, persist_default=False)
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "alternatives")
             alts = await GATE.cached(key, optimizer.alternatives, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
@@ -354,7 +415,10 @@ async def api_sensitivity(request: Request):
     pid = _pid(request)
     try:
         async with GATE.request(pid, "sensitivity"):
-            ctx = await service.planning_context(pid)
+            body = await request.json()
+            s = store.load_settings(pid)
+            s.update({k: v for k, v in body.get("base", {}).items() if k in ADVANCED_FIELDS})
+            ctx = await service.planning_context(pid, s, persist_default=False)
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "sensitivity")
             rows = await GATE.cached(key, optimizer.yield_sensitivity, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
@@ -498,8 +562,14 @@ async def operate_page(request: Request):
 
 # ----------------------------------------------------------------------------- exports
 async def _export_run(request: Request) -> dict:
-    """{"result", "settings"} of the plan an export link names: ?plan=<id>, ?current=1 or the active one."""
+    """Export a displayed result handle, named saved plan, current solve or active plan."""
     pid = _pid(request)
+    result_id = request.query_params.get("result")
+    if result_id is not None:
+        try:
+            return store.get_plan_result(pid, result_id, lambda: _result_stamp(pid))
+        except store.StaleResult as exc:
+            raise HTTPException(409, str(exc)) from exc
     run = request.query_params.get("plan")
     if run is not None:
         # A named plan exports that plan or nothing: never quietly a different one.
@@ -780,9 +850,19 @@ async def settings_save(request: Request):
     return redirect("/pi/settings", "Saved.")
 
 
+@router.get("/reset", response_class=HTMLResponse)
+async def reset_pi_page(request: Request):
+    return render(request, "reset.html", "profile", "Reset AstraCore PI", profile=db.get_profile(_pid(request)))
+
+
 @router.post("/reset")
 async def reset_pi(request: Request):
-    store.reset_profile(_pid(request))
+    pid = _pid(request)
+    profile = db.get_profile(pid)
+    form = await request.form()
+    if form.get("confirm", "") != profile["display_name"]:
+        return redirect("/pi/reset", f"Type {profile['display_name']} exactly to confirm.", "warn")
+    store.reset_profile(pid)
     return redirect("/profile", "AstraCore PI was reset: settings, plans and planet overrides are gone. "
                                 "Your characters are still linked.")
 

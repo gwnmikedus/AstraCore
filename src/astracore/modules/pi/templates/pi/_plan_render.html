@@ -1,6 +1,9 @@
 // Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC),
 // AC.planWarningsHTML (js/plan-warnings.js), AC.printChecklist (js/print-checklist.js),
 // API, EXPORT, EXPORT_Q (which plan the export links download) and WAYPOINT_CHARS.
+// The "?" answers need AC.helpFor (js/help.js) and AC.tierHelp (js/plan-help.js).
+const HELP = {{ (help_answers or {})|tojson }};   // glossary.answers(): {key: {label, text, more}}
+const GLOSSARY = {{ (glossary_url or '/pi/glossary')|tojson }};
 
 // While P0 yield is still an estimate, say so in the headline with the 0.5x / 2x range.
 function yieldHeadline(res) {
@@ -8,11 +11,11 @@ function yieldHeadline(res) {
   if (y.calibrated || !y.head_yield) return '';
   return `<div class="warnbox headline">${AC.icon('triangle-alert')} <b>Yield is an estimate</b> (${num(y.head_yield)} P0/h per extractor head)
     until your extractors run, and ISK scales with it. <span id="yieldband">Working out the range…</span>
-    Build 2–3 colonies and refresh: the plan then calibrates itself from your real extractors.</div>`;
+    Build 2–3 colonies and refresh: the plan then calibrates itself from your real extractors.${AC.helpFor(HELP.yield, {glossary: GLOSSARY})}</div>`;
 }
-async function fillYieldBand() {
+async function fillYieldBand(base = {}) {
   const el = document.getElementById('yieldband'); if (!el) return;
-  const r = await AC.post(API + '/sensitivity', {});
+  const r = await AC.post(API + '/sensitivity', {base});
   const rows = (r.rows || []).filter(x => !x.error);
   el.textContent = rows.length ? 'At ' + rows.map(x => `${x.factor}× the yield this plan makes ${isk(x.isk_per_day)}/day`).join(', at ') + '.' : '';
 }
@@ -51,7 +54,7 @@ function planHTML(res, opts = {}) {
   PRINT_PLAN = res;
   const t = res.totals;
   let h = `<div class="cards">
-    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">ISK / day, after taxes, hauling &amp; fees</div></div>
+    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">${res.self_haul ? "ISK / day, after taxes &amp; fees, before your own trip" : "ISK / day, after taxes, hauling &amp; fees"}${AC.helpFor(HELP.isk, {glossary: GLOSSARY})}</div></div>
     <div class="card"><div class="v">${isk(t.isk_per_week)}</div><div class="l">ISK / week</div></div>
     <div class="card"><div class="v">${m3(t.m3_per_week)}</div><div class="l">to haul / week</div></div>
     <div class="card"><div class="v">${t.systems}</div><div class="l">systems · drop-off ${esc(res.hub)}</div></div>
@@ -59,6 +62,8 @@ function planHTML(res, opts = {}) {
     <div class="card"><div class="v">${count(t.restarts_per_week)}</div><div class="l">extractor restarts / week</div></div>
     <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
   </div>`;
+  const tier = AC.tierHelp(res.tier_need);
+  if (tier) h += `<p class="help-line">${AC.helpHTML({text: tier.text, label: tier.question, showLabel: true, more: GLOSSARY + '#higher-tiers'})}</p>`;
   h = yieldHeadline(res) + h;
   h += AC.planWarningsHTML(res.warnings, opts);
   h += `<div class="toolbar">
@@ -80,7 +85,8 @@ function planHTML(res, opts = {}) {
         ? `<button class="outline send-route copy" data-character="${ch.character_id}" data-systems='${esc(JSON.stringify(ch.route.order))}'>${AC.icon('send')} Send route to EVE</button>` : ''}
     </div>`;
     if (!mine.length) { h += `<p class="muted">Nothing worth placing for this character with the current settings.</p></div>`; continue; }
-    h += `<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
+    const upkeepHelp = AC.helpPartsFor(HELP.upkeep, {glossary: GLOSSARY});
+    h += `${upkeepHelp.answer}<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place${upkeepHelp.button}</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
     for (const c of mine) {
       const outs = Object.entries(c.out_per_day).map(([k, v]) => `<span>${AC.eveImg(k)}${num(v)} ${esc(k)}</span>`).join(', ');
       const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join('<br>');
@@ -112,7 +118,7 @@ function planHTML(res, opts = {}) {
 function renderSelling(res) {
   const sp = res.selling; if (!sp) return '';
   const L = res.channel_labels || {};
-  let h = `<h5 style="margin-top:1.4rem">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span></h5>`;
+  let h = `<h5 style="margin-top:1.4rem">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.voc, {glossary: GLOSSARY})}</h5>`;
   const tx = res.taxes || {};
   h += `<p class="muted" style="font-size:.85rem">` + (res.seller
     ? `Sell with <b>${esc(res.seller.name)}</b>: Accounting ${res.seller.accounting} → ${tx.sales_tax_pct}% sales tax, Broker Relations ${res.seller.broker_relations} → ${tx.broker_fee_pct}% broker fee.

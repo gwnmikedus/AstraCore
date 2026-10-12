@@ -25,7 +25,16 @@
   <link rel="stylesheet" href="{{ asset('css/layout.css') }}">
   <link rel="stylesheet" href="{{ asset('css/orbital-command.css') }}">
   <link rel="stylesheet" href="{{ asset('css/print.css') }}" media="print">
-  <script nonce="{{ nonce }}">try { const t = localStorage.getItem('ac_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <script nonce="{{ nonce }}">
+    (() => {
+      let theme;
+      try { theme = localStorage.getItem('ac_theme'); } catch (e) {}
+      if (theme !== 'light' && theme !== 'dark')
+        theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue('--void').trim();
+    })();
+  </script>
   <script src="{{ asset('js/fmt.js') }}"></script>
   <script src="{{ asset('js/icons.js') }}"></script>
   <script src="{{ asset('js/links.js') }}"></script>
@@ -69,7 +78,7 @@
       <a href="/what-we-read">{{ icon('eye', 'link-symbol') }} What we read</a>
       <a href="/privacy">{{ icon('shield-check', 'link-symbol') }} Privacy</a>
       <a href="/credits">{{ icon('users', 'link-symbol') }} Credits</a>
-      {{ support_link('Support AstraCore', 'coffee') }}
+      <a href="/credits#creator">{{ icon('coffee', 'link-symbol') }} Support AstraCore</a>
     </div>
     <div class="flight-tip">
       {{ icon('rocket', 'flight-tip-icon') }}

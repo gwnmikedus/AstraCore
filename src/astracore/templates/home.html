@@ -52,7 +52,7 @@
         <div><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="88" height="64" alt="Epithal PI hauler"><span>Collect &amp; sell</span></div>
       </div>
       <div class="preview-routine"><div><span class="console-label">On your planets</span><p data-preview-planets>Restart extractors. Pick up products.</p></div><div><span class="console-label">Your trade-off</span><p data-preview-tradeoff>Less upkeep; lower hourly extraction.</p></div></div>
-      <a href="{{ '/pi' if user else '/auth/login' }}" class="text-action">Find what works for my characters {{ icon('arrow-right') }}</a>
+      <a href="{{ '/pi' if user else '/auth/login' }}?rhythm=passive" class="text-action" data-preview-start>Find what works for my characters {{ icon('arrow-right') }}</a>
     </div>
   </div>
   <noscript><p class="muted">Sign in to compare set and forget, balanced, and maximum ISK with your characters.</p></noscript>
@@ -119,7 +119,11 @@
   <div class="directions-footer"><p>Help shape AstraCore. Logistics, industry, markets, skills and intel could follow. These are ideas to explore together, with no promised availability.</p><div class="ac-actions"><a class="text-action" href="/roadmap">Explore the roadmap {{ icon('arrow-right') }}</a><a class="text-action" href="/project">Contribute to AstraCore {{ icon('arrow-right') }}</a></div></div>
 </section>
 {% include "_contributors.html" %}
-{% include "_creator.html" %}
+<section class="landing-section community-teaser" id="founder" aria-labelledby="teaser-title">
+  <div class="section-heading"><div><div class="eyebrow">Founding capsuleer / Community</div><h2 id="teaser-title">Thank you, capsuleers.</h2></div>
+  <p>Started by {{ project.creator }} of Dutch Legions / Insidious. Built with pilots, DalShooth’s templates, VOC Hauling and EVE’s own data.</p></div>
+  <div class="ac-actions"><a class="text-action" href="/community#thanks">Everyone who makes AstraCore possible {{ icon('arrow-right') }}</a><a class="text-action" href="/credits#creator">Our story and voluntary support {{ icon('arrow-right') }}</a></div>
+</section>
 <section class="landing-section" aria-labelledby="questions-title">
   <div class="section-heading"><div><div class="eyebrow">Before you undock</div><h2 id="questions-title">A few things worth knowing.</h2></div></div>
   <div class="landing-faq">

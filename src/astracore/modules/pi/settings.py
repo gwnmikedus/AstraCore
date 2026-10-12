@@ -46,6 +46,7 @@ class Settings:
     use_jita: bool = True            # VOC courier to Jita
     use_amarr: bool = True           # VOC courier to Amarr
     use_local: bool = True           # Delve buy orders
+    use_self_haul: bool = False      # own trips to trade hubs; journey time/risk are not priced
     use_sell_orders: bool = False    # list sell orders in Jita/Amarr (more ISK, more effort)
     ship_every_days: int = 7         # how often you ship / sell a batch
 
@@ -136,6 +137,7 @@ class Settings:
 
 # What an hour of your time is worth when you haven't set it yourself, per goal (the guided setup's
 # first question). "Max ISK" values time at 0: only income counts.
+GOAL_EFFORT = {"passive": 0, "balanced": 50, "max": 100}
 HOUR_DEFAULTS = {"passive": 300e6, "balanced": 90e6, "max": 0.0}
 
 

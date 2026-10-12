@@ -27,7 +27,7 @@
     <label class="con">
       <div class="top">
         <span class="title"><input type="checkbox" name="con" value="{{ con.id }}" {% if con.id in selected %}checked{% endif %}>{{ con.name }}</span>
-        <span class="muted">sec {{ con.sec_max }} … {{ con.sec_min }}</span>
+        <span class="muted">sec {{ con.sec_min }} to {{ con.sec_max }}</span>
       </div>
       <div class="bar"><span style="width: {{ (100 * con.score / (maxscore or 1))|round|int }}%"></span></div>
       <div class="muted" style="margin-bottom:.3rem">
@@ -37,7 +37,7 @@
       <div class="sys">
         <span><b>{{ sy.name }}</b> <span class="muted">{{ sy.security }}</span>
           {% if sy.colonies %}<span class="badge col" title="{{ sy.colonies|join(', ') }}">{{ sy.colonies|length }} col.</span>{% endif %}</span>
-        <span>{% for t, n in sy.types.items() if t not in ('Shattered','Unknown') %}<span class="pill" title="{{ t }}">{{ planet_img(t, 14) }}{{ t[:4] }}{% if n > 1 %}×{{ n }}{% endif %}</span>{% endfor %}</span>
+        <span>{% for t, n in sy.types.items() if t not in ('Shattered','Unknown') %}<span class="pill">{{ planet_img(t, 14) }}{{ t }}{% if n > 1 %}×{{ n }}{% endif %}</span>{% endfor %}</span>
       </div>
       {% endfor %}
     </label>

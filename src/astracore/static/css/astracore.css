@@ -1028,7 +1028,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 .page-guide .q h2 { font-size: 38px; line-height: 42px; margin: 12px 0; }
 .page-guide #question-title:focus { outline: none; }
 .page-guide .question-explainer { max-width: 820px; font-size: 13px; line-height: 22px; color: var(--ink-muted); }
-.page-guide .question-explainer summary { min-height: 36px; }
+.page-guide .question-explainer summary { min-height: 44px; }
 .page-guide .question-explainer p { margin: 12px 0; }
 .page-guide .opts { margin-block: 24px; gap: 16px; }
 .page-guide .opt { padding: 32px 24px 24px; background: var(--void); min-height: 184px; }
@@ -1039,7 +1039,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 .page-guide .opt .mix { margin-top: 16px; }
 .page-guide .nav { align-items: center; }
 .page-guide .nav > button { min-height: 44px; padding-inline: 24px; }
-.page-guide .chip { background: var(--void); text-transform: none; letter-spacing: 0; font: 400 13px var(--font-sans); min-height: 36px; white-space: normal; }
+.page-guide .chip { background: var(--void); text-transform: none; letter-spacing: 0; font: 400 13px var(--font-sans); min-height: 44px; white-space: normal; }
 .page-guide .chip:hover { background: var(--hull-raised); }
 @media (max-width: 760px) {
   .onboarding-header { grid-template-columns: 1fr 120px; gap: 12px; margin-top: 24px; }
@@ -1153,8 +1153,7 @@ html[data-menu-open] { overflow: hidden; }
 @keyframes menu-backdrop-out { to { opacity: 0; } }
 @media (min-width: 760px) { .menu-slot { --menu-inset: max(var(--space-6), env(safe-area-inset-left)); } }
 @media (max-width: 1079px) {
-  html[data-header-away] .navigation-edge { display: block; position: fixed; inset: 0 0 auto; height: calc(14px + env(safe-area-inset-top)); background-color: var(--void); z-index: 29; pointer-events: none; }
-  html[data-header-away] .site-menu::before { content: ''; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top) + 128px); z-index: -1; pointer-events: none; background: linear-gradient(to bottom, var(--void) 0, var(--void) calc(env(safe-area-inset-top) + 14px), transparent calc(env(safe-area-inset-top) + 86px)), radial-gradient(ellipse 96px 80px at calc(var(--menu-inset) + 24px) calc(env(safe-area-inset-top) + 38px), var(--void) 24%, color-mix(in srgb, var(--void) 88%, transparent) 43%, transparent 100%); }
+  .navigation-edge { display: block; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background-color: var(--void); z-index: 29; pointer-events: none; }
 }
 @media (max-width: 760px) {
   .site-header { min-height: 76px; gap: 8px; }
@@ -1209,7 +1208,7 @@ html[data-menu-open] { overflow: hidden; }
 .footer-credits { text-decoration: none; }
 .footer-credits span { color: var(--ink-muted); }
 .site-footer .links { gap: 8px 24px; margin-bottom: 16px; }
-.site-footer .links > a { display: inline-flex; align-items: center; min-height: 36px; }
+.site-footer .links > a { display: inline-flex; align-items: center; min-height: 44px; }
 .support-link { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .support-link > .ic { flex-shrink: 0; }
 .creator-panel { display: grid; grid-template-columns: 1fr 1.15fr; gap: 32px 48px; padding: 40px; margin: 48px 0; background: var(--hull); scroll-margin-top: 24px; }
@@ -1404,3 +1403,35 @@ html[data-menu-open] { overflow: hidden; }
 .area-start h2 { margin-top: 0; }
 .area-start p { color: var(--ink-muted); max-width: 64ch; }
 .scope-list li { margin-bottom: 6px; }
+
+/* Character controls use the same native disclosures as EVE account editing. */
+.pchar .character-actions { margin: 0; flex: 1 1 auto; }
+.pchar .character-actions summary { width: fit-content; min-height: 44px; padding: 10px 12px; }
+.pchar .character-actions .ac-actions { margin-top: var(--space-2); }
+.bundles .bundle a[role="switch"], .bundles .bundle button[role="switch"] { min-height: 44px; padding: 0 var(--space-3); }
+.bundles .bundle [aria-checked="true"] { border-color: var(--signal); color: var(--signal); }
+.permissions-notice summary { min-height: 44px; }
+
+.pchar .row select { min-height: 44px; }
+
+/* "?" help toggle (templates/_help.html, js/help.js): a small hairline "?" with a short answer below it */
+.help-toggle { display: inline; }
+button.help-btn { position: relative; min-height: 24px; height: 24px; min-width: 24px; padding: 0; margin: 0 0 0 var(--space-1); gap: var(--space-2);
+  vertical-align: middle; background: transparent; color: var(--ink-muted); box-shadow: none;
+  font: 600 12px/1 var(--font-mono); letter-spacing: 0; text-transform: none; }
+button.help-btn .help-mark { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none;
+  border: var(--stroke-hair) solid var(--line-strong); border-radius: 50%; }
+button.help-btn.labelled { height: auto; padding-right: var(--space-1); margin-left: 0; font: 500 13px/18px var(--font-sans); white-space: normal; text-align: left; }
+button.help-btn::after { content: ""; position: absolute; inset: -6px; }   /* a finger-sized hit area */
+button.help-btn:hover, button.help-btn[aria-expanded="true"] { background: transparent; color: var(--ink); }
+button.help-btn:hover .help-mark, button.help-btn[aria-expanded="true"] .help-mark { border-color: var(--scan); color: var(--scan); }
+.help-answer { display: block; max-width: 64ch; margin: var(--space-2) 0; padding: var(--space-2) var(--space-3); background: var(--hull-raised);
+  border-left: var(--stroke-bar) solid var(--scan); color: var(--ink); font: 400 13px/19px var(--font-sans); letter-spacing: 0;
+  text-transform: none; text-align: left; white-space: normal; }
+.help-answer[hidden] { display: none; }
+.help-line { margin: var(--space-2) 0; }
+.page-guide .opt .same-plan { margin-top: var(--space-2); font-size: 13px; color: var(--ink-muted); }
+.glossary { max-width: 72ch; }
+.glossary dt { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin-top: var(--space-6); scroll-margin-top: 80px; }
+.glossary dt:target { color: var(--scan); }
+.glossary dd { margin: var(--space-1) 0 0; color: var(--ink-muted); line-height: 1.55; }

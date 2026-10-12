@@ -292,6 +292,55 @@ async def api_suggest(request: Request):
     return JSONResponse(res)
 
 
+ADVANCED_FIELDS = LIVE_FIELDS - {"guide_step", "answered"}
+
+
+@router.post("/api/preview")
+async def api_preview(request: Request):
+    return await _advanced_result(request, apply=False)
+
+
+@router.post("/api/apply")
+async def api_apply(request: Request):
+    return await _advanced_result(request, apply=True)
+
+
+async def _advanced_result(request: Request, apply: bool):
+    """Experimental controls never change confirmed answers until explicitly applied."""
+    pid = _pid(request)
+    body = await request.json()
+    try:
+        async with GATE.request(pid, "advanced"):
+            original = store.load_settings(pid)
+            baseline = store.plan_settings(original)
+            if apply and body.get("baseline") != baseline:
+                return JSONResponse({"error": "Your saved settings changed. Reload before applying this preview.",
+                                     "stale": True}, status_code=409)
+            s = copy.deepcopy(original)
+            s.update({k: v for k, v in body.get("settings", {}).items() if k in ADVANCED_FIELDS})
+            before = _result_stamp(pid)
+            res = copy.deepcopy(await service.solve(pid, s))
+            if before != _result_stamp(pid) or baseline != store.plan_settings(store.load_settings(pid)):
+                return JSONResponse({"error": "Your planning data or answers changed. Recalculate your preview.",
+                                     "stale": True}, status_code=409)
+            if "error" not in res and apply:
+                # Navigation may have changed during the solve; retain its newest values.
+                current = store.load_settings(pid)
+                s.guide_step, s.answered = current.guide_step, current.answered
+                store.save_settings(pid, s)
+            res["weights"] = time_weights(s)
+            if "error" not in res and apply:
+                res["facts"] = compare.plan_facts(res, s)
+                res["result_id"] = store.remember_plan_result(pid, s, res, _result_stamp(pid))
+            res["preview"] = not apply
+            res["baseline"] = store.plan_settings(s) if apply and "error" not in res else baseline
+            return JSONResponse(res)
+    except Busy:
+        return busy_response()
+    except Superseded:
+        return superseded_response()
+
+
 @router.post("/api/save")
 async def api_save(request: Request):
     """Store wizard answers without solving. Only the fields sent are changed."""
@@ -338,7 +387,10 @@ async def api_alternatives(request: Request):
     pid = _pid(request)
     try:
         async with GATE.request(pid, "alternatives"):
-            ctx = await service.planning_context(pid)
+            body = await request.json()
+            s = store.load_settings(pid)
+            s.update({k: v for k, v in body.get("base", {}).items() if k in ADVANCED_FIELDS})
+            ctx = await service.planning_context(pid, s, persist_default=False)
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "alternatives")
             alts = await GATE.cached(key, optimizer.alternatives, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
@@ -355,7 +407,10 @@ async def api_sensitivity(request: Request):
     pid = _pid(request)
     try:
         async with GATE.request(pid, "sensitivity"):
-            ctx = await service.planning_context(pid)
+            body = await request.json()
+            s = store.load_settings(pid)
+            s.update({k: v for k, v in body.get("base", {}).items() if k in ADVANCED_FIELDS})
+            ctx = await service.planning_context(pid, s, persist_default=False)
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "sensitivity")
             rows = await GATE.cached(key, optimizer.yield_sensitivity, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],

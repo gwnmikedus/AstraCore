@@ -82,6 +82,8 @@ def merge_profiles(src: int, dst: int) -> None:
         c.execute("UPDATE characters SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("UPDATE plan_runs SET profile_id=?, active=0 WHERE profile_id=?", (dst, src))
         c.execute("UPDATE community_feedback SET profile_id=? WHERE profile_id=?", (dst, src))
+        c.execute("INSERT OR IGNORE INTO community_votes(profile_id, target, created_at) "
+                  "SELECT ?, target, created_at FROM community_votes WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO planet_overrides(profile_id, planet_id, richness) "
                   "SELECT ?, planet_id, richness FROM planet_overrides WHERE profile_id=?", (dst, src))
     db.delete_profile(src)

@@ -41,10 +41,10 @@
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
     let themeTimer;
-    // The tooltip warns before the switch: dark to light is a flashbang, light to dark is shore leave for the eyes.
+    // The tooltip says what the switch does, in plain words.
     const themeTips = {
-      dark: ['Flashbang warning', 'Light theme ahead. Shield your eyes.'],
-      light: ['Rest your eyes', 'Back to the dark hull. Stand down, pupils.']
+      dark: ['Light theme', 'Easier in daylight.'],
+      light: ['Dark theme', 'Easier on the eyes at night.']
     };
     const themeLabel = () => {
       const themeColor = document.querySelector('meta[name="theme-color"]');

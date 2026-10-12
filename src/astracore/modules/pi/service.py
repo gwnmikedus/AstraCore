@@ -383,7 +383,8 @@ def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
             "sell_net_per_day": sp.get("net_per_day"), "sell_net_per_cycle": sp.get("net_per_cycle"),
             "holds": sum(1 for b in sp.get("batches", []) if b.get("hold")),
             "channels": sorted({b["label"] for b in sp.get("batches", []) if not b.get("hold")}),
-            "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s)}
+            "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s),
+            "tier_need": res.get("tier_need")}
 
 
 # --------------------------------------------------------------------------- module entry + dashboard

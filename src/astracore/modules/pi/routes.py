@@ -5,6 +5,7 @@
 /pi/plan       -> the guided wizard (?view=advanced: every option on one screen)
 /pi/area       -> constellations and drop-off
 /pi/settings   -> economics and yield
+/pi/glossary   -> plain-English PI terms, linked from the "?" answers
 /pi/api/...    -> JSON for the wizard and the advanced view (CSRF header required)
 /pi/export/... -> templates zip, plan .md / .csv, first-build shopping .csv
 """
@@ -33,7 +34,7 @@ from astracore.esi import errors as esi_errors
 from astracore.esi import sso
 from astracore.esi.client import ESI_BASE, default_headers
 
-from . import service, store
+from . import glossary, service, store
 from .intel import space as space_mod
 from .module import MODULE
 from .planner import compare, nextup, operate, optimizer, prices, selling, setups
@@ -254,7 +255,14 @@ async def plan_page(request: Request):
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
-                  esi_outage=service.outage_banner(ctx))
+                  esi_outage=service.outage_banner(ctx),
+                  help_answers=glossary.answers(s, ctx["head_yield"], bool(ctx["calibrated"])), glossary_url=glossary.GLOSSARY_URL)
+
+
+# ----------------------------------------------------------------------------- glossary
+@router.get("/glossary", response_class=HTMLResponse)
+async def glossary_page(request: Request):
+    return render(request, "glossary.html", "glossary", "Glossary", entries=glossary.entries())
 
 
 def _waypoint_chars(pid: int) -> list:

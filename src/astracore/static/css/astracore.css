@@ -1413,3 +1413,25 @@ html[data-menu-open] { overflow: hidden; }
 .permissions-notice summary { min-height: 44px; }
 
 .pchar .row select { min-height: 44px; }
+
+/* "?" help toggle (templates/_help.html, js/help.js): a small hairline "?" with a short answer below it */
+.help-toggle { display: inline; }
+button.help-btn { position: relative; min-height: 24px; height: 24px; min-width: 24px; padding: 0; margin: 0 0 0 var(--space-1); gap: var(--space-2);
+  vertical-align: middle; background: transparent; color: var(--ink-muted); box-shadow: none;
+  font: 600 12px/1 var(--font-mono); letter-spacing: 0; text-transform: none; }
+button.help-btn .help-mark { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none;
+  border: var(--stroke-hair) solid var(--line-strong); border-radius: 50%; }
+button.help-btn.labelled { height: auto; padding-right: var(--space-1); margin-left: 0; font: 500 13px/18px var(--font-sans); white-space: normal; text-align: left; }
+button.help-btn::after { content: ""; position: absolute; inset: -6px; }   /* a finger-sized hit area */
+button.help-btn:hover, button.help-btn[aria-expanded="true"] { background: transparent; color: var(--ink); }
+button.help-btn:hover .help-mark, button.help-btn[aria-expanded="true"] .help-mark { border-color: var(--scan); color: var(--scan); }
+.help-answer { display: block; max-width: 64ch; margin: var(--space-2) 0; padding: var(--space-2) var(--space-3); background: var(--hull-raised);
+  border-left: var(--stroke-bar) solid var(--scan); color: var(--ink); font: 400 13px/19px var(--font-sans); letter-spacing: 0;
+  text-transform: none; text-align: left; white-space: normal; }
+.help-answer[hidden] { display: none; }
+.help-line { margin: var(--space-2) 0; }
+.page-guide .opt .same-plan { margin-top: var(--space-2); font-size: 13px; color: var(--ink-muted); }
+.glossary { max-width: 72ch; }
+.glossary dt { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin-top: var(--space-6); scroll-margin-top: 80px; }
+.glossary dt:target { color: var(--scan); }
+.glossary dd { margin: var(--space-1) 0 0; color: var(--ink-muted); line-height: 1.55; }

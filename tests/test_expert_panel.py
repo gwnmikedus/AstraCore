@@ -105,7 +105,7 @@ def test_advanced_never_produce_is_a_checkbox_per_pi_product(browser, eve, monke
     assert "/pi/settings?expert=1#expert" in guided and "const RICHNESS = [[" in guided
 
 
-def test_area_lists_richness_without_a_dropdown_of_every_planet(browser, eve, monkeypatch):
+def test_area_lists_scans_and_measurements_alongside_the_grouped_scan_picker(browser, eve, monkeypatch):
     from test_planner import _area
 
     c = browser()
@@ -124,7 +124,9 @@ def test_area_lists_richness_without_a_dropdown_of_every_planet(browser, eve, mo
     r = c.get("/pi/area")
     assert r.status_code == 200
     html = r.text
-    assert 'form="richness-form"' not in html and 'name="planet_id" form=' not in html
+    assert 'form="richness-form"' not in html
+    assert 'name="planet_id" form="scan-richness" required' in html
+    assert '<optgroup label="HUB">' in html
     assert f"{planet['name']}: good (1.25×)" in html
     assert f"{other['name']}: 0.85×" in html and "Measured from your extractors" in html
     assert f"{planet['name']}: 1.1×" not in html                          # a scan wins over a measurement

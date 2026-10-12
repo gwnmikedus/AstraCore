@@ -43,9 +43,13 @@ BUFFER_HEADROOM = 0.99  # factories are planned to fill at most 99% of their spa
 SOLVER_MAX_NODES = 1000
 SOLVER_SAFETY_SECONDS = 30
 
-def _factory_planets(sys: dict) -> set:
-    """Up to two planets per system are offered as factory sites (keeps the model small):
-    one Barren/Temperate (P4-capable) and one other planet."""
+def _factory_planets(sys: dict, max_tier: int = 2) -> set:
+    """Higher-tier chains need several distinct factories; offer every usable site.
+
+    P2 has no intermediate factories, so its smaller search can keep two representative sites.
+    """
+    if max_tier >= 3:
+        return {p["planet_id"] for p in sys["planets"] if p["type"] not in ("Shattered", "Unknown")}
     chosen = []
     ht = [p for p in sys["planets"] if p["type"] in HIGH_TECH_PLANETS]
     other = [p for p in sys["planets"] if p["type"] not in HIGH_TECH_PLANETS
@@ -108,7 +112,7 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     cands: List[Tuple[int, setups.Setup, int]] = []
     cache: Dict[Tuple, List[Tuple[setups.Setup, int]]] = {}
     for sid, sys in scope.items():
-        fac_ok = _factory_planets(sys)
+        fac_ok = _factory_planets(sys, s.max_tier)
         for p in sys["planets"]:
             r = rich.richness(p["planet_id"], sys["security"], overrides)
             planets[p["planet_id"]] = {**p, "system_id": sid, "system": sys["name"],

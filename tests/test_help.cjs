@@ -131,7 +131,10 @@ test('a plan below its allowed tier says how many miners a factory needs', () =>
   const t = AC.tierHelp(need, {same: true, sameLabel: 'Up to P2'});
   assert.equal(t.short, 'Same plan as Up to P2');
   assert.equal(t.question, 'Why no P3 factories?');
-  assert.match(t.text, /^A P3 factory needs about 14 miners’ output; this plan has 9\. /);
+  assert.match(t.text, /^At full speed, a typical P3 factory uses about 14 miners’ output; this plan has 9\. /);
+  assert.match(t.text, /not a minimum colony count/);
+  assert.match(t.text, /factories can run partially/);
+  assert.match(t.text, /buying inputs is not modelled/);
   assert.equal(AC.tierHelp(need).short, 'Builds up to P2 only');
   const p1 = AC.tierHelp({allowed: 2, used: 1, miners: 4, factory_miners: {2: 1}}, {same: false});
   assert.equal(p1.short, 'Uses no factories');
@@ -144,5 +147,5 @@ test('no tier note when the plan uses every tier it may, or without numbers', ()
   assert.equal(AC.tierHelp({allowed: 3, used: 0, miners: 0, factory_miners: {}}), null);
   assert.equal(AC.tierHelp(undefined), null);
   const t = AC.tierHelp({allowed: 3, used: 2, miners: 5, factory_miners: {}});
-  assert.match(t.text, /^A P3 factory needs more input than your miners make\./);
+  assert.match(t.text, /^Higher-tier factories need their complete input chain and suitable planets\./);
 });

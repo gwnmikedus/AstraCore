@@ -50,8 +50,25 @@
 <details id="richness" {{ 'open' if overrides or measured else '' }}>
   <summary>Planet richness ({{ overrides|length }} scanned{% if measured %}, {{ measured|length }} measured{% endif %})</summary>
   <p class="muted">ESI doesn't show how rich a planet's deposits are, so it's estimated from security. After scanning a planet in game,
-    set what you saw on that planet's row in <a href="/pi/plan">your plan</a> (“Scanned in game: poor, average, good or rich”).
+    record what you saw here or on that planet's row in <a href="/pi/plan">your plan</a>.
     Your own extractors also correct it automatically once 2+ colonies run.</p>
+  {% if scan_systems %}
+  <p class="muted">Scanned a planet outside your current plan? Choose any planet in the listed area, including constellations you haven't selected.</p>
+  <div class="grid" style="align-items:end">
+    <label>Scanned planet
+      <select name="planet_id" form="scan-richness" required>
+        <option value="" selected disabled>Choose a planet</option>
+        {% for sy in scan_systems %}<optgroup label="{{ sy.name }}">
+          {% for p in sy.planets %}<option value="{{ p.planet_id }}">{{ p.name }} ({{ p.type }})</option>{% endfor %}
+        </optgroup>{% endfor %}
+      </select></label>
+    <label>Scanned in game
+      <select name="richness" form="scan-richness">
+        {% for label, value in richness_labels %}<option value="{{ value }}" {{ 'selected' if value == 1.0 else '' }}>{{ label|capitalize }} ({{ value }}×)</option>{% endfor %}
+      </select></label>
+    <button form="scan-richness" class="outline">Save scan</button>
+  </div>
+  {% endif %}
   {% if overrides %}<h6>Scanned in game</h6>{% endif %}
   {% for o in overrides %}
   <div class="charrow"><span class="grow">{{ o.name }}: {% if o.label %}{{ o.label }} ({{ o.richness }}×){% else %}{{ o.richness }}×{% endif %}</span>
@@ -59,7 +76,7 @@
   {% endfor %}
   {% if measured %}<h6>Measured from your extractors</h6>
   {% for m in measured %}<div class="charrow"><span class="grow">{{ m.name }}: {{ m.richness }}×</span></div>{% endfor %}
-  <p class="muted"><small>Read-only: worked out from what your extractors really produce. A scan you set on the plan wins over it.</small></p>
+  <p class="muted"><small>Read-only: worked out from what your extractors really produce. A scan you set here or on the plan wins over it.</small></p>
   {% endif %}
 </details>
 
@@ -99,6 +116,8 @@
   </div>
 </div>
 </form>
+{% if scan_systems %}<form method="post" action="/pi/area/richness" id="scan-richness">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"></form>{% endif %}
 {% for o in overrides %}<form method="post" action="/pi/area/richness" id="rm-richness-{{ o.planet_id }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="planet_id" value="{{ o.planet_id }}">
   <input type="hidden" name="richness" value=""></form>{% endfor %}

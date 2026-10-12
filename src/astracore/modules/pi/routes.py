@@ -145,11 +145,15 @@ async def area_page(request: Request):
     sel_systems = space_mod.selected_systems(area, s.selected_constellations)
     overrides = store.planet_overrides(pid)
     names = {p["planet_id"]: p["name"] for v in area["systems"].values() for p in v["planets"]}
+    scan_systems = [{"name": v["name"], "planets": sorted(
+        (p for p in v["planets"] if p["type"] not in ("Shattered", "Unknown")), key=lambda p: p["name"])}
+        for v in sorted(area["systems"].values(), key=lambda v: v["name"])]
     measured = _measured_richness(chars, area, s)
     return render(request, "space.html", "area", "Area", area=area, groups=groups, s=s,
                   sources=area.get("sources", {}), selected=s.selected_constellations,
                   sel_systems=sorted(v["name"] for v in sel_systems.values()),
                   voc_hubs=voc.COURIER_ORIGINS,
+                  scan_systems=[v for v in scan_systems if v["planets"]], richness_labels=RICHNESS_LABELS,
                   overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v,
                               "label": richness_label(v)} for k, v in overrides.items()],
                   measured=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v}

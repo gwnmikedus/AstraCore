@@ -162,12 +162,15 @@ const STEP_CONTEXT = {
 
 // A "?" under a question's explanation, for the outcomes that surprise pilots (glossary.answers()).
 // [answer key, question shown] per step; no question = the answer's own label.
-const STEP_HELP = {area: ['isk', 'Why can a wider area show less ISK?'], tier: ['tier'], share: ['share'], sell: ['voc']};
-const stepHelp = step => {
-  const [key, label] = STEP_HELP[step.id] || [];
+const STEP_HELP = {
+  area: [['dropoff'], ['isk', 'Why can a wider area show less ISK?']],
+  tier: [['tier']], share: [['share']], chain: [['transfer']],
+  sell: [['voc']], batch: [['batch']],
+};
+const stepHelp = step => (STEP_HELP[step.id] || []).map(([key, label]) => {
   const answer = key && HELP[key];
   return answer ? `<p class="help-line">${AC.helpFor(label ? {...answer, label} : answer, {glossary: GLOSSARY, showLabel: true})}</p>` : '';
-};
+}).join('');
 
 const value = (step, r) => r && !r.error ? (step.metric === 'sell' ? r.sell_net_per_day : r.totals.isk_per_day) : null;
 const optOf = (step, id) => (step.options || []).find(o => o.id === id);

@@ -10,14 +10,21 @@ function yieldHeadline(res) {
   const y = res.yield || {};
   if (y.calibrated || !y.head_yield) return '';
   return `<div class="warnbox headline">${AC.icon('triangle-alert')} <b>Yield is an estimate</b> (${num(y.head_yield)} P0/h per extractor head)
-    until your extractors run, and ISK scales with it. <span id="yieldband">Working out the range…</span>
+    until your extractors run, and ISK scales with it. <span id="yieldband"></span>
     Build 2–3 colonies and refresh: the plan then calibrates itself from your real extractors.${AC.helpFor(HELP.yield, {glossary: GLOSSARY})}</div>`;
 }
-async function fillYieldBand(base = {}) {
+// The 0.5× / 2× range costs two extra solves: worked out only when the pilot asks for it.
+function fillYieldBand(base = {}) {
   const el = document.getElementById('yieldband'); if (!el) return;
-  const r = await AC.post(API + '/sensitivity', {base});
-  const rows = (r.rows || []).filter(x => !x.error);
-  el.textContent = rows.length ? 'At ' + rows.map(x => `${x.factor}× the yield this plan makes ${isk(x.isk_per_day)}/day`).join(', at ') + '.' : '';
+  el.innerHTML = '<button type="button" class="outline secondary inline-action" id="yieldband-show">Show the range at half and double the yield</button>';
+  document.getElementById('yieldband-show').onclick = async () => {
+    el.textContent = 'Working out the range…';
+    const r = await AC.post(API + '/sensitivity', {base});
+    if (!el.isConnected || r.superseded) return;
+    const rows = (r.rows || []).filter(x => !x.error);
+    el.textContent = rows.length ? 'At ' + rows.map(x => `${x.factor}× the yield this plan makes ${isk(x.isk_per_day)}/day`).join(', at ') + '.'
+      : 'The range is unavailable right now.';
+  };
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('button.send-route'); if (!b) return;

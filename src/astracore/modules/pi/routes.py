@@ -13,21 +13,23 @@ from __future__ import annotations
 
 import copy
 import csv
+import asyncio
 import io
 import json
 import logging
+import time
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 
 from astracore import db
 from astracore.core import fmt, freshness
 from astracore.core.registry import SCOPE_TEXT
 from astracore.core.auth import bundle_active
 from astracore.core.sessions import require_user
-from astracore.core.solvegate import GATE, Busy, Superseded, cache_key
+from astracore.core.solvegate import GATE, Busy, Skipped, Superseded, cache_key
 from astracore.core.web import redirect
 from astracore.core.web import render as core_render
 from astracore.esi import errors as esi_errors
@@ -359,35 +361,139 @@ async def api_save(request: Request):
     return JSONResponse({"ok": True})
 
 
+WHATIF_OPTIONS = 6          # answer cards per question at most
+PREFETCH_PATIENCE = 20.0    # seconds background warming waits for an idle planner before giving up
+PREFETCH_POLL = 0.5
+QUEUE_UPDATE = 1.0          # seconds between queue-position updates on a streamed comparison
+_BACKGROUND: set = set()    # running prefetch / stream tasks (the event loop only keeps weak references)
+
+
+def _background(coro) -> "asyncio.Task":
+    task = asyncio.get_running_loop().create_task(coro)
+    _BACKGROUND.add(task)
+    task.add_done_callback(_BACKGROUND.discard)
+    return task
+
+
+def _whatif_settings(base: Settings, opt: dict) -> Settings:
+    ss = copy.deepcopy(base)
+    ss.update({k: v for k, v in opt.get("patch", {}).items() if k in LIVE_FIELDS})
+    return ss
+
+
+async def _whatif_card(pid: int, base: Settings, opt: dict) -> dict:
+    """One answer card. The full plan is cached (shared with the plan result), the card shows its summary."""
+    ss = _whatif_settings(base, opt)
+    key = service.plan_key(pid, ss)
+    if key in GATE._cache:
+        res = GATE._cache[key]
+    else:
+        ctx = await service.planning_context(pid, ss, persist_default=False)
+        res = await GATE.cached(service.plan_key(pid, ss), service.run_plan, ctx)
+    return {"id": opt.get("id"), **service.whatif_summary(res, ss)}
+
+
 @router.post("/api/whatif")
 async def api_whatif(request: Request):
     """Plan several answers to one question side by side.
-    Body: {"base": {live fields}, "options": [{"id": ..., "patch": {live fields}}, ...]}"""
+    Body: {"base": {live fields}, "options": [{"id": ..., "patch": {live fields}}, ...]}
+
+    * Default: one JSON list once every card is planned.
+    * "stream": true -> application/x-ndjson, one line per event as it happens: {"queue": {ahead, solves, eta}}
+      while waiting for a solve slot, {"card": {...}} per answer as soon as it is planned, and one final
+      {"done": true} | {"superseded": true} | {"busy": true, "retry_after": s} | {"error": "..."}.
+      Same gate semantics as the list: one comparison per profile, a newer one supersedes it.
+    * "prefetch": true -> 202 at once; the cards are planned into the cache in the background, only while
+      the planner has a free slot nobody is waiting for (see `_prefetch`)."""
     pid = _pid(request)
     body = await request.json()
     base = _apply(store.load_settings(pid), body.get("base", {}))
-
-    async def one(opt):
-        ss = copy.deepcopy(base)
-        ss.update({k: v for k, v in opt.get("patch", {}).items() if k in LIVE_FIELDS})
-        # The full plan is cached (shared with the plan result), the card only shows its summary.
-        key = service.plan_key(pid, ss)
-        if key in GATE._cache:
-            res = GATE._cache[key]
-        else:
-            ctx = await service.planning_context(pid, ss, persist_default=False)
-            res = await GATE.cached(service.plan_key(pid, ss), service.run_plan, ctx)
-        return {"id": opt.get("id"), **service.whatif_summary(res, ss)}
-
-    import asyncio
+    options = body.get("options", [])[:WHATIF_OPTIONS]
+    if body.get("prefetch"):
+        generation = GATE.supersede(pid, "prefetch")
+        _background(_prefetch(pid, base, options, generation))
+        return JSONResponse({"queued": len(options)}, status_code=202)
+    if body.get("stream"):
+        return StreamingResponse(_whatif_stream(pid, base, options), media_type="application/x-ndjson",
+                                 headers={"X-Accel-Buffering": "no"})
     try:
         async with GATE.request(pid, "whatif"):
-            rows = await asyncio.gather(*[one(o) for o in body.get("options", [])[:6]])
+            rows = await asyncio.gather(*[_whatif_card(pid, base, o) for o in options])
     except Busy:
         return busy_response()
     except Superseded:
         return superseded_response()
     return JSONResponse(list(rows))
+
+
+async def _whatif_stream(pid: int, base: Settings, options: list):
+    """The comparison as newline-delimited JSON events (see api_whatif). The planning runs in its own task:
+    a client that disconnects (or moves on) doesn't cancel solves, and a newer comparison supersedes it."""
+    events: asyncio.Queue = asyncio.Queue()
+
+    async def card(opt):
+        await events.put({"card": await _whatif_card(pid, base, opt)})
+
+    async def work():
+        try:
+            async with GATE.request(pid, "whatif"):
+                await asyncio.gather(*[card(o) for o in options])
+            final = {"done": True}
+        except Busy:
+            final = {"busy": True, "retry_after": 3}
+        except Superseded:
+            final = {"superseded": True}
+        except Exception:  # noqa: BLE001 - the page offers a retry; the details belong in the log
+            log.exception("whatif stream failed")
+            final = {"error": "Could not compare these setups."}
+        await events.put(final)
+
+    task = _background(work())
+    shown = None
+    while True:
+        try:
+            event = await asyncio.wait_for(events.get(), timeout=QUEUE_UPDATE)
+        except asyncio.TimeoutError:
+            event = None
+        if event is None or "card" in event:
+            queue = GATE.position(pid)       # cheap: only this process's own queue
+            if queue != shown and (queue or shown):
+                shown = queue
+                yield json.dumps({"queue": queue or {"ahead": 0, "solves": 0, "eta": 0}}) + "\n"
+        if event is not None:
+            yield json.dumps(event, default=str) + "\n"
+            if "card" not in event:
+                break
+    await task
+
+
+async def _prefetch(pid: int, base: Settings, options: list, generation: int) -> None:
+    """Warm the next question's cards while the pilot reads this one. Low priority: a card is only solved in
+    a slot that is free with nobody waiting (GATE.warm); a newer prefetch from the same pilot stops this one
+    before its next card; after PREFETCH_PATIENCE seconds of a busy planner it gives up. Never raises."""
+    deadline = time.monotonic() + PREFETCH_PATIENCE
+    try:
+        for opt in options:
+            ss = _whatif_settings(base, opt)
+            while GATE.is_current(pid, "prefetch", generation):
+                if service.plan_key(pid, ss) in GATE._cache:
+                    break
+                if GATE.idle():
+                    ctx = await service.planning_context(pid, ss, persist_default=False)
+                    if not GATE.is_current(pid, "prefetch", generation):
+                        return
+                    try:
+                        await GATE.warm(service.plan_key(pid, ss), service.run_plan, ctx)
+                        break
+                    except Skipped:
+                        pass         # a pilot's request took the slot meanwhile: wait for the next one
+                if time.monotonic() > deadline:
+                    return
+                await asyncio.sleep(PREFETCH_POLL)
+            else:
+                return               # superseded
+    except Exception:  # noqa: BLE001 - background warming must never surface; the real request will retry
+        log.warning("prefetch for profile %s failed", pid, exc_info=True)
 
 
 @router.post("/api/alternatives")

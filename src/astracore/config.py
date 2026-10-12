@@ -114,7 +114,21 @@ ALLOWED = {
     "alliance": set(_ids("ASTRACORE_ALLOWED_ALLIANCES")),
 }
 ACCESS_GATE = PRODUCTION or env("ASTRACORE_ACCESS_GATE") == "1"
-SOLVE_CONCURRENCY = max(1, int(env("ASTRACORE_SOLVE_CONCURRENCY", "2")))
+
+
+def default_solve_concurrency(cpus: Optional[int]) -> int:
+    """Plans solved at once when ASTRACORE_SOLVE_CONCURRENCY isn't set: half the CPU cores, 2 to 4.
+    Each solve uses one core (CBC with threads=1); the other half stays free for the web server, ESI syncs
+    and the rest of the Mac."""
+    return max(2, min(4, (cpus or 2) // 2))
+
+
+def solve_concurrency(setting: str, cpus: Optional[int]) -> int:
+    """ASTRACORE_SOLVE_CONCURRENCY when set (at least 1), otherwise the CPU-based default."""
+    return max(1, int(setting)) if setting.strip() else default_solve_concurrency(cpus)
+
+
+SOLVE_CONCURRENCY = solve_concurrency(env("ASTRACORE_SOLVE_CONCURRENCY"), os.cpu_count())
 SECURE_COOKIES = PUBLIC_URL.startswith("https://")
 
 

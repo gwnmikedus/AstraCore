@@ -138,7 +138,8 @@ const answered = new Set(S.answered || []);
 const saved = {...st};     // what the server has: an answer left without Continue falls back to this
 let cur = Math.max(0, Math.min(+S.guide_step || 0, STEPS.length - 1));
 const picks = {};          // step id -> option id chosen on this visit
-const results = {};        // step id -> {option id: what-if result}
+const results = {};        // step id -> {option id: what-if result}, filled card by card
+const complete = {};       // step id -> every card of its comparison is in
 let seq = 0;
 let comparisonRequest = null;
 let compareOpen = false;   // the side-by-side table stays open across answers once opened
@@ -201,7 +202,7 @@ function wireHour(step) {
         $('save-status').textContent = r.error ? 'Preference not saved. Continue to retry.' : 'Time preference saved';
       });
       // The value of your time shapes the plans themselves, not only the advice: compare again.
-      if (step.isGoal) paint(step); else load(step);
+      if (step.isGoal) { paint(step); prefetchNext(step); } else load(step);
     },
   });
 }
@@ -326,19 +327,49 @@ function setHint(text) {
 function needsOwnTrip() {
   return !SELL_COVERAGE.local && !SELL_COVERAGE.courier && !SELL_COVERAGE.trade_hub && !st.use_self_haul;
 }
-function showQuestion(step) {
-  $('q').dataset.step = step.id;
-  step.options = step.options.filter(o => !o.isCustom);
+// The answers a question shows with the current answers `st`: the selling routes this drop-off has, and
+// "your current setting" when it matches none of the usual answers.
+function stepOptions(step) {
+  let options = step.options.filter(o => !o.isCustom);
   if (step.id === 'sell') {
-    step.allOptions ||= [...step.options];
-    step.options = step.allOptions.filter(o => o.id === 'self' ||
+    step.allOptions ||= [...options];
+    options = step.allOptions.filter(o => o.id === 'self' ||
       (o.id === 'nohaul' ? SELL_COVERAGE.local : SELL_COVERAGE.courier || SELL_COVERAGE.trade_hub));
     if (SELL_COVERAGE.trade_hub && !SELL_COVERAGE.courier)
-      step.options = step.options.map(o => o.id === 'courier' ? {...o, label: 'Sell at the trade hub', blurb: 'Your drop-off is already at a trade hub. Sell to buy orders there.'} : o);
+      options = options.map(o => o.id === 'courier' ? {...o, label: 'Sell at the trade hub', blurb: 'Your drop-off is already at a trade hub. Sell to buy orders there.'} : o);
   }
   const m = step.match(st);
-  if (step.custom && m != null && !step.options.some(o => o.id === m))
-    step.options.push({...step.custom(st), isCustom: true});
+  if (step.custom && m != null && !options.some(o => o.id === m))
+    options.push({...step.custom(st), isCustom: true});
+  return options;
+}
+
+// While the pilot reads this question, the server plans the next question's cards with the answer picked
+// here, at low priority (only in a free planner slot; a newer pick replaces the request). Continue then
+// usually finds every card already planned.
+let prefetchTimer = null;
+function prefetchNext(step) {
+  clearTimeout(prefetchTimer);
+  const next = STEPS[STEPS.indexOf(step) + 1];
+  if (!next || !next.options || needsOwnTrip()) return;
+  prefetchTimer = setTimeout(() => {
+    if (STEPS[cur] !== step || saving) return;
+    AC.post(API + '/whatif', {base: {...st}, prefetch: true,
+      options: stepOptions(next).map(o => ({id: o.id, patch: o.patch}))});
+  }, 400);
+}
+
+// "2 pilots ahead of you, about 10 s" while this comparison waits for a planner slot.
+function queueText(q) {
+  if (!q || !q.ahead) return 'Comparing setups with your characters…';
+  const wait = q.eta >= 90 ? `${Math.round(q.eta / 60)} min` : `${Math.max(1, q.eta)} s`;
+  return `AstraCore is busy: ${q.ahead} pilot${q.ahead === 1 ? '' : 's'} ahead of you, about ${wait}. Answers appear as they are ready.`;
+}
+
+function showQuestion(step) {
+  $('q').dataset.step = step.id;
+  step.options = stepOptions(step);
+  const m = step.match(st);
   $('q').innerHTML = `
     <div class="eyebrow">Step ${cur + 1} of ${QUESTIONS}</div>
     <h2 id="question-title" tabindex="-1">${step.q}</h2>
@@ -389,7 +420,7 @@ function showQuestion(step) {
       if (saving || el.getAttribute('aria-disabled') === 'true' ||
           (!step.isGoal && !(results[step.id] || {})[id])) {
         setHint(saving ? 'Saving your answer. Please wait.' :
-          (!results[step.id] ? 'Comparing setups. You can explore the answers while they load.' :
+          (el.getAttribute('aria-disabled') !== 'true' ? 'Comparing setups. You can pick an answer as soon as it shows its numbers.' :
             'This answer is unavailable. Choose another answer.'));
         return;
       }
@@ -420,6 +451,7 @@ function showQuestion(step) {
   setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
   if (needsOwnTrip()) $('next').disabled = true;
   else if (!step.isGoal) load(step);
+  else prefetchNext(step);
 }
 
 async function load(step) {
@@ -427,13 +459,23 @@ async function load(step) {
   comparisonRequest?.abort();
   comparisonRequest = new AbortController();
   delete results[step.id];
+  complete[step.id] = false;
   paint(step);
   const base = {...st};
-  const rows = await AC.post(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
-    {signal: comparisonRequest.signal, onBusy: () => { if (my === seq) setHint('AstraCore is busy, your plan is queued…'); }});
-  if (my !== seq || rows.superseded) return;            // user moved on
-  if (!Array.isArray(rows)) {
-    setHint(rows.error || 'Could not compare these setups.');
+  // Each card is drawn as soon as its plan is ready; the suggestion and advice wait for all of them.
+  const cards = {};
+  const end = await AC.postStream(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
+    {signal: comparisonRequest.signal,
+     onBusy: () => { if (my === seq) setHint('AstraCore is busy, your plan is queued…'); },
+     onEvent: event => {
+       if (my !== seq) return;
+       if (event.queue) setHint(queueText(event.queue));
+       if (event.card) { cards[event.card.id] = event.card; results[step.id] = cards; paint(step); }
+     }});
+  if (my !== seq || end.superseded) return;            // user moved on
+  const rows = step.options.map(o => cards[o.id]).filter(Boolean);
+  if (end.error || rows.length < step.options.length) {
+    setHint(end.error || 'Could not compare these setups.');
     $('advice').innerHTML = '<div class="flash warn"><span>Comparison unavailable. Your saved answers are safe.</span><button class="outline" id="retry-comparison">Retry comparison</button></div>';
     $('retry-comparison').onclick = () => { $('advice').innerHTML = ''; load(step); };
     return;
@@ -444,11 +486,13 @@ async function load(step) {
     if (step.id === "sell" || needsOwnTrip()) { showQuestion(step); return; }
   }
   results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
+  complete[step.id] = true;
   if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st)); else paint(step);
   const kept = results[step.id][picks[step.id]];
   setHint(kept && kept.error
     ? 'Your earlier answer no longer works with your other choices. Pick another to continue.'
     : 'Click an answer to compare. You can come back and change it later.');
+  if (kept && !kept.error) prefetchNext(step);
 }
 
 // The same answers as a table: income, your time, effort and uncertainty in one place.
@@ -476,15 +520,17 @@ function choose(step, id) {
   picks[step.id] = id;
   Object.assign(st, optOf(step, id).patch);
   paint(step);
+  prefetchNext(step);
 }
 
 function paint(step) {
   const res = results[step.id] || {};
-  const rec = recommend(step);
+  const done = step.isGoal || !!complete[step.id];   // every card is in: suggest and advise
+  const rec = done ? recommend(step) : null;
   const pick = picks[step.id];
   const valid = step.isGoal || !!(res[pick] && !res[pick].error);
   if ($('next')) $('next').disabled = saving || !valid || needsOwnTrip();
-  $('opts').setAttribute('aria-busy', String(!step.isGoal && !results[step.id]));
+  $('opts').setAttribute('aria-busy', String(!done));
   const vals = step.options.map(o => value(step, res[o.id])).filter(v => v != null);
   const top = Math.max(1, ...vals);
   document.querySelectorAll('.opt').forEach(el => {
@@ -523,7 +569,7 @@ function paint(step) {
       ${step.id === 'tier' ? samePlanHTML(step, o, r, res) : ''}`;
   });
   $('advice').innerHTML = step.isGoal ? '' : advice(step, rec, pick);
-  $('compare').innerHTML = step.isGoal ? '' : compareHTML(step, rec, pick);
+  $('compare').innerHTML = step.isGoal || !done ? '' : compareHTML(step, rec, pick);
   $('compare-details')?.addEventListener('toggle', e => { compareOpen = e.target.open; });
   hourControl.setValue(iskPerHour(), HOUR_DEFAULT[goalId()], +st.hour_isk < 0);
   hourControl.setDisabled(saving);

@@ -125,6 +125,7 @@
       };
       preview.querySelectorAll('[data-approach]').forEach(button => button.addEventListener('click', () => {
         const approach = approaches[button.dataset.approach];
+        if (!approach) return;
         preview.querySelectorAll('[data-approach]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
         for (const field of ['title', 'description', 'tier', 'planets', 'tradeoff']) {
           preview.querySelector(`[data-preview-${field}]`).textContent = approach[field];
@@ -132,6 +133,12 @@
         const product = preview.querySelector('[data-preview-product]');
         product.src = button.dataset.product;
         product.alt = approach.product;
+        const start = preview.querySelector('[data-preview-start]');
+        if (start) {
+          const url = new URL(start.href);
+          url.searchParams.set('rhythm', button.dataset.approach);
+          start.href = url.href;
+        }
         AC.enterPanel(preview.querySelector('.preview-output'));
       }));
     }

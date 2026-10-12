@@ -86,7 +86,7 @@ def active_optional(ch: dict) -> List[str]:
 
 # --------------------------------------------------------------------------- routes: start
 @router.get("/auth/login")
-async def login(request: Request, intent: str = "login", next: str = ""):
+async def login(request: Request, intent: str = "login", next: str = "", rhythm: str = ""):
     if not sso.configured():
         return redirect("/", "The EVE application isn't configured for this site yet.", "bad")
     sess = sessions.ensure(request)
@@ -94,7 +94,8 @@ async def login(request: Request, intent: str = "login", next: str = ""):
     if request.state.user and intent == "login":
         intent = "add"
     destination = next if next in ("/feedback", "/roadmap") else ""
-    state = _new_state(sess, intent, {"next": destination})
+    rhythm = rhythm if intent == "login" and rhythm in ("passive", "balanced", "max") else ""
+    state = _new_state(sess, intent, {"next": destination, "pi_rhythm": rhythm})
     return RedirectResponse(sso.authorize_url(state, registry.signin_scopes()), status_code=303)
 
 
@@ -168,6 +169,13 @@ def _link_new(profile_id: int, login: dict, aff: dict) -> None:
         db.set_character(login["character_id"], **{k: v for k, v in aff.items() if v is not None})
 
 
+def _preview_goal(profile_id: int, state: dict) -> None:
+    rhythm = state["data"].get("pi_rhythm")
+    if rhythm:
+        from astracore.modules.pi import store
+        store.apply_preview_goal(profile_id, rhythm)
+
+
 @router.get("/auth/callback")
 async def callback(request: Request, code: str = "", state: str = "", error: str = ""):
     sess = request.state.session
@@ -229,6 +237,7 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
             await _store_token(login)
             db.set_character(cid, status="ok", name=name, owner_hash=login["owner"] or existing.get("owner_hash"))
             sessions.sign_in(request, existing["profile_id"])
+            _preview_goal(existing["profile_id"], st)
             problem = await _refresh_character(cid)
             return redirect(destination or "/", f"Signed in as {name}." + (f" ({problem})" if problem else ""))
         aff = await _affiliation(cid)
@@ -242,6 +251,7 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
         _link_new(pid, login, aff)
         await _store_token(login)
         sessions.sign_in(request, pid)
+        _preview_goal(pid, st)
         await _refresh_character(cid)
         return redirect(destination or "/welcome")
 

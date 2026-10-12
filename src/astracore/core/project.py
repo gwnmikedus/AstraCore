@@ -1,6 +1,7 @@
 """Public project links shared by the platform and its community pages."""
 
 REPOSITORY_URL = "https://github.com/gwnmikedus/AstraCore"
+SITE_URL = "https://astracore.hoppyhome.nl"
 
 PROJECT = {
     "repository_url": REPOSITORY_URL,

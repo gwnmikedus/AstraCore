@@ -397,8 +397,10 @@ async def first_build_for(profile_id: int, result: dict, settings: Optional[dict
     return first_build(ctx, {"result": result, "settings": settings})
 
 
-async def refresh_profile(profile_id: int, only: Optional[int] = None) -> Dict[str, str]:
-    """Read every (or one) character of the profile from ESI. Returns {name: problem} for failures."""
+async def refresh_profile(profile_id: int, only: Optional[int] = None,
+                          waits: Optional[Dict[str, int]] = None) -> Dict[str, str]:
+    """Read every (or one) character of the profile from ESI. Returns {name: problem} for failures.
+    `waits` collects {label: seconds} for data ESI hadn't updated yet (see esi_char.esi_waits)."""
     from astracore.esi import character as esi_char
     from astracore.esi import sso
     problems: Dict[str, str] = {}
@@ -409,7 +411,10 @@ async def refresh_profile(profile_id: int, only: Optional[int] = None) -> Dict[s
             if not c.get("has_token"):
                 continue
             try:
-                await esi_char.sync_character(esi, c["character_id"])
+                synced = await esi_char.sync_character(esi, c["character_id"])
+                if waits is not None:
+                    for label, seconds in synced.get("esi_waits", {}).items():
+                        waits[label] = max(waits.get(label, 0), seconds)
             except sso.Transferred:
                 problems[c["name"]] = "transferred to another player and removed"
             except sso.NeedsLogin:

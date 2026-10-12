@@ -117,7 +117,43 @@ def _layout_network(det: dict) -> Dict[str, List[dict]]:
     }
 
 
+# What a pilot recognises in each live character route, for "EVE hasn't updated this yet".
+LIVE_ROUTES = (("skills/", "skills"), ("planets/", "colonies"), ("assets/", "assets"),
+               ("contracts/", "contracts"), ("orders/", "market orders"), ("wallet/", "wallet"))
+
+
+def esi_waits(esi: ESIClient, character_id: int) -> Dict[str, int]:
+    """{label: seconds} for this character's live data that came from cache because ESI had nothing
+    newer yet (its `Expires` hasn't passed), with the time until ESI publishes the next copy."""
+    prefix = f"/characters/{int(character_id)}/"
+    waits: Dict[str, int] = {}
+    now = time.time()
+    for path, until in esi.cache_waits.items():
+        if not path.startswith(prefix) or until <= now:
+            continue
+        rest = path[len(prefix):]
+        for route, label in LIVE_ROUTES:
+            # the route itself, colony details and the wallet's sub-routes; not contract items (kept a day)
+            if rest == route or (route in ("planets/", "wallet/") and rest.startswith(route)):
+                waits[label] = max(waits.get(label, 0), int(until - now) + 1)
+    return waits
+
+
+def wait_note(waits: Dict[str, int]) -> str:
+    """One short sentence for the refresh message, or "" when everything was read fresh."""
+    if not waits:
+        return ""
+    labels = [label for _, label in LIVE_ROUTES if label in waits]
+    names = labels[0] if len(labels) == 1 else ", ".join(labels[:-1]) + " and " + labels[-1]
+    minutes = max(1, -(-max(waits.values()) // 60))
+    one = names == "wallet"     # every other label is plural
+    return (f"{names[:1].upper()}{names[1:]} {'is' if one else 'are'} unchanged until EVE "
+            f"updates {'it' if one else 'them'} (in up to {minutes} min).")
+
+
 async def sync_character(esi: ESIClient, character_id: int) -> Dict:
+    """Read the character's data. Each route comes from cache until ESI's `Expires` passes (ESI only
+    has a new copy then; asking earlier counts as circumventing its cache), then it is revalidated."""
     from astracore.core.auth import bundle_active
 
     me = db.get_character(character_id)
@@ -132,14 +168,14 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     pi = sde_loader.cached()
     pi_types = {t for t in pi.items} if pi else set()
 
-    skills_raw = await esi.get(f"/characters/{cid}/skills/", token=token, owner=cid, force=True)
+    skills_raw = await esi.get(f"/characters/{cid}/skills/", token=token, owner=cid)
     levels = {s["skill_id"]: s.get("active_skill_level", s.get("trained_skill_level", 0))
               for s in skills_raw.get("skills", [])}
     skills = {name: int(levels.get(sid, 0)) for name, sid in SKILL_IDS.items()}
 
-    colonies_raw: List[dict] = await esi.get(f"/characters/{cid}/planets/", token=token, owner=cid, force=True)
+    colonies_raw: List[dict] = await esi.get(f"/characters/{cid}/planets/", token=token, owner=cid)
     details = await asyncio.gather(*[
-        esi.get(f"/characters/{cid}/planets/{c['planet_id']}/", token=token, owner=cid, force=True)
+        esi.get(f"/characters/{cid}/planets/{c['planet_id']}/", token=token, owner=cid)
         for c in colonies_raw
     ], return_exceptions=True)
     colonies = []
@@ -152,7 +188,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
 
     extra: Dict = {}
     # --- assets: PI products wherever they are (top-level location resolved) ------
-    assets_raw = await _safe(esi.get(f"/characters/{cid}/assets/", token=token, owner=cid, force=True), None)
+    assets_raw = await _safe(esi.get(f"/characters/{cid}/assets/", token=token, owner=cid), None)
     if assets_raw is not None:
         by_item = {a["item_id"]: a for a in assets_raw}
 
@@ -168,7 +204,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         extra["assets"] = assets
 
     # --- contracts (keep recent ones; items for VOC / PI-relevant ones) ------------------
-    contracts_raw = await _safe(esi.get(f"/characters/{cid}/contracts/", token=token, owner=cid, force=True), None)
+    contracts_raw = await _safe(esi.get(f"/characters/{cid}/contracts/", token=token, owner=cid), None)
     if contracts_raw is not None:
         contracts = []
         for c in contracts_raw:
@@ -191,7 +227,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         extra["contracts"] = contracts
 
     # --- market orders -------------------------------------------------------------------------
-    orders_raw = await _safe(esi.get(f"/characters/{cid}/orders/", token=token, owner=cid, force=True), None)
+    orders_raw = await _safe(esi.get(f"/characters/{cid}/orders/", token=token, owner=cid), None)
     if orders_raw is not None:
         extra["orders"] = [{k: o.get(k) for k in ("order_id", "type_id", "price", "volume_remain",
                                                    "volume_total", "location_id", "region_id", "issued",
@@ -200,10 +236,10 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         await resolve_locations(esi, token, [o["location_id"] for o in extra["orders"]], cid)
 
     # --- wallet: balance + ISK that came in from PI sales / buybacks -------------------------
-    balance = await _safe(esi.get(f"/characters/{cid}/wallet/", token=token, owner=cid, force=True), None)
+    balance = await _safe(esi.get(f"/characters/{cid}/wallet/", token=token, owner=cid), None)
     if balance is not None:
-        tx = await _safe(esi.get(f"/characters/{cid}/wallet/transactions/", token=token, owner=cid, force=True), [])
-        journal = await _safe(esi.get(f"/characters/{cid}/wallet/journal/", token=token, owner=cid, force=True), [])
+        tx = await _safe(esi.get(f"/characters/{cid}/wallet/transactions/", token=token, owner=cid), [])
+        journal = await _safe(esi.get(f"/characters/{cid}/wallet/journal/", token=token, owner=cid), [])
         extra["wallet"] = {
             "balance": balance,
             "sales": [{"date": t["date"], "type_id": t["type_id"], "qty": t["quantity"],
@@ -239,5 +275,5 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         ccu_level=skills["Command Center Upgrades"],
         **aff, **extra,
     )
-    return {"skills": skills, "colonies": colonies, **extra}
+    return {"skills": skills, "colonies": colonies, **extra, "esi_waits": esi_waits(esi, cid)}
 

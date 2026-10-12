@@ -57,6 +57,16 @@ Backups and already-delivered exports have their own lifecycle. A future deletio
 
 **Cohort alternative, not the first-stage recommendation:** retention measurement requires linkage across days. A bounded activation date and a repeat-use flag per proposed window are less data than an event log. A proposed maximum 62-day lifetime can cover a fully observed 30-day return window and review margin; justify the exact calculation before adoption. This adds personal temporal data and cannot be inferred from month-only rows. Document opt-out/reset cleanup, incomplete cohorts and cross-month cases separately.
 
+## Draft privacy wording — inactive proposal
+
+This wording is for maintainer review of the proposed first stage, not the current Privacy page. Replace the collection-choice placeholder only after deciding whether to introduce measurement and how participation works. Confirm the proposed retention, deletion, backup and disclosure rules before publishing; revise this draft if those decisions change.
+
+> [If you opt in / unless you opt out — policy not yet decided], we count a successful PI plan save once per profile per UTC calendar month to understand use of AstraCore. We temporarily associate your internal profile ID with the month and qualification flags; we do not record a measurement clickstream, character identities, colony locations, wallets, tokens, IP addresses or browser details. This proposed first stage does not count visits to Operate or collect repeat-use cohorts.
+>
+> The proposed temporary measurement records expire seven days after the month ends, within at most 38 days. Approved monthly totals may be kept for up to 13 months. Profile deletion and any measurement opt-out remove temporary records; the PI-only reset policy and backup expiry must be settled before collection begins. Once an approved total has no profile linkage, we cannot subtract one person's contribution from it. We may share reviewed monthly totals with the EVE Community Team after approving the format and disclosure safeguards; we will not send profile or character identifiers. No third-party analytics scripts are used.
+
+Unresolved choices in this draft are activation blockers, not promises that the existing reset or backup behavior already satisfies a new purpose. The final notice must accurately describe the implemented choice controls, any collection gaps and the limits of deletion from existing exports. Publishing a revised notice alone does not authorize collection.
+
 ## Monthly aggregate and export proposal
 
 An export should contain UTC period start/end, completeness status, collection start date, metric-definition version, eligible monthly-profile total, optional activation/cohort totals and denominators, excluded population policy, known collection gaps, app build and export date. Include a correction/version field when an open month's total changes. Do not include profile or character identifiers, individual activity rows, pseudonym lists, location/affiliation splits or raw session data.

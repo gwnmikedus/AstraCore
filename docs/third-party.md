@@ -12,6 +12,21 @@ Rules for every source:
   issue one) an app-specific key.
 - Credit sources where their results appear, not only on the Credits page.
 
+## Other community tools: talk first, then link or integrate
+
+Before AstraCore builds something another community tool already does well, we talk to its author first.
+We'd rather link to it, integrate with its author's blessing, or leave it to them than build a copy that
+takes users away from people who give their time to the community.
+
+- PI alerts and reminders: Industrial EVE, Planets in Space, eve-pi (pi.calli.fi), PIM. Contact them before
+  the roadmap's reminders direction becomes work.
+- Appraisal and prices: Janice, EVE Ref, Fuzzwork. Link item names rather than copying their features.
+- Fittings: Pyfa, EVE Workbench, Eveship.fit. Link rather than build a fit editor.
+- Kills and corp auth: zKillboard, Alliance Auth, SeAT. Link only.
+
+Tool authors can ask for their entry to be corrected or removed through a GitHub issue. Verify a tool is
+alive and its link works before listing it on the Community page.
+
 Status: **ok** (basis documented), **open** (needs an answer from the owner), **review** (check the
 terms again).
 

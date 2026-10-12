@@ -112,7 +112,9 @@ ROADMAP = (
     {"slug": "upkeep-reminders", "area": "PI", "title": "Reminders when a colony needs you",
      "summary": "Optional notices when an extractor stops or a colony's storage is about to fill.",
      "basis": "Named as a later extension of the upkeep schedule.",
-     "details": "Reminders would stay opt-in. Tell us which moments are worth a notice and where you'd like to receive it."},
+     "details": "Reminders would stay opt-in. Community tools such as Industrial EVE and Planets in Space already send PI "
+                "alerts, so we'd rather work with them or link to them than build a copy. Tell us what they miss for you, "
+                "which moments are worth a notice and where you'd like to receive it."},
     {"slug": "fittings", "area": "Fittings", "title": "Fittings across your alts",
      "summary": "The right ship on the right character, with a shared preparation routine.",
      "basis": "A community direction, not yet scoped.",

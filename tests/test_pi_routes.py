@@ -218,3 +218,48 @@ def test_area_labels_are_readable_without_hover(browser, eve, monkeypatch):
     assert "Temperate" in visible.text and "Oceanic" in visible.text and "Storm" in visible.text
     assert "Shattered" not in visible.text and "Unknown" not in visible.text
     assert 'name="con" value="1" checked' in r.text
+
+
+def test_area_scan_picker_includes_unused_and_unselected_planets(browser, eve, monkeypatch):
+    from astracore.modules.pi import service
+    from test_planner import _area
+
+    area = _area()
+    area["sources"] = {"alliances": [], "colony_constellations": [], "extra": ["Synthetic region"]}
+    area["systems"]["3"].update(constellation_id=2, constellation="Other constellation")
+    area["systems"]["3"]["planets"].extend([
+        {"planet_id": 32, "name": "Shattered example", "type": "Shattered"},
+        {"planet_id": 33, "name": "Unknown example", "type": "Unknown"},
+    ])
+
+    async def load_space(*args, **kwargs):
+        return area
+
+    monkeypatch.setattr(service, "load_space", load_space)
+    c, other = browser(), browser()
+    sso_login(c, eve, new_id(), "Scanner")
+    sso_login(other, eve, new_id(), "Other scanner")
+    pid = me(c)
+    settings = Settings(selected_constellations=[1])
+    store.save_settings(pid, settings)
+    store.save_plan_run(pid, "Existing plan", settings, {"totals": {}, "colonies": [{"planet_id": 11}]}, active=True)
+    html = c.get("/pi/area").text
+    assert 'form="scan-richness" required' in html
+    assert '<optgroup label="FAR">' in html
+    assert '<option value="31">P31 (Barren)</option>' in html
+    assert '<option value="21">P21 (Barren)</option>' in html
+    assert '<option value="32">' not in html and '<option value="33">' not in html
+    assert html.count('action="/pi/area/richness" id="scan-richness"') == 1
+
+    response = c.post("/pi/area/richness", data={"planet_id": "31", "richness": "1.5", "csrf_token": csrf(c)})
+    assert response.status_code == 200
+    assert "P31: rich (1.5×)" in response.text
+    assert store.planet_overrides(pid) == {31: 1.5}
+    assert store.planet_overrides(me(other)) == {}
+    assert store.load_settings(pid).selected_constellations == [1]
+    assert store.active_plan(pid)["result"]["colonies"] == [{"planet_id": 11}]
+    assert c.post("/pi/area/richness", data={"planet_id": "31", "richness": "3.5", "csrf_token": csrf(c)}).status_code == 200
+    assert store.planet_overrides(pid) == {31: 1.5}
+    assert c.post("/pi/area/richness", data={"planet_id": "31", "richness": ""}).status_code == 403
+    c.post("/pi/area/richness", data={"planet_id": "31", "richness": "", "csrf_token": csrf(c)})
+    assert store.planet_overrides(pid) == {}

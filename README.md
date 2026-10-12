@@ -116,7 +116,9 @@ Without a terminal:
   `Start Astracore (production)`, `Stop Astracore`, `Astracore status`, `Astracore logs`. The start ones open the site.
 
 Only one mode runs at a time (both use port 8765): stop one before starting the other. Every start makes a
-SQLite backup in `data/backups/<mode>/` (the newest 14 are kept) and runs pending migrations. PID files live in
+SQLite backup in `data/backups/<mode>/` (the newest 14 are kept) and runs pending migrations. See
+[backup and recovery preparation](docs/continuity.md) for manual encrypted exports and isolated restore drills.
+PID files live in
 `data/run/`, logs in `data/logs/`.
 
 Start at login (optional, off by default): see `ops/launchd/nl.hoppyhome.astracore.plist.template`.

@@ -11,6 +11,7 @@ def test_public_reference_uses_admin_terms_and_fallback_without_refresh(browser,
     async def forbidden(*args, **kwargs):
         raise AssertionError('A reference page must not request outside data')
     monkeypatch.setattr(voc, 'refresh_routes', forbidden)
+    db.kv_set(voc.ROUTES_KEY, {})        # no cached tariff, whatever earlier tests left behind
     client = browser()
     store.save_admin_settings({'buyback_pct': 87, 'buyback_pct_p1': 0})
     page = client.get('/voc-hauling')

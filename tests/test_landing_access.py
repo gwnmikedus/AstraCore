@@ -103,7 +103,7 @@ def test_empty_area_shows_a_visible_search_field(browser, eve, monkeypatch):
     sso_login(c, eve, cid, "No colonies")
     db.save_token(cid, "rt", "at", 1199, PI_SCOPES)
 
-    async def nothing(chars, s, force=False):
+    async def nothing(chars, s, force=False, **kw):
         return None
     monkeypatch.setattr(service, "load_space", nothing)
     page = c.get("/pi/area").text

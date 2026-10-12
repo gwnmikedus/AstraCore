@@ -101,7 +101,7 @@
 
 {% block scripts %}
 <script nonce="{{ nonce }}">
-const S = {{ settings_json|safe }};
+const S = JSON.parse({{ settings_json|tojson }});   // tojson: free-text settings can never end this script block
 const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}', EXPORT_Q = '?current=1';
 const WAYPOINT_CHARS = {{ waypoints|tojson }};
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders'];

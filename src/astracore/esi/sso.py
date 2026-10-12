@@ -17,6 +17,9 @@ from astracore.config import callback_url, sso_credentials
 log = logging.getLogger("astracore")
 
 AUTHORIZE_URL = "https://login.eveonline.com/v2/oauth/authorize"
+# Where a pilot removes AstraCore's access themselves (EVE's third-party applications / authorized apps;
+# the old community.eveonline.com/support/third-party-applications/ address now redirects elsewhere).
+AUTHORIZED_APPS_URL = "https://developers.eveonline.com/authorized-apps"
 TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 REVOKE_URL = "https://login.eveonline.com/v2/oauth/revoke"
 METADATA_URL = "https://login.eveonline.com/.well-known/oauth-authorization-server"

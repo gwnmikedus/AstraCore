@@ -60,10 +60,12 @@ async def home(request: Request, code: str = "", state: str = ""):
             except Exception:  # noqa: BLE001 - one module must never break the dashboard
                 log.exception("dashboard tile %s", m.id)
         tiles.append({"module": m, **tile})
+    from astracore.esi import errors as esi_errors
+    synced = [ch.get("synced_at") for ch in db.list_characters(user["id"])]
     fresh = freshness.state(user["id"])
     return render(request, "dashboard.html", page="dashboard", page_title="Dashboard", tiles=tiles,
                   alerts=_alerts(user["id"], refreshing=fresh["auto"]), freshness=fresh,
-                  colony_note=freshness.COLONY_NOTE)
+                  colony_note=freshness.COLONY_NOTE, esi_outage=esi_errors.recent_banner(synced))
 
 
 def _alerts(profile_id: int, refreshing: bool = False) -> list:
@@ -317,9 +319,17 @@ async def reset_profile(request: Request):
     p = db.get_profile(user["id"])
     if (form.get("confirm") or "").strip() != p["display_name"]:
         return redirect("/profile/reset", f"Type {p['display_name']} exactly to confirm.", "warn")
-    await accounts.reset_profile(user["id"])
+    logins = sum(1 for ch in db.list_characters(user["id"]) if ch.get("has_token"))
+    revoked = await accounts.reset_profile(user["id"])
     sessions.sign_out(request)
-    return redirect("/", "Your profile was deleted.")
+    if revoked < logins:
+        from astracore.esi.sso import AUTHORIZED_APPS_URL
+        unconfirmed = logins - revoked
+        return redirect("/", f"Your profile was deleted. EVE didn't confirm that it revoked "
+                             f"{'the EVE login' if logins == 1 else f'{unconfirmed} of {logins} EVE logins'}: "
+                             f"to be sure, remove AstraCore yourself on EVE's third-party applications page, "
+                             f"{AUTHORIZED_APPS_URL}", "warn")
+    return redirect("/", "Your profile was deleted and EVE confirmed every login is revoked.")
 
 
 # --------------------------------------------------------------------------- public pages
@@ -338,7 +348,9 @@ async def credits(request: Request):
 
 @router.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
-    return render(request, "privacy.html", page="privacy", page_title="Privacy", modules=registry.MODULES)
+    from astracore.esi.sso import AUTHORIZED_APPS_URL
+    return render(request, "privacy.html", page="privacy", page_title="Privacy", modules=registry.MODULES,
+                  authorized_apps_url=AUTHORIZED_APPS_URL)
 
 
 # --------------------------------------------------------------------------- admin

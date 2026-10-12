@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_links.html" import external_link %}
 {% block content %}
 <div class="prose">
   <div class="eyebrow">AstraCore / Your data</div>
@@ -22,7 +23,8 @@
     The confirmed title, report text and app version are sent to AstraCore's public GitHub issue tracker. Anyone can read or copy
     them. We do not automatically include your character identity, EVE tokens, wallets, assets, colony locations, plans or logs.</p>
   <p>Queued reports remain private to you and the administrator until GitHub confirms publication. You can withdraw a report while
-    it is still queued. A report whose delivery is unconfirmed may already exist on GitHub; contact the maintainer before removal.</p>
+    it is still queued. A report whose delivery is unconfirmed may already exist on GitHub; contact the maintainer before removal.
+    <strong>Published feedback stays on GitHub after you reset your profile:</strong> withdrawing only works before publication.</p>
   <h3>What we don't do</h3>
   <ul>
     <li>No tracking, no analytics, no advertising, no third-party scripts.</li>
@@ -33,8 +35,10 @@
   <ul>
     <li><strong>One character:</strong> Profile → Remove. Its EVE login is revoked and its data deleted.</li>
     <li><strong>Only a module's data:</strong> Profile → Danger zone → Reset {% for m in modules %}{{ m.name }}{% endfor %}.</li>
-    <li><strong>Everything:</strong> Profile → Danger zone → Reset profile (download your data first if you want it).</li>
-    <li>You can also revoke AstraCore on EVE's third-party applications page (account management on eveonline.com).</li>
+    <li><strong>Everything:</strong> Profile → Danger zone → Reset profile (download your data first if you want it; the download
+      includes your feedback reports).</li>
+    <li>You can also revoke AstraCore on EVE's {{ external_link(authorized_apps_url, 'third-party applications page') }} (account management on eveonline.com). If EVE doesn't confirm a revocation during a reset, AstraCore
+      tells you so.</li>
     <li>Resetting your profile deletes your private feedback ownership and queued reports here, but does not remove an issue already
       published on GitHub. Contact the maintainer about public issue content; public copies may persist elsewhere.</li>
   </ul>

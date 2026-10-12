@@ -1,0 +1,7 @@
+{# ESI didn't answer while this page was built, so it shows the last known data (issue #80). #}
+<div class="flash warn esi-outage" role="status" data-esi-outage>
+  {{ icon('triangle-alert') }}
+  <span>{{ esi_outage.headline }} {% if esi_outage.at %}Showing data from {{ esi_outage.at|ago }}.{% else %}Showing the last data AstraCore has.{% endif %}
+    <small>{{ esi_outage.detail }}</small></span>
+  <a class="esi-retry" href="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">{{ icon('refresh-cw') }} Retry</a>
+</div>

@@ -66,7 +66,7 @@ Never commit them (`.env*` is gitignored) and keep them `chmod 600`. Keys (see `
 | `ASTRACORE_PUBLIC_URL` | `http://localhost:8765` or `https://astracore.hoppyhome.nl` |
 | `ASTRACORE_PORT`, `ASTRACORE_DATA` | `8765`, `data/local` or `data/production` |
 | `EVE_CLIENT_ID`, `EVE_CLIENT_SECRET`, `EVE_CALLBACK_URL` | from developers.eveonline.com (one application per mode) |
-| `ASTRACORE_TOKEN_KEY` | Fernet key that encrypts EVE tokens. **Back it up**: lose it and everyone has to log in again. Generated (with a loud warning) in local mode if missing. |
+| `ASTRACORE_TOKEN_KEY` | Fernet key that encrypts EVE tokens. **Back it up**: lose it and everyone has to log in again. Generated (with a loud warning) in local mode if missing. To rotate it, list `new,old`: the first key encrypts, a restart re-encrypts every stored login with it, then drop the old key. |
 | `ASTRACORE_SESSION_SECRET` | keys the stored session ids and signed messages |
 | `ASTRACORE_ADMIN_CHARACTER_IDS` | characters whose profile is the admin (admin page, VOC buyback %, invite list) |
 | `ASTRACORE_ALLOWED_CHARACTERS` / `_CORPS` / `_ALLIANCES` | invite list (production); more can be added on `/admin` without a restart |

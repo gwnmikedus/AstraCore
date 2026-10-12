@@ -697,7 +697,8 @@ def test_numeric_settings_are_kept_within_sensible_bounds():
     s.update({"sales_tax_pct": "250", "head_yield_per_hour": "-5", "stack_yield_pct": "150", "per_planet": "9",
               "extra_area": "x" * 2000})
     assert s.sales_tax_pct == 100 and s.head_yield_per_hour == 1 and s.stack_yield_pct == 100 and s.per_planet == 3
-    assert len(s.extra_area) == Settings.TEXT_LIMIT
+    from astracore.modules.pi.settings import TEXT_LIMITS
+    assert len(s.extra_area) == TEXT_LIMITS["extra_area"]
 
 
 # --- #89 consolidate & sell advice ------------------------------------------------------------

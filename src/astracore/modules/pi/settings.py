@@ -14,6 +14,12 @@ from typing import List, Optional
 ADMIN_FIELDS = ("buyback_pct", "buyback_pct_p1", "solver_time_limit")
 # Wizard bookkeeping: saved with the settings, but no plan depends on it.
 UI_FIELDS = ("guide_step", "answered")
+# Server-side limits for free text a profile can store (issue #92): generous for real use, small enough
+# that a crafted request can't fill the database. Longer values are cut, extra list entries dropped.
+TEXT_LIMITS = {"extra_area": 500, "hub_system": 100}
+TEXT_MAX = 200          # any other text field
+LIST_MAX = 200          # entries in a list setting (constellations, excluded products, answered questions)
+LIST_ITEM_MAX = 100     # characters per text entry
 
 
 @dataclass
@@ -104,31 +110,28 @@ class Settings:
         "broker_fee_pct": (0, 100), "stack_yield_pct": (0, 100), "head_yield_per_hour": (1, 100000),
         "solver_time_limit": (1, 600),
     }
-    TEXT_LIMIT = 500   # free-text settings (area names, drop-off)
-
     def _set(self, name: str, cur, val) -> None:
-        self._set_raw(name, cur, val)
+        self._set_raw(name, cur, val)          # text and lists are cut to TEXT_LIMITS / LIST_MAX there
         lo_hi = self.LIMITS.get(name)
         if lo_hi:
             setattr(self, name, type(cur)(min(max(getattr(self, name), lo_hi[0]), lo_hi[1])))
-        elif isinstance(getattr(self, name), str):
-            setattr(self, name, getattr(self, name)[:self.TEXT_LIMIT])
-        elif isinstance(getattr(self, name), list):
-            setattr(self, name, [x[:100] if isinstance(x, str) else x for x in getattr(self, name)][:100])
 
     def _set_raw(self, name: str, cur, val) -> None:
         if isinstance(cur, list):
             if isinstance(val, str):
                 val = [x.strip() for x in val.split(",") if x.strip()]
+            val = list(val)[:LIST_MAX]
             if name == "selected_constellations":
                 val = [int(x) for x in val]
-            setattr(self, name, list(val))
+            else:
+                val = [str(x)[:LIST_ITEM_MAX] for x in val]
+            setattr(self, name, val)
         elif isinstance(cur, int):
             setattr(self, name, int(float(str(val or 0).replace(",", "."))))
         elif isinstance(cur, float):
             setattr(self, name, float(str(val or 0).replace(",", ".")))
         else:
-            setattr(self, name, str(val))
+            setattr(self, name, str(val)[:TEXT_LIMITS.get(name, TEXT_MAX)])
 
 
 # What an hour of your time is worth when you haven't set it yourself, per goal (the guided setup's

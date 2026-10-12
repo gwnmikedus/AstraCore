@@ -7,15 +7,19 @@ import secrets
 from contextlib import asynccontextmanager, suppress
 from logging.handlers import RotatingFileHandler
 
+import httpx
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import config, db
-from .core import auth, community, pages, releases, sessions
+from .core import auth, community, crypto, pages, releases, sessions
 from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
 from .core.web import PKG, redirect, render
+from .esi import errors as esi_errors
+from .esi import sso
+from .esi.client import ESIError
 from .modules.pi import module as _pi_module  # noqa: F401  (registers AstracorePI)
 from .modules.pi import service as pi_service
 from .modules.pi.routes import legacy as pi_legacy
@@ -85,6 +89,9 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app):
         db.init()
+        if crypto.rotating():
+            log.info("token key rotation: re-encrypted %d stored EVE logins with the first key",
+                     db.reencrypt_tokens())
         sessions.purge_expired()
         log.info("Astracore started in %s mode on %s", config.MODE, config.PUBLIC_URL)
         sync_task = asyncio.create_task(community.run_sync_loop())
@@ -141,6 +148,20 @@ def create_app() -> FastAPI:
             return JSONResponse({"error": "Bad request."}, status_code=400)
         return render(request, "error.html", page="error", page_title="Error", code=400,
                       message="That request didn't look right.", status_code=400)
+
+    async def esi_down(request: Request, exc: Exception):
+        """ESI (or EVE SSO, or a public data file) failed and the page had no stored copy to fall back on:
+        a plain explanation with a retry instead of the generic error page. Details go to the log."""
+        log.warning("EVE data unavailable on %s %s: %r", request.method, request.url.path, exc)
+        msg = esi_errors.explain(exc)
+        if _wants_json(request):
+            return JSONResponse({"error": msg}, status_code=503)
+        retry = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return render(request, "error.html", page="error", page_title="EVE data unavailable", code=503,
+                      message=msg, retry=retry if request.method == "GET" else None, status_code=503)
+
+    for exc_type in (ESIError, sso.SSOError, httpx.HTTPError):
+        app.add_exception_handler(exc_type, esi_down)
 
     @app.exception_handler(Exception)
     async def crash(request: Request, exc: Exception):

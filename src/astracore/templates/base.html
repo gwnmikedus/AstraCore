@@ -53,6 +53,7 @@
   </nav>
   {% endif %}
   {% if flash %}<div class="flash {{ flash_kind or 'info' }}" role="status">{{ icon('circle-x' if flash_kind == 'bad' else ('triangle-alert' if flash_kind == 'warn' else ('circle-check' if flash_kind == 'ok' else 'info'))) }}<span>{{ flash }}</span></div>{% endif %}
+  {% if esi_outage %}{% include "_esi_outage.html" %}{% endif %}
   <div id="main-content" class="{% block content_class %}{% endblock %}" tabindex="-1">{% block content %}{% endblock %}</div>
   <footer class="site-footer">
     {% from "_support.html" import support_link %}

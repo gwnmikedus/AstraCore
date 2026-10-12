@@ -287,12 +287,13 @@
   <div class="cards">
     <div class="card"><div class="v">{{ c.total_m3|m3 }}</div><div class="l">PI products in {{ c.locations }} hangar{{ 's' if c.locations != 1 }}</div></div>
     <div class="card"><div class="v">{{ c.total_value|isk }}</div><div class="l">Jita buy value</div></div>
-    <div class="card"><div class="v ok">{{ c.net|isk }}</div><div class="l">net after fees and taxes</div></div>
+    <div class="card"><div class="v ok">{{ c.net|isk }}</div><div class="l">net after fees and taxes{% if c.self_haul %}, before your own hauling{% endif %}</div></div>
   </div>
   {% if c.seller %}
   <p>{{ icon('lightbulb') }} <strong>Sell with {{ c.seller.name }}</strong> ({{ c.seller.sales_tax_pct|pct(2) }} sales tax).
     {% if c.seller_gain %}Hand over what {{ c.handover|join(', ') }} {{ 'holds' if c.handover|length == 1 else 'hold' }} with a 0 ISK item
-    exchange contract first: about <strong>{{ c.seller_gain|isk }}</strong> more than selling it on {{ 'that character' if c.handover|length == 1 else 'those characters' }}.{% endif %}</p>
+    exchange contract first: about <strong>{{ c.seller_gain|isk }}</strong> more than selling it on {{ 'that character' if c.handover|length == 1 else 'those characters' }}.
+    The contract doesn't move the goods: {{ c.seller.name }} has to collect them from the station they’re in.{% endif %}</p>
   {% endif %}
   <ul>
   {% for a in c.advice %}
@@ -318,6 +319,7 @@
     <div style="margin:.8rem 0 1rem">
       <p style="margin:.2rem 0"><b>{{ g.character }}</b> · {{ g.location }}{% if g.system %} <span class="muted">{{ g.system }}</span>{% endif %}
         <span class="muted">· {{ g.m3|m3 }} · Jita buy value {{ g.jita_value|isk }}</span></p>
+      {% if g.plan.no_access %}<div class="muted warn" style="margin-left:1rem">{{ g.plan.note }}</div>{% endif %}
       {% for b in g.plan.batches %}
       <div style="margin-left:1rem;margin-bottom:.6rem">
         <b>{{ b.label }}</b> <span class="muted">{{ b.m3|m3 }} · {% if b.hold %}hold{% else %}≈ {{ b.net|isk }} net{% endif %}</span>

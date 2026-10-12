@@ -242,6 +242,9 @@ def strip_character(profile_id: int, character_id: int) -> None:
             had_colonies = any(x.get("character_id") == character_id for x in res.get("colonies", []))
             res["characters"] = [ch for ch in res.get("characters", []) if ch.get("character_id") != character_id]
             res["colonies"] = [x for x in res.get("colonies", []) if x.get("character_id") != character_id]
+            for x in res["colonies"]:
+                if x.get("feeds"):
+                    x["feeds"] = [f for f in x["feeds"] if f.get("character") not in gone]
             res["transfers"] = [x for x in res.get("transfers", []) if x.get("from") not in gone and x.get("to") not in gone]
             res["removals"] = [x for x in res.get("removals", []) if x.get("character") not in gone]
             _remaining_plan_totals(res, Settings.from_json(r["settings_json"]))

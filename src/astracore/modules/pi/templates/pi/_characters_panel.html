@@ -1,6 +1,6 @@
 {# "Characters in this plan": include/exclude, slots, CCU and what it allows, colonies, login state. Needs `panel`. #}
 {% set n_blocked = panel|selectattr('blocked')|list|length %}
-<details class="box" id="characters-panel" {{ 'open' if open_panel else '' }}>
+<details class="box characters-panel" id="characters-panel" {{ 'open' if open_panel else '' }}>
   <summary><strong>{{ icon('users') }} Characters in this plan</strong>
     <span class="muted">· {{ panel|selectattr('enabled')|list|length }} of {{ panel|length }} included</span>
     {%- if n_blocked %} <span class="bad">· {{ n_blocked }} can't be planned yet</span>{% endif %}</summary>

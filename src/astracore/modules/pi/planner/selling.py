@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from ..settings import Settings
+from ..settings import Settings, hour_value
 from ..static_data import voc
 from ..static_data.sde_loader import PIData
 
@@ -42,6 +42,40 @@ def buyback_fraction(s: Settings, tier: int) -> float:
 
 
 HUB_SYSTEMS = {"jita": "Jita", "amarr": "Amarr"}
+
+# Hauling one hangar to a second hub yourself is a second trip. Splitting is only worth it when the
+# better prices there beat that trip, valued at the pilot's hour (never less than a floor, so "max ISK"
+# pilots with a 0 ISK hour don't get a separate trip for a fraction of a percent).
+EXTRA_TRIP_MIN = 30
+EXTRA_TRIP_FLOOR_ISK = 20e6
+
+
+def extra_trip_isk(s: Settings) -> float:
+    """What one extra self-haul trip to a trade hub costs you, in ISK."""
+    return max(EXTRA_TRIP_FLOOR_ISK, hour_value(s) * EXTRA_TRIP_MIN / 60)
+
+
+def _one_hub(choice: Dict[int, str], per_item: Dict[int, dict], trip_isk: float) -> None:
+    """Self-hauled stock from one hangar goes to one hub, unless the price gain of splitting it beats
+    an extra trip. Changes `choice` in place."""
+    hauled = [t for t, c in choice.items() if c.endswith("_self")]
+    if len({choice[t].split("_")[0] for t in hauled}) < 2:
+        return
+
+    def value(t: int, c: str) -> float:
+        return per_item[t]["qty"] * per_item[t]["channels"][c]
+
+    split = sum(value(t, choice[t]) for t in hauled)
+    best = None
+    for hub in HUB_SYSTEMS:
+        key = f"{hub}_self"
+        if all(key in per_item[t]["channels"] for t in hauled):
+            total = sum(value(t, key) for t in hauled)
+            if best is None or total > best[1]:
+                best = (key, total)
+    if best and split - best[1] <= trip_isk:
+        for t in hauled:
+            choice[t] = best[0]
 
 
 def in_delve(system: str, area: Optional[dict]) -> bool:
@@ -158,6 +192,8 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
             per_item[t] = {"qty": q * days, "channels": ch}
 
     choice = {t: max(v["channels"], key=v["channels"].get) for t, v in per_item.items()}
+    if self_haul:
+        _one_hub(choice, per_item, extra_trip_isk(s))
     for _ in range(3):  # re-check courier batches against the minimum fee
         changed = False
         for dest_key, dest in (("jita", voc.JITA), ("amarr", voc.AMARR)):
@@ -199,8 +235,11 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
         batch = {"channel": c, "label": LABELS[c], "speed": SPEED[c], "items": qty,
                  "m3": round(m3, 1), "jita_value": round(jita_value), "paste": voc.paste_list(qty)}
         if c.endswith("_self"):
+            # Only point at a VOC pickup that courier_origin actually found within reach of this hangar.
+            via = (f" (or move it to the VOC pickup in {origin}, {origin_jumps} jumps, and courier it from there)"
+                   if origin != dropoff and origin in voc.COURIER_ORIGINS else "")
             batch.update(note=f"VOC doesn't pick up here. Haul it to {'Jita' if c.startswith('jita') else 'Amarr'} "
-                              f"yourself (or to a VOC pickup: {', '.join(voc.COURIER_ORIGINS)}), then sell.")
+                              f"yourself{via}, then sell.")
         elif c.startswith(("jita", "amarr")) and origin not in HUB_SYSTEMS.values():
             dest = voc.JITA if c.startswith("jita") else voc.AMARR
             r = voc.route(origin, dest, routes)

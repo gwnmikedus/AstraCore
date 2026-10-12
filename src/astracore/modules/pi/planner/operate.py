@@ -96,6 +96,11 @@ def colonies_status(pi: PIData, characters: List[dict], area: Optional[dict]) ->
     return {"extractors": extractors, "pickups": pickups}
 
 
+STRUCTURE_ID_MIN = 1_000_000_000_000   # player structures; lower ids are NPC stations and other locations
+NO_ACCESS_NOTE = ("You can't dock in this structure any more, so nothing here can be hauled or sold. "
+                  "Regain docking access, or use asset safety from the Assets window to move it to a station.")
+
+
 def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: List[dict],
                  area: Optional[dict] = None) -> List[dict]:
     """PI products sitting in stations/structures, grouped by character + location,
@@ -113,11 +118,17 @@ def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: Li
     for (who, lid), stock in groups.items():
         loc = locs.get(lid, {"name": f"Location {lid}", "system": ""})
         here = loc.get("system", "")
-        origin, jumps = selling.courier_origin(here, area)
-        plan = selling.sell_plan(pi, skills.for_character(s, by_name[who]), books, here,
-                                 {t: q for t, q in stock.items()}, per_day=False,
-                                 local=selling.in_delve(here, area), origin=origin or here,
-                                 origin_jumps=jumps, self_haul=True)
+        no_access = bool(loc.get("unknown")) and lid > STRUCTURE_ID_MIN
+        if no_access:
+            # A structure you can't dock in: nothing can be hauled, contracted or sold from it.
+            plan = {"batches": [], "net_per_cycle": 0, "unsellable": [], "no_access": True,
+                    "note": NO_ACCESS_NOTE}
+        else:
+            origin, jumps = selling.courier_origin(here, area)
+            plan = selling.sell_plan(pi, skills.for_character(s, by_name[who]), books, here,
+                                     {t: q for t, q in stock.items()}, per_day=False,
+                                     local=selling.in_delve(here, area), origin=origin or here,
+                                     origin_jumps=jumps, self_haul=True)
         own = skills.character_rates(by_name[who]) if by_name[who].get("skills") else None
         market = sum(b["net"] for b in plan["batches"] if b["channel"] != "buyback" and not b.get("hold"))
         if seller and own and seller["name"] != who and own["sales_tax_pct"] > seller["sales_tax_pct"] and market > 0:
@@ -125,7 +136,7 @@ def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: Li
             plan["seller_gain"] = round(gain)
             plan["own_tax_pct"] = own["sales_tax_pct"]
         out.append({"character": who, "location": loc["name"], "system": here, "location_id": lid,
-                    "unknown_location": bool(loc.get("unknown")),
+                    "unknown_location": bool(loc.get("unknown")), "no_access": no_access,
                     "items": {pi.name(t): int(q) for t, q in stock.items()},
                     "m3": round(sum(q * pi.volume(t) for t, q in stock.items()), 1),
                     "jita_value": round(sum(q * books.get(t, {}).get("jita_buy", 0) for t, q in stock.items())),
@@ -155,39 +166,67 @@ def consolidate(stock: List[dict], area: Optional[dict] = None) -> Optional[dict
     handover = sorted({g["character"] for g in stock if g["plan"].get("seller_gain")})
     advice: Dict[str, dict] = {}
     for g in stock:
+        where = g["location"] + (f" ({g['system']})" if g["system"] else "")
+        if g["plan"].get("no_access"):
+            a = advice.setdefault("no_access", {"label": "Regain access or use asset safety", "channel": "no_access",
+                                                "m3": 0.0, "net": 0.0, "where": [], "hold": True,
+                                                "note": g["plan"].get("note")})
+            a["m3"] += g["m3"]
+            if where not in a["where"]:
+                a["where"].append(where)
+            continue
         for b in g["plan"]["batches"]:
             key = b["channel"]
             a = advice.setdefault(key, {"label": b["label"], "channel": key, "m3": 0.0, "net": 0.0, "where": [],
-                                        "hold": False, "note": b.get("note") if key.endswith("_self") else None})
+                                        "hold": False, "note": None})
             a["m3"] += b["m3"]
             a["net"] += 0 if b.get("hold") else b["net"]
             a["hold"] = a["hold"] or bool(b.get("hold"))
-            where = g["location"] + (f" ({g['system']})" if g["system"] else "")
             if where not in a["where"]:
                 a["where"].append(where)
+            if key.endswith("_self") and b.get("note") and b["note"] not in (a["note"] or ""):
+                a["note"] = f"{a['note']} {b['note']}" if a["note"] else b["note"]
     unsellable = sorted({x for g in stock for x in g["plan"].get("unsellable", [])})
-    reality = [_reality(g, b, area) for g in stock for b in g["plan"]["batches"]
-               if b["channel"].endswith("_self") and b["m3"] >= BIG_STACK_M3]
+    reality = []
+    for g in stock:   # one size check per hangar, however many hubs its stock goes to
+        hauled = [b for b in g["plan"]["batches"] if b["channel"].endswith("_self")]
+        if sum(b["m3"] for b in hauled) >= BIG_STACK_M3:
+            reality.append(_reality(g, hauled, area))
+    self_haul = any(b["channel"].endswith("_self") and not b.get("hold") for g in stock for b in g["plan"]["batches"])
     return {"total_m3": round(total_m3, 1), "total_value": round(total_value), "net": round(net),
-            "seller": seller, "seller_gain": round(gain), "handover": handover,
+            "seller": seller, "seller_gain": round(gain), "handover": handover, "self_haul": self_haul,
             "advice": sorted(advice.values(), key=lambda a: -a["net"]), "unsellable": unsellable,
             "reality": reality, "locations": len(stock)}
 
 
-def _reality(g: dict, b: dict, area: Optional[dict]) -> dict:
-    """What hauling a big stack yourself really means, next to letting VOC take it from their nearest pickup."""
+def _reality(g: dict, batches: List[dict], area: Optional[dict]) -> dict:
+    """What hauling a hangar's stack yourself really means, next to letting VOC take it from their nearest
+    pickup. `batches` are that hangar's self-haul batches (normally one hub, see selling._one_hub)."""
     import math
-    m3 = b["m3"]
-    dest = "Jita" if b["channel"].startswith("jita") else "Amarr"
-    out = {"where": g["location"], "system": g["system"], "m3": m3, "value": b["jita_value"], "dest": dest,
-           "trips": [{"ship": name, "trips": max(1, math.ceil(m3 / cap)), "capacity": cap} for name, cap in HAUL_SHIPS],
-           "voc": None}
+    m3 = sum(b["m3"] for b in batches)
+    value = sum(b["jita_value"] for b in batches)
+    dests = []
+    for b in sorted(batches, key=lambda b: -b["m3"]):
+        d = "Jita" if b["channel"].startswith("jita") else "Amarr"
+        if d not in dests:
+            dests.append(d)
+    trips = []
+    for name, cap in HAUL_SHIPS:   # every hub is its own run
+        n = sum(max(1, math.ceil(sum(b["m3"] for b in batches if b["channel"].startswith(d.lower())) / cap))
+                for d in dests)
+        trips.append({"ship": name, "trips": n, "capacity": cap})
+    out = {"where": g["location"], "system": g["system"], "m3": m3, "value": value, "dest": " and ".join(dests),
+           "trips": trips, "voc": None}
     origin, jumps = selling.courier_origin(g["system"], area)
     if origin:
-        r = voc.route(origin, voc.JITA if dest == "Jita" else voc.AMARR)
-        if r:
-            out["voc"] = {"origin": origin, "jumps": jumps, "fee": round(voc.courier_fee(r, m3, b["jita_value"])),
-                          "contracts": max(1, math.ceil(m3 / r["max_m3"]))}
+        fee, contracts = 0.0, 0
+        for b in batches:
+            r = voc.route(origin, voc.JITA if b["channel"].startswith("jita") else voc.AMARR)
+            if not r:
+                return out
+            fee += voc.courier_fee(r, b["m3"], b["jita_value"])
+            contracts += max(1, math.ceil(b["m3"] / r["max_m3"]))
+        out["voc"] = {"origin": origin, "jumps": jumps, "fee": round(fee), "contracts": contracts}
     return out
 
 

@@ -462,6 +462,25 @@ def _assign_self_contained(pi: PIData, instances: List[dict], characters: List[d
     return sl.owner, [tuple(lk) for lk in links]
 
 
+def add_feeds(pi: PIData, colonies: List[dict], links: List[tuple], prices: Dict[int, float]) -> None:
+    """Which factories each colony supplies, from the feeder links (producer idx, consumer idx, type, units/day):
+    `feeds` = [{character, product, item, units}] per colony. `value_at_factory` marks a feeder whose own
+    market value is 0 or not meaningful (product not priced, e.g. after a thin-market re-plan): its ISK is
+    counted at the factory it feeds, so it shouldn't read as a worthless colony."""
+    by_idx = {c["idx"]: c for c in colonies}
+    feeds: Dict[int, Dict[tuple, float]] = defaultdict(lambda: defaultdict(float))
+    for p, c, t, q in links:
+        if p in by_idx and c in by_idx and q > 0:
+            fac = by_idx[c]
+            feeds[p][(fac["character"], fac["product"], pi.name(t))] += q
+    for col in colonies:
+        rows = feeds.get(col["idx"], {})
+        col["feeds"] = [{"character": ch, "product": prod, "item": item, "units": round(q, 1)}
+                        for (ch, prod, item), q in sorted(rows.items(), key=lambda kv: -kv[1])]
+        priced = prices.get(col["product_id"], 0) > 0
+        col["value_at_factory"] = bool(col["feeds"]) and (col["value_per_day"] <= 0 or not priced)
+
+
 # ----------------------------------------------------------------------------- public API
 def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characters: List[dict],
          prices: Dict[int, float], templates: List[dict], overrides: Optional[dict] = None,
@@ -564,6 +583,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
             "action": action, "notes": notes,
         })
     colonies.sort(key=lambda c: (c["character"], c["system"], c["planet"]))
+    add_feeds(pi, colonies, links, prices)
     for c in colonies:
         c["upkeep"] = upkeep.plan_buffer(pi, c, s.cycle_days)
     tight = [c for c in colonies if c["upkeep"]["issues"]]

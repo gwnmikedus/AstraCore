@@ -398,7 +398,7 @@ def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
 
 # --------------------------------------------------------------------------- module entry + dashboard
 def entry_state(profile_id: int) -> str:
-    """Where /pi lands: connect | excluded | area | plan | operate.
+    """Where /pi lands: connect | excluded | plan | operate.
 
     Area, Plan and Operate work with `planning_characters`, so /pi only sends a pilot there when that set
     isn't empty: with every connected character excluded from the plan it lands on `excluded` instead."""
@@ -407,8 +407,6 @@ def entry_state(profile_id: int) -> str:
         return "connect"
     if not planning_characters(profile_id):
         return "excluded"
-    if not store.load_settings(profile_id).selected_constellations:
-        return "area"
     if not store.active_plan(profile_id):
         return "plan"
     return "operate"

@@ -6,7 +6,7 @@ const path = require('node:path');
 const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
 const code = guide.slice(guide.indexOf('function setHint('), guide.indexOf('async function load(step)'));
 
-function fixture() {
+function fixture(noArea = false) {
   const nodes = new Map();
   const $ = id => {
     if (!nodes.has(id)) nodes.set(id, {innerHTML: '', textContent: '', dataset: {}});
@@ -15,7 +15,7 @@ function fixture() {
   const options = [1, 2, 3].map(id => ({dataset: {id: JSON.stringify(id)}, tabIndex: -1,
     getAttribute() { return this.failed ? 'true' : 'false'; }, focus() { context.focused = id; }}));
   const chosen = [];
-  const context = {$, cur: 1, QUESTIONS: 8, st: {}, saving: false, results: {}, picks: {},
+  const context = {$, cur: 1, QUESTIONS: 8, st: {selected_constellations: noArea ? [] : [1]}, saving: false, results: {}, picks: {},
     SELL_COVERAGE: {local: true, courier: true, trade_hub: false}, saved: {},
     answered: new Set(), STEP_CONTEXT: {cycle: 'Pick a rhythm'}, esc: String,
     AC: {icon: () => ''}, hourPicker: () => '', blockedNote: () => '', stepHelp: () => '', wireHour() {}, navigate() {}, commit() {}, go() {},
@@ -23,7 +23,7 @@ function fixture() {
     document: {querySelectorAll: () => options}};
   vm.createContext(context);
   vm.runInContext(guide.slice(guide.indexOf('const SELL ='), guide.indexOf('const STEPS =')), context);
-  vm.runInContext(code, context);
+  vm.runInContext(guide.match(/^const routineOnly = .*$/m)[0] + code, context);
   context.showQuestion({id: 'cycle', q: 'How often?', match: () => 1,
     options: options.map((o, i) => ({id: i + 1, label: 'Answer ' + (i + 1), blurb: 'Details'}))});
   return {context, $, options, chosen};
@@ -123,4 +123,11 @@ test('outside selling offers own trips and hides unreachable Delve or courier ch
     {id: 'self', label: 'Own trip'}, {id: 'orders', label: 'List orders'}]});
   assert.match($('q').innerHTML, /Own trip/);
   assert.doesNotMatch($('q').innerHTML, /answer-name-\d+">(?:Delve|VOC|List orders)/);
+});
+test('logins without an area can be selected without unavailable income comparisons', () => {
+  const {context, $, options, chosen} = fixture(true);
+  assert.doesNotMatch($('q').innerHTML, /id="answer-results-0"/);
+  assert.match($('wizard-status').textContent, /Income comparisons follow once you choose an area/);
+  options[1].onclick();
+  assert.deepEqual(chosen, [2]);
 });

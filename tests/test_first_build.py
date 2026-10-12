@@ -198,6 +198,7 @@ def test_operate_shows_the_checklist_for_the_active_plan(browser, eve, pi, monke
     assert "Copy Multibuy list" in html and "can’t buy anything or place market orders" in html
     assert "Optional · Factory starter stock" in html and "Biofuels\t1920" in html
     assert "Fly to HUB with a Barren Command Center" in html
+    assert "Template by DalShooth" in html and 'href="https://example.invalid/t"' in html
 
 
 def test_local_market_is_only_credited_when_it_sells_the_command_centers(pi):
@@ -315,6 +316,28 @@ def test_displayed_snapshot_exports_exact_colonies_settings_and_template_selecti
     assert c.get("/pi/export/templates.zip" + query).content == b"synthetic zip"
     assert packed == [plan.get("templates_needed", [])]
     assert not store.list_plan_runs(pid)  # downloading never saves a candidate
+
+
+def test_template_authorship_and_source_survive_plan_exports(browser, eve, pi, monkeypatch):
+    import csv
+    import io
+    from astracore.modules.pi.static_data import dalshooth
+
+    c = browser()
+    pid, plan = _saved_plan(c, eve, pi, monkeypatch, "Credit exporter")
+    source = "https://github.com/DalShooth/EVE_PI_Templates/blob/main/PlanetaryInteractionTemplates/Example.json"
+    plan["colonies"][0]["template_url"] = source
+    plan["colonies"][1].pop("template_url", None)   # older saved results have no per-file URL
+    run = store.save_plan_run(pid, "Credited plan", Settings(), plan, active=False)
+    md = c.get(f"/pi/export/plan.md?plan={run}")
+    assert md.status_code == 200
+    assert f"[Template by DalShooth]({source})" in md.text
+    assert f"[Template by DalShooth]({dalshooth.REPO_URL})" in md.text
+    exported = c.get(f"/pi/export/plan.csv?plan={run}")
+    rows = list(csv.DictReader(io.StringIO(exported.text)))
+    assert [row["template_author"] for row in rows] == ["DalShooth", "DalShooth"]
+    assert [row["template_source"] for row in rows] == [source, dalshooth.REPO_URL]
+    assert [row["planet"] for row in rows] == [col["planet"] for col in plan["colonies"]]
 
 
 def test_operate_links_the_checklist_exports(browser, eve, pi, monkeypatch):

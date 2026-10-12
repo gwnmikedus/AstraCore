@@ -207,7 +207,8 @@
         <p class="build-head">{{ planet_img(p.planet_type, 20) }}<b>{{ p.planet }}</b>
           <span class="muted">{{ p.system }} · {{ p.planet_type }}</span> <span class="act {{ p.action }}">{{ p.action }}</span>
           <span class="{{ p.compat.status }}">{{ p.compat.label }}</span></p>
-        <p class="muted">{{ external_link(p.template_url, p.template) if p.template_url else p.template }} · {{ p.compat.text }}
+        <p class="muted">{{ external_link(p.template_url, p.template) if p.template_url else p.template }} ·
+          {{ external_link(p.template_url or template_repo, 'Template by DalShooth') }} · {{ p.compat.text }}
           · ≈ {{ p.build_isk|isk }}{% if p.upgrade.isk %} (upgrade {{ p.upgrade.isk|isk }}){% endif %}</p>
         <ol>{% for s in p.steps %}<li>{{ s }}</li>{% endfor %}</ol>
       </li>

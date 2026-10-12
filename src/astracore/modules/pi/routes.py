@@ -56,7 +56,8 @@ LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "
 
 
 def render(request: Request, name: str, page: str, title: str, **ctx) -> HTMLResponse:
-    return core_render(request, f"pi/{name}", module_id="pi", page=page, page_title=title, **ctx)
+    return core_render(request, f"pi/{name}", module_id="pi", page=page, page_title=title,
+                       template_repo=dalshooth.REPO_URL, **ctx)
 
 
 def _pid(request: Request) -> int:
@@ -140,7 +141,6 @@ async def area_page(request: Request):
     groups = space_mod.grouped(area, chars, store.planet_overrides(pid))
     if not s.selected_constellations:
         s.selected_constellations = space_mod.default_selection(groups)
-        store.save_settings(pid, s)
     sel_systems = space_mod.selected_systems(area, s.selected_constellations)
     overrides = store.planet_overrides(pid)
     names = {p["planet_id"]: p["name"] for v in area["systems"].values() for p in v["planets"]}
@@ -250,23 +250,34 @@ async def area_save(request: Request):
 
 
 @router.get("/api/area")
-async def api_area(request: Request):
+async def api_area(request: Request, extra_area: Optional[str] = None,
+                   selected_constellations: Optional[str] = None, hub_system: Optional[str] = None):
     """Constellations + drop-off choices for the wizard's Area step (Advanced expander)."""
     pid = _pid(request)
     chars = service.planning_characters(pid)
     s = store.load_settings(pid)
+    if extra_area is not None:
+        s.extra_area = extra_area.strip()[:TEXT_LIMITS["extra_area"]]
+        s.selected_constellations = []
+    s.update({key: value for key, value in {"selected_constellations": selected_constellations,
+                                          "hub_system": hub_system}.items() if value is not None})
     area = await service.load_space(chars, s) if chars else None
     if not area:
-        return JSONResponse({"groups": [], "selected": [], "systems": []})
+        return JSONResponse({"constellations": [], "selected": [], "systems": [],
+                             "selling_coverage": selling.coverage("", None)})
     groups = space_mod.grouped(area, chars, store.planet_overrides(pid))
-    selected = s.selected_constellations or space_mod.default_selection(groups)
+    selected = (s.selected_constellations if selected_constellations is not None
+                else s.selected_constellations or space_mod.default_selection(groups))
     cons = [{"id": c["id"], "name": c["name"], "region": r["name"], "systems": len(c["systems"]),
              "score": c["score"], "has_colonies": c["has_colonies"], "sec": [c["sec_max"], c["sec_min"]]}
             for r in groups for c in r["constellations"]]
-    names = sorted({v["name"] for v in space_mod.selected_systems(area, selected).values()}
+    systems = space_mod.selected_systems(area, selected)
+    names = sorted({v["name"] for v in systems.values()}
                    | {n for n in voc.COURIER_ORIGINS if space_mod_has(area, n)})
+    hub = optimizer.resolve_hub(area, s, systems, store.planet_overrides(pid)) if systems else None
     return JSONResponse({"constellations": cons, "selected": selected, "systems": names,
-                         "hub_system": s.hub_system, "voc": voc.COURIER_ORIGINS})
+                         "hub_system": s.hub_system, "voc": voc.COURIER_ORIGINS,
+                         "selling_coverage": selling.coverage(hub["name"] if hub else "", area)})
 
 
 def space_mod_has(area, name) -> bool:
@@ -279,12 +290,14 @@ async def plan_page(request: Request):
     pid = _pid(request)
     if not service.planning_characters(pid):
         return redirect("/pi")   # /pi says why: connect, or include one
-    ctx = await service.planning_context(pid)
+    ctx = await service.planning_context(pid, persist_default=False)
     s = ctx["s"]
     hubs = sorted({v["name"] for v in ctx["systems"].values()} |
                   {n for n in voc.COURIER_ORIGINS if ctx["area"] and space_mod_has(ctx["area"], n)})
     advanced = request.query_params.get("view") == "advanced"
     page = "planner.html" if advanced else "guide.html"
+    if not advanced:
+        s.selected_constellations = store.load_settings(pid).selected_constellations
     eligible = [c for c in ctx["chars"] if setups.can_plan(c)]
     first_visit = not store.has_settings(pid) or not s.answered
     return render(request, page, page[:-5], "Plan", s=s, chars=ctx["chars"], systems=hubs,
@@ -292,8 +305,8 @@ async def plan_page(request: Request):
                   head_yield=ctx["head_yield"], settings_json=s.to_json(), voc_hubs=voc.COURIER_ORIGINS,
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
                   blocked_characters=len(ctx["chars"]) - len(eligible),
-                  n_systems=len(ctx["systems"]),
-                  dropoff=ctx["dropoff"], selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
+                  n_systems=len(ctx["systems"]) if advanced or s.selected_constellations else 0,
+                  dropoff=ctx["dropoff"] if advanced or s.selected_constellations else None, selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
@@ -813,6 +826,10 @@ def _haul_md(x: dict) -> str:
     return x.get("haul_note") or "–"
 
 
+def _template_credit_md(source: Optional[str]) -> str:
+    return f"[Template by DalShooth]({source or dalshooth.REPO_URL})"
+
+
 def _first_build_md(k: Optional[dict]) -> list:
     """The Operate first-build checklist as Markdown: Multibuy lists, cost split, steps per character."""
     if not k:
@@ -897,7 +914,8 @@ def _first_build_md(k: Optional[dict]) -> list:
         for i, p in enumerate(ch["planets"], 1):
             upgrade = f" (upgrade {fmt.isk(p['upgrade']['isk'])})" if p["upgrade"]["isk"] else ""
             out.append(f"{i}. **{p['planet']}** ({p['system']} · {p['planet_type']}) · {p['action']} · "
-                       f"{p['template']} · **{p['compat']['label']}**: {p['compat']['text']} · "
+                       f"{p['template']} · {_template_credit_md(p.get('template_url'))} · "
+                       f"**{p['compat']['label']}**: {p['compat']['text']} · "
                        f"≈ {fmt.isk(p['build_isk'])} ISK{upgrade}")
             out += [f"    {j}. {step}" for j, step in enumerate(p["steps"], 1)]
         out.append("")
@@ -937,7 +955,8 @@ async def export_md(request: Request):
         for c in res["colonies"]:
             if c["character_id"] == ch["character_id"]:
                 outs = ", ".join(f"{k} {fmt.num(v)}" for k, v in c["out_per_day"].items())
-                out.append(f"| {c['planet']} ({c['planet_type']}) | {c['template']} | {outs} "
+                out.append(f"| {c['planet']} ({c['planet_type']}) | {c['template']} · "
+                           f"{_template_credit_md(c.get('template_url'))} | {outs} "
                            f"| {fmt.isk(c['value_per_day'])} | {c['action']} |")
         out.append("")
     sp = res.get("selling")
@@ -974,11 +993,11 @@ async def export_csv(request: Request):
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["character", "system", "planet", "planet_type", "template", "product", "out_per_day",
-                "in_per_day", "isk_per_day", "m3_per_week", "action"])
+                "in_per_day", "isk_per_day", "m3_per_week", "action", "template_author", "template_source"])
     for c in res.get("colonies", []):
         w.writerow([c["character"], c["system"], c["planet"], c["planet_type"], c["template"], c["product"],
                     json.dumps(c["out_per_day"]), json.dumps(c["in_per_day"]), c["value_per_day"],
-                    c["m3_per_week"], c["action"]])
+                    c["m3_per_week"], c["action"], "DalShooth", c.get("template_url") or dalshooth.REPO_URL])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-plan.csv"'})
 

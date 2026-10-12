@@ -128,6 +128,7 @@ const STEPS = [
 ];
 const QUESTIONS = STEPS.length - 1;
 STEPS.find(s => s.id === 'share').intro += ` <a href="/pi/settings?expert=1#expert-sharing">Expert: how much an extra colony yields</a>`;
+const routineOnly = step => step.isGoal || (step.id === 'cycle' && !st.selected_constellations?.length);
 STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after VOC’s fees and your taxes' +
   (SELLER.name ? ` (${esc(SELLER.name)} sells: ${AC.pct(SELLER.sales_tax_pct, 2)} sales tax, ${AC.pct(SELLER.broker_fee_pct, 2)} broker fee).` : '.');
 
@@ -326,7 +327,7 @@ function setHint(text) {
 }
 
 function needsOwnTrip() {
-  return !SELL_COVERAGE.local && !SELL_COVERAGE.courier && !SELL_COVERAGE.trade_hub && !st.use_self_haul;
+  return !!st.selected_constellations?.length && !SELL_COVERAGE.local && !SELL_COVERAGE.courier && !SELL_COVERAGE.trade_hub && !st.use_self_haul;
 }
 // The answers a question shows with the current answers `st`: the selling routes this drop-off has, and
 // "your current setting" when it matches none of the usual answers.
@@ -352,7 +353,7 @@ let prefetchTimer = null;
 function prefetchNext(step) {
   clearTimeout(prefetchTimer);
   const next = STEPS[STEPS.indexOf(step) + 1];
-  if (!next || !next.options || needsOwnTrip()) return;
+  if (!next || !next.options || !st.selected_constellations?.length || needsOwnTrip()) return;
   prefetchTimer = setTimeout(() => {
     if (STEPS[cur] !== step || saving) return;
     AC.post(API + '/whatif', {base: {...st}, prefetch: true,
@@ -381,11 +382,11 @@ function showQuestion(step) {
     ${needsOwnTrip() ? '<div class="flash warn"><div><strong>No selling route from this drop-off yet.</strong><p>VOC does not serve this drop-off. You can haul to Jita or Amarr yourself; journey time, fuel and loss risk are not priced.</p><button type="button" id="enable-own-trip">Use my own trip to a trade hub</button><p id="own-trip-status" role="status"></p></div></div>' : ''}
     <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map((o, index) => `
       <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false"
-        aria-labelledby="answer-name-${index}" aria-describedby="answer-blurb-${index}${step.isGoal ? '' : ' answer-results-' + index}">
+        aria-labelledby="answer-name-${index}" aria-describedby="answer-blurb-${index}${routineOnly(step) ? '' : ' answer-results-' + index}">
         <div class="badges"></div>
         <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm" id="answer-name-${index}">${esc(o.label)}</div>
         <div class="bl" id="answer-blurb-${index}">${esc(o.blurb || '')}</div>
-        ${step.isGoal ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel" style="width:60%"></div></div>`}
+        ${routineOnly(step) ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel" style="width:60%"></div></div>`}
       </div>`).join('')}</div>
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
@@ -394,7 +395,7 @@ function showQuestion(step) {
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
       <span class="hint" id="navhint"></span>
-      <button id="next" ${step.isGoal ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
+      <button id="next" ${routineOnly(step) ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
   const ownTrip = $('enable-own-trip');
   if (ownTrip) ownTrip.onclick = async () => {
@@ -419,7 +420,7 @@ function showQuestion(step) {
     const pick = () => {
       const id = JSON.parse(el.dataset.id);
       if (saving || el.getAttribute('aria-disabled') === 'true' ||
-          (!step.isGoal && !(results[step.id] || {})[id])) {
+          (!routineOnly(step) && !(results[step.id] || {})[id])) {
         setHint(saving ? 'Saving your answer. Please wait.' :
           (el.getAttribute('aria-disabled') !== 'true' ? 'Comparing setups. You can pick an answer as soon as it shows its numbers.' :
             'This answer is unavailable. Choose another answer.'));
@@ -440,22 +441,25 @@ function showQuestion(step) {
       options.forEach(option => option.tabIndex = option === options[index] ? 0 : -1);
       const id = JSON.parse(options[index].dataset.id);
       if (!saving && options[index].getAttribute('aria-disabled') !== 'true' &&
-          (step.isGoal || (results[step.id] || {})[id])) choose(step, id);
+          (routineOnly(step) || (results[step.id] || {})[id])) choose(step, id);
       options[index].focus();
     };
   });
   if (step.isArea) wireArea(step);
   wireHour(step);
   // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
-  if (picks[step.id] === undefined && (answered.has(step.id) || step.isGoal) && m != null) picks[step.id] = m;
+  if (picks[step.id] === undefined && (answered.has(step.id) || routineOnly(step)) && m != null) picks[step.id] = m;
   paint(step);
   setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
   if (needsOwnTrip()) $('next').disabled = true;
-  else if (!step.isGoal) load(step);
-  else prefetchNext(step);
+  else if (!routineOnly(step) && !step.isArea) load(step);
+  else if (step.id === 'cycle') setHint('Choose your routine now. Income comparisons follow once you choose an area.');
+  else if (!step.isArea) prefetchNext(step);
 }
 
 async function load(step) {
+  if (routineOnly(step)) { paint(step); return; }
+  if (!st.selected_constellations?.length) { setHint('Find an operating area to compare these choices.'); return; }
   const my = ++seq;
   comparisonRequest?.abort();
   comparisonRequest = new AbortController();
@@ -526,10 +530,10 @@ function choose(step, id) {
 
 function paint(step) {
   const res = results[step.id] || {};
-  const done = step.isGoal || !!complete[step.id];   // every card is in: suggest and advise
+  const done = routineOnly(step) || !!complete[step.id];   // every card is in: suggest and advise
   const rec = done ? recommend(step) : null;
   const pick = picks[step.id];
-  const valid = step.isGoal || !!(res[pick] && !res[pick].error);
+  const valid = routineOnly(step) || !!(res[pick] && !res[pick].error && (!step.isArea || st.selected_constellations?.length));
   if ($('next')) $('next').disabled = saving || !valid || needsOwnTrip();
   $('opts').setAttribute('aria-busy', String(!done));
   const vals = step.options.map(o => value(step, res[o.id])).filter(v => v != null);
@@ -545,7 +549,7 @@ function paint(step) {
     // One badge story: the picked card says "Suggested" when it is the suggestion, otherwise "Your pick".
     el.querySelector('.badges').innerHTML = id !== pick ? '' :
       (rec != null && id === rec ? '<span class="badge rec">Suggested</span>' : (step.isGoal ? '' : '<span class="badge mine">Your pick</span>'));
-    if (step.isGoal || !r) return;
+    if (routineOnly(step) || !r) return;
     if (r.error) { el.classList.add('err'); el.querySelector('.res').innerHTML = `<div class="bad" style="font-size:.82rem">${esc(r.error)}</div>`; return; }
     const v = value(step, r), t = r.totals;
     // The card's "?" buttons sit next to their figures; their answers open below the figures, at full card width.
@@ -569,8 +573,8 @@ function paint(step) {
       ${iskHelp.answer}${timeHelp.answer}
       ${step.id === 'tier' ? samePlanHTML(step, o, r, res) : ''}`;
   });
-  $('advice').innerHTML = step.isGoal ? '' : advice(step, rec, pick);
-  $('compare').innerHTML = step.isGoal || !done ? '' : compareHTML(step, rec, pick);
+  $('advice').innerHTML = routineOnly(step) ? '' : advice(step, rec, pick);
+  $('compare').innerHTML = routineOnly(step) || !done ? '' : compareHTML(step, rec, pick);
   $('compare-details')?.addEventListener('toggle', e => { compareOpen = e.target.open; });
   hourControl.setValue(iskPerHour(), HOUR_DEFAULT[goalId()], +st.hour_isk < 0);
   hourControl.setDisabled(saving);
@@ -613,27 +617,44 @@ function advice(step, rec, pick) {
 
 // ---- Area step: constellations + drop-off (advanced) --------------------------------------------
 function areaAdvanced() {
-  return `<details class="area-adv box" id="area-adv"><summary>Advanced: pick constellations and the drop-off</summary>
+  return `<p id="area-summary" class="muted">Checking the area suggested by your colonies and alliance…</p>
+    <div class="area-start" id="guided-area-start" ${st.selected_constellations?.length ? 'hidden' : ''}>
+      <h3>Where do you want to do PI?</h3>
+      <p>No colonies or sovereignty to start from? Find the region, constellation or system where you fly.</p>
+      <label>Region, constellation or system<input id="area-search" value="${esc(st.extra_area || '')}" placeholder="e.g. The Forge"></label>
+      <button type="button" id="find-area">Find planets</button></div>
+    <details class="area-adv box" id="area-adv"><summary>Fine-tune: constellations and drop-off</summary>
     <div id="area-body"><div class="skel"></div></div></details>`;
 }
 async function wireArea(step) {
   const det = $('area-adv');
-  const loadArea = async () => {
-    if (!det.open || det.dataset.loaded) return;
+  let areaSeq = 0;
+  const loadArea = async (search = null, replaceSelection = false, preserveSelection = false) => {
+    const visit = ++areaSeq;
     det.dataset.loaded = '1';
     let a;
     try {
-      const response = await fetch(API + '/area', {credentials: 'same-origin'});
+      const query = new URLSearchParams({hub_system: st.hub_system || ''});
+      if (search !== null) query.set('extra_area', search);
+      if (!replaceSelection && (preserveSelection || st.selected_constellations?.length))
+        query.set('selected_constellations', (st.selected_constellations || []).join(','));
+      const response = await fetch(API + '/area?' + query, {credentials: 'same-origin'});
       if (!response.ok) throw new Error('Could not load the area');
       a = await response.json();
     } catch (error) {
-      if (!det.isConnected) return;
+      if (!det.isConnected || visit !== areaSeq) return;
+      det.open = true;
       delete det.dataset.loaded;
       $('area-body').innerHTML = '<div class="flash warn"><span>Could not load your area. Check your connection and retry.</span><button class="outline" id="retry-area">Retry area</button></div>';
-      $('retry-area').onclick = loadArea;
+      $('retry-area').onclick = () => loadArea(search, replaceSelection);
       return;
     }
-    if (!det.isConnected) return;
+    if (!det.isConnected || visit !== areaSeq) return;
+    if (replaceSelection || (!preserveSelection && !st.selected_constellations?.length)) st.selected_constellations = a.selected || [];
+    SELL_COVERAGE = a.selling_coverage;
+    if (needsOwnTrip() !== !!$('enable-own-trip')) { showQuestion(step); return; }
+    $('guided-area-start').hidden = !!st.selected_constellations.length;
+    $('area-summary').textContent = st.selected_constellations.length ? `Suggested area: ${st.selected_constellations.length} constellation${st.selected_constellations.length === 1 ? '' : 's'}. Continue confirms this area and your travel choice.` : 'No planets found yet. Search for your operating region below.';
     const sel = new Set((st.selected_constellations && st.selected_constellations.length ? st.selected_constellations : a.selected).map(Number));
     $('area-body').innerHTML = `
       <p class="muted">Constellations your characters can use (best first). The pickup round only visits systems in these.</p>
@@ -645,26 +666,36 @@ async function wireArea(step) {
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {
       const ids = [...det.querySelectorAll('input[type=checkbox]:checked')].map(x => +x.value);
-      if (!ids.length) { $('next').disabled = true; setHint('Select at least one constellation.'); return; }
+      areaSeq++;
+      seq++;
+      comparisonRequest?.abort();
+      clearTimeout(prefetchTimer);
+      if (!ids.length) { $('area-summary').textContent = 'Choose at least one constellation below.'; st.selected_constellations = []; delete results[step.id]; $('next').disabled = true; setHint('Select at least one constellation.'); return; }
       st.selected_constellations = ids; st.hub_system = $('area-hub').value;
       delete results[step.id];
       paint(step);
-      const result = await AC.post(API + '/save', {selected_constellations: ids, hub_system: st.hub_system});
-      if (!det.isConnected) return;
-      if (result.error) {
-        $('save-status').textContent = 'Area not saved';
-        $('advice').innerHTML = `<div class="flash warn"><span>${esc(result.error)}</span><button class="outline" id="retry-area-save">Retry area save</button></div>`;
-        $('retry-area-save').onclick = apply;
-        return;
-      }
-      $('save-status').textContent = 'Area saved';
-      $('advice').innerHTML = '';
-      load(step);
+      $('save-status').textContent = 'Area preview · Continue saves your choice';
+      loadArea(st.extra_area || null, false, true);
     };
     det.querySelectorAll('input[type=checkbox]').forEach(x => x.onchange = apply);
     $('area-hub').onchange = apply;
+    if (!needsOwnTrip()) load(step);
+    else { paint(step); setHint('Choose your own trip to a trade hub before comparing setups.'); }
   };
-  det.addEventListener('toggle', loadArea);
+  $('find-area').onclick = () => {
+    const search = $('area-search').value.trim();
+    if (!search) return;
+    st.extra_area = search;
+    st.selected_constellations = [];
+    st.hub_system = '';
+    seq++;
+    comparisonRequest?.abort();
+    clearTimeout(prefetchTimer);
+    delete results[step.id];
+    $('next').disabled = true;
+    loadArea(search, true);
+  };
+  loadArea(st.extra_area || null);
 }
 
 // Save the answer on screen, with the buttons locked meanwhile. False (and a message) if it failed.
@@ -698,6 +729,7 @@ async function save(step, target) {
   const o = optOf(step, id);
   const body = {answered: [...new Set([...answered, step.id])], guide_step: target, hour_isk: st.hour_isk ?? -1};
   if (o) Object.assign(body, o.patch);
+  if (step.isArea) Object.assign(body, {selected_constellations: st.selected_constellations, hub_system: st.hub_system || '', extra_area: st.extra_area || ''});
   const result = await AC.post(API + '/save', body);
   if (result.ok) {
     answered.add(step.id);

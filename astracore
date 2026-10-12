@@ -96,8 +96,8 @@ cmd_start() {
   fi
 
   say "Starting Astracore ($mode, $(git -C "$code" describe --tags --always --dirty 2>/dev/null || echo 'no git'))…"
-  (cd "$code" && exec nohup "$PY" -m astracore) >>"$LOGS/app-$mode.out" 2>&1 &
-  echo $! >"$RUN/app.pid"
+  "$PY" "$ROOT/scripts/launch_service.py" --cwd "$code" --log "$LOGS/app-$mode.out" \
+    --pid "$RUN/app.pid" -- "$PY" -m astracore
   echo "$mode" >"$RUN/mode"
   if ! wait_health; then
     stop_pid "$RUN/app.pid" "app"
@@ -110,8 +110,12 @@ cmd_start() {
     token=$(env_value "$envfile" CLOUDFLARE_TUNNEL_TOKEN)
     [[ -n "$token" ]] || { stop_pid "$RUN/app.pid" "app"; die "CLOUDFLARE_TUNNEL_TOKEN is empty in .env.production."; }
     # The token goes in through the environment (TUNNEL_TOKEN), so it never shows up in `ps`.
-    TUNNEL_TOKEN="$token" nohup "$cf" tunnel --no-autoupdate run >>"$LOGS/tunnel.out" 2>&1 &
-    echo $! >"$RUN/tunnel.pid"
+    if ! TUNNEL_TOKEN="$token" "$PY" "$ROOT/scripts/launch_service.py" --cwd "$code" --log "$LOGS/tunnel.out" \
+      --pid "$RUN/tunnel.pid" -- "$cf" tunnel --no-autoupdate run; then
+      unset token
+      stop_pid "$RUN/app.pid" "app"
+      die "The tunnel couldn't start. See: tail -n 50 $LOGS/tunnel.out"
+    fi
     unset token
     sleep 2
     alive "$RUN/tunnel.pid" || { stop_pid "$RUN/app.pid" "app"; die "The tunnel stopped right away. See: tail -n 50 $LOGS/tunnel.out"; }

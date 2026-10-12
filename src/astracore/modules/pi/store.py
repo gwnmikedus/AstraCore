@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional
 
 from astracore import db
 
+from .planner import notices
 from .planner.compare import plan_facts
 from .settings import ADMIN_FIELDS, Settings
 
@@ -249,10 +250,10 @@ def strip_character(profile_id: int, character_id: int) -> None:
                 res["totals"].update(isk_per_day=None, isk_per_week=None, needs_recalculation=True)
                 res["sold"] = []
                 res["selling"] = {}
-            res.setdefault("warnings", []).append(f"{', '.join(sorted(gone))} was removed from your profile after this plan "
-                                                  "was made; their colonies are no longer listed."
-                                                  + (" Recalculate the plan to check production chains and income."
-                                                     if had_colonies else ""))
+            res.setdefault("warnings", []).append(notices.note(
+                "character_removed", f"{notices.names(sorted(gone))} {'was' if len(gone) == 1 else 'were'} "
+                "removed from your profile after this plan was made; their colonies are no longer listed."
+                + (" Recalculate the plan to check production chains and income." if had_colonies else "")))
             c.execute("UPDATE plan_runs SET result_json=? WHERE id=?", (json.dumps(res), r["id"]))
 
 

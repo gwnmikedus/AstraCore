@@ -135,7 +135,7 @@ def test_removing_character_updates_saved_plan_counts_and_invalidates_income(pi)
         assert t["m3_per_week"] == round(sum(c["m3_per_week"] for c in saved["colonies"]))
         assert t["isk_per_day"] is None and t["isk_per_week"] is None
         assert not saved["sold"] and not saved["selling"]
-        assert "Recalculate" in saved["warnings"][-1]
+        assert "Recalculate" in saved["warnings"][-1]["text"]
         for ch in saved["characters"]:
             mine = [c for c in saved["colonies"] if c["character_id"] == ch["character_id"]]
             assert ch["used"] == len(mine)

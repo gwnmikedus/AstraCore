@@ -1404,3 +1404,13 @@ html[data-menu-open] { overflow: hidden; }
 .area-start h2 { margin-top: 0; }
 .area-start p { color: var(--ink-muted); max-width: 64ch; }
 .scope-list li { margin-bottom: 6px; }
+
+/* Character controls use the same native disclosures as EVE account editing. */
+.pchar .character-actions { margin: 0; flex: 1 1 auto; }
+.pchar .character-actions summary { width: fit-content; min-height: 44px; padding: 10px 12px; }
+.pchar .character-actions .ac-actions { margin-top: var(--space-2); }
+.bundles .bundle a[role="switch"], .bundles .bundle button[role="switch"] { min-height: 44px; padding: 0 var(--space-3); }
+.bundles .bundle [aria-checked="true"] { border-color: var(--signal); color: var(--signal); }
+.permissions-notice summary { min-height: 44px; }
+
+.pchar .row select { min-height: 44px; }

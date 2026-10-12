@@ -780,9 +780,19 @@ async def settings_save(request: Request):
     return redirect("/pi/settings", "Saved.")
 
 
+@router.get("/reset", response_class=HTMLResponse)
+async def reset_pi_page(request: Request):
+    return render(request, "reset.html", "profile", "Reset AstraCore PI", profile=db.get_profile(_pid(request)))
+
+
 @router.post("/reset")
 async def reset_pi(request: Request):
-    store.reset_profile(_pid(request))
+    pid = _pid(request)
+    profile = db.get_profile(pid)
+    form = await request.form()
+    if form.get("confirm", "") != profile["display_name"]:
+        return redirect("/pi/reset", f"Type {profile['display_name']} exactly to confirm.", "warn")
+    store.reset_profile(pid)
     return redirect("/profile", "AstraCore PI was reset: settings, plans and planet overrides are gone. "
                                 "Your characters are still linked.")
 

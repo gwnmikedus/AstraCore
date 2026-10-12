@@ -261,7 +261,7 @@ function drawTrack() {
       </button></li>`;
   }).join('');
   $('track').style.setProperty('--progress', (cur / QUESTIONS) * 92 + '%');
-  $('progress-label').textContent = cur === QUESTIONS ? 'Your flight plan is ready to calculate'
+  $('progress-label').textContent = cur === QUESTIONS ? 'Your flight plan'
     : `Setup ${Math.round(done / QUESTIONS * 100)}% complete · ${QUESTIONS - done} question${QUESTIONS - done === 1 ? '' : 's'} remaining`;
   // Phones show only numbers in the tracker: name the current step next to it.
   $('step-name').textContent = cur === QUESTIONS ? STEPS[cur].title

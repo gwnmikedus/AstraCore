@@ -72,12 +72,19 @@ def move_character(character_id: int, to_profile: int) -> Optional[int]:
     return src
 
 
-def merge_profiles(src: int, dst: int) -> None:
-    """Fold profile `src` into `dst`: characters, EVE accounts and saved plans move; planet overrides move
-    where dst has none; dst's settings win. `src` is deleted afterwards (its sessions too)."""
+def merge_profiles(src: int, dst: int, character_id: int) -> bool:
+    """Merge only a profile whose sole character was authenticated by the caller.
+
+    Check and transfer under the same write lock, so a concurrent character link cannot expand
+    the caller's authority. Destination settings win; source sessions are removed.
+    """
     if src == dst:
-        return
+        return False
     with db.session() as c:
+        c.execute("BEGIN IMMEDIATE")
+        chars = c.execute("SELECT character_id FROM characters WHERE profile_id=? LIMIT 2", (src,)).fetchall()
+        if len(chars) != 1 or chars[0]["character_id"] != character_id:
+            return False
         c.execute("UPDATE eve_accounts SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("UPDATE characters SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("UPDATE plan_runs SET profile_id=?, active=0 WHERE profile_id=?", (dst, src))
@@ -88,8 +95,9 @@ def merge_profiles(src: int, dst: int) -> None:
                   "SELECT ?, target, stage, seen_at FROM community_vote_seen WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO planet_overrides(profile_id, planet_id, richness) "
                   "SELECT ?, planet_id, richness FROM planet_overrides WHERE profile_id=?", (dst, src))
-    db.delete_profile(src)
+        c.execute("DELETE FROM profiles WHERE id=?", (src,))
     _fix_main(dst)
+    return True
 
 
 # --------------------------------------------------------------------------- invite gate

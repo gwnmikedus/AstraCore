@@ -202,10 +202,11 @@ def test_marks_on_open_ideas_not_bugs_closed_or_hidden(browser, eve):
 def test_marks_follow_a_profile_merge_and_go_with_profile_deletion():
     from astracore.core import accounts
     src, dst = db.create_profile("Source"), db.create_profile("Destination")
+    db.link_character(990001, src, "Merged alt")          # merging needs the source's only character
     community.toggle_vote(src, "direction:fittings")
     community.toggle_vote(src, "direction:fleet-preparation")
     community.toggle_vote(dst, "direction:fittings")
-    accounts.merge_profiles(src, dst)
+    assert accounts.merge_profiles(src, dst, 990001)
     assert community.my_votes(dst) == {"direction:fittings", "direction:fleet-preparation"}
     assert community.vote_counts()["direction:fittings"] == 1
     db.delete_profile(dst)
@@ -307,6 +308,7 @@ def test_seen_marks_follow_unmark_merge_export_and_deletion():
     issue(821, "type:idea")
     issue(822, "type:idea")
     src, dst = db.create_profile("Source"), db.create_profile("Destination")
+    db.link_character(990002, src, "Merged alt two")
     for target in ("issue:821", "issue:822"):
         community.toggle_vote(src, target)
     issue(821, "type:idea", "status:released", **RELEASED)
@@ -316,7 +318,7 @@ def test_seen_marks_follow_unmark_merge_export_and_deletion():
     community.toggle_vote(src, "issue:822")                                # unmarking forgets it was told
     with db.session() as c:
         assert [r[0] for r in c.execute("SELECT target FROM community_vote_seen WHERE profile_id=?", (src,))] == ["issue:821"]
-    accounts.merge_profiles(src, dst)
+    assert accounts.merge_profiles(src, dst, 990002)
     assert community.my_votes(dst) == {"issue:821"} and community.marks_live(dst) == []
     assert [m["target"] for m in accounts.export_profile(dst)["community_marks_seen"]] == ["issue:821"]
     db.delete_profile(dst)

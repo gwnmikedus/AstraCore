@@ -305,6 +305,8 @@ async def choose(request: Request):
     if action == "cancel" or not ch or ch["profile_id"] != p["from_profile"]:
         await sso.revoke(login["refresh_token"])
         return redirect("/profile", f"{name} was left where it was.")
+    if action == "merge" and len(db.list_characters(p["from_profile"])) > 1:
+        action = "move"   # merging is only offered for a profile's last character; never take a whole profile
     if action == "merge":
         src = p["from_profile"]
         accounts.merge_profiles(src, user["id"])

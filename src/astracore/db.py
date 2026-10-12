@@ -248,7 +248,16 @@ def _migrate_v4(c: sqlite3.Connection) -> None:
     c.executescript(SCHEMA)
 
 
-MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4]
+def _migrate_v5(c: sqlite3.Connection) -> None:
+    """Keep the displayed PI result server-side until the pilot saves it."""
+    c.execute("CREATE TABLE IF NOT EXISTS plan_results ("
+              "profile_id INTEGER PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE, "
+              "result_id TEXT NOT NULL, created REAL NOT NULL, settings_json TEXT NOT NULL, "
+              "stamp TEXT NOT NULL, result_json TEXT NOT NULL, active_id INTEGER, run_id INTEGER "
+              "REFERENCES plan_runs(id) ON DELETE SET NULL)")
+
+
+MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5]
 
 
 def adopt_legacy_db() -> bool:

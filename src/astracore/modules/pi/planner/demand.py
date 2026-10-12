@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 from ..settings import Settings
 from ..static_data.sde_loader import PIData
-from . import selling
+from . import prices, selling
 
 MARKET_LABELS = {"jita": "Jita 4-4", "amarr": "Amarr VIII", "delve": "Delve (region-wide)"}
 # Share of a region's daily traded units a new seller can expect to take with sell orders.
@@ -90,7 +90,8 @@ def realistic_values(assessment: dict, values: Dict[int, float]) -> Dict[int, fl
     out: Dict[int, float] = {}
     cycle = float(assessment.get("cycle_days") or 0)
     for r in assessment.get("rows", []):
-        if r["hold"] or r["status"] not in ("short", "thin", "slow"):
+        # an order book that didn't load says nothing about buyers: never value a product down for it
+        if r["hold"] or r.get("book_missing") or r["status"] not in ("short", "thin", "slow"):
             continue
         alt = (r.get("alternative") or {}).get("value") or 0.0
         im = r.get("immediate")
@@ -145,6 +146,7 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
                    "visible_units": round(sum(u for _, u in depth)), "visible_levels": len(depth),
                    "history": hist, "volume_share": None, "immediate": None, "horizon_days": None,
                    "price_uncertainty_pct": None, "status": "ok", "advice": "", "alternative": None,
+                   "book_missing": False, "min_volume_only": False, "reason": "",
                    "value": round(value, 2)}
             vol = (hist or {}).get("avg_volume") or 0
             if vol:
@@ -152,7 +154,14 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
             if hist and hist.get("price_cv") is not None:
                 row["price_uncertainty_pct"] = round(100 * hist["price_cv"], 1)
 
-            if side == "buy":
+            if side == "buy" and not prices.loaded(b, m):
+                # No book (ESI failed, or an older cache): unknown, not "no buyers". The planner keeps
+                # its quoted value, and realistic_values leaves it alone.
+                row["status"] = "unknown"
+                row["book_missing"] = True
+                row["advice"] = (f"Order book not loaded: the {row['market_label']} buyers couldn't be checked. "
+                                 "Refresh prices to check them.")
+            elif side == "buy":
                 top = b.get(f"{m}_buy", 0.0)
                 cost = max(0.0, top * (1 - tax) - value)       # per-unit hauling the planner deducted
                 f = fill(depth, qty)
@@ -162,16 +171,25 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
                                     "avg_net": round(avg_net, 2), "quoted_net": round(value, 2),
                                     "proceeds": round(f["filled"] * avg_net),
                                     "quoted": round(qty * value)}
-                if f["short"] > 0:
+                if not depth and top > 0:
                     row["status"] = "short"
+                    row["min_volume_only"] = True
+                    row["reason"] = f"{row['market_label']} only has minimum-volume buy orders"
+                    row["advice"] = (f"{row['market_label']} only has buy orders with a minimum volume right now, "
+                                     f"so a batch can't count on filling them.")
+                elif f["short"] > 0:
+                    row["status"] = "short"
+                    row["reason"] = f"buyers in {row['market_label']} can't take a full batch"
                     row["advice"] = (f"{row['market_label']} buy orders take only {f['filled']:,.0f} of the "
                                      f"{qty:,.0f} units in one batch right now.")
                 elif top and f["worst_price"] is not None and f["avg_price"] < top * (1 - THIN_PRICE_DROP):
                     row["status"] = "thin"
+                    row["reason"] = f"a full batch pushes the {row['market_label']} price down too far"
                     row["advice"] = (f"Selling the whole batch walks {f['levels']} price levels down to "
                                      f"{f['worst_price']:,.2f} ISK: ≈ {avg_net:,.2f} instead of {value:,.2f} net per unit.")
                 elif row["volume_share"] is not None and row["volume_share"] > THIN_VOLUME_SHARE:
                     row["status"] = "thin"
+                    row["reason"] = f"buyers in {row['market_label']} don't take that much per day"
                     row["advice"] = (f"The plan makes {per_day:,.0f}/day; {MARKET_LABELS[m]} traded about "
                                      f"{vol:,.0f}/day over the last {hist['window']} days, so buyers may not refill fast enough.")
             elif side == "sell":
@@ -180,6 +198,7 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
                     row["horizon_days"] = [round(lo, 1), round(hi, 1)]
                     if hi > max(1.0, float(s.ship_every_days)):
                         row["status"] = "slow"
+                        row["reason"] = "sell orders would take longer than your shipping cycle"
                         row["advice"] = (f"Estimate: a batch may take {lo:,.1f}–{hi:,.1f} days to sell, longer "
                                          f"than your {s.ship_every_days}-day shipping cycle, so stock would pile up.")
                 else:
@@ -208,6 +227,7 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
     rows.sort(key=lambda r: ("ok", "unknown", "slow", "thin", "short").index(r["status"]), reverse=True)
     covered = [r["history"]["days"] for r in rows if r.get("history")]
     return {"rows": rows, "warnings": warnings, "books_at": books_at, "history_at": history_at,
+            "books_missing": sorted({r["item"] for r in rows if r["book_missing"]}),
             "history_window": next((r["history"]["window"] for r in rows if r.get("history")), None),
             "history_days_min": min(covered) if covered else 0,
-            "capture": list(SELL_CAPTURE), "replanned": [], "cycle_days": max(1.0, float(s.ship_every_days))}
+            "capture": list(SELL_CAPTURE), "replanned": [], "dropped": [],"cycle_days": max(1.0, float(s.ship_every_days))}

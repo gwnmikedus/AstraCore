@@ -22,6 +22,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from astracore import config, db
 from . import sessions
+from .releases import user_agent
 from .web import redirect, render
 
 router = APIRouter()
@@ -430,7 +431,7 @@ async def sync_once(*, force: bool = False, transport=None) -> None:
                             "AND next_attempt_at<=? ORDER BY created_at LIMIT 10", (now,)).fetchall()
             sync = c.execute("SELECT * FROM community_sync WHERE id=1").fetchone()
         headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10",
-                   "User-Agent": "AstraCore community integration"}
+                   "User-Agent": user_agent()}
         async with httpx.AsyncClient(timeout=15, headers=headers, transport=transport) as client:
             for saved in due:
                 row = dict(saved)
@@ -653,7 +654,7 @@ async def community_visibility(request: Request, issue_number: int):
     if hidden:
         labels.append("platform:hidden")
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10",
-               "User-Agent": "AstraCore community integration"}
+               "User-Agent": user_agent()}
     try:
         async with httpx.AsyncClient(timeout=15, headers=headers) as client:
             response = await github_request(client, "PATCH", f"/repos/{repository()}/issues/{issue_number}", payload={"labels": labels})

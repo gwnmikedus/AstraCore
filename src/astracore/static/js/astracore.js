@@ -39,6 +39,7 @@
     const tt = document.getElementById('theme-toggle');
     const root = document.documentElement;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
     let themeTimer;
     // The tooltip warns before the switch: dark to light is a flashbang, light to dark is shore leave for the eyes.
     const themeTips = {
@@ -46,6 +47,8 @@
       light: ['Rest your eyes', 'Back to the dark hull. Stand down, pupils.']
     };
     const themeLabel = () => {
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      if (themeColor) themeColor.content = getComputedStyle(root).getPropertyValue('--void').trim();
       if (!tt) return;
       const light = root.dataset.theme === 'light';
       const label = `Switch to ${light ? 'dark' : 'light'} theme`;
@@ -56,8 +59,6 @@
         tip.querySelector('strong').textContent = title;
         tip.querySelector('span').textContent = text;
       }
-      const themeColor = document.querySelector('meta[name="theme-color"]');
-      if (themeColor) themeColor.content = getComputedStyle(root).getPropertyValue('--void').trim();
     };
     themeLabel();
     if (tt) tt.onclick = () => {
@@ -72,9 +73,17 @@
     };
     // After a switch the tooltip stays hidden until the pointer or focus leaves, so it never warns about the theme you just chose.
     if (tt) ['pointerleave', 'blur'].forEach(type => tt.addEventListener(type, () => tt.classList.remove('tip-quiet')));
+    systemTheme.addEventListener('change', () => {
+      let saved;
+      try { saved = localStorage.getItem('ac_theme'); } catch (e) {}
+      if (saved === 'light' || saved === 'dark') return;
+      root.dataset.theme = systemTheme.matches ? 'light' : 'dark';
+      themeLabel();
+    });
     window.addEventListener('storage', event => {
       if (event.key !== 'ac_theme') return;
-      root.dataset.theme = event.newValue === 'light' ? 'light' : 'dark';
+      root.dataset.theme = event.newValue === 'light' || event.newValue === 'dark'
+        ? event.newValue : systemTheme.matches ? 'light' : 'dark';
       themeLabel();
     });
     document.addEventListener('click', async e => {

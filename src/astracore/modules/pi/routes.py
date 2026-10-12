@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from astracore import db
-from astracore.core import fmt
+from astracore.core import fmt, freshness
 from astracore.core.registry import SCOPE_TEXT
 from astracore.core.auth import bundle_active
 from astracore.core.sessions import require_user
@@ -34,7 +34,7 @@ from astracore.esi.client import ESI_BASE
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import compare, operate, optimizer, prices, setups, upkeep
+from .planner import compare, nextup, operate, optimizer, prices, setups
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, Settings, time_weights
 from .static_data import dalshooth, voc
@@ -463,18 +463,17 @@ async def operate_page(request: Request):
     plan = active["result"] if active else None
     days = 30 if request.query_params.get("days") == "30" else 7
     missing = [c["name"] for c in chars if not service.pi_ready(c)]
-    stock = operate.hangar_stock(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"])
+    ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], plan)
     return render(request, "operate.html", "operate", "Operate", chars=chars,
                   status=operate.colonies_status(ctx["pi"], chars, ctx["area"]),
-                  upkeep=upkeep.schedule(ctx["pi"], ctx["s"], chars, plan, ctx["area"]),
-                  stock=stock, consolidated=operate.consolidate(stock, ctx["area"]),
-                  pipe=operate.pipeline(ctx["pi"], ctx["books"], chars),
+                  upkeep=ov["upkeep"], stock=ov["stock"], consolidated=ov["consolidated"], pipe=ov["pipe"],
+                  next_up=ov["next_up"][:nextup.SHOWN], next_up_more=max(0, len(ov["next_up"]) - nextup.SHOWN),
+                  all_clear=ov["all_clear"], has_colonies=ov["has_colonies"],
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,
-                  progress=service.progress(plan, chars, ctx["pi"]),
-                  drift=service.plan_drift(plan, chars, ctx["pi"]), plan=plan, active=active, missing=missing,
+                  progress=ov["progress"], drift=ov["drift"], plan=plan, active=active, missing=missing,
                   checklist=service.first_build(ctx, active),
-                  plans=store.list_plan_runs(pid),
-                  synced=min((c.get("synced_at") or 0) for c in chars), buyback_site=voc.BUYBACK_SITE,
+                  plans=store.list_plan_runs(pid), freshness=freshness.state(pid),
+                  colony_note=freshness.COLONY_NOTE, buyback_site=voc.BUYBACK_SITE,
                   voc_site=voc.SITE, waypoints=_waypoint_chars(pid))
 
 

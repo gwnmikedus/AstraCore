@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% from "_artwork.html" import artwork %}
+{% from "_freshness.html" import freshness_line with context %}
 {% from "pi/_plan_compare.html" import plan_compare_table %}
+{% from "pi/_next_up.html" import next_up_list %}
 {% block content %}
 <hgroup class="operation-header context-header">
   <div><div class="eyebrow">PI / Operations deck</div><h1 class="page-title" style="margin-bottom:.2rem">Your planets, in motion.</h1>
-    <p class="muted" style="margin:0">From planet to liquid ISK. Data from ESI, last refreshed {{ synced|ago }}.</p></div>
-  <form method="post" action="/profile/refresh" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="back" value="/pi/operate"><button class="outline">{{ icon('refresh-cw') }} Refresh from ESI</button></form>
+    <p class="muted" style="margin:0">From planet to liquid ISK.</p>
+    {{ freshness_line(freshness, '/pi/operate', colony_note) }}</div>
   {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </hgroup>
 
@@ -25,15 +26,38 @@
 {% if missing %}<div class="flash warn">{{ missing|join(', ') }} {{ 'needs' if missing|length == 1 else 'need' }} one more EVE login
   (<a href="/profile">profile</a>) so AstraCore PI can read assets, contracts, orders and wallet. Until then only their colonies are tracked.</div>{% endif %}
 
+{% if active or has_colonies or next_up %}
+<section class="box next-up" id="next-up" aria-labelledby="next-up-title">
+  <h2 id="next-up-title" class="next-up-title">Next up</h2>
+  {% if next_up %}
+  {{ next_up_list(next_up, more=next_up_more) }}
+  {% elif not has_colonies %}
+  <p class="empty">Tracking starts once your first colony is built. Until then, the build checklist below has what to buy and place.</p>
+  {% else %}
+  <p class="empty">{{ icon('circle-check') }} Nothing needs you right now.{% if all_clear %} {{ all_clear }}{% endif %}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<nav class="operate-nav" aria-label="Operate sections">
+  {% if active or plans or (checklist and checklist.todo) %}<a href="#build">{{ icon('rocket') }} Build</a>{% endif %}
+  <a href="#upkeep">{{ icon('calendar-days') }} Upkeep</a>
+  <a href="#sell">{{ icon('store') }} Sell</a>
+  <a href="#income">{{ icon('wallet') }} Income</a>
+</nav>
+
 <div class="flow">
-  <span class="st">{{ icon('orbit') }} On planets: <b>{{ status.pickups|map(attribute='m3')|sum|m3 }}</b> ready</span> →
-  <span class="st">{{ icon('boxes') }} In hangars: <b>{{ stock|map(attribute='jita_value')|sum|isk }}</b></span> →
-  <span class="st">{{ icon('truck') }} In transit: <b>{{ pipe.in_transit_value|isk }}</b></span> →
-  <span class="st">{{ icon('handshake') }} Awaiting buyback: <b>{{ pipe.awaiting_buyback|isk }}</b></span> →
-  <span class="st">{{ icon('trending-up') }} Listed: <b>{{ pipe.listed_value|isk }}</b></span> →
+  <span class="st">{{ icon('orbit') }} On planets: <b>{{ status.pickups|map(attribute='m3')|sum|m3 }}</b> ready</span><span class="arrow" aria-hidden="true">→</span>
+  <span class="st">{{ icon('boxes') }} In hangars: <b>{{ stock|map(attribute='jita_value')|sum|isk }}</b></span><span class="arrow" aria-hidden="true">→</span>
+  <span class="st">{{ icon('truck') }} In transit: <b>{{ pipe.in_transit_value|isk }}</b></span><span class="arrow" aria-hidden="true">→</span>
+  <span class="st">{{ icon('handshake') }} Awaiting buyback: <b>{{ pipe.awaiting_buyback|isk }}</b></span><span class="arrow" aria-hidden="true">→</span>
+  <span class="st">{{ icon('trending-up') }} Listed: <b>{{ pipe.listed_value|isk }}</b></span><span class="arrow" aria-hidden="true">→</span>
   <span class="st">{{ icon('coins') }} Earned {{ days }}d: <b>{{ earned.net|isk }}</b></span>
 </div>
 
+{% if active or plans or (checklist and checklist.todo) %}
+<section class="operate-section" id="build" aria-labelledby="build-title">
+<h2 class="operate-section-title" id="build-title">Build</h2>
 {% if active or plans %}
 <div class="box plan-status" id="plan-status">
   <h5>{{ icon('layers') }} Your plan</h5>
@@ -90,9 +114,10 @@
 {%- endmacro %}
 {% if checklist and checklist.todo %}
 {% set k = checklist %}
-<div class="box first-build" id="first-build">
-  <h5>{{ icon('package') }} First build checklist
-    <span class="muted">· {{ k.todo }} colon{{ 'y' if k.todo == 1 else 'ies' }} to build{% if k.rebuild %}, {{ k.rebuild }} of them rebuilt{% endif %}</span></h5>
+{# once colonies are running the checklist folds to one line; a Next up link to it opens it #}
+<details class="box first-build" id="first-build"{{ ' open' if not (progress and progress.done) }}>
+  <summary><h5>{{ icon('package') }} First build checklist
+    <span class="muted">· {{ k.todo }} colon{{ 'y' if k.todo == 1 else 'ies' }} to build{% if k.rebuild %}, {{ k.rebuild }} of them rebuilt{% endif %}</span></h5></summary>
   <p class="muted">AstraCore can’t buy anything or place market orders for you. Copy the list, paste it into EVE’s
     Multibuy window (Market → Multibuy), check the prices and buy it yourself. Structures and command center
     upgrades aren’t market items: the planetary interface charges them to your wallet when you submit.</p>
@@ -190,20 +215,22 @@
     </ol>
   </details>
   {% endfor %}
-</div>
+</details>
+{% endif %}
+</section>
 {% endif %}
 
+<section class="operate-section" id="upkeep" aria-labelledby="upkeep-title">
+<h2 class="operate-section-title" id="upkeep-title">Upkeep</h2>
 {% if upkeep.colonies or upkeep.plan_checks %}
 {% set tr = upkeep.tracks %}
-<div class="box" id="upkeep">
+<div class="box" id="schedule">
   <h5>{{ icon('calendar-days') }} Upkeep schedule</h5>
   <p class="muted" style="margin:.2rem 0">Each colony's visits follow from its own extractors, factory inputs and launchpad/storage space.
     Market shipments run on their own cycle.</p>
-  {% for f in upkeep.freshness if f.sync_stale or f.colony_stale %}
-  <div class="warnbox">{{ icon('triangle-alert') }} <b>{{ f.character }}</b>:
-    {% if f.sync_stale %}last ESI refresh {{ f.synced_at|ago }}.{% endif %}
-    {% if f.colony_stale %}Colony data dates from {{ f.colony_update|ago }}. ESI only updates a colony after you view it in game,
-      so stock and storage below are projected from then.{% endif %}</div>
+  {% for f in upkeep.freshness if f.colony_stale %}
+  <div class="warnbox">{{ icon('triangle-alert') }} <b>{{ f.character }}</b>: colony data dates from {{ f.colony_update|ago }}.
+    ESI only updates a colony after you view it in game, so stock and storage below are projected from then.</div>
   {% endfor %}
   <div class="cards">
     <div class="card"><div class="v {{ 'bad' if tr.restart.expired else ('warn' if tr.restart.due else '') }}">{% if tr.restart.next_hours is none %}–{% elif tr.restart.next_hours <= 0 %}now{% else %}{{ tr.restart.next_hours|hours }}{% endif %}</div>
@@ -243,12 +270,12 @@
   </details>
   {% endif %}
   <p class="muted" style="margin:.4rem 0 0">Output is measured from the synced structures and extractors. AstraCore doesn't send reminders;
-    refresh from ESI to update the schedule.</p>
+    it reads ESI again when you open this page and the data is over 15 minutes old.</p>
 </div>
 {% endif %}
 
 {% if active or status.extractors %}
-<div class="box">
+<div class="box" id="extractors">
   <h5>{{ icon('timer') }} Extractors</h5>
   {% if status.extractors %}
   <div class="scroll"><table><thead><tr><th>Character</th><th>Planet</th><th>Extracting</th><th>Heads</th><th>Time left</th></tr></thead><tbody>
@@ -262,14 +289,14 @@
 
 {% if active or status.pickups or upkeep.shortages %}
 <div class="grid">
-  <div class="box">
+  <div class="box" id="pickups">
     <h5>{{ icon('package') }} Ready to pick up from planets</h5>
     {% for p in status.pickups %}
       <p style="margin:.2rem 0"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
       <span class="muted itemlist">{% for k, v in p['items'].items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</span></p>
     {% else %}<p class="empty">Nothing waiting on launchpads or storage.</p>{% endfor %}
   </div>
-  <div class="box">
+  <div class="box" id="factories">
     <h5>{{ icon('factory') }} Factories that need inputs</h5>
     {% for r in upkeep.shortages %}
       <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {% if r.have %}about {{ r.have|num }} left
@@ -279,7 +306,13 @@
   </div>
 </div>
 {% endif %}
+{% if not (upkeep.colonies or upkeep.plan_checks or active or status.extractors or status.pickups or upkeep.shortages) %}
+<p class="empty">No colonies yet. Restarts, restocks and pickups show up here once your first colony is built.</p>
+{% endif %}
+</section>
 
+<section class="operate-section" id="sell" aria-labelledby="sell-title">
+<h2 class="operate-section-title" id="sell-title">Sell</h2>
 <div class="box" id="consolidate">
   <h5>{{ icon('store') }} Consolidate &amp; sell</h5>
   {% if consolidated %}
@@ -346,7 +379,7 @@
   {% else %}<p class="empty">No PI products in station hangars{{ ' (or assets not readable yet)' if missing else '' }}.</p>{% endif %}
 </div>
 
-<div class="box">
+<div class="box" id="pipeline">
   <h5>{{ icon('truck') }} In the pipeline</h5>
   <div class="grid">
     <div>
@@ -373,7 +406,7 @@
     {% endfor %}
   </details>
   {% endif %}
-  <b>Sell orders</b>
+  <b id="orders">Sell orders</b>
   {% if pipe.orders %}
   <div class="scroll"><table><thead><tr><th>Character</th><th>Item</th><th>Where</th><th>Price</th><th>Left</th><th>Value</th><th></th></tr></thead><tbody>
   {% for o in pipe.orders %}<tr><td>{{ o.character }}</td><td>{{ eve_img(o.item, 16) }}{{ o.item }}</td><td class="muted">{{ o.location }}</td><td>{{ o.price|num(2) }}</td>
@@ -382,7 +415,10 @@
   </tbody></table></div>
   {% else %}<p class="empty">No open sell orders for PI products.</p>{% endif %}
 </div>
+</section>
 
+<section class="operate-section" id="income" aria-labelledby="income-title">
+<h2 class="operate-section-title" id="income-title">Income</h2>
 <div class="box">
   <h5>{{ icon('wallet') }} ISK that actually came in <span class="muted">· last <a href="?days=7" {{ 'aria-current=page' if days == 7 }}>7</a> / <a href="?days=30" {{ 'aria-current=page' if days == 30 }}>30</a> days</span></h5>
   <div class="cards">
@@ -395,9 +431,15 @@
     <div class="card"><div class="v">{{ earned.balance|isk }}</div><div class="l">wallet balance (all characters)</div></div>
   </div>
 </div>
+</section>
 {% endblock %}
 {% block scripts %}
+<script src="{{ asset('js/freshness.js') }}"></script>
 <script nonce="{{ nonce }}">
+// a link to a folded section (Next up → First build checklist) opens it
+const openFolded = hash => { const t = hash && document.getElementById(hash.slice(1)); if (t && t.tagName === 'DETAILS') t.open = true; };
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href^="#"]'); if (a) openFolded(a.hash); });
+window.addEventListener('hashchange', () => openFolded(location.hash)); openFolded(location.hash);
 document.querySelectorAll('.send-route').forEach(b => b.onclick = async () => {
   const t = b.innerHTML; b.disabled = true;
   const r = await AC.post('/pi/api/waypoints', {character_id: +b.dataset.character, systems: JSON.parse(b.dataset.systems)});

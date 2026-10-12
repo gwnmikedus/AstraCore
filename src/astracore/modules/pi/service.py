@@ -377,18 +377,19 @@ async def dashboard_tile(profile: dict) -> dict:
     return tile
 
 
-def _progress_against(plan_result: dict, chars: List[dict]) -> dict:
-    """Compare a saved plan with the colonies the characters have right now."""
-    have = {(c["character_id"], col["planet_id"]) for c in chars for col in c.get("colonies", [])}
-    out = copy.deepcopy(plan_result)
-    for col in out.get("colonies", []):
-        if col.get("action") == "new" and (col.get("character_id"), col.get("planet_id")) in have:
-            col["action"] = "keep"
-    return out
+def _progress_against(plan_result: dict, chars: List[dict], pi=None, names: Optional[dict] = None) -> dict:
+    """Compare a saved plan with the colonies the characters have right now: planet and product
+    must match to count as built; rebuilds and removals follow the current colonies."""
+    return operate.progress_against(pi or sde_loader.cached(), copy.deepcopy(plan_result), chars, names)
 
 
-def progress(plan_result: Optional[dict], chars: List[dict]) -> Optional[dict]:
-    return operate.build_progress(_progress_against(plan_result, chars)) if plan_result else None
+def progress(plan_result: Optional[dict], chars: List[dict], pi=None) -> Optional[dict]:
+    return operate.build_progress(_progress_against(plan_result, chars, pi)) if plan_result else None
+
+
+def plan_drift(plan_result: Optional[dict], chars: List[dict], pi=None) -> Optional[dict]:
+    """What changed since the plan was saved that the plan didn't foresee (None: still current)."""
+    return operate.plan_drift(pi or sde_loader.cached(), plan_result, chars) if plan_result else None
 
 
 def first_build(ctx: dict, active: Optional[dict]) -> Optional[dict]:
@@ -396,9 +397,10 @@ def first_build(ctx: dict, active: Optional[dict]) -> Optional[dict]:
     if not active or "colonies" not in (active.get("result") or {}):
         return None
     res = active["result"]
-    out = checklist.build(ctx["pi"], _progress_against(res, ctx["chars"]), ctx["chars"], ctx["books"],
-                          ctx["tpl"], active.get("settings"), selling.in_delve(res.get("hub") or "", ctx["area"]),
-                          operate.planet_names(ctx["area"]), area=ctx["area"])
+    names = operate.planet_names(ctx["area"])
+    out = checklist.build(ctx["pi"], _progress_against(res, ctx["chars"], ctx["pi"], names), ctx["chars"],
+                          ctx["books"], ctx["tpl"], active.get("settings"),
+                          selling.in_delve(res.get("hub") or "", ctx["area"]), names, area=ctx["area"])
     if out:
         out["prices_at"] = prices.cached().get("at")
     return out

@@ -41,6 +41,16 @@ def planet_names(area: Optional[dict]) -> Dict[int, dict]:
     return out
 
 
+def colony_name(names: Dict[int, dict], col: dict) -> dict:
+    """Name, system and type of a colony's planet: from the area when it's inside it, otherwise the
+    names stored at the last ESI refresh, and only as a last resort "Planet <id>"."""
+    pid = col["planet_id"]
+    if pid in names:
+        return names[pid]
+    return {"name": col.get("planet_name") or f"Planet {pid}", "system": col.get("system_name") or "",
+            "type": col.get("planet_type", "")}
+
+
 ACTIVE = ("outstanding", "in_progress")
 DONE = ("finished", "finished_issuer", "finished_contractor")
 
@@ -52,13 +62,12 @@ def _recent_days(ts: Optional[str], days: int) -> bool:
 
 def colonies_status(pi: PIData, characters: List[dict], area: Optional[dict]) -> dict:
     names = planet_names(area)
-    extractors, pickups, restock = [], [], []
+    extractors, pickups = [], []
     for ch in characters:
         for col in ch.get("colonies", []):
-            pid = col["planet_id"]
-            pn = names.get(pid, {"name": f"Planet {pid}", "system": "", "type": col.get("planet_type", "")})
+            pn = colony_name(names, col)
             pins = col.get("pins", [])
-            schem_inputs = defaultdict(float)   # type -> units/day consumed on this planet
+            schem_inputs = defaultdict(float)   # type -> units/day consumed on this planet (not a pickup)
             for p in pins:
                 sid = p.get("schematic_id")
                 if sid and sid in pi.schematics:
@@ -82,16 +91,9 @@ def colonies_status(pi: PIData, characters: List[dict], area: Optional[dict]) ->
                 pickups.append({"character": ch["name"], "planet": pn["name"], "system": pn["system"],
                                 "items": {pi.name(t): int(q) for t, q in ready.items()},
                                 "m3": round(sum(q * pi.volume(t) for t, q in ready.items()), 1)})
-            for t, per_day in schem_inputs.items():
-                if pi.tier(t) < 1:
-                    continue  # P0 is extracted on the planet itself
-                days = stock.get(t, 0.0) / per_day if per_day else None
-                if days is not None and days < 2:
-                    restock.append({"character": ch["name"], "planet": pn["name"], "system": pn["system"],
-                                    "item": pi.name(t), "have": int(stock.get(t, 0)),
-                                    "need_per_day": round(per_day), "days_left": round(days, 1)})
     extractors.sort(key=lambda e: (e["hours_left"] if e["hours_left"] is not None else 1e9))
-    return {"extractors": extractors, "pickups": pickups, "restock": restock}
+    # factory restocks come from upkeep.schedule (projected stock, routed factories only)
+    return {"extractors": extractors, "pickups": pickups}
 
 
 def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: List[dict],
@@ -189,6 +191,26 @@ def _reality(g: dict, b: dict, area: Optional[dict]) -> dict:
     return out
 
 
+TRADE_HUBS = ("Jita", "Amarr")
+
+
+def pi_shipment(c: dict, locs: Dict[int, dict]) -> bool:
+    """A VOC courier that takes PI products to market.
+
+    Only contracts the ESI sync flagged `pi` (they carry PI products) count: a courier with command
+    centers or other goods isn't PI. A PI courier that starts at a trade hub brings starter stock
+    in; that is a purchase, like the goods themselves (which Operate doesn't book either), so it's
+    neither a market shipment nor a selling cost. When the start location isn't known it counts."""
+    if c.get("type") != "courier" or not c.get("voc") or not c.get("pi"):
+        return False
+    return locs.get(c.get("start_location_id"), {}).get("system") not in TRADE_HUBS
+
+
+def pi_buyback(c: dict) -> bool:
+    """A VOC buyback (item exchange) with PI products in it."""
+    return c.get("type") == "item_exchange" and bool(c.get("voc")) and bool(c.get("pi"))
+
+
 def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict:
     locs = locations()
     courier, buyback, other, orders, done = [], [], [], [], []
@@ -207,6 +229,8 @@ def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict
                                                                        c.get("date_accepted") or c.get("date_issued"), 7)):
                 continue  # expired, deleted, rejected or older than a week
             if c["type"] == "courier" and c.get("voc"):
+                if not pi_shipment(c, locs):
+                    continue  # command centers, starter stock coming in or other goods: not a PI shipment
                 (courier if active else done).append({**row, "kind": "VOC courier"})
             elif c["type"] == "item_exchange" and c.get("voc"):
                 if not row["items"]:
@@ -236,25 +260,49 @@ def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict
 
 
 def earnings(pi: PIData, characters: List[dict], days: int = 7) -> dict:
+    """ISK that came in from PI over the last `days` days, net of PI selling costs.
+
+    Only PI activity counts: market sales of PI products, VOC buybacks with PI products, rewards of
+    VOC couriers taking PI products to market (`pi_shipment`), customs taxes, and the sales tax and
+    broker fees of PI trades. The wallet journal doesn't name the item, so a `transaction_tax` counts
+    when it belongs to a PI sale (its context is the sale's transaction id, or, for data synced
+    before transaction ids were kept, it has the sale's timestamp) and a `brokers_fee` when it
+    belongs to a PI sell order AstraCore still sees (its context is the order id, or it has the
+    order's issue time). Fees of PI orders that already closed before the last refresh can be
+    missed: Earned may under-count those fees, but never books a non-PI fee."""
     cutoff = time.time() - days * 86400
     sales = buyback = costs = 0.0
     taxes = 0.0
-    voc_contracts = {c["contract_id"] for ch in characters for c in ch.get("contracts", []) if c.get("voc")}
+    locs = locations()
+    shipments = {c["contract_id"] for ch in characters for c in ch.get("contracts", []) if pi_shipment(c, locs)}
+    buybacks = {c["contract_id"] for ch in characters for c in ch.get("contracts", []) if pi_buyback(c)}
     for ch in characters:
         w = ch.get("wallet") or {}
-        for t in w.get("sales", []):
+        pi_sales = w.get("sales", [])
+        sale_ids = {t["transaction_id"] for t in pi_sales if t.get("transaction_id")}
+        sale_times = {t["date"] for t in pi_sales if t.get("date")}
+        sell_orders = [o for o in ch.get("orders", []) if not o.get("is_buy_order")]
+        order_ids = {o["order_id"] for o in sell_orders if o.get("order_id")}
+        order_times = {o["issued"] for o in sell_orders if o.get("issued")}
+        for t in pi_sales:
             if (_ts(t["date"]) or 0) >= cutoff:
                 sales += t["qty"] * t["unit_price"]
         for j in w.get("journal", []):
             if (_ts(j["date"]) or 0) < cutoff:
                 continue
             amt = j.get("amount") or 0.0
-            if j["ref_type"] == "contract_price" and amt > 0 and j.get("context_id") in voc_contracts:
+            ref, ctx = j["ref_type"], j.get("context_id")
+            if ref == "contract_price" and amt > 0 and ctx in buybacks:
                 buyback += amt
-            elif j["ref_type"] == "contract_reward" and amt < 0 and j.get("context_id") in voc_contracts:
+            elif ref == "contract_reward" and amt < 0 and ctx in shipments:
                 costs += -amt
-            elif j["ref_type"] in ("transaction_tax", "brokers_fee", "planetary_export_tax",
-                                   "planetary_import_tax") and amt < 0:
+            elif amt >= 0:
+                continue
+            elif ref in ("planetary_export_tax", "planetary_import_tax"):
+                taxes += -amt
+            elif ref == "transaction_tax" and (ctx in sale_ids or j["date"] in sale_times):
+                taxes += -amt
+            elif ref == "brokers_fee" and (ctx in order_ids or j["date"] in order_times):
                 taxes += -amt
     net = sales + buyback - costs - taxes
     return {"days": days, "market_sales": round(sales), "buyback": round(buyback),
@@ -263,7 +311,113 @@ def earnings(pi: PIData, characters: List[dict], days: int = 7) -> dict:
             "balance": round(sum((ch.get("wallet") or {}).get("balance", 0) or 0 for ch in characters))}
 
 
+def _plan_product(pi: Optional[PIData], col: dict) -> Optional[int]:
+    if col.get("product_id"):
+        return col["product_id"]
+    return pi.by_name.get(str(col.get("product") or "").lower()) if pi else None
+
+
+def _eligible(ch: dict) -> bool:
+    """Characters the planner plans for (no template fits below Command Center Upgrades 2)."""
+    return int(ch.get("ccu_level", 0) or 0) >= 2
+
+
+def _plan_characters(plan: dict) -> set:
+    ids = {c.get("character_id") for c in plan.get("characters", []) if c.get("character_id") is not None}
+    return ids or {c.get("character_id") for c in plan.get("colonies", [])}
+
+
+def progress_against(pi: Optional[PIData], plan: dict, characters: List[dict],
+                     names: Optional[Dict[int, dict]] = None) -> dict:
+    """A copy of a saved plan with build actions and removals worked out again from the colonies the
+    characters have right now (the saved ones are frozen at the moment the plan was made).
+
+    A planned colony counts as built only when the character has a colony on that planet that makes
+    the planned product; a colony there making something else still needs a rebuild (`current` says
+    what it makes). Removals are the plan characters' current colonies the plan doesn't use. The
+    action the plan was saved with stays in `saved_action`."""
+    from .optimizer import existing_product   # optimizer imports this module
+    names = names or {}
+    out = {**plan, "colonies": [dict(c) for c in plan.get("colonies", [])]}
+    have = {(ch["character_id"], col["planet_id"]): col for ch in characters for col in ch.get("colonies", [])}
+    for c in out["colonies"]:
+        c.setdefault("saved_action", c.get("action"))
+        col = have.get((c.get("character_id"), c.get("planet_id")))
+        if col is None:
+            c["action"] = "new"
+            continue
+        want = _plan_product(pi, c)
+        made = existing_product(pi, col) if pi else None
+        if pi is None or want is None or made == want:
+            c["action"] = "keep"            # (without static data the planet being taken is all we know)
+        else:
+            c["action"] = "rebuild"
+            c["current"] = pi.name(made) if made else "nothing yet"
+    planned = {(c.get("character_id"), c.get("planet_id")) for c in out["colonies"]}
+    in_plan = _plan_characters(plan)
+    removals = []
+    for ch in characters:
+        if ch["character_id"] not in in_plan:
+            continue                        # a character the plan doesn't know: see plan_drift
+        for col in ch.get("colonies", []):
+            if (ch["character_id"], col["planet_id"]) in planned:
+                continue
+            made = existing_product(pi, col) if pi else None
+            pn = colony_name(names, col)
+            removals.append({"character": ch["name"], "character_id": ch["character_id"],
+                             "planet_id": col["planet_id"], "planet": pn["name"], "system": pn["system"],
+                             "current": pi.name(made) if pi and made else "?"})
+    out["removals"] = removals
+    return out
+
+
+def plan_drift(pi: Optional[PIData], plan: Optional[dict], characters: List[dict]) -> Optional[dict]:
+    """How the colonies and the characters changed in ways the saved plan didn't foresee. Building
+    what the plan asks for and abandoning what it removes is progress, not drift. None when the plan
+    still describes reality.
+
+      colonies    a colony on a planet the plan neither uses nor removes (built off-plan), or a colony
+                  the plan kept as it was that is gone or now makes something else
+      characters  planning characters added since (Command Center Upgrades 2+) or no longer planned"""
+    if not plan or "colonies" not in plan:
+        return None
+    from .optimizer import existing_product   # optimizer imports this module
+    plan_chars = _plan_characters(plan)
+    now_chars = {ch["character_id"] for ch in characters if _eligible(ch)}
+    added = sorted(ch["name"] for ch in characters if _eligible(ch) and ch["character_id"] not in plan_chars)
+    removed = sorted(c.get("name") or "?" for c in plan.get("characters", [])
+                     if c.get("character_id") not in now_chars)
+    by_name = {c.get("name"): c.get("character_id") for c in plan.get("characters", [])}
+    planned = {(c.get("character_id"), c.get("planet_id")): c for c in plan.get("colonies", [])}
+    removals = {(r.get("character_id") or by_name.get(r.get("character")), r.get("planet_id"))
+                for r in plan.get("removals", [])}
+    have = {(ch["character_id"], col["planet_id"]): col for ch in characters if ch["character_id"] in plan_chars
+            for col in ch.get("colonies", [])}
+    differ = [key for key in have if key not in planned and key not in removals]
+    for key, c in planned.items():
+        if c.get("character_id") not in now_chars or (c.get("saved_action") or c.get("action")) != "keep":
+            continue                        # character changes count once; new and rebuild are progress
+        col = have.get(key)
+        if col is None:
+            differ.append(key)
+        elif pi is not None:
+            want, made = _plan_product(pi, c), existing_product(pi, col)
+            if want is not None and made is not None and made != want:
+                differ.append(key)
+    changed = len(added) + len(removed)
+    if not differ and not changed:
+        return None
+    parts = []
+    if differ:
+        parts.append(f"{len(differ)} colon{'y differs' if len(differ) == 1 else 'ies differ'}")
+    if changed:
+        parts.append(f"{changed} character{' changed' if changed == 1 else 's changed'}")
+    return {"colonies": len(differ), "characters": changed, "added": added, "removed": removed,
+            "summary": ", ".join(parts)}
+
+
 def build_progress(plan: Optional[dict]) -> Optional[dict]:
+    """Counts for the plan-status bar; `plan` should come from `progress_against` (live actions)."""
     if not plan or "colonies" not in plan:
         return None
     acts = defaultdict(int)

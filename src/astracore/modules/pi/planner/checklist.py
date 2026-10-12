@@ -434,8 +434,9 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
         cid = next((c for c, e in per_char.items() if e["name"] == r.get("character")), None)
         if cid is not None:
             pn = names.get(r.get("planet_id"), {})
-            per_char[cid]["removals"].append({"planet": pn.get("name") or f"planet {r.get('planet_id')}",
-                                              "system": pn.get("system", ""), "current": r.get("current")})
+            per_char[cid]["removals"].append({"planet": pn.get("name") or r.get("planet") or f"planet {r.get('planet_id')}",
+                                              "system": pn.get("system") or r.get("system", ""),
+                                              "current": r.get("current")})
 
     # what to buy and where: lowest landed cost (price + courier to the drop-off)
     dropoff = plan.get("hub") or ""

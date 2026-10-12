@@ -25,7 +25,9 @@ from ..settings import Settings
 from ..static_data import extraction
 from ..static_data import pi_rules as R
 from ..static_data.sde_loader import PIData
-from .operate import _ts, planet_names
+from astracore.esi.character import locations
+
+from .operate import _ts, colony_name, pi_buyback, pi_shipment, planet_names
 
 SYNC_STALE_H = 24        # an ESI refresh older than this is flagged
 COLONY_STALE_H = 72      # colony not viewed in game for this long: contents are a projection
@@ -273,18 +275,25 @@ def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -
     shortages = [{"item": pi.name(t), "type_id": t, "have": int(stock_now[t]), "need_per_day": round(q),
                   "days_left": round(days_left[t], 1)} for t, q in imports.items() if days_left.get(t, 0) < 2]
 
-    # actual versus planned: the plan's product, or the colony's highest-tier export
+    # actual versus planned: the plan's product, or the colony's highest-tier export. A colony set up
+    # for another product than the plan expects says so, rather than "0% of planned X".
     product = pi.by_name.get(plan_col["product"].lower()) if plan_col and plan_col.get("product") else None
+    makes = colony_product(pi, col)
+    expects = None
+    if product is not None and makes is not None and makes != product and exports.get(product, 0.0) <= 0:
+        expects, product = product, makes
     if product is None and exports:
         product = max(exports, key=lambda t: (pi.tier(t), exports[t]))
     planned = None
-    if plan_col and product is not None:
+    if plan_col and product is not None and expects is None:
         planned = (plan_col.get("out_per_day") or {}).get(pi.name(product))
     actual = exports.get(product, 0.0) if product is not None else None
     pct = round(actual / planned * 100) if planned and actual is not None else None
     output = None if product is None else {
         "product": pi.name(product), "actual": round(actual or 0, 1), "planned": planned, "pct": pct,
-        "state": "ok" if pct is None or pct >= ON_PLAN * 100 else ("soon" if pct >= 50 else "expired")}
+        "expects": pi.name(expects) if expects is not None else None,
+        "state": "soon" if expects is not None else (
+            "ok" if pct is None or pct >= ON_PLAN * 100 else ("soon" if pct >= 50 else "expired"))}
 
     return {"capacity_m3": round(cap) if recognised else None, "used_m3": round(used, 1),
             "fill_pct": round(used / cap * 100) if recognised and cap else None,
@@ -298,22 +307,39 @@ def colony_upkeep(pi: PIData, col: dict, plan_col: Optional[dict], now: float) -
             "collect_hours": None if collect_h is None else round(collect_h, 1),
             "program_days": round(min(programs), 1) if programs else None,
             "has_extractors": bool(extractors), "has_imports": bool(imports),
+            "idle": bool(imports) and not exports,
             "routes_known": routing is not None,
             "output": output, "shortages": shortages, "issues": issues,
             "last_update": updated, "stale": bool(updated and age_days * 24 > COLONY_STALE_H)}
 
 
+def colony_product(pi: PIData, col: dict) -> Optional[int]:
+    """What a synced colony is set up to make: its highest-tier factory output, else what its
+    extractors pull (the same rule the planner uses to decide keep or rebuild)."""
+    from .optimizer import existing_product   # optimizer imports this module
+    return existing_product(pi, col)
+
+
 def _last_shipment(characters: List[dict]) -> Optional[float]:
-    """When products last left for the market: a VOC contract, a PI sell order or a PI sale."""
+    """When PI products last left for the market: a VOC courier or buyback with PI products, a PI
+    sell order or a PI sale. Non-PI contracts (command centers, other goods) and starter stock
+    coming in don't count."""
+    locs = locations()
     seen = []
     for ch in characters:
         for c in ch.get("contracts", []):
-            if c.get("voc") and (c.get("type") == "courier" or c.get("pi")):
+            if pi_shipment(c, locs) or pi_buyback(c):
                 seen.append(_ts(c.get("date_issued")))
         seen += [_ts(o.get("issued")) for o in ch.get("orders", []) if not o.get("is_buy_order")]
         seen += [_ts(t.get("date")) for t in (ch.get("wallet") or {}).get("sales", [])]
     seen = [t for t in seen if t]
     return max(seen) if seen else None
+
+
+def _has_stock_to_ship(pi: PIData, characters: List[dict]) -> bool:
+    """PI products sitting in station hangars (what a market shipment would take)."""
+    return any(pi.tier(a["type_id"]) >= 1 and a.get("flag") != "Deliveries" and (a.get("qty") or 0) > 0
+               for ch in characters for a in ch.get("assets", []))
 
 
 def schedule(pi: PIData, s: Settings, characters: List[dict], plan: Optional[dict],
@@ -327,7 +353,7 @@ def schedule(pi: PIData, s: Settings, characters: List[dict], plan: Optional[dic
         updates = []
         for col in ch.get("colonies", []):
             pid = col["planet_id"]
-            pn = names.get(pid, {"name": f"Planet {pid}", "system": ""})
+            pn = colony_name(names, col)
             u = colony_upkeep(pi, col, planned.get((ch.get("character_id"), pid)), now)
             u.update(character=ch["name"], planet=pn["name"], system=pn["system"])
             rows.append(u)
@@ -345,7 +371,8 @@ def schedule(pi: PIData, s: Settings, characters: List[dict], plan: Optional[dic
 
     def track(key: str, rows_in: List[dict], every_default: Optional[float] = None) -> dict:
         hrs = [r[key] for r in rows_in if r[key] is not None]
-        every = [r["visit_every_days"] for r in rows_in if r["visit_every_days"]]
+        # a factory standing idle (no inputs left) has no rhythm yet: it needs a restock, not a schedule
+        every = [r["visit_every_days"] for r in rows_in if r["visit_every_days"] and not r.get("idle")]
         return {"colonies": len(rows_in), "next_hours": min(hrs) if hrs else None,
                 "due": sum(1 for h in hrs if h < SOON_H), "every_days": min(every) if every else every_default}
 
@@ -355,8 +382,9 @@ def schedule(pi: PIData, s: Settings, characters: List[dict], plan: Optional[dic
     restarts["expired"] = sum(1 for r in rows if r["restart_hours"] is not None and r["restart_hours"] <= 0)
     every_ship = float(((plan or {}).get("selling") or {}).get("every_days") or s.ship_every_days or 7)
     last = _last_shipment(characters)
-    ship = {"every_days": every_ship, "last": last,
+    ship = {"every_days": every_ship, "last": last, "has_stock": _has_stock_to_ship(pi, characters),
             "next_days": None if last is None else round(every_ship - (now - last) / 86400, 1)}
+    ship["due"] = ship["has_stock"] and (last is None or ship["next_days"] <= 0)
 
     plan_checks = []
     for c in (plan or {}).get("colonies", []):

@@ -49,7 +49,8 @@ async def home(request: Request, code: str = "", state: str = ""):
     user = _user(request)
     if not user or request.url.path == "/about":
         return render(request, "home.html", page="home", page_title="", modules=registry.MODULES,
-                      members=_member_groups(), contributor_credits=contributors.snapshot())
+                      access_gate=config.ACCESS_GATE,
+                      members=accounts.member_groups(), contributor_credits=contributors.snapshot())
     tiles = []
     for m in registry.MODULES:
         tile = {}
@@ -61,19 +62,6 @@ async def home(request: Request, code: str = "", state: str = ""):
         tiles.append({"module": m, **tile})
     return render(request, "dashboard.html", page="dashboard", page_title="Dashboard", tiles=tiles,
                   alerts=_alerts(user["id"]))
-
-
-def _member_groups() -> dict:
-    """The corporation/alliance whose members may always log in (shown on the landing page)."""
-    from astracore.core import eveimg
-    groups = eveimg.home_groups()
-    out = {}
-    corp, ally = groups.get("corporation"), groups.get("alliance")
-    if corp and (corp["id"] in config.ALLOWED["corporation"] or not config.ACCESS_GATE):
-        out["corporation"] = corp
-    if ally and (ally["id"] in config.ALLOWED["alliance"] or not config.ACCESS_GATE):
-        out["alliance"] = ally
-    return out
 
 
 def _alerts(profile_id: int) -> list:

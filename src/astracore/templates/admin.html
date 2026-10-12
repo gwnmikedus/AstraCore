@@ -59,7 +59,7 @@
     <div class="grid">
       {{ num(s, 'buyback_pct', 'VOC buyback: % of Jita buy for P2–P4', 'Measured 90% from an appraisal at 7G-QIG on 2026-10-10.') }}
       {{ num(s, 'buyback_pct_p1', 'VOC buyback: % of Jita buy for P1', '0 = refused (as of 2026-10-10).') }}
-      {{ num(s, 'solver_time_limit', 'Solver time limit (seconds per solve)', 'Keeps one plan from hogging the Mac.', 1, 2) }}
+      {{ num(s, 'solver_time_limit', 'Solver safety limit (seconds per solve)', 'A solve normally ends after a fixed number of search steps (about a second); this only stops a stuck one. At least 30 seconds.', 1, 2) }}
     </div>
     <button>Save</button>
   </form>

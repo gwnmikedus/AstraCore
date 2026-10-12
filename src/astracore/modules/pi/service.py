@@ -297,13 +297,21 @@ def data_stamp(profile_id: int) -> tuple:
             tuple(sorted(store.admin_defaults().items())))
 
 
+def plan_key(profile_id: int, s: Settings) -> str:
+    """Cache key of a full plan: what it depends on now, and the settings it is solved with. The guided
+    setup's comparison cards and the plan result share it, so picking an answer reuses its plan."""
+    return cache_key(data_stamp(profile_id), s.solve_json(), "plan")
+
+
 async def solve(profile_id: int, s: Optional[Settings] = None) -> dict:
     """Full plan for the profile with settings `s` (default: saved), cached and through the gate."""
     s = s or store.load_settings(profile_id)
-    key = cache_key(data_stamp(profile_id), s.to_json(), "plan")
-    ctx = await planning_context(profile_id, copy.deepcopy(s), persist_default=False) \
-        if key not in GATE._cache else None
-    return await GATE.cached(key, run_plan, ctx) if ctx else GATE._cache[key]
+    key = plan_key(profile_id, s)
+    if key in GATE._cache:
+        return await GATE.cached(key, run_plan, None)
+    ctx = await planning_context(profile_id, copy.deepcopy(s), persist_default=False)
+    # planning_context may have refreshed prices or trade history: file the plan under the data it used
+    return await GATE.cached(plan_key(profile_id, s), run_plan, ctx)
 
 
 def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:

@@ -56,7 +56,8 @@ LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "
 
 
 def render(request: Request, name: str, page: str, title: str, **ctx) -> HTMLResponse:
-    return core_render(request, f"pi/{name}", module_id="pi", page=page, page_title=title, **ctx)
+    return core_render(request, f"pi/{name}", module_id="pi", page=page, page_title=title,
+                       template_repo=dalshooth.REPO_URL, **ctx)
 
 
 def _pid(request: Request) -> int:
@@ -781,6 +782,10 @@ def _haul_md(x: dict) -> str:
     return x.get("haul_note") or "–"
 
 
+def _template_credit_md(source: Optional[str]) -> str:
+    return f"[Template by DalShooth]({source or dalshooth.REPO_URL})"
+
+
 def _first_build_md(k: Optional[dict]) -> list:
     """The Operate first-build checklist as Markdown: Multibuy lists, cost split, steps per character."""
     if not k:
@@ -865,7 +870,8 @@ def _first_build_md(k: Optional[dict]) -> list:
         for i, p in enumerate(ch["planets"], 1):
             upgrade = f" (upgrade {fmt.isk(p['upgrade']['isk'])})" if p["upgrade"]["isk"] else ""
             out.append(f"{i}. **{p['planet']}** ({p['system']} · {p['planet_type']}) · {p['action']} · "
-                       f"{p['template']} · **{p['compat']['label']}**: {p['compat']['text']} · "
+                       f"{p['template']} · {_template_credit_md(p.get('template_url'))} · "
+                       f"**{p['compat']['label']}**: {p['compat']['text']} · "
                        f"≈ {fmt.isk(p['build_isk'])} ISK{upgrade}")
             out += [f"    {j}. {step}" for j, step in enumerate(p["steps"], 1)]
         out.append("")
@@ -905,7 +911,8 @@ async def export_md(request: Request):
         for c in res["colonies"]:
             if c["character_id"] == ch["character_id"]:
                 outs = ", ".join(f"{k} {fmt.num(v)}" for k, v in c["out_per_day"].items())
-                out.append(f"| {c['planet']} ({c['planet_type']}) | {c['template']} | {outs} "
+                out.append(f"| {c['planet']} ({c['planet_type']}) | {c['template']} · "
+                           f"{_template_credit_md(c.get('template_url'))} | {outs} "
                            f"| {fmt.isk(c['value_per_day'])} | {c['action']} |")
         out.append("")
     sp = res.get("selling")
@@ -942,11 +949,11 @@ async def export_csv(request: Request):
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["character", "system", "planet", "planet_type", "template", "product", "out_per_day",
-                "in_per_day", "isk_per_day", "m3_per_week", "action"])
+                "in_per_day", "isk_per_day", "m3_per_week", "action", "template_author", "template_source"])
     for c in res.get("colonies", []):
         w.writerow([c["character"], c["system"], c["planet"], c["planet_type"], c["template"], c["product"],
                     json.dumps(c["out_per_day"]), json.dumps(c["in_per_day"]), c["value_per_day"],
-                    c["m3_per_week"], c["action"]])
+                    c["m3_per_week"], c["action"], "DalShooth", c.get("template_url") or dalshooth.REPO_URL])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-plan.csv"'})
 

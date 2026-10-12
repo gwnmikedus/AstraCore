@@ -1,0 +1,716 @@
+{
+  "sources": [
+    "https://www.fuzzwork.co.uk/dump/latest/csv/planetSchematics.csv",
+    "https://www.fuzzwork.co.uk/dump/latest/csv/planetSchematicsTypeMap.csv",
+    "https://github.com/DalShooth/EVE_PI_Templates"
+  ],
+  "description": "Public recipe and structure-count metadata only. No in-game template pins, links or routes.",
+  "target": 2875,
+  "pi": {
+    "items": {
+      "2268": {
+        "name": "Aqueous Liquids",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2267": {
+        "name": "Base Metals",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2272": {
+        "name": "Heavy Metals",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2306": {
+        "name": "Non-CS Crystals",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2307": {
+        "name": "Felsic Magma",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2073": {
+        "name": "Microorganisms",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2286": {
+        "name": "Planktic Colonies",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2287": {
+        "name": "Complex Organisms",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "2288": {
+        "name": "Carbon Compounds",
+        "tier": 0,
+        "volume": 0.01
+      },
+      "3645": {
+        "name": "Water",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "2398": {
+        "name": "Reactive Metals",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "2400": {
+        "name": "Toxic Metals",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "2401": {
+        "name": "Chiral Structures",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "9828": {
+        "name": "Silicon",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "2393": {
+        "name": "Bacteria",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "3779": {
+        "name": "Biomass",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "2395": {
+        "name": "Proteins",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "2396": {
+        "name": "Biofuels",
+        "tier": 1,
+        "volume": 0.38
+      },
+      "3828": {
+        "name": "Construction Blocks",
+        "tier": 2,
+        "volume": 0.75
+      },
+      "9842": {
+        "name": "Miniature Electronics",
+        "tier": 2,
+        "volume": 0.75
+      },
+      "3775": {
+        "name": "Viral Agent",
+        "tier": 2,
+        "volume": 0.75
+      },
+      "3725": {
+        "name": "Livestock",
+        "tier": 2,
+        "volume": 0.75
+      },
+      "2351": {
+        "name": "Smartfab Units",
+        "tier": 3,
+        "volume": 3.0
+      },
+      "28974": {
+        "name": "Vaccines",
+        "tier": 3,
+        "volume": 3.0
+      },
+      "2875": {
+        "name": "Sterile Conduits",
+        "tier": 4,
+        "volume": 50.0
+      }
+    },
+    "schematics": {
+      "74": {
+        "name": "Construction Blocks",
+        "cycle": 3600,
+        "output": 3828,
+        "output_qty": 5,
+        "inputs": {
+          "2398": 40,
+          "2400": 40
+        }
+      },
+      "77": {
+        "name": "Miniature Electronics",
+        "cycle": 3600,
+        "output": 9842,
+        "output_qty": 5,
+        "inputs": {
+          "2401": 40,
+          "9828": 40
+        }
+      },
+      "81": {
+        "name": "Viral Agent",
+        "cycle": 3600,
+        "output": 3775,
+        "output_qty": 5,
+        "inputs": {
+          "2393": 40,
+          "3779": 40
+        }
+      },
+      "84": {
+        "name": "Livestock",
+        "cycle": 3600,
+        "output": 3725,
+        "output_qty": 5,
+        "inputs": {
+          "2395": 40,
+          "2396": 40
+        }
+      },
+      "98": {
+        "name": "Smartfab Units",
+        "cycle": 3600,
+        "output": 2351,
+        "output_qty": 3,
+        "inputs": {
+          "3828": 10,
+          "9842": 10
+        }
+      },
+      "105": {
+        "name": "Vaccines",
+        "cycle": 3600,
+        "output": 28974,
+        "output_qty": 3,
+        "inputs": {
+          "3725": 10,
+          "3775": 10
+        }
+      },
+      "113": {
+        "name": "Sterile Conduits",
+        "cycle": 3600,
+        "output": 2875,
+        "output_qty": 1,
+        "inputs": {
+          "2351": 6,
+          "3645": 40,
+          "28974": 6
+        }
+      },
+      "121": {
+        "name": "Water",
+        "cycle": 1800,
+        "output": 3645,
+        "output_qty": 20,
+        "inputs": {
+          "2268": 3000
+        }
+      },
+      "126": {
+        "name": "Reactive Metals",
+        "cycle": 1800,
+        "output": 2398,
+        "output_qty": 20,
+        "inputs": {
+          "2267": 3000
+        }
+      },
+      "128": {
+        "name": "Toxic Metals",
+        "cycle": 1800,
+        "output": 2400,
+        "output_qty": 20,
+        "inputs": {
+          "2272": 3000
+        }
+      },
+      "129": {
+        "name": "Chiral Structures",
+        "cycle": 1800,
+        "output": 2401,
+        "output_qty": 20,
+        "inputs": {
+          "2306": 3000
+        }
+      },
+      "130": {
+        "name": "Silicon",
+        "cycle": 1800,
+        "output": 9828,
+        "output_qty": 20,
+        "inputs": {
+          "2307": 3000
+        }
+      },
+      "131": {
+        "name": "Bacteria",
+        "cycle": 1800,
+        "output": 2393,
+        "output_qty": 20,
+        "inputs": {
+          "2073": 3000
+        }
+      },
+      "132": {
+        "name": "Biomass",
+        "cycle": 1800,
+        "output": 3779,
+        "output_qty": 20,
+        "inputs": {
+          "2286": 3000
+        }
+      },
+      "133": {
+        "name": "Proteins",
+        "cycle": 1800,
+        "output": 2395,
+        "output_qty": 20,
+        "inputs": {
+          "2287": 3000
+        }
+      },
+      "134": {
+        "name": "Biofuels",
+        "cycle": 1800,
+        "output": 2396,
+        "output_qty": 20,
+        "inputs": {
+          "2288": 3000
+        }
+      }
+    },
+    "p0_by_planet": {
+      "Barren": [
+        2268,
+        2267,
+        2288,
+        2073
+      ],
+      "Gas": [
+        2268,
+        2267
+      ],
+      "Ice": [
+        2268,
+        2272,
+        2073,
+        2286
+      ],
+      "Lava": [
+        2267,
+        2307,
+        2272,
+        2306
+      ],
+      "Oceanic": [
+        2268,
+        2288,
+        2287,
+        2073,
+        2286
+      ],
+      "Plasma": [
+        2267,
+        2272,
+        2306
+      ],
+      "Storm": [
+        2268,
+        2267
+      ],
+      "Temperate": [
+        2268,
+        2288,
+        2287,
+        2073
+      ],
+      "Shattered": []
+    }
+  },
+  "templates": [
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Chiral Structures",
+      "file": "Miner - 00 - Chiral Stuctures.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Chiral Stuctures.json",
+      "product_id": 2401,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Biomass",
+      "file": "Miner - 00 - Biomass.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Biomass.json",
+      "product_id": 3779,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Construction Blocks",
+      "file": "Factory - Construction Blocks.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Construction Blocks.json",
+      "product_id": 3828,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 12,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Sterile Conduits",
+      "file": "Factory - Sterile Conduits.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Sterile Conduits.json",
+      "product_id": 2875,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 0,
+      "hightech": 8,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Livestock",
+      "file": "Factory - Livestock.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Livestock.json",
+      "product_id": 3725,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 12,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Bacteria",
+      "file": "Miner - LS - Bacteria.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Bacteria.json",
+      "product_id": 2393,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Biomass",
+      "file": "Miner - LS - Biomass.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Biomass.json",
+      "product_id": 3779,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Reactive Metals",
+      "file": "Miner - LS - Reactive Metals.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Reactive Metals.json",
+      "product_id": 2398,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Proteins",
+      "file": "Miner - LS - Proteins.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Proteins.json",
+      "product_id": 2395,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Proteins",
+      "file": "Miner - 00 - Proteins.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Proteins.json",
+      "product_id": 2395,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Smartfab Units",
+      "file": "Factory - Smartfab Units.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Smartfab Units.json",
+      "product_id": 2351,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 12,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Viral Agent",
+      "file": "Factory - Viral Agent.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Viral Agent.json",
+      "product_id": 3775,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 12,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Biofuels",
+      "file": "Miner - 00 - Biofuels.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Biofuels.json",
+      "product_id": 2396,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Toxic Metals",
+      "file": "Miner - LS - Toxic Metals.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Toxic Metals.json",
+      "product_id": 2400,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Biofuels",
+      "file": "Miner - LS - Temperate - Biofuels.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Temperate - Biofuels.json",
+      "product_id": 2396,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Toxic Metals",
+      "file": "Miner - 00 - Toxic Metals.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Toxic Metals.json",
+      "product_id": 2400,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Water",
+      "file": "Miner - LS - Water.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Water.json",
+      "product_id": 3645,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Reactive Metals",
+      "file": "Miner - 00 - Reactive Metals.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Reactive Metals.json",
+      "product_id": 2398,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Silicon",
+      "file": "Miner - LS - Silicon.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Silicon.json",
+      "product_id": 9828,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Bacteria",
+      "file": "Miner - 00 - Bacteria.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Bacteria.json",
+      "product_id": 2393,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Vaccines",
+      "file": "Factory - Vaccines.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Vaccines.json",
+      "product_id": 28974,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 12,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Water",
+      "file": "Miner - 00 - Water.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Water.json",
+      "product_id": 3645,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "miner",
+      "sec": "00",
+      "product_name": "Silicon",
+      "file": "Miner - 00 - Silicon.json",
+      "path": "PlanetaryInteractionTemplates/Miner - 00 - Silicon.json",
+      "product_id": 9828,
+      "ecus": 1,
+      "heads": 10,
+      "basic": 8,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    },
+    {
+      "kind": "factory",
+      "sec": null,
+      "product_name": "Miniature Electronics",
+      "file": "Factory - Miniature Electronics.json",
+      "path": "PlanetaryInteractionTemplates/Factory - Miniature Electronics.json",
+      "product_id": 9842,
+      "ecus": 0,
+      "heads": 0,
+      "basic": 0,
+      "advanced": 12,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 0
+    },
+    {
+      "kind": "miner",
+      "sec": "LS",
+      "product_name": "Chiral Structures",
+      "file": "Miner - LS - Chiral Structures.json",
+      "path": "PlanetaryInteractionTemplates/Miner - LS - Chiral Structures.json",
+      "product_id": 2401,
+      "ecus": 2,
+      "heads": 16,
+      "basic": 4,
+      "advanced": 0,
+      "hightech": 0,
+      "launchpads": 1,
+      "storage": 1
+    }
+  ]
+}

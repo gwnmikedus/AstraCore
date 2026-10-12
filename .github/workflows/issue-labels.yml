@@ -1,0 +1,28 @@
+name: Issue labels
+
+# A closed issue's state and reason (completed / not planned) are its status, so the labels that describe open
+# work come off when it closes. `status:released` stays: it's added at a minor release. See docs/releases.md.
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  clear-open-status:
+    name: Clear open-work status labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove status:under-review, status:planned and status:in-progress
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          number=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+          jq -r '.issue.labels[].name' "$GITHUB_EVENT_PATH" | while read -r label; do
+            case "$label" in
+              status:under-review|status:planned|status:in-progress)
+                gh issue edit "$number" --remove-label "$label" && echo "#$number: removed $label" ;;
+            esac
+          done

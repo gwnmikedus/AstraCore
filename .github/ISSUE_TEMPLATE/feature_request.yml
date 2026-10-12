@@ -1,6 +1,7 @@
 name: Suggest an idea
 description: Describe a useful improvement for capsuleers.
 title: "[Idea]: "
+labels: ["type:idea", "status:under-review"]
 body:
   - type: markdown
     attributes:

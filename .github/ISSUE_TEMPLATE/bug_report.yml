@@ -1,6 +1,7 @@
 name: Report a bug
 description: Tell us what went wrong and how to reproduce it.
 title: "[Bug]: "
+labels: ["type:bug", "status:under-review"]
 body:
   - type: markdown
     attributes:

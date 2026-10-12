@@ -292,7 +292,7 @@ function drawTrack() {
       </button></li>`;
   }).join('');
 
-  const position = Math.max(0, MAIN.indexOf(cur));
+  const position = Math.max(0, MAIN.indexOf(OPTIONAL_IDS.has(STEPS[cur].id) ? optionalReturn : cur));
   $('track').style.setProperty('--progress', (position / QUESTIONS) * 92 + '%');
   $('progress-label').textContent = cur === RESULT ? 'Your flight plan'
     : `Setup ${Math.round(done / QUESTIONS * 100)}% complete · ${QUESTIONS - done} main question${QUESTIONS - done === 1 ? '' : 's'} remaining`;

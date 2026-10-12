@@ -253,6 +253,76 @@ def test_last_character_of_other_profile_offers_merge(browser, eve):
     assert me(c1) is None                                        # the old profile's sessions are gone
 
 
+def test_merge_is_refused_when_the_other_profile_has_more_characters(browser, eve):
+    a, b = new_id(), new_id()
+    c1, c2 = browser(), browser()
+    sso_login(c1, eve, a, "Stays")
+    sso_login(c1, eve, b, "Shared", path="/auth/login?intent=add")
+    p1 = me(c1)
+    sso_login(c2, eve, new_id(), "Other")
+    p2 = me(c2)
+    sso_login(c2, eve, b, "Shared", path="/auth/login?intent=add")
+    assert "Merge the two profiles" not in c2.get("/auth/choose").text
+    c2.post("/auth/choose", data={"action": "merge", "csrf_token": csrf(c2)})   # forged choice
+    assert db.get_profile(p1) is not None                        # the other profile isn't taken
+    assert db.character_profile(a) == p1                         # nor its other characters
+    assert db.character_profile(b) == p2                         # only the proven character moves
+
+
+def test_authenticated_esi_cache_is_per_character_and_deleted_with_it():
+    import httpx
+    from astracore.esi.client import ESIClient
+
+    calls = []
+
+    def api(request):
+        calls.append(request.headers["authorization"])
+        return httpx.Response(200, json={"who": request.headers["authorization"]},
+                              headers={"expires": "Fri, 01 Jan 2100 00:00:00 GMT"})
+
+    async def run():
+        async with ESIClient() as esi:
+            esi._client = httpx.AsyncClient(transport=httpx.MockTransport(api))
+            first = await esi.get("/corporations/1/customs_offices/", token="A", owner=111)
+            second = await esi.get("/corporations/1/customs_offices/", token="B", owner=222)
+            again = await esi.get("/corporations/1/customs_offices/", token="A2", owner=111)
+            return first, second, again
+
+    first, second, again = asyncio.run(run())
+    assert first["who"] == "Bearer A" and second["who"] == "Bearer B"   # never another character's copy
+    assert again["who"] == "Bearer A" and len(calls) == 2               # fresh copy reused for its owner
+    with db.session() as c:
+        db.forget_character_cache(c, 111)
+        left = [r[0] for r in c.execute("SELECT url FROM http_cache WHERE url LIKE '%customs_offices%'")]
+    assert left and all(u.endswith("#auth:222") for u in left)
+
+
+def test_authenticated_esi_call_requires_its_character():
+    from astracore.esi.client import ESIClient
+
+    async def run():
+        async with ESIClient() as esi:
+            await esi.get("/characters/1/assets/", token="A")
+
+    with pytest.raises(ValueError):
+        asyncio.run(run())
+
+
+def test_removing_a_character_deletes_its_cached_esi_data(browser, eve):
+    c = browser()
+    keep, gone = new_id(), new_id()
+    sso_login(c, eve, keep, "Keep")
+    sso_login(c, eve, gone, "Gone", path="/auth/login?intent=add")
+    with db.session() as conn:
+        for cid in (keep, gone):
+            conn.execute("REPLACE INTO http_cache(url, body, etag, expires) VALUES(?,?,?,?)",
+                         (f"https://esi/x/wallet/journal/?#auth:{cid}", "[]", None, 9e9))
+    c.post(f"/profile/characters/{gone}/remove", data={"csrf_token": csrf(c)})
+    with db.session() as conn:
+        urls = [r[0] for r in conn.execute("SELECT url FROM http_cache WHERE url LIKE '%wallet/journal%'")]
+    assert urls == [f"https://esi/x/wallet/journal/?#auth:{keep}"]
+
+
 def test_cancel_move_revokes_the_fresh_token(browser, eve):
     a, b = new_id(), new_id()
     c1, c2 = browser(), browser()

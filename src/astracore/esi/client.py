@@ -22,6 +22,11 @@ class ESIError(RuntimeError):
     pass
 
 
+def auth_suffix(character_id: int) -> str:
+    """Cache-key suffix for a character's authenticated responses (see db.forget_character_cache)."""
+    return f"#auth:{int(character_id)}"
+
+
 def _expires(resp: httpx.Response, ttl: Optional[int]) -> float:
     if ttl is not None:
         return time.time() + ttl
@@ -112,13 +117,17 @@ class ESIClient:
         raise ESIError(f"ESI request kept failing: {method} {url}")
 
     async def get(self, path: str, *, params: Optional[dict] = None, token: Optional[str] = None,
-                  ttl: Optional[int] = None, force: bool = False) -> Any:
-        """GET with cache. Returns parsed JSON. Follows X-Pages pagination."""
+                  owner: Optional[int] = None, ttl: Optional[int] = None, force: bool = False) -> Any:
+        """GET with cache. Returns parsed JSON. Follows X-Pages pagination.
+        Authenticated calls name the character whose token they use (`owner`): their cached copy belongs to
+        that character only, is never served to another one and is deleted with the character."""
         url = f"{ESI_BASE}{path}"
         params = dict(params or {})
         cache_key = url + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         if token:
-            cache_key += "#auth"
+            if not owner:
+                raise ValueError("An authenticated ESI call needs the character it is made for.")
+            cache_key += auth_suffix(owner)
         with db.session() as c:
             row = c.execute("SELECT * FROM http_cache WHERE url=?", (cache_key,)).fetchone()
         if row and not force and row["expires"] > time.time():

@@ -55,7 +55,7 @@ async def _safe(coro, default):
         return default
 
 
-async def resolve_locations(esi: ESIClient, token: str, ids: List[int]) -> Dict[int, dict]:
+async def resolve_locations(esi: ESIClient, token: str, ids: List[int], owner: int) -> Dict[int, dict]:
     """Station / structure id -> {name, system_id, system}. Cached across characters."""
     known = locations()
     # unresolved structures are retried after a day (another character may have docking access by then)
@@ -68,7 +68,7 @@ async def resolve_locations(esi: ESIClient, token: str, ids: List[int]) -> Dict[
             if st:
                 info = {"name": st["name"], "system_id": st["system_id"]}
         elif lid > 1_000_000_000_000:
-            st = await _safe(esi.get(f"/universe/structures/{lid}/", token=token, ttl=7 * 86400), None)
+            st = await _safe(esi.get(f"/universe/structures/{lid}/", token=token, owner=owner, ttl=7 * 86400), None)
             if st:
                 info = {"name": st["name"], "system_id": st["solar_system_id"]}
         elif 30_000_000 <= lid < 33_000_000:
@@ -123,6 +123,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     me = db.get_character(character_id)
     if not me:
         raise RuntimeError("Unknown character.")
+    db.purge_expired_private_cache()
     token = await sso.access_token(character_id)
     if not token:
         raise RuntimeError("No EVE login for this character; log in again.")
@@ -131,14 +132,14 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     pi = sde_loader.cached()
     pi_types = {t for t in pi.items} if pi else set()
 
-    skills_raw = await esi.get(f"/characters/{cid}/skills/", token=token, force=True)
+    skills_raw = await esi.get(f"/characters/{cid}/skills/", token=token, owner=cid, force=True)
     levels = {s["skill_id"]: s.get("active_skill_level", s.get("trained_skill_level", 0))
               for s in skills_raw.get("skills", [])}
     skills = {name: int(levels.get(sid, 0)) for name, sid in SKILL_IDS.items()}
 
-    colonies_raw: List[dict] = await esi.get(f"/characters/{cid}/planets/", token=token, force=True)
+    colonies_raw: List[dict] = await esi.get(f"/characters/{cid}/planets/", token=token, owner=cid, force=True)
     details = await asyncio.gather(*[
-        esi.get(f"/characters/{cid}/planets/{c['planet_id']}/", token=token, force=True)
+        esi.get(f"/characters/{cid}/planets/{c['planet_id']}/", token=token, owner=cid, force=True)
         for c in colonies_raw
     ], return_exceptions=True)
     colonies = []
@@ -151,7 +152,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
 
     extra: Dict = {}
     # --- assets: PI products wherever they are (top-level location resolved) ------
-    assets_raw = await _safe(esi.get(f"/characters/{cid}/assets/", token=token, force=True), None)
+    assets_raw = await _safe(esi.get(f"/characters/{cid}/assets/", token=token, owner=cid, force=True), None)
     if assets_raw is not None:
         by_item = {a["item_id"]: a for a in assets_raw}
 
@@ -163,11 +164,11 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
             return a["location_id"]
         assets = [{"type_id": a["type_id"], "qty": a["quantity"], "location_id": top(a),
                    "flag": a.get("location_flag")} for a in assets_raw if a["type_id"] in pi_types]
-        await resolve_locations(esi, token, [a["location_id"] for a in assets])
+        await resolve_locations(esi, token, [a["location_id"] for a in assets], cid)
         extra["assets"] = assets
 
     # --- contracts (keep recent ones; items for VOC / PI-relevant ones) ------------------
-    contracts_raw = await _safe(esi.get(f"/characters/{cid}/contracts/", token=token, force=True), None)
+    contracts_raw = await _safe(esi.get(f"/characters/{cid}/contracts/", token=token, owner=cid, force=True), None)
     if contracts_raw is not None:
         contracts = []
         for c in contracts_raw:
@@ -180,29 +181,29 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
             row["voc"] = c.get("assignee_id") == voc.CORP_ID or c.get("acceptor_id") == voc.CORP_ID
             if row["voc"] or c.get("type") == "item_exchange":
                 items = await _safe(esi.get(f"/characters/{cid}/contracts/{c['contract_id']}/items/",
-                                            token=token, ttl=86400), [])
+                                            token=token, owner=cid, ttl=86400), [])
                 row["items"] = [{"type_id": i["type_id"], "qty": i["quantity"]} for i in items
                                 if i.get("is_included", True)]
                 row["pi"] = any(i["type_id"] in pi_types for i in row["items"])
             contracts.append(row)
         await resolve_locations(esi, token, [x for c in contracts for x in
-                                             (c["start_location_id"], c["end_location_id"]) if x])
+                                             (c["start_location_id"], c["end_location_id"]) if x], cid)
         extra["contracts"] = contracts
 
     # --- market orders -------------------------------------------------------------------------
-    orders_raw = await _safe(esi.get(f"/characters/{cid}/orders/", token=token, force=True), None)
+    orders_raw = await _safe(esi.get(f"/characters/{cid}/orders/", token=token, owner=cid, force=True), None)
     if orders_raw is not None:
         extra["orders"] = [{k: o.get(k) for k in ("order_id", "type_id", "price", "volume_remain",
                                                    "volume_total", "location_id", "region_id", "issued",
                                                    "is_buy_order", "duration")}
                            for o in orders_raw if o["type_id"] in pi_types]
-        await resolve_locations(esi, token, [o["location_id"] for o in extra["orders"]])
+        await resolve_locations(esi, token, [o["location_id"] for o in extra["orders"]], cid)
 
     # --- wallet: balance + ISK that came in from PI sales / buybacks -------------------------
-    balance = await _safe(esi.get(f"/characters/{cid}/wallet/", token=token, force=True), None)
+    balance = await _safe(esi.get(f"/characters/{cid}/wallet/", token=token, owner=cid, force=True), None)
     if balance is not None:
-        tx = await _safe(esi.get(f"/characters/{cid}/wallet/transactions/", token=token, force=True), [])
-        journal = await _safe(esi.get(f"/characters/{cid}/wallet/journal/", token=token, force=True), [])
+        tx = await _safe(esi.get(f"/characters/{cid}/wallet/transactions/", token=token, owner=cid, force=True), [])
+        journal = await _safe(esi.get(f"/characters/{cid}/wallet/journal/", token=token, owner=cid, force=True), [])
         extra["wallet"] = {
             "balance": balance,
             "sales": [{"date": t["date"], "type_id": t["type_id"], "qty": t["quantity"],
@@ -218,7 +219,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         }
 
     # --- standings (broker fee) and customs offices the corporation owns (needs Director) ------
-    standings = await _safe(esi.get(f"/characters/{cid}/standings/", token=token, ttl=86400), None)
+    standings = await _safe(esi.get(f"/characters/{cid}/standings/", token=token, owner=cid, ttl=86400), None)
     if standings is not None:
         extra["standings"] = standings
 
@@ -226,7 +227,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     # Real POCO tax only when the user opted in to the customs bundle (and didn't switch it off).
     if aff.get("corporation_id") and bundle_active(me, "pi.optional.customs"):
         offices = await _safe(esi.get(f"/corporations/{aff['corporation_id']}/customs_offices/",
-                                      token=token, ttl=86400), None)
+                                      token=token, owner=cid, ttl=86400), None)
         if offices is not None:
             extra["customs_offices"] = [{**o, "owner_corporation_id": aff["corporation_id"]} for o in offices]
     if not bundle_active(me, "pi.optional.customs"):

@@ -10,9 +10,15 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from astracore import db
+from astracore.core.releases import user_agent
 
 ESI_BASE = "https://esi.evetech.net/latest"
-USER_AGENT = "Astracore/1.0 (+https://astracore.hoppyhome.nl)"
+# ESI serves every route in the version of the compatibility date a request names; a request without one
+# gets the *oldest* date. We pin it so an ESI upgrade is a deliberate, tested change here and never a
+# surprise. 2020-01-01 is what `/latest` without the header has always given us, so this keeps today's
+# response shapes. Raise it (to a date from https://esi.evetech.net/meta/compatibility-dates) after
+# checking the routes we read against the ESI changelog.
+COMPATIBILITY_DATE = "2020-01-01"
 
 # Static universe data rarely changes; keep it for a month regardless of headers.
 STATIC_TTL = 30 * 24 * 3600
@@ -27,9 +33,9 @@ def auth_suffix(character_id: int) -> str:
     return f"#auth:{int(character_id)}"
 
 
-def _expires(resp: httpx.Response, ttl: Optional[int]) -> float:
-    if ttl is not None:
-        return time.time() + ttl
+def _esi_expires(resp: httpx.Response) -> float:
+    """When ESI itself has new data: its `Expires` header. Asking again before then only returns the
+    same cached copy, and ESI's best practices treat it as circumventing the cache."""
     exp = resp.headers.get("expires")
     if exp:
         try:
@@ -37,6 +43,12 @@ def _expires(resp: httpx.Response, ttl: Optional[int]) -> float:
         except (TypeError, ValueError):
             pass
     return time.time() + 300
+
+
+def _expires(resp: httpx.Response, ttl: Optional[int]) -> float:
+    """When we ask again: after our own `ttl` if we keep a response longer, never before ESI's expiry."""
+    esi = _esi_expires(resp)
+    return esi if ttl is None else max(esi, time.time() + ttl)
 
 
 class _Budget:
@@ -76,11 +88,16 @@ class _Budget:
 BUDGET = _Budget()
 
 
+def default_headers() -> Dict[str, str]:
+    return {"User-Agent": user_agent(), "Accept": "application/json",
+            "X-Compatibility-Date": COMPATIBILITY_DATE}
+
+
 class ESIClient:
     def __init__(self, concurrency: int = 20) -> None:
-        self._client = httpx.AsyncClient(
-            timeout=30, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
-        )
+        self._client = httpx.AsyncClient(timeout=30)
+        # path -> ESI expiry, for responses served from cache because ESI has nothing newer yet
+        self.cache_waits: Dict[str, float] = {}
 
     async def __aenter__(self) -> "ESIClient":
         return self
@@ -91,7 +108,7 @@ class ESIClient:
     async def _request(self, method: str, url: str, *, params: Optional[dict] = None,
                        json_body: Any = None, token: Optional[str] = None,
                        etag: Optional[str] = None) -> httpx.Response:
-        headers = {}
+        headers = default_headers()
         if token:
             headers["Authorization"] = f"Bearer {token}"
         if etag:
@@ -120,7 +137,10 @@ class ESIClient:
                   owner: Optional[int] = None, ttl: Optional[int] = None, force: bool = False) -> Any:
         """GET with cache. Returns parsed JSON. Follows X-Pages pagination.
         Authenticated calls name the character whose token they use (`owner`): their cached copy belongs to
-        that character only, is never served to another one and is deleted with the character."""
+        that character only, is never served to another one and is deleted with the character.
+
+        A cached copy is used until it expires, then revalidated with its ETag (If-None-Match).
+        `force` skips our own longer `ttl`, never ESI's `Expires`: before that ESI has nothing newer."""
         url = f"{ESI_BASE}{path}"
         params = dict(params or {})
         cache_key = url + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
@@ -130,11 +150,15 @@ class ESIClient:
             cache_key += auth_suffix(owner)
         with db.session() as c:
             row = c.execute("SELECT * FROM http_cache WHERE url=?", (cache_key,)).fetchone()
-        if row and not force and row["expires"] > time.time():
-            return json.loads(row["body"])
+        if row:
+            now = time.time()
+            esi_until = row["esi_expires"] if row["esi_expires"] is not None else (0 if force else row["expires"])
+            if (esi_until if force else row["expires"]) > now:
+                if esi_until > now:
+                    self.cache_waits[path] = esi_until
+                return json.loads(row["body"])
 
-        resp = await self._request("GET", url, params=params, token=token,
-                                   etag=row["etag"] if row and not force else None)
+        resp = await self._request("GET", url, params=params, token=token, etag=row["etag"] if row else None)
         if resp.status_code == 304 and row:
             body = row["body"]
         elif resp.status_code == 404:
@@ -155,8 +179,9 @@ class ESIClient:
             body = json.dumps(data)
         with db.session() as c:
             c.execute(
-                "REPLACE INTO http_cache(url, body, etag, expires) VALUES(?,?,?,?)",
-                (cache_key, body, resp.headers.get("etag"), _expires(resp, ttl)),
+                "REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
+                (cache_key, body, resp.headers.get("etag") or (row["etag"] if resp.status_code == 304 else None),
+                 _expires(resp, ttl), _esi_expires(resp)),
             )
         return json.loads(body)
 
@@ -173,8 +198,8 @@ class ESIClient:
             raise ESIError(f"{resp.status_code} {path}: {resp.text[:200]}")
         data = resp.json()
         with db.session() as c:
-            c.execute("REPLACE INTO http_cache(url, body, etag, expires) VALUES(?,?,?,?)",
-                      (cache_key, json.dumps(data), None, _expires(resp, ttl)))
+            c.execute("REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
+                      (cache_key, json.dumps(data), None, _expires(resp, ttl), _esi_expires(resp)))
         return data
 
     async def gather_get(self, paths: List[str], ttl: Optional[int] = None) -> Dict[str, Any]:

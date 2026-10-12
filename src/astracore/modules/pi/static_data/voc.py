@@ -15,6 +15,7 @@ from typing import Dict, List, Optional
 import httpx
 
 from astracore import db
+from astracore.core.releases import user_agent
 
 SITE = "https://vochauling.com/"
 BUYBACK_SITE = "https://buyback.vochauling.com/"
@@ -73,7 +74,7 @@ def parse_routes(page: str) -> List[dict]:
 
 async def refresh_routes() -> List[dict]:
     try:
-        async with httpx.AsyncClient(timeout=20, headers={"User-Agent": "Astracore/1.0"}) as c:
+        async with httpx.AsyncClient(timeout=20, headers={"User-Agent": user_agent()}) as c:
             r = await c.get(SITE)
             r.raise_for_status()
         routes = parse_routes(r.text)

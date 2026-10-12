@@ -12,6 +12,7 @@ import httpx
 
 from astracore import db
 from .project import REPOSITORY_URL
+from .releases import user_agent
 
 REFRESH_EVERY = 3600
 RETRY_AFTER = 900
@@ -106,7 +107,7 @@ async def sync_once(*, force: bool = False, transport=None) -> None:
         if not force and saved["next_poll_at"] > now:
             return
         headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10",
-                   "User-Agent": "AstraCore contributor credits"}
+                   "User-Agent": user_agent()}
         try:
             # Public metadata needs no token or extra permissions on the Issues integration.
             async with httpx.AsyncClient(timeout=15, headers=headers, transport=transport) as client:

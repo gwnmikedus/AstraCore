@@ -21,6 +21,7 @@ from urllib.parse import quote
 import httpx
 
 from astracore import db
+from astracore.core.releases import user_agent
 from astracore.config import STATIC_DIR
 from astracore.esi import public
 from astracore.esi.client import ESIClient
@@ -69,7 +70,7 @@ def _parse_name(path: str) -> dict:
 
 async def _fetch_all() -> Dict[str, dict]:
     TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
-    async with httpx.AsyncClient(timeout=60, headers={"User-Agent": "Astracore/1.0"}) as c:
+    async with httpx.AsyncClient(timeout=60, headers={"User-Agent": user_agent()}) as c:
         r = await c.get(TREE_API)
         r.raise_for_status()
         paths = [t["path"] for t in r.json().get("tree", [])

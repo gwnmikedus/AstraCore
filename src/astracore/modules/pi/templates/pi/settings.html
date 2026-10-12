@@ -34,7 +34,7 @@
   <div class="grid">
     {{ num(s, 'poco_tax_pct', 'Customs office tax % (where the real rate isn’t known)', 'Import tax is half of this.') }}
   </div>
-  {% if poco %}<p class="ok"><small>Read from ESI for {{ poco|length }} system(s): {% for sid, r in poco.items() %}{{ r|pct }}{% if not loop.last %}, {% endif %}{% endfor %}. Used there instead of the value above.</small></p>
+  {% if poco %}<p class="ok"><small>Read from ESI for {{ poco|length }} system{{ '' if poco|length == 1 else 's' }}: {% for sid, r in poco.items() %}{{ r|pct }}{% if not loop.last %}, {% endif %}{% endfor %}. Used there instead of the value above.</small></p>
   {% elif customs_on %}<p class="muted"><small>Real customs rates are switched on for {{ customs_on|join(', ') }}, but ESI shows them only to
     Directors of the owning corporation. Ask your alliance what the POCO tax is for members.</small></p>
   {% else %}<p class="muted"><small>For the real POCO tax, switch on <em>Real customs office tax</em> for a Director character on your
@@ -44,7 +44,7 @@
   <header><strong>Extraction yield</strong></header>
   {{ check(s, 'auto_calibrate', 'Use yield measured from my characters’ real extractors when available') }}
   {% if calibrated %}<p class="ok">Measured from your extractors: {{ calibrated|num }} P0/hour/head (EVE’s official extraction formula, normalised to richness 1.0 and a 3-day program).
-    {% if measured %}Richness of {{ measured|length }} planet(s) is also taken from your extractors.{% endif %}</p>
+    {% if measured %}Richness of {{ measured|length }} planet{{ '' if measured|length == 1 else 's' }} is also taken from your extractors.{% endif %}</p>
   {% else %}<p class="muted">No extractor data from your characters yet, so the value below is used.</p>{% endif %}
   {{ num(s, 'head_yield_per_hour', 'Fallback: P0 per hour per extractor head (richness 1.0, 3-day cycle)') }}
   {{ num(s, 'stack_yield_pct', 'Yield of each extra colony on the same resource on one planet (%)', 'Two of your colonies extracting the same P0 on one planet share its deposits. 70 = the 2nd gets 70%, the 3rd 49% of the first.') }}

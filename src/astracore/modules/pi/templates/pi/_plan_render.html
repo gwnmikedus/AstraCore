@@ -1,4 +1,5 @@
 // Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC),
+// AC.planWarningsHTML (js/plan-warnings.js),
 // API, EXPORT, EXPORT_Q (which plan the export links download) and WAYPOINT_CHARS.
 
 // While P0 yield is still an estimate, say so in the headline with the 0.5x / 2x range.
@@ -22,8 +23,9 @@ document.addEventListener('click', async e => {
   b.innerHTML = r.ok ? `Sent ${r.sent} waypoints to ${esc(r.character)}` : esc(r.error || 'Failed');
   setTimeout(() => { b.innerHTML = t; b.disabled = false; }, 4000);
 });
-function planHTML(res) {
-  if (res.error) return `<p class="bad">${esc(res.error)}</p>` + (res.warnings||[]).map(x => `<div class="warnbox">${esc(x)}</div>`).join('');
+// opts.steps (guided setup): step id -> answer name, for "Change <answer>" links on warnings.
+function planHTML(res, opts = {}) {
+  if (res.error) return `<p class="bad">${esc(res.error)}</p>` + AC.planWarningsHTML(res.warnings, opts);
   const t = res.totals;
   let h = `<div class="cards">
     <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">ISK / day, after taxes, hauling &amp; fees</div></div>
@@ -35,7 +37,7 @@ function planHTML(res) {
     <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
   </div>`;
   h = yieldHeadline(res) + h;
-  h += (res.warnings || []).map(x => `<div class="warnbox">${esc(x)}</div>`).join('');
+  h += AC.planWarningsHTML(res.warnings, opts);
   h += `<div class="toolbar">
     <a href="${EXPORT}/templates.zip${EXPORT_Q}" data-export="templates.zip" role="button">${AC.icon('download')} Templates for this plan (${res.templates_needed.length})</a>
     <a href="${EXPORT}/plan.md${EXPORT_Q}" data-export="plan.md" role="button" class="outline">Export .md</a>

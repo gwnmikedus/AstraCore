@@ -17,7 +17,7 @@ from . import store
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import checklist, compare, demand, operate, optimizer, prices, selling
+from .planner import checklist, compare, demand, notices, operate, optimizer, prices, selling
 from .planner import skills as skills_mod
 from .settings import Settings
 from .static_data import dalshooth, sde_loader, voc
@@ -260,31 +260,38 @@ def run_plan(ctx, s=None) -> dict:
                 again["solve_seconds"] = round(again["solve_seconds"] + res["solve_seconds"], 2)
                 _describe_replan(ctx["pi"], res, again, base, real)
                 count_realistic(again["selling"], again["channels"], real)
-                again["warnings"].append(replan_summary(again["demand"], second - first))
+                again["warnings"].append(notices.note("replan", replan_summary(again["demand"], second - first),
+                                                      level="info"))
                 res = again
     n_risky = len(res["demand"]["warnings"])
     if n_risky:
-        res["warnings"].append(f"{_plural(n_risky, 'product', 'products')} may not sell as planned at the chosen "
-                               f"market: see Market demand under How you get paid.")
+        res["warnings"].append(notices.note(
+            "demand", f"{_plural(n_risky, 'product', 'products')} may not sell as planned at the chosen market: "
+            f"see Market demand under How you get paid.", steps=("sell", "batch")))
     missing = res["demand"].get("books_missing") or []
     if missing:
-        res["warnings"].append(f"The order books for {', '.join(missing)} didn't load, so their buyers weren't "
-                               f"checked. Refresh prices before you ship.")
+        res["warnings"].append(notices.note(
+            "books_missing", f"The order books for {notices.names(missing)} didn't load, so their buyers weren't "
+            f"checked. Refresh prices before you ship."))
     res["dropoff"] = ctx["dropoff"]
     res["seller"] = ctx["seller"] if ctx["s"].taxes_from_skills else None
     res["taxes"] = {"sales_tax_pct": ctx["s"].sales_tax_pct, "broker_fee_pct": ctx["s"].broker_fee_pct,
                     "from_skills": bool(ctx["s"].taxes_from_skills and ctx["seller"])}
     res["yield"] = {"head_yield": round(ctx["head_yield"]), "calibrated": bool(ctx["calibrated"])}
     if ctx["origin"] is None and ctx["dropoff"]:
-        res["warnings"].append(f"VOC doesn't pick up in {ctx['dropoff']} and no VOC pickup is reachable in your "
-                               f"area, so products that need a courier are valued at 0. Pick a drop-off "
-                               f"from {', '.join(voc.COURIER_ORIGINS)}.")
+        res["warnings"].append(notices.note(
+            "voc_unreachable", f"VOC doesn't pick up in {ctx['dropoff']} and no VOC pickup is reachable in your "
+            f"area, so products that need a courier are valued at 0. Pick a drop-off from "
+            f"{', '.join(voc.COURIER_ORIGINS)}.", steps=("area", "sell")))
     elif ctx["origin"] != ctx["dropoff"]:
-        res["warnings"].append(f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the "
-                               f"goods to {ctx['origin']} ({ctx['origin_jumps']} jumps) first.")
+        res["warnings"].append(notices.note(
+            "voc_origin", f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the goods to "
+            f"{ctx['origin']} ({notices.plural(ctx['origin_jumps'], 'jump')}) first.", steps=("area",), level="info"))
     n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
     if n_measured:
-        res["warnings"].append(f"Richness of {n_measured} planet(s) comes from your own extractors.")
+        res["warnings"].append(notices.note(
+            "measured_richness", f"Richness of {notices.plural(n_measured, 'planet')} comes from your own "
+            f"extractors.", level="info"))
     return res
 
 

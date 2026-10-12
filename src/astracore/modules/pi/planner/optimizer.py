@@ -32,8 +32,9 @@ from ..static_data import dalshooth, voc
 from ..static_data.pi_rules import HIGH_TECH_PLANETS, PLANET_TYPES
 from ..static_data.sde_loader import PIData
 from . import economics as eco
-from . import operate, routing, setups, skills, upkeep
+from . import notices, operate, routing, setups, skills, upkeep
 
+NO_FIT = "No templates fit the planets in your area. Allow more systems or more jumps from the drop-off."
 MINER_CCU = 4  # DalShooth nullsec miners fit a level-4 command center (lowsec miners need 5)
 BUFFER_HEADROOM = 0.99  # factories are planned to fill at most 99% of their space in one cycle
 
@@ -128,7 +129,7 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
                 cache[key] = opts
             cands += [(p["planet_id"], st, k) for st, k in cache[key]]
     if not cands:
-        return None, planets, scope, "No templates fit the selected space. Select more constellations or raise max jumps."
+        return None, planets, scope, NO_FIT
 
     w = time_weights(s)
     per_planet = per_planet_cap
@@ -468,15 +469,8 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     t0 = time.time()
     overrides = overrides or {}
     head_yield = head_yield or s.head_yield_per_hour
-    warnings = []
     eligible = [c for c in characters if int(c.get("ccu_level", 0)) >= 2]
-    for c in characters:
-        lvl = int(c.get("ccu_level", 0))
-        if lvl < 2:
-            warnings.append(f"{c['name']} has Command Center Upgrades {lvl}; no template fits, so {c['name']} is left out.")
-        elif lvl < MINER_CCU:
-            warnings.append(f"{c['name']} has Command Center Upgrades {lvl}: only factory templates fit "
-                            f"(miners need {MINER_CCU}).")
+    warnings = notices.low_ccu(characters, MINER_CCU)
     if not eligible:
         return {"error": "None of your characters can place the templates yet (Command Center Upgrades too low).",
                 "warnings": warnings}
@@ -495,7 +489,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
                                             total_slots, max_slots, slots_by_ccu, prices, templates,
                                             overrides, head_yield, eligible)
     if err:
-        return {"error": err, "warnings": warnings}
+        return {"error": err, "warnings": warnings, **({"error_steps": ["area"]} if err == NO_FIT else {})}
 
     if s.cross_character:
         links = _links(pi, instances)
@@ -521,7 +515,8 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         action = "new" if had == "none" else ("keep" if had == st.product else "rebuild")
         notes = []
         if inst.get("share"):
-            notes.append(f"Shares its {', '.join(pi.name(t) for t in st.p0)} with {inst['share']} other colony(ies) "
+            others = notices.plural(inst["share"], "other colony", "other colonies")
+            notes.append(f"Shares its {', '.join(pi.name(t) for t in st.p0)} with {others} "
                          f"of yours on this planet: yield estimated at {s.stack_yield_pct ** inst['share'] / 100 ** (inst['share'] - 1):.0f}% "
                          f"of the first. Place heads on a different hotspot.")
         tpl_lvl = st.template.get("ccu_level")
@@ -555,20 +550,14 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         c["upkeep"] = upkeep.plan_buffer(pi, c, s.cycle_days)
     tight = [c for c in colonies if c["upkeep"]["issues"]]
     if tight:
-        warnings.append(f"Storage check: {len(tight)} colon{'y' if len(tight) == 1 else 'ies'} can't buffer "
-                        f"{s.cycle_days:g} days of inputs or products in their launchpad and storage space ("
-                        + ", ".join(f"{c['planet']} {c['product']}" for c in tight[:4])
-                        + (", …" if len(tight) > 4 else "") + "). Plan the extra visits shown per colony, "
-                        "or add storage in game.")
-    for who, pairs in sorted(check_in_game.items()):
-        tl, cl = max(pairs)
-        warnings.append(f"Check in game: {who} has Command Center Upgrades {cl}, but the templates were saved "
-                        f"with a level {tl} command center. The structures fit level {cl} on paper; place one "
-                        f"first and confirm the game accepts it before building the rest.")
+        warnings.append(notices.storage([(c["planet"], c["product"]) for c in tight], s.cycle_days))
+    if check_in_game:
+        warnings.append(notices.ccu_check_in_game(check_in_game))
     if other_type:
-        warnings.append("Check in game: some templates go on a different planet type than they were saved on ("
-                        + ", ".join(f"{a} → {b}" for a, b in sorted(other_type))
-                        + "). Apply one and check that every structure lands before relying on the plan.")
+        warnings.append(notices.note(
+            "planet_type_check", "Check in game: some templates go on a different planet type than they were "
+            "saved on (" + ", ".join(f"{a} → {b}" for a, b in sorted(other_type))
+            + "). Apply one and check that every structure lands before relying on the plan."))
 
     # removals: existing colonies not in the plan
     planned = {(c["character_id"], c["planet_id"]) for c in colonies}
@@ -588,8 +577,12 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     transfer_rows = [{"from": a, "to": b, "item": it, "units_per_day": round(q, 1)}
                      for (a, b, it), q in sorted(transfers.items())]
     if transfer_rows and not s.cross_character:
-        warnings.append("Some factory chains don't fit on one character, so a few goods must be "
-                        "contracted between your characters (see Transfers). Allow it, or set a lower max tier.")
+        warnings.append(notices.note(
+            "transfers", "Some factory chains don't fit on one character, so a few goods must be contracted "
+            "between your characters (see Transfers). Allow trading between characters, or set a lower max tier.",
+            guided="Some factory chains don't fit on one character, so a few goods must be contracted between "
+                   "your characters (see Transfers). Let your characters supply each other, or process less far.",
+            steps=("chain", "tier")))
 
     # sales
     produced, consumed = defaultdict(float), defaultdict(float)
@@ -639,11 +632,9 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     }
     free = total_slots - len(colonies)
     if free > 0:
-        warnings.append(f"{free} slot(s) unused: the selected space or limits (max systems {s.max_systems or '∞'}, "
-                        f"max jumps {s.max_jumps}, colonies per planet {s.per_planet}) don't offer anything "
-                        f"worth the time it takes. Loosen a limit or value your time lower.")
+        warnings.append(notices.unused_slots(free, s.max_systems, s.max_jumps, s.per_planet))
     if not prices or not any(prices.values()):
-        warnings.append("No market prices loaded - ISK values are 0.")
+        warnings.append(notices.note("no_prices", "No market prices loaded, so ISK values are 0. Refresh prices."))
     return {
         "hub": hub["name"], "hub_id": hub["system_id"], "systems_in_scope": len(scope),
         "solve_seconds": round(time.time() - t0, 2), "head_yield": head_yield,

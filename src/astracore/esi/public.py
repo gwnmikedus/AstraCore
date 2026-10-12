@@ -24,8 +24,11 @@ async def ids_to_names(esi: ESIClient, ids: Iterable[int]) -> Dict[int, str]:
     return out
 
 
-async def sov_map(esi: ESIClient, force: bool = False) -> List[dict]:
-    return await esi.get("/sovereignty/map/", ttl=3600, force=force, stale_ok=not force)
+async def sov_systems(esi: ESIClient, force: bool = False) -> Dict[int, Optional[int]]:
+    """Alliance sovereignty by system; faction and unclaimed systems have no alliance."""
+    data = await esi.get("/sovereignty/systems/", ttl=3600, force=force, stale_ok=not force)
+    return {row["solar_system_id"]: row["claim"].get("alliance", {}).get("alliance_id")
+            for row in data["solar_systems"]}
 
 
 async def system(esi: ESIClient, system_id: int) -> dict:

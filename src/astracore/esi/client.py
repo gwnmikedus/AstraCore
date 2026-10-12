@@ -13,13 +13,10 @@ from astracore import db
 from astracore.core.releases import user_agent
 
 ESI_BASE = "https://esi.evetech.net/latest"
-# ESI serves every route in the version of the compatibility date a request names; a request without one
-# gets the *oldest* date (2020-01-01). We pin it so an ESI upgrade is a deliberate, tested change here and
-# never a surprise. Checked against https://esi.evetech.net/meta/changelog and the OpenAPI spec of each date
-# (issue #124): every route we read has the same parameters and response shape on 2025-12-16 as on
-# 2020-01-01. Don't move past 2026-05-19 without porting `public.sov_map`: from that date
-# /sovereignty/map/ is gone (404), replaced by /sovereignty/systems/ with a different shape.
-COMPATIBILITY_DATE = "2025-12-16"
+# Pin ESI's route versions so upgrades are deliberate. Checked the changelog and OpenAPI
+# on 2026-10-12: /sovereignty/systems/ replaces /sovereignty/map/; the other 26 routes
+# we read retain their request and response shapes (issue #141).
+COMPATIBILITY_DATE = "2026-08-18"
 
 # Static universe data rarely changes; keep it for a month regardless of headers.
 STATIC_TTL = 30 * 24 * 3600

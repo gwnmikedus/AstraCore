@@ -21,6 +21,7 @@ final class ReleaseStore: ObservableObject {
     @Published var releaseCommit: String?     // the release PR's squash commit (or what the tag points at)
     @Published var previousTag: String?
     @Published var deployed = false
+    @Published var canDeployForward = false   // production is behind the release commit (deploying it isn't a rollback)
     @Published var shipped: [MergedPR] = []   // PRs in the release
     @Published var upcoming: [MergedPR] = []  // merged since the release: material for the next one
     @Published var unreleasedIssues: [Int] = []  // closed by shipped PRs, without status:released
@@ -55,10 +56,14 @@ final class ReleaseStore: ObservableObject {
         guard let rc = releaseCommit else { return }
         let prev = await Shell.git("describe", "--tags", "--abbrev=0", "--match", "v0.*.0", "\(rc)^")
         previousTag = prev.ok ? prev.trimmed : nil
+        if ops.status == nil { await ops.refresh() }
         if let prod = ops.status?.production.commit {
             deployed = await Shell.git("merge-base", "--is-ancestor", rc, prod).ok
+            let behind = await Shell.git("merge-base", "--is-ancestor", prod, rc).ok
+            canDeployForward = !deployed && behind
         } else {
             deployed = false
+            canDeployForward = ops.status?.production.exists == false
         }
         // Pull requests in this release (needs the previous tag) and merged since.
         if let prevTag = previousTag {

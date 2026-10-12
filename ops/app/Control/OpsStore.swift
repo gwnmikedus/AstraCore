@@ -56,8 +56,9 @@ final class OpsStore: ObservableObject {
 
     private var timer: Timer?
 
-    func start() {
-        Task { await refresh(fetch: true) }
+    /// First status load (awaited, so pages that need the production commit have it), then every 20 s.
+    func start() async {
+        await refresh(fetch: true)
         timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }

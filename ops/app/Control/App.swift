@@ -124,7 +124,7 @@ struct ContentView: View {
         .task {
             guard !started else { return }
             started = true
-            ops.start()
+            await ops.start()
             await github.refresh()
             await release.refresh(ops: ops, issues: github.issues)
             await Snapshot.run(runner: runner) { section = $0 }

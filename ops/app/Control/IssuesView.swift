@@ -136,7 +136,7 @@ struct IssueDetail: View {
                             }
                         }
                     } else {
-                        Text("Closed as \(issue.stateReason == "COMPLETED" ? "completed" : "not planned")\(issue.names.contains(Labels.released) ? " and released" : ""). `status:released` is added by the Release page when a minor release ships it.")
+                        Text("Closed as \(issue.stateReason == "COMPLETED" ? "completed" : "not planned")\(issue.names.contains(Labels.released) ? " and released" : ""). `status:released` means it's live: deploys add it.")
                             .font(.callout).foregroundStyle(.secondary)
                         Button("Reopen") { github.reopen(issue, runner) }
                     }

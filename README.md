@@ -103,7 +103,7 @@ Without a terminal:
     (and optionally deploy right after).
   - *Issues*: status and type labels per [docs/releases.md](docs/releases.md#issue-labels), issues that break the
     scheme, close as completed / not planned, reopen.
-  - *Release*: the minor-release steps (tag, GitHub Release, deploy, `status:released`) and the pilot-facing notes
+  - *Release*: the minor-release steps (tag, GitHub Release, deploy) and the pilot-facing notes
     merged since the last release, ready for the next release pull request.
   - *Logs & backups*: the app, tunnel and deploy logs, and the database backups.
 

@@ -19,17 +19,14 @@ final class ReleaseStore: ObservableObject {
     @Published var tagExists = false
     @Published var releaseExists = false
     @Published var releaseCommit: String?     // the release PR's squash commit (or what the tag points at)
-    @Published var previousTag: String?
     @Published var deployed = false
     @Published var canDeployForward = false   // production is behind the release commit (deploying it isn't a rollback)
-    @Published var shipped: [MergedPR] = []   // PRs in the release
     @Published var upcoming: [MergedPR] = []  // merged since the release: material for the next one
-    @Published var unreleasedIssues: [Int] = []  // closed by shipped PRs, without status:released
     @Published var loading = false
     @Published var error: String?
 
     var tag: String? { version.map { "v" + $0 } }
-    var inProgress: Bool { version != nil && (!tagExists || !releaseExists || !deployed || !unreleasedIssues.isEmpty) }
+    var inProgress: Bool { version != nil && (!tagExists || !releaseExists || !deployed) }
     var nextVersion: String {
         guard let v = version, case let parts = v.split(separator: "."), parts.count == 3, let minor = Int(parts[1]) else { return "0.?.0" }
         return "\(parts[0]).\(minor + 1).0"
@@ -54,8 +51,6 @@ final class ReleaseStore: ObservableObject {
         releaseCommit = commit.ok ? commit.trimmed : nil
         releaseExists = await Shell.gh(["release", "view", tag, "--json", "tagName"]).ok
         guard let rc = releaseCommit else { return }
-        let prev = await Shell.git("describe", "--tags", "--abbrev=0", "--match", "v0.*.0", "\(rc)^")
-        previousTag = prev.ok ? prev.trimmed : nil
         if ops.status == nil { await ops.refresh() }
         if let prod = ops.status?.production.commit {
             deployed = await Shell.git("merge-base", "--is-ancestor", rc, prod).ok
@@ -65,19 +60,8 @@ final class ReleaseStore: ObservableObject {
             deployed = false
             canDeployForward = ops.status?.production.exists == false
         }
-        // Pull requests in this release (needs the previous tag) and merged since.
-        if let prevTag = previousTag {
-            shipped = await Self.pulls(range: "\(prevTag)..\(rc)")
-        } else {
-            shipped = []
-        }
+        // Pull requests merged since the release: material for the next one.
         upcoming = await Self.pulls(range: "\(rc)..origin/main")
-        let closed = Set(shipped.flatMap { $0.closingIssuesReferences.map(\.number) })
-        let byNumber = Dictionary(uniqueKeysWithValues: issues.map { ($0.number, $0) })
-        unreleasedIssues = closed.filter { n in
-            guard let issue = byNumber[n] else { return false }
-            return !issue.isOpen && issue.stateReason == "COMPLETED" && !issue.names.contains(Labels.released)
-        }.sorted()
     }
 
     static func pulls(range: String) async -> [MergedPR] {
@@ -129,18 +113,10 @@ final class ReleaseStore: ObservableObject {
         }
         runner.ask("Publish AstraCore \(version)?", "Tags \(String(rc.prefix(7))) as \(tag), pushes the tag and publishes the GitHub Release from release_data.json. Published tags are never moved or reused.", button: "Publish \(tag)") {
             runner.run("Publish \(tag)", steps, cleanup: [.git("Remove the temporary checkout", "worktree", "remove", "--force", dir)],
-                       success: "Published \(tag). Next: deploy it and mark the shipped issues released.") { _ in
+                       success: "Published \(tag). Next: deploy it.") { _ in
                 await ops.refresh(fetch: true)
                 await self.refresh(ops: ops, issues: github.issues)
             }
-        }
-    }
-
-    func markReleased(_ runner: Runner, ops: OpsStore, github: GitHubStore) {
-        let steps = unreleasedIssues.map { Step(label: "#\($0)", tool: "gh", args: ["issue", "edit", "\($0)", "--add-label", Labels.released]) }
-        runner.run("Mark \(steps.count) issue(s) released", steps) { _ in
-            await github.refresh()
-            await self.refresh(ops: ops, issues: github.issues)
         }
     }
 }

@@ -45,12 +45,6 @@ struct ReleaseView: View {
                 }
                 if !ops.undeployed.isEmpty { Button("Deploy latest…") { ops.deploy(runner) } }
             }
-            StepRow(done: release.unreleasedIssues.isEmpty, title: "Mark the shipped issues released",
-                    detail: release.previousTag == nil ? "No earlier release to compare with." :
-                        release.unreleasedIssues.isEmpty ? "Every issue closed by the \(release.shipped.count) pull request(s) in this release has status:released." :
-                        "Closed by pull requests in this release, still without status:released: " + release.unreleasedIssues.map { "#\($0)" }.joined(separator: ", ")) {
-                Button("Add status:released") { release.markReleased(runner, ops: ops, github: github) }
-            }
         }
         .disabled(runner.busy)
     }

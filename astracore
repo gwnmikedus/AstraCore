@@ -6,6 +6,7 @@
 #                              runs the pinned production checkout
 #   ./astracore deploy [ref]   pin production to a commit on origin/main (default: its tip) and restart it
 #   ./astracore rollback       pin production back to the previously deployed commit and restart it
+#   ./astracore mark-released <from> [to]   sync status:released for the PRs between two commits (deploy does this)
 #   ./astracore stop           stops the tunnel first (visitors get the offline page), then the app
 #   ./astracore restart [--prod]
 #   ./astracore status [--json]   (--json: machine-readable, for AstraCore Control.app)
@@ -231,6 +232,7 @@ cmd_deploy() {   # cmd_deploy [ref] [--rollback]
     printf '%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sha" \
       "$(git -C "$PROD_CODE" describe --tags --always 2>/dev/null)" "$note" >>"$DEPLOY_LOG"
     say "Deployed. Recorded in data/deploys.log."
+    mark_released "$prev" "$sha"
   elif [[ -n "$prev" && "$prev" != "$sha" ]]; then
     say "The new build didn't come up. Putting $(git -C "$ROOT" rev-parse --short "$prev") back…"
     pin_production "$prev"
@@ -239,6 +241,35 @@ cmd_deploy() {   # cmd_deploy [ref] [--rollback]
   else
     die "Production didn't come up. See: tail -n 50 $LOGS/app-production.out"
   fi
+}
+
+# status:released means "closed and live in production" (docs/releases.md#issue-labels). After a deploy, the issues
+# closed by the pull requests that just went live get it; a rollback takes it off what it removes from production.
+# Best effort: GitHub being unreachable never fails a deploy.
+mark_released() {   # mark_released <from> <to>
+  local from to add=1 range prs pr issues issue gh
+  from=$(git -C "$ROOT" rev-parse --verify --quiet "${1:-}^{commit}" 2>/dev/null) || return 0
+  to=$(git -C "$ROOT" rev-parse --verify --quiet "${2:-}^{commit}" 2>/dev/null) || return 0
+  [[ "$from" != "$to" ]] || return 0
+  if git -C "$ROOT" merge-base --is-ancestor "$from" "$to"; then range="$from..$to"
+  elif git -C "$ROOT" merge-base --is-ancestor "$to" "$from"; then range="$to..$from"; add=0
+  else return 0; fi
+  gh=$(command -v gh 2>/dev/null || echo "$HOME/.local/bin/gh")
+  if [[ ! -x "$gh" ]]; then say "Note: gh not found, so status:released wasn't updated. Run: ./astracore mark-released $1 $2"; return 0; fi
+  prs=$(git -C "$ROOT" log --format=%s "$range" | sed -n 's/.*(#\([0-9][0-9]*\))$/\1/p' || true)
+  for pr in $prs; do
+    if ! issues=$(cd "$ROOT" && "$gh" pr view "$pr" --json closingIssuesReferences --jq '.closingIssuesReferences[].number' 2>/dev/null); then
+      say "Note: couldn't read #$pr on GitHub; status:released not updated for it."; continue
+    fi
+    for issue in $issues; do
+      if [[ $add == 1 ]]; then
+        (cd "$ROOT" && "$gh" issue edit "$issue" --add-label status:released >/dev/null 2>&1) && say "Released: #$issue (live through #$pr)"
+      else
+        (cd "$ROOT" && "$gh" issue edit "$issue" --remove-label status:released >/dev/null 2>&1) && say "No longer released: #$issue (#$pr rolled back)"
+      fi
+    done
+  done
+  return 0
 }
 
 cmd_rollback() {
@@ -266,7 +297,8 @@ case "${1:-}" in
   restart) shift; cmd_stop; cmd_start "$@" ;;
   deploy)  shift; cmd_deploy "${1:-origin/main}" ;;
   rollback) cmd_rollback ;;
+  mark-released) shift; [[ -n "${1:-}" ]] || die "Usage: ./astracore mark-released <from> [to]"; mark_released "$1" "${2:-origin/main}" ;;
   status)  if [[ "${2:-}" == "--json" ]]; then cmd_status_json; else cmd_status; fi ;;
   logs)    cmd_logs ;;
-  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

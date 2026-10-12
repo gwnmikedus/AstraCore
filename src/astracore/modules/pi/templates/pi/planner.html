@@ -93,6 +93,8 @@
   <section>
     <h4 style="margin-bottom:.5rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap"><span>Suggestions <span class="muted" id="alts-note"></span></span>
       <a href="/pi/plan" style="font-size:.85rem;font-weight:400">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
+    <div class="toolbar"><button type="button" id="apply-preview" disabled>Apply these settings</button>
+      <span id="preview-status" role="status">Preview only. Your guided answers stay unchanged until you apply.</span></div>
     <div class="alts" id="alts"></div>
     <div class="result" id="result"><p class="muted">Working out the first suggestion…</p></div>
   </section>
@@ -102,7 +104,8 @@
 {% block scripts %}
 <script nonce="{{ nonce }}">
 const S = JSON.parse({{ settings_json|tojson }});   // tojson: free-text settings can never end this script block
-const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}', EXPORT_Q = '?current=1';
+const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}';
+let EXPORT_Q = '';
 const WAYPOINT_CHARS = {{ waypoints|tojson }};
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
@@ -159,30 +162,44 @@ function state() {
 }
 
 // ---- live updates -------------------------------------------------------------------
-let timer = null, ctrl = null, altKey = null;
-function schedule(delay = 300) { showLabels(); clearTimeout(timer); timer = setTimeout(update, delay); }
-async function update() {
+let timer = null, ctrl = null, altKey = null, updateSeq = 0, applying = false;
+let baseline = null;
+function invalidatePreview() {
+  ++updateSeq; ++altSeq; altKey = null;
+  $('apply-preview').disabled = true;
+  $('preview-status').textContent = 'Preview only. Your guided answers stay unchanged until you apply.';
+  document.querySelectorAll('#result [data-export]').forEach(a => { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); });
+}
+function schedule(delay = 300) { invalidatePreview(); showLabels(); clearTimeout(timer); timer = setTimeout(update, delay); }
+async function update(apply = false) {
+  const my = ++updateSeq;
+  if (apply) applying = true;
+  $('apply-preview').disabled = true;
   if (ctrl) ctrl.abort();
   ctrl = new AbortController();
   $('busy').style.display = 'block'; $('result').classList.add('loading');
   const st = state();
   try {
-    const res = await AC.post(API + '/suggest', st, {signal: ctrl.signal,
+    const res = await AC.post(API + (apply ? '/apply' : '/preview'), {settings: st, baseline}, {signal: ctrl.signal,
       onBusy: () => { $('busy').textContent = 'AstraCore is busy, your plan is queued…'; }});
+    if (my !== updateSeq) return;
     $('busy').textContent = 'updating…';
     if (res.superseded) return;
+    baseline = res.baseline || baseline;
+    $('apply-preview').disabled = !!res.error || apply;
+    $('preview-status').textContent = res.error ? 'Preview unavailable. Your settings were not applied.' : apply ? 'Settings applied. Downloads now match this plan; your guided answers and place are retained.' : 'Preview only. Apply these settings before downloading this plan.';
     render(res, st);
     const key = JSON.stringify({...st, effort: null, hour_isk: null});
-    if (key !== altKey) { altKey = key; loadAlts(); } else markAlt();
-  } catch (e) { if (e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
-  finally { $('busy').style.display = 'none'; $('result').classList.remove('loading'); }
+    if (key !== altKey) { altKey = key; loadAlts(st); } else markAlt();
+  } catch (e) { if (my === updateSeq && e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
+  finally { if (apply) applying = false; if (my === updateSeq) { $('busy').style.display = 'none'; $('result').classList.remove('loading'); } }
 }
 let altSeq = 0;
-async function loadAlts() {
+async function loadAlts(st) {
   const my = ++altSeq;            // only the newest comparison may draw (an older answer can arrive later)
   $('alts-note').textContent = '- comparing goals…';
   let alts;
-  try { alts = await AC.post(API + '/alternatives', {}); } catch (e) { alts = {error: String(e)}; }
+  try { alts = await AC.post(API + '/alternatives', {base: st}); } catch (e) { alts = {error: String(e)}; }
   if (my !== altSeq) return;
   if (alts.superseded) { $('alts-note').textContent = ''; return; }
   if (!Array.isArray(alts)) { $('alts-note').textContent = '- comparison unavailable, change a setting to retry'; return; }
@@ -210,11 +227,16 @@ function render(res, st) {
   $('h-effort').textContent = w.isk_per_m3 !== undefined
     ? (w.isk_per_m3 > 0 ? `Weighed against your time: each m³ hauled costs ${num(w.isk_per_m3)} ISK, each system on the pickup round ` +
        `${isk(w.isk_per_system)}/day and each factory to restock ${isk(w.isk_per_factory)}/day.` : 'Only income counts: your time is valued at 0.') : '';
+  EXPORT_Q = res.result_id ? '?result=' + encodeURIComponent(res.result_id) : '';
   $('result').innerHTML = planHTML(res);
-  fillYieldBand();
+  if (!res.result_id) {
+    document.querySelectorAll('#result [data-export]').forEach(a => { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); });
+  }
+  fillYieldBand(st);
 }
 
 // ---- wire up -------------------------------------------------------------------------------
+$('apply-preview').onclick = () => { if (!applying) { clearTimeout(timer); update(true); } };
 init();
 for (const k of ['max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
 document.querySelectorAll('#goal button').forEach(b => b.onclick = () => { setGoal(b.dataset.v); schedule(0); });

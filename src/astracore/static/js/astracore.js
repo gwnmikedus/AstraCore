@@ -27,7 +27,7 @@
           continue;
         }
       }
-      if (r.status === 409) { let j = {}; try { j = await r.json(); } catch (e) {} if (j.superseded) return {superseded: true}; }
+      if (r.status === 409) { let j = {}; try { j = await r.clone().json(); } catch (e) {} if (j.superseded) return {superseded: true}; }
       if (r.status === 401) { location.href = '/'; return {error: 'Signed out'}; }
       let data; try { data = await r.json(); } catch (e) { data = {error: `Server error (${r.status})`}; }
       if (!r.ok && !data.error) data.error = `Server error (${r.status})`;

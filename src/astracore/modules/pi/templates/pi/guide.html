@@ -567,26 +567,28 @@ async function showPlan() {
     <h2 id="question-title" tabindex="-1">Your operation, mapped out.</h2>
     <p class="muted chips-note">Change any answer: the others stay as they are.</p>
     <div class="chips">${chips}</div>
-    <div id="planbar"></div>
+    <div id="planbar" role="status" aria-live="polite"></div>
     <div id="plan-compare"></div>
     <div class="todo" id="build-instructions" hidden><h6 style="margin:0">What to do now</h6><ol>
       <li><a href="#" id="tpl-link">Download the templates</a> and copy them into <code>Documents/EVE/PlanetaryInteractionTemplates</code>.</li>
       <li>For each character below, place a command center on the listed planet and load the template shown.</li>
-      <li>Then go to <a href="{{ operate_url }}">Operate</a>: it tracks extractors, pickups and what to sell where, straight from ESI.</li>
+      <li>Then go to <span id="operate-instruction">Operate</span>: it tracks extractors, pickups and what to sell where, straight from ESI.</li>
     </ol></div>
     <div id="planres"><div class="skel" style="height:6rem"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>
     <div class="nav">
       <button class="outline secondary" id="back">${AC.icon('arrow-left')} Back</button>
       <span class="hint"><a href="{{ advanced_url }}">Fine-tune with every option →</a></span>
-      <a role="button" class="outline" href="{{ operate_url }}">Go to Operate ${AC.icon('arrow-right')}</a>
+      <span id="operate-handoff"></span>
     </div>`;
   document.querySelectorAll('.chip').forEach(c => c.onclick = () => navigate(+c.dataset.i));
   $('back').onclick = () => navigate(cur - 1);
+  operateHandoff(PLANS.some(p => p.active), 'Calculating your plan…');
   const res = await AC.post(API + '/suggest', {}, {onBusy: () => {
     if (my === seq) $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});
   if (my !== seq || res.superseded) return;
   if (res.error) {
     $('planres').innerHTML = `<div class="flash warn"><span>${esc(res.error)}</span><button class="outline" id="retry-plan">Retry plan</button></div>`;
+    operateHandoff(PLANS.some(p => p.active), 'Plan unavailable');
     $('retry-plan').onclick = () => showPlan();
     return;
   }
@@ -595,7 +597,7 @@ async function showPlan() {
   $('build-instructions').hidden = false;
   fillYieldBand();
   $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
-  if (!res.error) planBar();
+  planBar(res.result_id);
 }
 
 // This plan next to the active one, before deciding whether to replace it.
@@ -610,17 +612,30 @@ function activeComparison(res) {
     <p class="muted compare-note">Compare every saved plan on <a href="{{ operate_url }}#plan-status">Operate</a>.</p></details>`;
 }
 
-async function planBar() {
+function operateHandoff(ready, message = 'Saving your plan…') {
+  $('operate-handoff').innerHTML = ready
+    ? `<a role="button" class="outline" href="{{ operate_url }}">Go to Operate ${AC.icon('arrow-right')}</a>`
+    : `<button class="outline" disabled>${esc(message)}</button>`;
+  $('operate-instruction').innerHTML = ready ? '<a href="{{ operate_url }}">Operate</a>' : 'Operate';
+}
+
+function planSaveFailure(result, retry) {
+  const message = esc(result.error || 'Could not save your plan.');
+  $('planbar').innerHTML = `<div class="flash warn"><span>${message} Your build list is ready; saving it lets Operate track it.</span><button class="outline" id="retry-save-plan">${result.stale ? 'Recalculate plan' : 'Retry save'}</button></div>`;
+  operateHandoff(PLANS.some(p => p.active), 'Save your plan to continue');
+  $('retry-save-plan').onclick = result.stale ? () => showPlan() : retry;
+}
+
+async function planBar(resultId) {
   const my = seq;
   const active = PLANS.find(p => p.active);
   if (!active) {
-    const r = await AC.post(API + '/plans', {label: '', active: true});
+    $('planbar').textContent = 'Saving your plan…';
+    operateHandoff(false);
+    const r = await AC.post(API + '/plans', {result_id: resultId, label: '', active: true});
     if (my !== seq) return;
     if (r.ok) { setSaved(r); $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b> and set as your active plan. Operate compares what you build against it.</div>`; }
-    else {
-      $('planbar').innerHTML = `<div class="flash warn"><span>${esc(r.error || 'Could not save your plan.')} Your build list is ready; saving it lets Operate track it.</span><button class="outline" id="retry-save-plan">Retry save</button></div>`;
-      $('retry-save-plan').onclick = () => planBar();
-    }
+    else planSaveFailure(r, () => planBar(resultId));
     return;
   }
   $('planbar').innerHTML = `<div class="planbar">
@@ -631,9 +646,10 @@ async function planBar() {
   const doSave = async activate => {
     $('plan-save').disabled = true;
     $('plan-active').disabled = true;
-    const r = await AC.post(API + '/plans', {label: $('plan-label').value, active: activate});
+    const r = await AC.post(API + '/plans', {result_id: resultId, label: $('plan-label').value, active: activate});
     if (my !== seq) return;
     if (r.ok) { setSaved(r); $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b>${r.active ? ' and set as your active plan' : ''}.</div>`; }
+    else if (r.stale) planSaveFailure(r, () => planBar(resultId));
     else {
       $('plan-save').disabled = false;
       $('plan-active').disabled = false;
@@ -645,6 +661,7 @@ async function planBar() {
   $('plan-active').onclick = () => doSave(true);
 }
 function setSaved(r) {
+  operateHandoff(true);
   if (Array.isArray(r.plans)) PLANS.splice(0, PLANS.length, ...r.plans);
   EXPORT_Q = '?plan=' + r.id;
   document.querySelectorAll('a[data-export]').forEach(a => a.href = EXPORT + '/' + a.dataset.export + EXPORT_Q);

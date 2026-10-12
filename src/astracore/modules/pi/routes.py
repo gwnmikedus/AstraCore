@@ -255,7 +255,12 @@ async def api_suggest(request: Request):
     store.save_settings(pid, s)
     try:
         async with GATE.request(pid, "suggest"):
+            before = _profile_result_stamp(pid)
             res = copy.deepcopy(await service.solve(pid, s))
+            if (before != _profile_result_stamp(pid)
+                    or store.plan_settings(s) != store.plan_settings(store.load_settings(pid))):
+                return JSONResponse({"error": "Your planning data or answers changed. Recalculate your plan.",
+                                     "stale": True}, status_code=409)
     except Busy:
         return busy_response()
     except Superseded:
@@ -263,6 +268,7 @@ async def api_suggest(request: Request):
     res["weights"] = effort_weights(s.effort)
     if "error" not in res:
         res["facts"] = compare.plan_facts(res, s)
+        res["result_id"] = store.remember_plan_result(pid, s, res, _result_stamp(pid))
     return JSONResponse(res)
 
 
@@ -358,25 +364,33 @@ async def api_prices_refresh(request: Request):
 
 
 # ----------------------------------------------------------------------------- saved plans
+def _profile_result_stamp(pid: int) -> str:
+    """Personal planning inputs, including ownership and character eligibility."""
+    chars = [(c["character_id"], c.get("name"), c.get("synced_at"), c.get("enabled"), c.get("status"),
+              c.get("slots"), c.get("ccu_level"), c.get("scopes"), c.get("bundle_prefs"),
+              c.get("enabled_modules"), c.get("has_token"), c.get("skills"), c.get("colonies"))
+             for c in db.list_characters(pid)]
+    return json.dumps([chars, store.planet_overrides(pid), store.admin_defaults()], sort_keys=True, default=str)
+
+
+def _result_stamp(pid: int) -> str:
+    return json.dumps([service.data_stamp(pid), _profile_result_stamp(pid)], sort_keys=True, default=str)
+
+
 @router.post("/api/plans")
 async def api_plan_save(request: Request):
-    """Save the plan for the current settings. Body: {label, active}."""
+    """Save the exact server-owned displayed result. Body: {result_id, label, active}."""
     pid = _pid(request)
     body = await request.json()
-    s = store.load_settings(pid)
+    result_id = body.get("result_id")
+    if not isinstance(result_id, str) or not result_id:
+        return JSONResponse({"error": "Calculate a plan before saving it.", "stale": True}, status_code=409)
     try:
-        async with GATE.request(pid, "save-plan"):
-            res = await service.solve(pid, s)
-    except Busy:
-        return busy_response()
-    except Superseded:
-        return superseded_response()
-    if "error" in res:
-        return JSONResponse({"error": res["error"]}, status_code=400)
-    label = (body.get("label") or "").strip() or f"Plan {len(store.list_plan_runs(pid)) + 1}"
-    active = bool(body.get("active")) or not store.active_plan(pid)
-    rid = store.save_plan_run(pid, label, s, res, active=active)
-    return JSONResponse({"ok": True, "id": rid, "label": label, "active": active,
+        run = store.save_plan_result(pid, result_id, str(body.get("label") or ""),
+                                     lambda: _result_stamp(pid), active=bool(body.get("active")))
+    except store.StaleResult as exc:
+        return JSONResponse({"error": str(exc), "stale": True}, status_code=409)
+    return JSONResponse({"ok": True, "id": run["id"], "label": run["label"], "active": run["active"],
                          "plans": store.list_plan_runs(pid)})
 
 

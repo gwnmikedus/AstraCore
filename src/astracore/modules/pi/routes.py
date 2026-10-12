@@ -415,7 +415,7 @@ async def api_whatif(request: Request):
         return JSONResponse({"queued": len(options)}, status_code=202)
     if body.get("stream"):
         return StreamingResponse(_whatif_stream(pid, base, options), media_type="application/x-ndjson",
-                                 headers={"X-Accel-Buffering": "no"})
+                                 headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache, no-transform"})  # proxies (Cloudflare) mustn't buffer or compress the stream
     try:
         async with GATE.request(pid, "whatif"):
             rows = await asyncio.gather(*[_whatif_card(pid, base, o) for o in options])

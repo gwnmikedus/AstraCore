@@ -213,3 +213,27 @@ def test_operate_says_when_the_plan_is_out_of_date(browser, eve, monkeypatch, pi
     assert "makes Biocells, plan expects Coolant" in html and "0% of planned" not in html
     assert "0 of 1 planned colonies are built as planned" in html and "1 to rebuild · 1 to remove" in html
     assert "Elsewhere II" in html
+
+
+def test_a_planned_colony_with_only_a_command_center_is_still_new(pi):
+    plan = {"characters": [{"character_id": 1, "name": "Builder"}],
+            "colonies": [_plan_col(13, "Coolant", 9832, "new"), _plan_col(15, "Biocells", 2329, "rebuild")]}
+    live = operate.progress_against(pi, plan, [_builder(_col(13), _col(15))])
+    acts = {c["planet_id"]: (c["action"], c.get("current")) for c in live["colonies"]}
+    assert acts == {13: ("new", None), 15: ("rebuild", "nothing yet")}
+
+
+def test_factory_inputs_waiting_in_a_hangar_are_no_market_shipment(pi):
+    now = time.time()
+    ch = {"character_id": 1, "name": "Hauler", "colonies": [],
+          "assets": [{"type_id": 2329, "qty": 500, "location_id": 1, "flag": "Hangar"}]}
+    plan = {"colonies": [{**_plan_col(12, "Coolant", 9832, "new"), "in_per_day": {"Biocells": 40}}]}
+    ship = upkeep.schedule(pi, Settings(ship_every_days=7), [ch], plan, now=now)["tracks"]["ship"]
+    assert not ship["has_stock"] and not ship["due"]
+
+
+def test_starter_stock_from_any_trade_hub_is_no_shipment():
+    locs = {3: {"system": "Dodixie"}, 4: {"system": "Perimeter"}, 1: {"system": "7G-QIG"}}
+    assert not operate.pi_shipment(_courier(21, pi_items=True, start=3), locs)
+    assert not operate.pi_shipment(_courier(22, pi_items=True, start=4), locs)
+    assert operate.pi_shipment(_courier(23, pi_items=True, start=1), locs)

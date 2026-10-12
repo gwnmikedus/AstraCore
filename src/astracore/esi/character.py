@@ -222,6 +222,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     # --- contracts (keep recent ones; items for VOC / PI-relevant ones) ------------------
     contracts_raw = await _safe(esi.get(f"/characters/{cid}/contracts/", token=token, owner=cid), None)
     if contracts_raw is not None:
+        previous = {c.get("contract_id"): c for c in (me.get("contracts") or [])}
         contracts = []
         for c in contracts_raw:
             if c.get("type") not in ("courier", "item_exchange") or not _recent(c.get("date_issued")):
@@ -233,10 +234,17 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
             row["voc"] = c.get("assignee_id") == voc.CORP_ID or c.get("acceptor_id") == voc.CORP_ID
             if row["voc"] or c.get("type") == "item_exchange":
                 items = await _safe(esi.get(f"/characters/{cid}/contracts/{c['contract_id']}/items/",
-                                            token=token, owner=cid, ttl=86400), [])
-                row["items"] = [{"type_id": i["type_id"], "qty": i["quantity"]} for i in items
-                                if i.get("is_included", True)]
-                row["pi"] = any(i["type_id"] in pi_types for i in row["items"])
+                                            token=token, owner=cid, ttl=86400), None)
+                if items is None:
+                    # ESI didn't return the items: keep what an earlier refresh saw rather than calling a
+                    # PI courier non-PI (it would vanish from In transit and the courier costs)
+                    old = previous.get(c["contract_id"]) or {}
+                    row["items"] = old.get("items", [])
+                    row["pi"] = old.get("pi", bool(row["voc"] and c.get("type") == "courier"))
+                else:
+                    row["items"] = [{"type_id": i["type_id"], "qty": i["quantity"]} for i in items
+                                    if i.get("is_included", True)]
+                    row["pi"] = any(i["type_id"] in pi_types for i in row["items"])
             contracts.append(row)
         await resolve_locations(esi, token, [x for c in contracts for x in
                                              (c["start_location_id"], c["end_location_id"]) if x], cid)

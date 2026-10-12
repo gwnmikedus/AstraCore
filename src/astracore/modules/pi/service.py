@@ -361,14 +361,14 @@ async def dashboard_tile(profile: dict) -> dict:
                     "plan": "Make a plan", "operate": "Open Operate"}[state]}
     plan = store.active_plan(pid)
     chars = planning_characters(pid)
+    pi = sde_loader.cached()   # read once: progress and the colony status both need it
     if plan:
         res = plan["result"]
         tile["plan_isk_per_day"] = (res.get("totals") or {}).get("isk_per_day")
         tile["plan_label"] = plan["label"]
-        prog = operate.build_progress(_progress_against(res, chars))
+        prog = operate.build_progress(_progress_against(res, chars, pi))
         if prog:
             tile["built"], tile["planned"] = prog["done"], prog["total"]
-    pi = sde_loader.cached()
     if pi and chars:
         try:
             st = operate.colonies_status(pi, chars, None)

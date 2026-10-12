@@ -50,9 +50,6 @@ async def home(request: Request, code: str = "", state: str = ""):
     if not user or request.url.path == "/about":
         return render(request, "home.html", page="home", page_title="", modules=registry.MODULES,
                       members=_member_groups(), contributor_credits=contributors.snapshot())
-    p = db.get_profile(user["id"])
-    if p and not p["onboarded"]:
-        return RedirectResponse("/welcome", status_code=303)
     tiles = []
     for m in registry.MODULES:
         tile = {}

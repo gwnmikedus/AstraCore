@@ -18,7 +18,7 @@ def test_introduction_keeps_signed_in_profile_and_links_to_pi(browser, eve):
     assert response.status_code == 200
     assert 'href="/pi" class="primary-link"' in response.text
     assert me(client) == profile_id
-    assert client.get("/", follow_redirects=False).headers["location"] == "/welcome"
+    assert client.get("/", follow_redirects=False).status_code == 200
 
 
 def test_public_navigation_is_available_on_every_information_page(browser):

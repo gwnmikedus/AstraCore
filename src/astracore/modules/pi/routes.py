@@ -69,6 +69,7 @@ def superseded_response() -> JSONResponse:
 @router.get("", response_class=HTMLResponse)
 async def entry(request: Request):
     pid = _pid(request)
+    db.update_profile(pid, onboarded=1)
     state = service.entry_state(pid)
     if state == "connect":
         chars = service.characters(pid)

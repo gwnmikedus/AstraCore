@@ -279,7 +279,15 @@ def _migrate_v8(c: sqlite3.Connection) -> None:
     c.executescript(ENGAGEMENT_SCHEMA)
 
 
-MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6, _migrate_v7, _migrate_v8]
+def _migrate_v9(c: sqlite3.Connection) -> None:
+    """Which "this would help me" marks a pilot has already been told went live, plus an index to find a
+    direction's roadmap issue. A new table and an index only, so a rollback to an older build keeps working."""
+    from .core.community import MARK_SEEN_SCHEMA
+    c.executescript(MARK_SEEN_SCHEMA)
+
+
+MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6, _migrate_v7, _migrate_v8,
+              _migrate_v9]
 
 
 def adopt_legacy_db() -> bool:

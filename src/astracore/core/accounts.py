@@ -84,6 +84,8 @@ def merge_profiles(src: int, dst: int) -> None:
         c.execute("UPDATE community_feedback SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO community_votes(profile_id, target, created_at) "
                   "SELECT ?, target, created_at FROM community_votes WHERE profile_id=?", (dst, src))
+        c.execute("INSERT OR IGNORE INTO community_vote_seen(profile_id, target, stage, seen_at) "
+                  "SELECT ?, target, stage, seen_at FROM community_vote_seen WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO planet_overrides(profile_id, planet_id, richness) "
                   "SELECT ?, planet_id, richness FROM planet_overrides WHERE profile_id=?", (dst, src))
     db.delete_profile(src)
@@ -149,10 +151,14 @@ def export_profile(profile_id: int) -> Dict:
         # "This would help me" marks and the credit you chose per report (which character, if any).
         marks = [dict(r) for r in c.execute(
             "SELECT target, created_at FROM community_votes WHERE profile_id=? ORDER BY created_at", (profile_id,))]
+        # Which marked items you were already told went live.
+        marks_seen = [dict(r) for r in c.execute(
+            "SELECT target, stage, seen_at FROM community_vote_seen WHERE profile_id=? ORDER BY seen_at", (profile_id,))]
         credits = [dict(r) for r in c.execute(
             "SELECT cc.feedback_id, cc.character_id, cc.created_at FROM community_credit cc "
             "JOIN community_feedback f ON f.id = cc.feedback_id WHERE f.profile_id=? ORDER BY cc.created_at",
             (profile_id,))]
     return {"exported_at": time.time(), "profile": p, "eve_accounts": db.list_accounts(profile_id),
             "characters": chars, "module_settings": modset, "plans": plans, "planet_overrides": overrides,
-            "sessions": sessions, "feedback": feedback, "community_marks": marks, "report_credits": credits}
+            "sessions": sessions, "feedback": feedback, "community_marks": marks, "community_marks_seen": marks_seen,
+            "report_credits": credits}

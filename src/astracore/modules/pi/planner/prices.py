@@ -14,9 +14,12 @@ from ..static_data import voc
 from ..static_data.pi_rules import COMMAND_CENTER_TYPES
 from ..static_data.sde_loader import PIData
 
-BOOKS_KEY = "price_books_v1"
+# v2: every market side carries its depth. v1 entries could have a best price but no depth, which the
+# demand check read as "no visible buyers" while the plan still sold into those buy orders.
+BOOKS_KEY = "price_books_v2"
 DELVE_REGION = 10000060
 MAX_AGE = 3 * 3600
+INCOMPLETE_MAX_AGE = 10 * 60    # some order books didn't load: try again soon
 HISTORY_KEY = "market_history_v1"
 HISTORY_MAX_AGE = 24 * 3600     # ESI publishes regional history once a day
 HISTORY_DAYS = 30
@@ -29,13 +32,28 @@ MARKETS = {
 }
 
 
+def loaded(book: Optional[dict], market: str) -> bool:
+    """Whether this item's buy book at `market` was actually fetched (an empty book is still loaded)."""
+    return f"{market}_buy_depth" in (book or {})
+
+
 async def refresh(esi: ESIClient, pi: PIData) -> Dict[int, dict]:
+    """Fetch every order book. A book ESI didn't return keeps its last good copy, or is left out (and
+    reported as not loaded), so a failed fetch never looks like a market without buyers."""
     # PI products plus the command centers on the first-build shopping list
     items = [t for t in pi.items if pi.tier(t) >= 1] + list(COMMAND_CENTER_TYPES.values())
+    previous = cached()
     books: Dict[int, dict] = {t: {} for t in items}
+    failed = 0
     for market, (region_id, station_id) in MARKETS.items():
         orders = await public.many(public.region_orders(esi, region_id, t, force=True) for t in items)
         for t, rows in zip(items, orders):
+            if rows is None:
+                failed += 1
+                old = previous["books"].get(t) or {}
+                if loaded(old, market):
+                    books[t].update({k: v for k, v in old.items() if k.startswith(f"{market}_")})
+                continue
             if station_id:
                 rows = [o for o in rows if o.get("location_id") == station_id]
             buys = [o for o in rows if o.get("is_buy_order")]
@@ -47,8 +65,11 @@ async def refresh(esi: ESIClient, pi: PIData) -> Dict[int, dict]:
             if not station_id:
                 # region-wide book: remember where its cheapest seller is (to buy from, e.g. command centers)
                 books[t][f"{market}_sell_at"] = cheapest_at(sells)
+    if failed == len(items) * len(MARKETS):
+        # ESI didn't answer at all: keep the last books (still stale, so the next plan tries again)
+        return previous["books"]
     await name_locations(esi, [b.get("delve_sell_at") for b in books.values()])
-    db.kv_set(BOOKS_KEY, {"at": time.time(), "books": {str(k): v for k, v in books.items()}})
+    db.kv_set(BOOKS_KEY, {"at": time.time(), "failed": failed, "books": {str(k): v for k, v in books.items()}})
     return books
 
 
@@ -144,9 +165,11 @@ def history_stale() -> bool:
 
 def cached() -> dict:
     raw = db.kv_get(BOOKS_KEY) or {}
-    return {"at": raw.get("at"), "books": {int(k): v for k, v in raw.get("books", {}).items()}}
+    return {"at": raw.get("at"), "failed": raw.get("failed") or 0,
+            "books": {int(k): v for k, v in raw.get("books", {}).items()}}
 
 
 def stale() -> bool:
     c = cached()
-    return not c["books"] or time.time() - (c["at"] or 0) > MAX_AGE
+    max_age = INCOMPLETE_MAX_AGE if c["failed"] else MAX_AGE
+    return not c["books"] or time.time() - (c["at"] or 0) > max_age

@@ -181,8 +181,12 @@ def test_plan_moves_off_a_market_that_cannot_take_the_batch(pi, monkeypatch):  #
     res = service.run_plan(_ctx(pi, [[2000.0, 500]]))       # 500 buyers for thousands of units a week
     assert len(calls) == 2 and calls[1][BIOFUELS] < calls[0][BIOFUELS]
     assert BIOFUELS not in {x["type_id"] for x in res["sold"]}
-    assert res["demand"]["replanned"][0]["item"] == "Biofuels"
-    assert any(w.startswith("Re-planned around thin markets: Biofuels") for w in res["warnings"])
+    # Biofuels left the mix: it's listed as dropped, in plain words, never "valued at 0.00"
+    assert res["demand"]["replanned"] == []
+    assert res["demand"]["dropped"] == [{"type_id": BIOFUELS, "item": "Biofuels",
+                                         "reason": "buyers in Jita 4-4 can't take a full batch"}]
+    msg = next(w for w in res["warnings"] if w.startswith("We adjusted the plan"))
+    assert "Biofuels dropped" in msg and "0.00" not in msg and "counted" not in msg
     # the demand table describes the plan that was kept
     assert {r["type_id"] for r in res["demand"]["rows"]} == {x["type_id"] for x in res["sold"]}
 
@@ -191,7 +195,7 @@ def test_plan_solves_once_when_buyers_can_take_everything(pi, monkeypatch):  # n
     calls = _counting(monkeypatch)
     res = service.run_plan(_ctx(pi, [[2000.0, 10_000_000]]))
     assert len(calls) == 1 and BIOFUELS in {x["type_id"] for x in res["sold"]}
-    assert res["demand"]["replanned"] == [] and not any("Re-planned" in w for w in res["warnings"])
+    assert res["demand"]["replanned"] == [] and not any("We adjusted" in w for w in res["warnings"])
 
 
 def test_plan_keeps_a_thin_product_that_still_pays_best(pi, monkeypatch):  # noqa: F811
@@ -199,7 +203,7 @@ def test_plan_keeps_a_thin_product_that_still_pays_best(pi, monkeypatch):  # noq
     res = service.run_plan(_ctx(pi, [[2000.0, 500], [1700.0, 10_000_000]]))   # walking costs ~15%, still > 800
     assert len(calls) == 2
     assert BIOFUELS in {x["type_id"] for x in res["sold"]}
-    assert res["demand"]["replanned"] == [] and not any("Re-planned" in w for w in res["warnings"])
+    assert res["demand"]["replanned"] == [] and not any("We adjusted" in w for w in res["warnings"])
     assert any(r["status"] == "thin" for r in res["demand"]["rows"])
 
 

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from .client import STATIC_TTL, ESIClient, ESIError
 
@@ -57,13 +57,16 @@ async def market_prices(esi: ESIClient, force: bool = False) -> Dict[int, dict]:
     return {r["type_id"]: r for r in rows}
 
 
-async def region_orders(esi: ESIClient, region_id: int, type_id: int, force: bool = False) -> List[dict]:
+async def region_orders(esi: ESIClient, region_id: int, type_id: int,
+                        force: bool = False) -> Optional[List[dict]]:
+    """All orders of one type in a region, or None when ESI didn't answer: a failed fetch must not
+    look like an empty market."""
     try:
         return await esi.get(f"/markets/{region_id}/orders/",
                              params={"order_type": "all", "type_id": type_id},
                              ttl=1800, force=force)
     except ESIError:
-        return []
+        return None
 
 
 async def region_history(esi: ESIClient, region_id: int, type_id: int) -> List[dict]:

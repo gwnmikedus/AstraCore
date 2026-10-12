@@ -98,7 +98,7 @@ function renderSelling(res) {
   for (const b of sp.batches) {
     const items = Object.entries(b.items).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join(' ');
     h += `<div class="who" ${b.hold ? 'style="opacity:.6"' : ''}><div class="h"><strong>${esc(b.label)}</strong>
-      <span class="muted">${b.speed} · ${m3(b.m3)} · ${b.hold ? 'hold' : '≈ ' + isk(b.net) + ' net'}</span></div>
+      <span class="muted">${b.speed} · ${m3(b.m3)} · ${b.hold ? 'hold' : '≈ ' + isk(b.net) + ' net'}${!b.hold && b.quoted_net !== undefined ? ` (${isk(b.quoted_net)} at quoted prices)` : ''}</span></div>
       <div class="muted itemlist">${items}</div>`;
     if (b.note) h += `<div class="warnbox">${esc(b.note)}</div>`;
     if (b.contract && b.contract.type === 'Courier')
@@ -131,20 +131,28 @@ function renderDemand(d) {
     trade history ${d.history_at ? esc(AC.ago(d.history_at)) + (d.history_window ? ` (last ${d.history_window} days)` : '') : 'not loaded yet: it refreshes in the background, check back shortly'}.
     Immediate sales walk the visible buy orders after sales tax and the same hauling cost as above.
     Sell-order times are <b>estimates</b>, assuming you capture ${lo}–${hi}% of the units the region trades per day.</p>`;
-  if (d.replanned && d.replanned.length)
-    h += `<p class="muted" style="font-size:.85rem">This plan was re-planned around thin markets: ` +
-         d.replanned.map(r => `${esc(r.item)} valued at ${num(r.realistic, 2)} instead of ${num(r.quoted, 2)} ISK per unit`).join(', ') +
-         `, what a batch really earns per shipping cycle: the price visible buyers pay, or the share of slow sell orders that sells in time.</p>`;
+  const adjusted = d.replanned || [], dropped = d.dropped || [];
+  if (adjusted.length || dropped.length) {
+    const n = adjusted.length + dropped.length;
+    h += `<details style="font-size:.85rem"><summary class="muted">We adjusted ${n} product${n === 1 ? '' : 's'} to what the market can really take. Details</summary><ul>` +
+         adjusted.map(r => `<li>${esc(r.item)}: counted at ${num(r.realistic, 0)} instead of ${num(r.quoted, 0)} ISK per unit${r.reason ? ` (${esc(r.reason)})` : ''}.</li>`).join('') +
+         dropped.map(r => `<li>Dropped ${esc(r.item)}${r.reason ? `: ${esc(r.reason)}` : ''}.</li>`).join('') +
+         `</ul><p class="muted">"Counted at" is what one batch really earns per shipping cycle: what the visible buyers pay, or the share of slow sell orders that sells in time. The batch totals above use these values.</p></details>`;
+  }
   h += `<div class="scroll"><table class="demand"><thead><tr><th>Product</th><th>Sold via</th><th>Output / day</th><th>Per batch</th>
     <th>Visible buyers</th><th>Traded / day</th><th>Selling the batch</th><th>Assessment</th></tr></thead><tbody>`;
   for (const r of d.rows) {
-    const [cls, label] = DEMAND_STATUS[r.status] || DEMAND_STATUS.unknown;
+    const [cls, label] = r.book_missing ? ['muted', 'Not checked'] : DEMAND_STATUS[r.status] || DEMAND_STATUS.unknown;
     const hs = r.history;
     const traded = hs && hs.days
       ? `${num(hs.avg_volume)}<br><span class="muted">${hs.days}/${hs.window} days with trades${r.volume_share !== null ? ` · plan = ${AC.pct(r.volume_share * 100, 0)}` : ''}</span>`
       : '<span class="muted">no history</span>';
     let sale = '<span class="muted">VOC buyback</span>';
-    if (r.immediate) {
+    if (r.book_missing) {
+      sale = '<span class="muted">order book not loaded</span>';
+    } else if (r.min_volume_only) {
+      sale = '<span class="bad">only minimum-volume buy orders</span>';
+    } else if (r.immediate) {
       const im = r.immediate;
       sale = !im.filled ? '<span class="bad">no visible buyers</span>' : `≈ ${num(im.avg_net, 2)} net / unit<br><span class="muted">${im.short ? `fills ${num(im.filled)} of ${num(r.qty)}` : `fills all`} · ${im.levels} price level${im.levels === 1 ? '' : 's'}${im.avg_net < im.quoted_net ? ` · quoted ${num(im.quoted_net, 2)}` : ''}</span>`;
     } else if (r.side === 'sell') {
@@ -154,7 +162,7 @@ function renderDemand(d) {
     h += `<tr><td>${AC.eveImg(r.item, 16)}${esc(r.item)} <span class="muted">P${r.tier}</span></td>
       <td>${esc(r.market_label)}${r.hold ? '<br><span class="muted">held for a later batch</span>' : ''}</td>
       <td>${num(r.per_day)}</td><td>${num(r.qty)}</td>
-      <td>${r.side === 'sell' ? '<span class="muted">n/a (sell orders)</span>' : `${num(r.visible_units)}<br><span class="muted">${r.visible_levels} price levels</span>`}</td>
+      <td>${r.side === 'sell' ? '<span class="muted">n/a (sell orders)</span>' : r.book_missing ? '<span class="muted">not loaded</span>' : `${num(r.visible_units)}<br><span class="muted">${r.visible_levels} price level${r.visible_levels === 1 ? '' : 's'}</span>`}</td>
       <td>${traded}</td><td>${sale}</td>
       <td><span class="${cls}">${esc(label)}</span>${r.advice ? `<br><span class="muted" style="font-size:.8rem">${esc(r.advice)}</span>` : ''}</td></tr>`;
   }

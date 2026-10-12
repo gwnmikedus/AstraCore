@@ -9,6 +9,7 @@ import time
 from typing import Dict, List, Optional
 
 from astracore import db
+from astracore.core import fmt
 from astracore.core.solvegate import GATE, cache_key
 from astracore.esi.client import ESIClient
 
@@ -179,6 +180,59 @@ def realistic_isk(res: dict, used: Dict[int, float], base: Dict[int, float]) -> 
     return isk
 
 
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def _describe_replan(pi, first: dict, again: dict, base: Dict[int, float], real: Dict[int, float]) -> None:
+    """What the re-plan around thin markets changed, in `again["demand"]`: products it still sells at
+    a lower value (`replanned`) and products it no longer sells (`dropped`), each with a plain reason
+    from the first plan's demand check."""
+    kept = {x["type_id"] for x in again["sold"]}
+    why = {r["type_id"]: r.get("reason") or "" for r in first["demand"]["rows"] if r.get("reason")}
+    order = sorted(real, key=pi.name)
+    again["demand"]["replanned"] = [
+        {"type_id": t, "item": pi.name(t), "quoted": round(base.get(t, 0.0), 2), "realistic": round(real[t], 2),
+         "reason": why.get(t, "")} for t in order if t in kept]
+    again["demand"]["dropped"] = [{"type_id": t, "item": pi.name(t), "reason": why.get(t, "")}
+                                  for t in order if t not in kept]
+
+
+def count_realistic(sp: dict, channels: List[dict], real: Dict[int, float]) -> None:
+    """Value the sell plan's batches like the re-plan did: products the demand check re-valued count at
+    what their batch really fetches, not the quoted price (in place). `channels` = compare_table rows,
+    `real` = net ISK per unit."""
+    if not sp or not real:
+        return
+    by_name = {r["item"]: r for r in channels}
+    total = 0.0
+    for b in sp.get("batches", []):
+        cut = 0.0
+        for item, qty in b["items"].items():
+            r = by_name.get(item)
+            if r and r["type_id"] in real:
+                cut += qty * max(0.0, (r["channels"].get(b["channel"]) or 0.0) - real[r["type_id"]])
+        if cut > 0:
+            b["quoted_net"] = b["net"]
+            b["net"] = round(b["net"] - cut)
+        if not b.get("hold"):
+            total += b["net"]
+    sp["net_per_cycle"] = round(total)
+    sp["net_per_day"] = round(total / max(1.0, float(sp.get("every_days") or 1.0)))
+
+
+def replan_summary(d: dict, gain: float) -> str:
+    """One friendly line about the re-plan around thin markets; the details are in Market demand."""
+    adjusted, dropped = d.get("replanned") or [], d.get("dropped") or []
+    parts = []
+    if adjusted:
+        parts.append(f"{_plural(len(adjusted), 'product', 'products')} counted at a lower price")
+    if dropped:
+        parts.append(f"{', '.join(r['item'] for r in dropped)} dropped")
+    return (f"We adjusted the plan to what buyers can really take: {', '.join(parts)}. This mix earns about "
+            f"{fmt.isk(gain)} ISK/day more once the batches are really sold. Details under Market demand.")
+
+
 def run_plan(ctx, s=None) -> dict:
     """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
     whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
@@ -203,21 +257,19 @@ def run_plan(ctx, s=None) -> dict:
         if "error" not in again:
             first, second = realistic_isk(res, base, base), realistic_isk(again, values, base)
             if second - first > max(1.0, REPLAN_MIN_GAIN * abs(first)):   # not just rounding
-                name = ctx["pi"].name
                 again["solve_seconds"] = round(again["solve_seconds"] + res["solve_seconds"], 2)
-                again["demand"]["replanned"] = [
-                    {"type_id": t, "item": name(t), "quoted": round(base.get(t, 0.0), 2), "realistic": round(v, 2)}
-                    for t, v in sorted(real.items(), key=lambda kv: name(kv[0]))]
-                again["warnings"].append(
-                    "Re-planned around thin markets: "
-                    + ", ".join(f"{r['item']} valued at {r['realistic']:,.2f} ISK (what a batch really earns per "
-                                f"shipping cycle) instead of {r['quoted']:,.2f}" for r in again["demand"]["replanned"])
-                    + f". This mix earns ≈ {second - first:,.0f} ISK/day more once the batches are really sold.")
+                _describe_replan(ctx["pi"], res, again, base, real)
+                count_realistic(again["selling"], again["channels"], real)
+                again["warnings"].append(replan_summary(again["demand"], second - first))
                 res = again
     n_risky = len(res["demand"]["warnings"])
     if n_risky:
-        res["warnings"].append(f"{n_risky} product(s) may not sell as planned at the chosen market: "
-                               f"see Market demand under How you get paid.")
+        res["warnings"].append(f"{_plural(n_risky, 'product', 'products')} may not sell as planned at the chosen "
+                               f"market: see Market demand under How you get paid.")
+    missing = res["demand"].get("books_missing") or []
+    if missing:
+        res["warnings"].append(f"The order books for {', '.join(missing)} didn't load, so their buyers weren't "
+                               f"checked. Refresh prices before you ship.")
     res["dropoff"] = ctx["dropoff"]
     res["seller"] = ctx["seller"] if ctx["s"].taxes_from_skills else None
     res["taxes"] = {"sales_tax_pct": ctx["s"].sales_tax_pct, "broker_fee_pct": ctx["s"].broker_fee_pct,

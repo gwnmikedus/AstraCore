@@ -92,6 +92,18 @@ test('ready answers retain arrow selection and saving prevents answer changes', 
   assert.deepEqual(chosen, [2, 3]);
 });
 
+test('answer details handle their own mouse and keyboard interactions without selecting an answer', () => {
+  const {context, options, chosen} = fixture();
+  context.results.cycle = {1: {}, 2: {}, 3: {}};
+  const target = {closest: selector => selector === '.answer-details' ? {} : null};
+  options[0].onclick({target});
+  for (const value of ['Enter', ' ', 'ArrowRight', 'Home']) options[0].onkeydown({...key(value), target});
+  assert.deepEqual(chosen, []);
+  assert.equal(context.focused, undefined);
+  options[0].onkeydown(key('Enter'));
+  assert.deepEqual(chosen, [1]);
+});
+
 
 test('outside coverage waits for an explicit own-trip choice before comparisons', async () => {
   const {context, $} = fixture();

@@ -109,7 +109,14 @@
         exact.disabled = disabled;
         reset.disabled = disabled || (isDefault && !editing);
       },
-      reportValidity() { validate(); return exact.reportValidity(); },
+      reportValidity() {
+        validate();
+        if (!exact.validity.valid) {
+          const details = exact.closest('details:not([open])');
+          if (details) details.open = true;
+        }
+        return exact.reportValidity();
+      },
     };
     control.setValue(value, defaultValue, isDefault);
     return control;

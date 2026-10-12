@@ -38,6 +38,10 @@ MINER_CCU = 4  # DalShooth nullsec miners fit a level-4 command center (lowsec m
 BUFFER_HEADROOM = 0.99  # factories are planned to fill at most 99% of their space in one cycle
 
 
+# Search steps per solve (see _solve); the time limit only guards against a stuck solver.
+SOLVER_MAX_NODES = 1000
+SOLVER_SAFETY_SECONDS = 30
+
 def _factory_planets(sys: dict) -> set:
     """Up to two planets per system are offered as factory sites (keeps the model small):
     one Barren/Temperate (P4-capable) and one other planet."""
@@ -208,8 +212,11 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     if s.max_systems > 0:
         prob += pulp.lpSum(y.values()) <= s.max_systems
 
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=max(2, int(s.solver_time_limit)),
-                                          gapRel=0.01))
+    # A node limit, not a clock, ends the search: the same inputs always give the same plan, however busy
+    # the machine is. The plan is found early; the rest of a long search only proves it within 1%.
+    # The time limit is a safety net that a normal solve never reaches.
+    status = prob.solve(pulp.PULP_CBC_CMD(msg=False, maxNodes=SOLVER_MAX_NODES, threads=1, gapRel=0.01,
+                                          timeLimit=max(SOLVER_SAFETY_SECONDS, int(s.solver_time_limit))))
     if prob.objective is None or pulp.value(prob.objective) is None:
         return None, planets, scope, f"Solver: {pulp.LpStatus[status]}"
     instances = []

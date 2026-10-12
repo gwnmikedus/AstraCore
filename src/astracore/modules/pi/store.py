@@ -11,7 +11,7 @@ from astracore import db
 
 from .planner import notices
 from .planner.compare import plan_facts
-from .settings import ADMIN_FIELDS, Settings
+from .settings import ADMIN_FIELDS, GOAL_EFFORT, Settings
 
 MODULE_ID = "pi"
 MAX_PLANS = 30
@@ -41,6 +41,23 @@ def save_settings(profile_id: int, s: Settings) -> None:
 
 def has_settings(profile_id: int) -> bool:
     return db.module_settings(profile_id, MODULE_ID) is not None
+
+
+def apply_preview_goal(profile_id: int, rhythm: str) -> bool:
+    """A landing choice is a starting point until the pilot answers the goal question."""
+    if rhythm not in GOAL_EFFORT:
+        return False
+    with db.session() as c:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute("SELECT settings_json FROM module_settings WHERE profile_id=? AND module_id=?",
+                        (profile_id, MODULE_ID)).fetchone()
+        settings = json.loads(row["settings_json"]) if row else {}
+        if "goal" in (settings.get("answered") or []):
+            return False
+        settings["effort"] = GOAL_EFFORT[rhythm]
+        c.execute("REPLACE INTO module_settings(profile_id, module_id, settings_json) VALUES(?,?,?)",
+                  (profile_id, MODULE_ID, json.dumps(settings)))
+    return True
 
 
 def admin_settings() -> Settings:

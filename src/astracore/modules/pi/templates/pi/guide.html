@@ -34,6 +34,7 @@ const SELLER = {{ (seller or {})|tojson }};
 const PLANS = {{ plans|tojson }};
 const WAYPOINT_CHARS = {{ waypoints|tojson }};
 const FIRST_VISIT = {{ 'true' if first_visit else 'false' }};
+const BLOCKED = {{ blocked_characters|default(0)|int }};   // included characters no template fits yet (CCU too low)
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, duration, esc} = AC;
 const API = '{{ api }}', SETTINGS_URL = '{{ settings_url }}';
@@ -287,6 +288,13 @@ function go(i, focus = true) {
   }
 }
 
+// The first steps say early which characters the planner will leave out, and where to see what to train.
+function blockedNote() {
+  if (!BLOCKED) return '';
+  return `<div class="flash warn" id="blocked-note">${AC.icon('triangle-alert')}<span>${BLOCKED} character${BLOCKED === 1 ? '' : 's'} can’t be planned yet · ` +
+    '<a href="#characters-panel" id="see-characters">see Characters in this plan</a></span></div>';
+}
+
 function showQuestion(step) {
   $('q').dataset.step = step.id;
   step.options = step.options.filter(o => !o.isCustom);
@@ -297,6 +305,7 @@ function showQuestion(step) {
     <div class="eyebrow">Step ${cur + 1} of ${QUESTIONS}</div>
     <h2 id="question-title" tabindex="-1">${step.q}</h2>
     <p class="intro">${STEP_CONTEXT[step.id]}</p>
+    ${cur <= 1 ? blockedNote() : ''}
     <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.intro}</p></details>
     <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map(o => `
       <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false">
@@ -314,6 +323,8 @@ function showQuestion(step) {
       <span class="hint" id="navhint" role="status">${step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…'}</span>
       <button id="next" ${step.isGoal ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
+  const see = $('see-characters');
+  if (see) see.onclick = () => { $('characters-panel').open = true; };
   $('back').onclick = () => navigate(cur - 1);
   $('next').onclick = async () => { if (await commit(step, cur + 1)) go(cur + 1); };
   document.querySelectorAll('.opt').forEach(el => {

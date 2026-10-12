@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_artwork.html" import artwork %}
+{% block content %}
+<header class="ac-page-header context-header">
+  <div class="eyebrow">PI / Characters in this plan</div>
+  <h1 class="page-title">Every character is left out of the plan.</h1>
+  <p>Your characters are connected, but all of them are excluded from planning. Include at least one below to choose
+    an area and build a plan.</p>
+  {{ artwork('header-command', '(max-width: 760px) 120px, 320px', 'context-art') }}
+</header>
+{% include "pi/_characters_panel.html" %}
+{% endblock %}

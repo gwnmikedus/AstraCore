@@ -33,7 +33,7 @@ from astracore.esi.client import ESI_BASE
 from . import service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import compare, operate, optimizer, prices, upkeep
+from .planner import compare, operate, optimizer, prices, setups, upkeep
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, Settings, time_weights
 from .static_data import dalshooth, voc
@@ -75,6 +75,9 @@ async def entry(request: Request):
         chars = service.characters(pid)
         return render(request, "connect.html", "connect", "Connect characters", chars=chars,
                       bundle=MODULE.required_bundle)
+    if state == "excluded":   # Area/Plan/Operate need an included character: never bounce back to them
+        return render(request, "excluded.html", "connect", "Characters in this plan", panel=character_panel(pid),
+                      open_panel=True)
     return RedirectResponse({"area": "/pi/area", "plan": "/pi/plan", "operate": "/pi/operate"}[state], status_code=303)
 
 
@@ -99,21 +102,15 @@ def character_panel(pid: int) -> list:
         pass
     out = []
     for c in service.characters(pid):
-        lvl = int(c.get("ccu_level") or 0)
-        if lvl >= 5:
-            ccu = ("ok", "OK for every template")
-        elif lvl >= optimizer.MINER_CCU:
-            ccu = ("ok", "Nullsec miners and factories (lowsec miners need 5)")
-        elif lvl >= 2:
-            ccu = ("warn", "Factories only")
-        else:
-            ccu = ("bad", "Too low for any template")
+        note = setups.ccu_note(c.get("ccu_level"))
+        ccu = (note["status"], note["label"], note["next"])
         products = []
         for col in c.get("colonies", []):
             prod = optimizer.existing_product(pi, col) if pi else None
             products.append({"type": (col.get("planet_type") or "").capitalize(),
                              "product": pi.name(prod) if pi and prod else "?"})
         out.append({**c, "ccu_note": ccu, "colony_summary": products, "pi_ready": service.pi_ready(c),
+                    "blocked": bool(c.get("enabled")) and not setups.can_plan(c),
                     "missing_pi": not set(MODULE.required_bundle.scopes) <= set(c.get("scopes") or [])})
     return out
 
@@ -124,7 +121,7 @@ async def area_page(request: Request):
     pid = _pid(request)
     chars = service.planning_characters(pid)
     if not chars:
-        return redirect("/pi", "Connect a character first.")
+        return redirect("/pi")   # /pi says why: connect, or include one
     s = store.load_settings(pid)
     area = await service.load_space(chars, s)
     if not area:
@@ -218,19 +215,20 @@ def space_mod_has(area, name) -> bool:
 async def plan_page(request: Request):
     pid = _pid(request)
     if not service.planning_characters(pid):
-        return redirect("/pi", "Connect a character first.")
+        return redirect("/pi")   # /pi says why: connect, or include one
     ctx = await service.planning_context(pid)
     s = ctx["s"]
     hubs = sorted({v["name"] for v in ctx["systems"].values()} |
                   {n for n in voc.COURIER_ORIGINS if ctx["area"] and space_mod_has(ctx["area"], n)})
     advanced = request.query_params.get("view") == "advanced"
     page = "planner.html" if advanced else "guide.html"
-    eligible = [c for c in ctx["chars"] if int(c.get("ccu_level", 0)) >= 2]
+    eligible = [c for c in ctx["chars"] if setups.can_plan(c)]
     first_visit = not store.has_settings(pid) or not s.answered
     return render(request, page, page[:-5], "Plan", s=s, chars=ctx["chars"], systems=hubs,
                   prices_at=prices.cached().get("at"), calibrated=ctx["calibrated"],
                   head_yield=ctx["head_yield"], settings_json=s.to_json(), voc_hubs=voc.COURIER_ORIGINS,
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
+                  blocked_characters=len(ctx["chars"]) - len(eligible),
                   n_systems=len(ctx["systems"]),
                   dropoff=ctx["dropoff"], seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
@@ -457,7 +455,7 @@ async def api_waypoints(request: Request):
 async def operate_page(request: Request):
     pid = _pid(request)
     if not service.planning_characters(pid):
-        return redirect("/pi", "Connect a character first.")
+        return redirect("/pi")   # /pi says why: connect, or include one
     ctx = await service.planning_context(pid)
     chars = ctx["chars"]
     active = store.active_plan(pid)

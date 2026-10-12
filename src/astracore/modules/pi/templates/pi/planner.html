@@ -199,8 +199,15 @@ async function update(apply = false) {
   finally { if (apply) applying = false; if (my === updateSeq) { $('busy').style.display = 'none'; $('result').classList.remove('loading'); } }
 }
 let altSeq = 0;
+let altsWanted = false;           // the three goals cost three extra solves: compared once the pilot asks
 async function loadAlts(st) {
   const my = ++altSeq;            // only the newest comparison may draw (an older answer can arrive later)
+  if (!altsWanted) {
+    $('alts').innerHTML = '';
+    $('alts-note').innerHTML = '<button type="button" class="outline secondary inline-action" id="alts-show">Compare the three goals</button>';
+    $('alts-show').onclick = () => { altsWanted = true; loadAlts(st); };
+    return;
+  }
   $('alts-note').textContent = '- comparing goals…';
   let alts;
   try { alts = await AC.post(API + '/alternatives', {base: st}); } catch (e) { alts = {error: String(e)}; }

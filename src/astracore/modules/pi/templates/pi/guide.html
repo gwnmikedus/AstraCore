@@ -452,9 +452,9 @@ function showQuestion(step) {
   paint(step);
   setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
   if (needsOwnTrip()) $('next').disabled = true;
-  else if (!routineOnly(step)) load(step);
+  else if (!routineOnly(step) && !step.isArea) load(step);
   else if (step.id === 'cycle') setHint('Choose your routine now. Income comparisons follow once you choose an area.');
-  else prefetchNext(step);
+  else if (!step.isArea) prefetchNext(step);
 }
 
 async function load(step) {
@@ -629,13 +629,16 @@ function areaAdvanced() {
 async function wireArea(step) {
   const det = $('area-adv');
   let areaSeq = 0;
-  const loadArea = async (search = null, replaceSelection = false) => {
+  const loadArea = async (search = null, replaceSelection = false, preserveSelection = false) => {
     const visit = ++areaSeq;
-    if (search === null && det.dataset.loaded) return;
     det.dataset.loaded = '1';
     let a;
     try {
-      const response = await fetch(API + '/area' + (search === null ? '' : '?' + new URLSearchParams({extra_area: search})), {credentials: 'same-origin'});
+      const query = new URLSearchParams({hub_system: st.hub_system || ''});
+      if (search !== null) query.set('extra_area', search);
+      if (!replaceSelection && (preserveSelection || st.selected_constellations?.length))
+        query.set('selected_constellations', (st.selected_constellations || []).join(','));
+      const response = await fetch(API + '/area?' + query, {credentials: 'same-origin'});
       if (!response.ok) throw new Error('Could not load the area');
       a = await response.json();
     } catch (error) {
@@ -647,8 +650,9 @@ async function wireArea(step) {
       return;
     }
     if (!det.isConnected || visit !== areaSeq) return;
-    if (replaceSelection || !st.selected_constellations?.length) st.selected_constellations = a.selected || [];
-    if (needsOwnTrip() && !$('enable-own-trip')) { showQuestion(step); return; }
+    if (replaceSelection || (!preserveSelection && !st.selected_constellations?.length)) st.selected_constellations = a.selected || [];
+    SELL_COVERAGE = a.selling_coverage;
+    if (needsOwnTrip() !== !!$('enable-own-trip')) { showQuestion(step); return; }
     $('guided-area-start').hidden = !!st.selected_constellations.length;
     $('area-summary').textContent = st.selected_constellations.length ? `Suggested area: ${st.selected_constellations.length} constellation${st.selected_constellations.length === 1 ? '' : 's'}. Continue confirms this area and your travel choice.` : 'No planets found yet. Search for your operating region below.';
     const sel = new Set((st.selected_constellations && st.selected_constellations.length ? st.selected_constellations : a.selected).map(Number));
@@ -662,19 +666,35 @@ async function wireArea(step) {
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {
       const ids = [...det.querySelectorAll('input[type=checkbox]:checked')].map(x => +x.value);
+      areaSeq++;
+      seq++;
+      comparisonRequest?.abort();
+      clearTimeout(prefetchTimer);
       if (!ids.length) { $('area-summary').textContent = 'Choose at least one constellation below.'; st.selected_constellations = []; delete results[step.id]; $('next').disabled = true; setHint('Select at least one constellation.'); return; }
       st.selected_constellations = ids; st.hub_system = $('area-hub').value;
       delete results[step.id];
       paint(step);
       $('save-status').textContent = 'Area preview · Continue saves your choice';
-      load(step);
+      loadArea(st.extra_area || null, false, true);
     };
     det.querySelectorAll('input[type=checkbox]').forEach(x => x.onchange = apply);
     $('area-hub').onchange = apply;
     if (!needsOwnTrip()) load(step);
     else { paint(step); setHint('Choose your own trip to a trade hub before comparing setups.'); }
   };
-  $('find-area').onclick = () => { const search = $('area-search').value.trim(); if (!search) return; st.extra_area = search; st.selected_constellations = []; delete results[step.id]; $('next').disabled = true; loadArea(search, true); };
+  $('find-area').onclick = () => {
+    const search = $('area-search').value.trim();
+    if (!search) return;
+    st.extra_area = search;
+    st.selected_constellations = [];
+    st.hub_system = '';
+    seq++;
+    comparisonRequest?.abort();
+    clearTimeout(prefetchTimer);
+    delete results[step.id];
+    $('next').disabled = true;
+    loadArea(search, true);
+  };
   loadArea(st.extra_area || null);
 }
 

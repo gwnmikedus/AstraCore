@@ -249,7 +249,8 @@ async def area_save(request: Request):
 
 
 @router.get("/api/area")
-async def api_area(request: Request, extra_area: Optional[str] = None):
+async def api_area(request: Request, extra_area: Optional[str] = None,
+                   selected_constellations: Optional[str] = None, hub_system: Optional[str] = None):
     """Constellations + drop-off choices for the wizard's Area step (Advanced expander)."""
     pid = _pid(request)
     chars = service.planning_characters(pid)
@@ -257,18 +258,25 @@ async def api_area(request: Request, extra_area: Optional[str] = None):
     if extra_area is not None:
         s.extra_area = extra_area.strip()[:TEXT_LIMITS["extra_area"]]
         s.selected_constellations = []
+    s.update({key: value for key, value in {"selected_constellations": selected_constellations,
+                                          "hub_system": hub_system}.items() if value is not None})
     area = await service.load_space(chars, s) if chars else None
     if not area:
-        return JSONResponse({"constellations": [], "selected": [], "systems": []})
+        return JSONResponse({"constellations": [], "selected": [], "systems": [],
+                             "selling_coverage": selling.coverage("", None)})
     groups = space_mod.grouped(area, chars, store.planet_overrides(pid))
-    selected = s.selected_constellations or space_mod.default_selection(groups)
+    selected = (s.selected_constellations if selected_constellations is not None
+                else s.selected_constellations or space_mod.default_selection(groups))
     cons = [{"id": c["id"], "name": c["name"], "region": r["name"], "systems": len(c["systems"]),
              "score": c["score"], "has_colonies": c["has_colonies"], "sec": [c["sec_max"], c["sec_min"]]}
             for r in groups for c in r["constellations"]]
-    names = sorted({v["name"] for v in space_mod.selected_systems(area, selected).values()}
+    systems = space_mod.selected_systems(area, selected)
+    names = sorted({v["name"] for v in systems.values()}
                    | {n for n in voc.COURIER_ORIGINS if space_mod_has(area, n)})
+    hub = optimizer.resolve_hub(area, s, systems, store.planet_overrides(pid)) if systems else None
     return JSONResponse({"constellations": cons, "selected": selected, "systems": names,
-                         "hub_system": s.hub_system, "voc": voc.COURIER_ORIGINS})
+                         "hub_system": s.hub_system, "voc": voc.COURIER_ORIGINS,
+                         "selling_coverage": selling.coverage(hub["name"] if hub else "", area)})
 
 
 def space_mod_has(area, name) -> bool:

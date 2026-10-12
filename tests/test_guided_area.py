@@ -77,3 +77,30 @@ def test_guided_get_keeps_context_suggestions_unsaved(browser, eve, monkeypatch)
     encoded = re.search(r"const S = JSON.parse\((.*?)\);", html).group(1)
     assert json.loads(json.loads(encoded))["selected_constellations"] == []
     assert not store.has_settings(pid)
+
+
+def test_area_preview_coverage_matches_search_and_dropoff_without_saving(browser, eve, monkeypatch):
+    c = browser()
+    pid = setup(c, eve)
+    async def area(chars, s, **kwargs):
+        if not s.extra_area:
+            return None
+        result = _area()
+        for system in result["systems"].values():
+            system["region"] = "Delve" if s.extra_area == "Covered region" else "Fictional remote region"
+        result["systems"]["3"]["region"] = "Fictional remote region"
+        return result
+    monkeypatch.setattr(service, "load_space", area)
+    assert not c.get('/pi/api/area').json()['selling_coverage']['local']
+    covered = c.get('/pi/api/area', params={'extra_area': 'Covered region', 'hub_system': 'HUB'})
+    assert covered.json()['selling_coverage']['local'] is True
+    remote = c.get('/pi/api/area', params={'extra_area': 'Remote region', 'hub_system': 'HUB'})
+    assert not any(remote.json()['selling_coverage'].values())
+    changed_hub = c.get('/pi/api/area', params={'extra_area': 'Covered region',
+                                              'selected_constellations': '1', 'hub_system': 'FAR'})
+    assert not any(changed_hub.json()['selling_coverage'].values())
+    empty = c.get('/pi/api/area', params={'extra_area': 'Covered region',
+                                        'selected_constellations': '', 'hub_system': 'HUB'})
+    assert empty.json()['selected'] == []
+    assert not any(empty.json()['selling_coverage'].values())
+    assert not store.has_settings(pid)

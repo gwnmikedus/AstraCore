@@ -60,6 +60,19 @@ def _recent_days(ts: Optional[str], days: int) -> bool:
     return t is not None and t > time.time() - days * 86400
 
 
+def pickup_stock(pi: PIData, colony: dict) -> Dict[int, float]:
+    """Cached finished products, excluding raw resources and local factory inputs."""
+    inputs = set()
+    stock = defaultdict(float)
+    for pin in colony.get("pins", []):
+        schematic = pi.schematics.get(pin.get("schematic_id"))
+        if schematic:
+            inputs.update(schematic.inputs)
+        for content in pin.get("contents", []) or []:
+            stock[content["type_id"]] += content["amount"]
+    return {tid: qty for tid, qty in stock.items() if pi.tier(tid) >= 1 and tid not in inputs and qty >= 1}
+
+
 def colonies_status(pi: PIData, characters: List[dict], area: Optional[dict]) -> dict:
     names = planet_names(area)
     extractors, pickups = [], []
@@ -67,13 +80,7 @@ def colonies_status(pi: PIData, characters: List[dict], area: Optional[dict]) ->
         for col in ch.get("colonies", []):
             pn = colony_name(names, col)
             pins = col.get("pins", [])
-            schem_inputs = defaultdict(float)   # type -> units/day consumed on this planet (not a pickup)
-            for p in pins:
-                sid = p.get("schematic_id")
-                if sid and sid in pi.schematics:
-                    for t, q in pi.schematics[sid].per_hour_in().items():
-                        schem_inputs[t] += q * 24
-            stock = defaultdict(float)
+            ready = pickup_stock(pi, col)
             for p in pins:
                 ex = p.get("extractor_details")
                 if ex:
@@ -84,9 +91,6 @@ def colonies_status(pi: PIData, characters: List[dict], area: Optional[dict]) ->
                         "heads": len(ex.get("heads", [])), "hours_left": None if h is None else round(h, 1),
                         "state": "expired" if h is not None and h <= 0 else ("soon" if h is not None and h < 24 else "ok"),
                     })
-                for c in p.get("contents", []) or []:
-                    stock[c["type_id"]] += c["amount"]
-            ready = {t: q for t, q in stock.items() if pi.tier(t) >= 1 and t not in schem_inputs and q >= 1}
             if ready:
                 pickups.append({"character": ch["name"], "planet": pn["name"], "system": pn["system"],
                                 "items": {pi.name(t): int(q) for t, q in ready.items()},

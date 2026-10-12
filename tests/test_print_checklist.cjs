@@ -51,6 +51,15 @@ test('no checklist for a failed or missing plan', () => {
   assert.equal(AC.checklistHTML({error: 'No plan'}), '');
 });
 
+test('printed template references retain their creator and source, with repository fallback', () => {
+  const plan = structuredClone(PLAN);
+  plan.colonies[0].template_url = 'https://github.com/DalShooth/EVE_PI_Templates/blob/main/Example.json?x=1&y=2';
+  const html = load().checklistHTML(plan);
+  assert.equal((html.match(/Template by DalShooth/g) || []).length, 2);
+  assert.match(html, /Source: https:\/\/github.com\/DalShooth\/EVE_PI_Templates\/blob\/main\/Example.json\?x=1&amp;y=2/);
+  assert.match(html, /Source: https:\/\/github.com\/DalShooth\/EVE_PI_Templates<\/small>/);
+});
+
 test('a new question is scrolled to only when it starts off the first screen', () => {
   const AC = load();
   assert.equal(AC.tourScroll({top: 460, viewport: 812}), false);   // folded hero on a phone: already in view

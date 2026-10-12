@@ -4,7 +4,9 @@ Two stages so the live sliders stay fast:
 
 1. Pooled integer program over (planet, template) pairs. n[j] = how many of your
    characters place template j on that planet. Factories get a utilisation
-   z[j] in [0, n[j]]. Item flows must balance; leftovers are sold.
+   z[j] in [0, n[j]]. Item flows must balance; leftovers are sold. A factory runs no faster
+   than its launchpad/storage can buffer for one extractor cycle, so it needs one restock per
+   cycle at most.
 
        maximise  sold value - customs tax
                  - w_m3 * m3/day moved - w_sys * systems used - w_fac * factories
@@ -33,6 +35,7 @@ from . import economics as eco
 from . import operate, routing, setups, skills, upkeep
 
 MINER_CCU = 4  # DalShooth nullsec miners fit a level-4 command center (lowsec miners need 5)
+BUFFER_HEADROOM = 0.99  # factories are planned to fill at most 99% of their space in one cycle
 
 
 # Search steps per solve (see _solve); the time limit only guards against a stuck solver.
@@ -144,6 +147,12 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     y = {sid: pulp.LpVariable(f"y{sid}", cat="Binary") for sid in scope}
     use = {j: (z[j] if j in z else n[j]) for j in n}
 
+    cycle = max(0.0, float(s.cycle_days))
+
+    def room(st: setups.Setup) -> float:
+        # a little headroom so the rounded per-day flows shown on the plan still pass upkeep's check
+        return upkeep.plan_capacity(st.layout) * BUFFER_HEADROOM
+
     produced, consumed = defaultdict(list), defaultdict(list)
     tax, m3, fac = [], [], []
     by_planet, by_system = defaultdict(list), defaultdict(list)
@@ -152,6 +161,11 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
         if j in z:
             prob += z[j] <= n[j]
             fac.append(n[j])
+            # One restock per extractor cycle: the launchpad/storage space must hold a full cycle of
+            # inputs (and of the products made meanwhile), so run the factory no faster than that.
+            per_cycle = max(eco.m3(pi, st.inputs), eco.m3(pi, st.out)) * cycle
+            if per_cycle > room(st):
+                prob += per_cycle * z[j] <= room(st) * n[j]
         for t, q in st.out.items():
             produced[t].append(q * u)
         for t, q in st.inputs.items():

@@ -491,6 +491,37 @@ def test_plans_carry_a_storage_check_per_colony(pi):
     assert tight == any(w.startswith("Storage check") for w in res["warnings"])
 
 
+@pytest.mark.parametrize("cycle", [3, 7])
+def test_factories_hold_a_full_extractor_cycle(pi, cycle):
+    """A factory is planned to need at most one restock per extractor cycle (#59).
+
+    Rich miners could feed a 12-factory template faster than one launchpad buffers for a cycle."""
+    chars = [{"character_id": i, "name": f"C{i}", "slots": 4, "ccu_level": 5, "colonies": []} for i in (1, 2, 3)]
+    res = _plan(pi, chars=chars, prices={**PRICES, 2329: 400000.0, 9832: 400000.0}, max_tier=2,
+                cross_character=True, max_jumps=2, cycle_days=cycle, head_yield_per_hour=10_000)
+    factories = [c for c in res["colonies"] if c["kind"] == "factory"]
+    assert factories, "the fixture should still make factories worth building"
+    for f in factories:
+        assert f["upkeep"]["visit_every_days"] >= cycle, f["upkeep"]
+        assert f["upkeep"]["issues"] == []
+    assert not any(c["upkeep"]["issues"] and c["kind"] == "factory" for c in res["colonies"])
+
+
+def test_roomy_factories_are_not_slowed_down(pi):
+    """The buffer cap only binds when the template's space is too small for the cycle."""
+    roomy = [t if t["kind"] != "factory" else {**t, "storage": 6} for t in TEMPLATES]
+    chars = [{"character_id": i, "name": f"C{i}", "slots": 3, "ccu_level": 5, "colonies": []} for i in (1, 2)]
+    s = Settings(hub_system="HUB", max_jumps=2, max_systems=0, effort=100, max_tier=2, cross_character=True,
+                 cycle_days=1)
+    area = _area()
+    systems = {int(k): v for k, v in area["systems"].items()}
+    res = optimizer.plan(pi, s, area, systems, chars, {**PRICES, 2329: 400000.0}, roomy)
+    factories = [c for c in res["colonies"] if c["kind"] == "factory"]
+    assert factories
+    for f in factories:
+        assert f["upkeep"]["visit_every_days"] >= 1 and f["upkeep"]["issues"] == []
+
+
 def _colonies(now):
     def iso(h):
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + h * 3600))

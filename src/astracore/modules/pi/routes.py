@@ -140,7 +140,6 @@ async def area_page(request: Request):
     groups = space_mod.grouped(area, chars, store.planet_overrides(pid))
     if not s.selected_constellations:
         s.selected_constellations = space_mod.default_selection(groups)
-        store.save_settings(pid, s)
     sel_systems = space_mod.selected_systems(area, s.selected_constellations)
     overrides = store.planet_overrides(pid)
     names = {p["planet_id"]: p["name"] for v in area["systems"].values() for p in v["planets"]}
@@ -250,14 +249,17 @@ async def area_save(request: Request):
 
 
 @router.get("/api/area")
-async def api_area(request: Request):
+async def api_area(request: Request, extra_area: Optional[str] = None):
     """Constellations + drop-off choices for the wizard's Area step (Advanced expander)."""
     pid = _pid(request)
     chars = service.planning_characters(pid)
     s = store.load_settings(pid)
+    if extra_area is not None:
+        s.extra_area = extra_area.strip()[:TEXT_LIMITS["extra_area"]]
+        s.selected_constellations = []
     area = await service.load_space(chars, s) if chars else None
     if not area:
-        return JSONResponse({"groups": [], "selected": [], "systems": []})
+        return JSONResponse({"constellations": [], "selected": [], "systems": []})
     groups = space_mod.grouped(area, chars, store.planet_overrides(pid))
     selected = s.selected_constellations or space_mod.default_selection(groups)
     cons = [{"id": c["id"], "name": c["name"], "region": r["name"], "systems": len(c["systems"]),
@@ -279,12 +281,14 @@ async def plan_page(request: Request):
     pid = _pid(request)
     if not service.planning_characters(pid):
         return redirect("/pi")   # /pi says why: connect, or include one
-    ctx = await service.planning_context(pid)
+    ctx = await service.planning_context(pid, persist_default=False)
     s = ctx["s"]
     hubs = sorted({v["name"] for v in ctx["systems"].values()} |
                   {n for n in voc.COURIER_ORIGINS if ctx["area"] and space_mod_has(ctx["area"], n)})
     advanced = request.query_params.get("view") == "advanced"
     page = "planner.html" if advanced else "guide.html"
+    if not advanced:
+        s.selected_constellations = store.load_settings(pid).selected_constellations
     eligible = [c for c in ctx["chars"] if setups.can_plan(c)]
     first_visit = not store.has_settings(pid) or not s.answered
     return render(request, page, page[:-5], "Plan", s=s, chars=ctx["chars"], systems=hubs,
@@ -292,8 +296,8 @@ async def plan_page(request: Request):
                   head_yield=ctx["head_yield"], settings_json=s.to_json(), voc_hubs=voc.COURIER_ORIGINS,
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
                   blocked_characters=len(ctx["chars"]) - len(eligible),
-                  n_systems=len(ctx["systems"]),
-                  dropoff=ctx["dropoff"], selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
+                  n_systems=len(ctx["systems"]) if advanced or s.selected_constellations else 0,
+                  dropoff=ctx["dropoff"] if advanced or s.selected_constellations else None, selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,

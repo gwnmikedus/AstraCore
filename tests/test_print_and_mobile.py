@@ -64,7 +64,7 @@ def test_guide_names_the_step_and_folds_the_hero(browser, eve, monkeypatch):
     c = browser()
     sso_login(c, eve, new_id(), "Phone")
 
-    async def context(pid):
+    async def context(pid, **kw):
         return {"s": Settings(), "chars": [{"character_id": 1, "name": "Ready", "slots": 6, "ccu_level": 5}],
                 "systems": {}, "area": {}, "calibrated": False, "head_yield": 1500, "dropoff": None, "seller": None}
 

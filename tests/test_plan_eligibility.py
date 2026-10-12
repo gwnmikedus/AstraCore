@@ -35,8 +35,8 @@ def test_every_character_excluded_lands_on_a_page_that_includes_them_again(brows
 
     r = c.post(f"/pi/characters/{cid}/toggle", data={"back": "/pi", "csrf_token": csrf(c)}, follow_redirects=False)
     assert r.headers["location"] == "/pi"
-    assert service.entry_state(pid) == "area"
-    assert c.get("/pi", follow_redirects=False).headers["location"] == "/pi/area"
+    assert service.entry_state(pid) == "plan"
+    assert c.get("/pi", follow_redirects=False).headers["location"] == "/pi/plan"
 
 
 def test_dashboard_tile_points_an_all_excluded_profile_at_pi(browser, eve):
@@ -80,7 +80,7 @@ def test_guided_setup_says_early_which_characters_cant_be_planned(browser, eve, 
     db.set_character(cid, ccu_level=1)
     chars = [{"character_id": cid, "name": "Trainee", "slots": 1, "ccu_level": 1}]
 
-    async def context(pid):
+    async def context(pid, **kw):
         return {"s": Settings(), "chars": chars, "systems": {}, "area": {}, "calibrated": False,
                 "head_yield": 1500, "dropoff": None, "seller": None}
 

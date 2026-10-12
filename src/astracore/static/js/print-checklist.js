@@ -26,7 +26,9 @@
           ? `${c.kind === 'miner' ? 'Visit' : 'Restock'} every ${num(c.upkeep.visit_every_days, c.upkeep.visit_every_days % 1 ? 1 : 0)} d` : '';
         h += `<tr><td class="tick"><span class="tickbox" aria-hidden="true"></span></td>
           <td class="planet">${esc(c.planet)}<small>${esc(c.planet_type || '')}${c.security != null ? ` · sec ${esc(String(c.security))}` : ''}</small></td>
-          <td>${esc(c.template || '')}${c.p0 && c.p0.length ? `<small>extract ${c.p0.map(esc).join(', ')}</small>` : ''}</td>
+          <td>${esc(c.template || '')}<small>Template by DalShooth</small>
+            <small class="template-source">Source: ${esc(c.template_url || 'https://github.com/DalShooth/EVE_PI_Templates')}</small>
+            ${c.p0 && c.p0.length ? `<small>extract ${c.p0.map(esc).join(', ')}</small>` : ''}</td>
           <td>${makes}${c.tier ? ` <small class="tier">P${c.tier}</small>` : ''}</td>
           <td>${every}</td><td>${esc(c.action || '')}</td></tr>`;
       }

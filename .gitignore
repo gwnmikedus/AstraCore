@@ -12,3 +12,6 @@ data/
 
 # Downloaded tunnel executable used by the launcher
 bin/
+
+# AstraCore Control, built per Mac by ops/app/build.sh
+/AstraCore Control.app/

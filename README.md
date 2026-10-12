@@ -96,10 +96,21 @@ it requests only the required bundle of the enabled modules; optional bundles ar
 
 Without a terminal:
 
-- **Astracore Control.app** (repo root): double-click for a small menu. It shows the current status and offers
-  Start local test / Start production (asks for confirmation) / Stop / Restart / Open site / Show logs.
-  It is built per Mac (`ops/app/build.sh`, also after a fresh clone) and isn't in git. Drag it to the Dock if you like;
-  it keeps working from there as long as the repo stays where it was built.
+- **AstraCore Control.app** (repo root): the hoster's control room, a native Mac app with a menu-bar status item.
+  - *Production*: online/offline and public health, the running build, merged commits not deployed yet,
+    **Deploy** / **Roll back** / Restart / Take offline / Start, deploy history, and local test mode.
+  - *Pull requests*: checks and mergeability, **Update branch**, **Squash and merge** with a Conventional title
+    (and optionally deploy right after).
+  - *Issues*: status and type labels per [docs/releases.md](docs/releases.md#issue-labels), issues that break the
+    scheme, close as completed / not planned, reopen.
+  - *Release*: the minor-release steps (tag, GitHub Release, deploy, `status:released`) and the pilot-facing notes
+    merged since the last release, ready for the next release pull request.
+  - *Logs & backups*: the app, tunnel and deploy logs, and the database backups.
+
+  Every action asks before it changes something and shows the command output as it runs; it drives `./astracore`,
+  `git` and `gh` (logged in as the maintainer) in this checkout. Build it per Mac with `ops/app/build.sh` (needs the
+  Command Line Tools, not Xcode; also after a fresh clone or a pull that changes `ops/app/`); it isn't in git.
+  Drag it to the Dock if you like; it keeps working as long as the repo stays where it was built.
 - **Launchers/** folder: one double-clickable `.command` per action: `Start Astracore (local test)`,
   `Start Astracore (production)`, `Stop Astracore`, `Astracore status`, `Astracore logs`. The start ones open the site.
 

@@ -15,7 +15,12 @@
   };
   const m3 = v => ok(v) ? num(v, (Math.abs(+v) > 0 && Math.abs(+v) < 10) ? 1 : 0) + ' m³' : '–';
   const count = v => ok(v) ? num(Math.round(+v)) : '–';
-  const pct = (v, d = 1) => ok(v) ? nz((+v).toFixed(d).replace(/\.?0+$/, '')) + '%' : '–';
+  const pct = (v, d = 1) => {
+    if (!ok(v)) return '–';
+    if (d === 0 && +v > 0 && +v < 1) return '<1%';
+    const s = (+v).toFixed(d);
+    return nz(d > 0 ? s.replace(/\.?0+$/, '') : s) + '%';
+  };
   // Mirrors fmt.ago(): how long ago a unix timestamp (seconds) was.
   const ago = (ts, now = Date.now() / 1000) => {
     if (!ok(ts) || !+ts) return 'never';

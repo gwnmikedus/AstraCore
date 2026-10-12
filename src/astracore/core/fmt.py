@@ -74,6 +74,8 @@ def pct(v: Any, digits: int = 1) -> str:
     x = _f(v)
     if x is None:
         return "–"
+    if digits == 0 and 0 < x < 1:
+        return "<1%"
     s = f"{x:.{digits}f}".rstrip("0").rstrip(".") if digits else f"{x:.0f}"
     return _nz(s) + "%"
 

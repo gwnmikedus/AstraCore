@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pulp
 
-from ..settings import Settings, effort_weights
+from ..settings import Settings, time_weights
 from ..intel import area as area_mod
 from ..intel import richness as rich
 from ..static_data import dalshooth, voc
@@ -123,7 +123,7 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     if not cands:
         return None, planets, scope, "No templates fit the selected space. Select more constellations or raise max jumps."
 
-    w = effort_weights(s.effort)
+    w = time_weights(s)
     per_planet = per_planet_cap
     prob = pulp.LpProblem("pi", pulp.LpMaximize)
     n = {j: pulp.LpVariable(f"n{j}", lowBound=0, upBound=1 if st.kind == "miner" else per_planet, cat="Integer")
@@ -620,7 +620,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     if free > 0:
         warnings.append(f"{free} slot(s) unused: the selected space or limits (max systems {s.max_systems or '∞'}, "
                         f"max jumps {s.max_jumps}, colonies per planet {s.per_planet}) don't offer anything "
-                        f"worth the effort setting. Loosen a limit or move the effort slider right.")
+                        f"worth the time it takes. Loosen a limit or value your time lower.")
     if not prices or not any(prices.values()):
         warnings.append("No market prices loaded - ISK values are 0.")
     return {
@@ -633,7 +633,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
 
 
 ALTERNATIVES = [
-    ("least", "Least effort", 0),
+    ("least", "Set and forget", 0),
     ("balanced", "Balanced", 50),
     ("max", "Max ISK", 100),
 ]
@@ -642,17 +642,18 @@ ALTERNATIVES = [
 def alternatives(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characters: List[dict],
                  prices: Dict[int, float], templates: List[dict], overrides: Optional[dict] = None,
                  head_yield: Optional[float] = None) -> List[dict]:
+    """The same settings planned for each goal, each at its default value of the pilot's time."""
     out = []
     for code, name, effort in ALTERNATIVES:
         ss = copy.deepcopy(s)
-        ss.effort = effort  # same time limit as the live plan, so the cards match it
+        ss.effort, ss.hour_isk = effort, -1.0   # same time limit as the live plan, so the cards match it
         res = plan(pi, ss, area, systems, characters, prices, templates, overrides, head_yield)
         out.append({"code": code, "name": name, "effort": effort, "error": res.get("error"),
                     "totals": res.get("totals", {}),
                     "mix": _mix(res.get("colonies", []))})
-    # More effort must never show less ISK. Stage 2 (fitting chains onto characters) and the
-    # solver's small optimality gap can make a higher-effort plan come out a little lower; in that
-    # case show the better lower-effort plan for that option and point its card at that effort.
+    # Valuing time lower must never show less ISK. Stage 2 (fitting chains onto characters) and the
+    # solver's small optimality gap can make such a plan come out a little lower; in that case show
+    # the better plan for that option and point its card at that goal.
     best = None
     for a in out:
         isk = a["totals"].get("isk_per_day")

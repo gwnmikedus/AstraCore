@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% from "_artwork.html" import artwork %}
+{% block head %}{{ super() }}<link rel="stylesheet" href="{{ asset('css/money-slider.css') }}">
+<script src="{{ asset('js/money-slider.js') }}"></script>{% endblock %}
 {% block content %}
 <header class="ac-page-header context-header">
 <div class="eyebrow">PI / Advanced planning</div>
@@ -12,9 +14,14 @@
 <div class="layout">
   <aside class="controls">
     <div class="ctl">
-      <label>Effort ↔ ISK <output id="o-effort"></output></label>
-      <input type="range" id="effort" min="0" max="100" step="5">
-      <div class="ends"><span>least effort</span><span>max ISK</span></div>
+      <label>Goal</label>
+      <div class="seg" id="goal">
+        <button data-v="0">Set and forget</button><button data-v="50">Balanced</button><button data-v="100">Max ISK</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>An hour of my time is worth</label>
+      <div id="hour"></div>
       <div class="hint" id="h-effort"></div>
     </div>
     <div class="ctl">
@@ -101,15 +108,28 @@ const {isk, num, m3, count, esc} = AC;
 
 // ---- controls <-> state -------------------------------------------------------
 const labels = {
-  effort: v => v <= 15 ? 'very passive' : v <= 40 ? 'passive' : v <= 65 ? 'balanced' : v <= 85 ? 'active' : 'max ISK',
   max_systems: v => v >= 11 ? 'no limit' : v,
   max_jumps: v => v,
   cycle_days: v => v + (v == 1 ? ' day' : ' days'),
   per_planet: v => v,
   ship_every_days: v => v + (v == 1 ? ' day' : ' days'),
 };
+const HOUR_DEFAULT = {{ hour_defaults|tojson }};   // settings.HOUR_DEFAULTS
+const goalOf = e => e <= 25 ? 'passive' : e <= 75 ? 'balanced' : 'max';
+const hourDefault = () => HOUR_DEFAULT[goalOf(S.effort)];
+const hourValue = () => (+S.hour_isk >= 0 ? +S.hour_isk : hourDefault());
+let hourControl = null;
+function setGoal(v) {
+  S.effort = +v;
+  document.querySelectorAll('#goal button').forEach(b => b.classList.toggle('on', goalOf(+b.dataset.v) === goalOf(+v)));
+  if (hourControl) hourControl.setValue(hourValue(), hourDefault(), +S.hour_isk < 0);
+}
 function init() {
-  for (const k of ['effort', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).value = S[k];
+  for (const k of ['max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).value = S[k];
+  $('hour').innerHTML = AC.moneySliderHTML('hour-isk', hourValue());
+  hourControl = AC.wireMoneySlider($('hour'), {value: hourValue(), defaultValue: hourDefault(), isDefault: +S.hour_isk < 0,
+    onCommit: (value, {useDefault}) => { S.hour_isk = useDefault || value === hourDefault() ? -1 : value; schedule(0); }});
+  setGoal(S.effort);
   for (const k of CHANNELS) $(k).checked = !!S[k];
   $('max_systems').value = S.max_systems === 0 ? 11 : S.max_systems;
   $('cross_character').checked = !!S.cross_character;
@@ -123,7 +143,7 @@ function showLabels() { for (const k in labels) { const o = $('o-' + k); if (o) 
 function state() {
   const ms = +$('max_systems').value;
   return {
-    effort: +$('effort').value, max_tier: S.max_tier, max_systems: ms >= 11 ? 0 : ms,
+    effort: S.effort, hour_isk: +S.hour_isk, max_tier: S.max_tier, max_systems: ms >= 11 ? 0 : ms,
     max_jumps: +$('max_jumps').value, cycle_days: +$('cycle_days').value, per_planet: +$('per_planet').value,
     cross_character: $('cross_character').checked, hub_system: $('hub_system').value,
     product_blacklist: $('product_blacklist').value, ship_every_days: +$('ship_every_days').value,
@@ -145,13 +165,13 @@ async function update() {
     $('busy').textContent = 'updating…';
     if (res.superseded) return;
     render(res, st);
-    const key = JSON.stringify({...st, effort: null});
-    if (key !== altKey) { altKey = key; loadAlts(); } else markAlt(st.effort);
+    const key = JSON.stringify({...st, effort: null, hour_isk: null});
+    if (key !== altKey) { altKey = key; loadAlts(); } else markAlt();
   } catch (e) { if (e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
   finally { $('busy').style.display = 'none'; $('result').classList.remove('loading'); }
 }
 async function loadAlts() {
-  $('alts-note').textContent = '- comparing effort levels…';
+  $('alts-note').textContent = '- comparing goals…';
   const alts = await AC.post(API + '/alternatives', {});
   if (alts.superseded || !Array.isArray(alts)) { $('alts-note').textContent = ''; return; }
   $('alts').innerHTML = alts.map(a => a.error ? `<div class="alt"><div class="t">${a.name}</div><div class="bad muted">${esc(a.error)}</div></div>` : `
@@ -161,25 +181,31 @@ async function loadAlts() {
       <div class="muted">${m3(a.totals.m3_per_week)}/wk · ${a.totals.systems} systems · ${a.totals.colonies}/${a.totals.slots_total} slots</div>
       <div class="muted">${esc(a.mix)}</div>
     </div>`).join('');
-  document.querySelectorAll('.alt[data-effort]').forEach(el => el.onclick = () => { $('effort').value = el.dataset.effort; schedule(0); });
-  $('alts-note').textContent = '- click one to load it, then fine-tune with the sliders';
-  markAlt(+$('effort').value);
+  document.querySelectorAll('.alt[data-effort]').forEach(el => el.onclick = () => { S.hour_isk = -1; setGoal(el.dataset.effort); schedule(0); });
+  $('alts-note').textContent = '- each at its goal’s default value of your time; click one to load it';
+  markAlt();
 }
-function markAlt(e) { document.querySelectorAll('.alt[data-effort]').forEach(el => el.classList.toggle('cur', +el.dataset.effort === e)); }
+function markAlt() {
+  const own = +S.hour_isk >= 0;
+  document.querySelectorAll('.alt[data-effort]').forEach(el =>
+    el.classList.toggle('cur', !own && goalOf(+el.dataset.effort) === goalOf(S.effort)));
+}
 
 // ---- rendering -------------------------------------------------------------------------
 {% include "pi/_plan_render.html" %}
 function render(res, st) {
   const w = res.weights || {};
   $('h-effort').textContent = w.isk_per_m3 !== undefined
-    ? `Treats 1 m³ hauled as ${num(w.isk_per_m3)} ISK and each extra system as ${isk(w.isk_per_system)}/day.` : '';
+    ? (w.isk_per_m3 > 0 ? `Weighed against your time: each m³ hauled costs ${num(w.isk_per_m3)} ISK, each system on the pickup round ` +
+       `${isk(w.isk_per_system)}/day and each factory to restock ${isk(w.isk_per_factory)}/day.` : 'Only income counts: your time is valued at 0.') : '';
   $('result').innerHTML = planHTML(res);
   fillYieldBand();
 }
 
 // ---- wire up -------------------------------------------------------------------------------
 init();
-for (const k of ['effort', 'max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
+for (const k of ['max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
+document.querySelectorAll('#goal button').forEach(b => b.onclick = () => { setGoal(b.dataset.v); schedule(0); });
 for (const k of ['cross_character', 'hub_system', ...CHANNELS]) $(k).addEventListener('change', () => schedule(0));
 $('product_blacklist').addEventListener('change', () => schedule(0));
 document.querySelectorAll('#max_tier button').forEach(b => b.onclick = () => { setTier(b.dataset.v); schedule(0); });

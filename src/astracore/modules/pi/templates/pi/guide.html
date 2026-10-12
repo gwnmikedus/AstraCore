@@ -51,7 +51,7 @@ const SELL = {
 const STEPS = [
   {id: 'goal', title: 'Goal', q: 'What do you want from PI?', isGoal: true,
    intro: 'PI costs time: every planet needs a visit to restart extractors, and everything you make has to be hauled to where it sells. ' +
-          'Your goal sets how much an hour of your time is worth; the next questions use it to judge whether extra effort is worth the extra ISK.',
+          'Your goal sets how much an hour of your time is worth. The planner weighs hauling, extra systems and factory restocks against it, and the next questions use it to judge whether extra effort is worth the extra ISK.',
    options: [
      {id: 'passive', icon: 'moon', label: 'Set and forget', patch: {effort: 0}, blurb: 'Simple colonies, longer programs, and fewer pickup stops. Keep maintenance predictable.'},
      {id: 'balanced', icon: 'scale', label: 'Balanced', patch: {effort: 50}, blurb: 'Extra work only where it clearly pays off.'},
@@ -157,7 +157,7 @@ function minutesPerWeek(o, r) {
   const m = r && !r.error && r.facts ? r.facts.minutes_per_week : null;
   return m == null ? Infinity : m;
 }
-const HOUR_DEFAULT = {passive: 300e6, balanced: 90e6, max: 0};
+const HOUR_DEFAULT = {{ hour_defaults|tojson }};   // settings.HOUR_DEFAULTS: the planner uses the same values
 const goalId = () => STEPS[0].match(st);
 const iskPerHour = () => (+st.hour_isk >= 0 ? +st.hour_isk : HOUR_DEFAULT[goalId()]);
 
@@ -181,7 +181,8 @@ function wireHour(step) {
         if (saving || revision !== hourSaveRevision) return;
         $('save-status').textContent = r.error ? 'Preference not saved. Continue to retry.' : 'Time preference saved';
       });
-      paint(step);
+      // The value of your time shapes the plans themselves, not only the advice: compare again.
+      if (step.isGoal) paint(step); else load(step);
     },
   });
 }

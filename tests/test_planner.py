@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from astracore.modules.pi.settings import Settings, effort_weights
+from astracore.modules.pi.settings import HOUR_DEFAULTS, Settings, hour_value, time_weights
 from astracore.modules.pi.planner import optimizer, setups
 from astracore.modules.pi.static_data import pi_rules as R
 from astracore.modules.pi.static_data.sde_loader import build_from_rows
@@ -93,8 +93,29 @@ def test_max_tier_1_means_no_factories(pi):
     assert all(x.kind == "miner" for x in res)
 
 
-def test_effort_weights_decrease_with_effort():
-    assert effort_weights(0)["isk_per_m3"] > effort_weights(50)["isk_per_m3"] > effort_weights(100)["isk_per_m3"] == 0
+def test_time_weights_follow_the_value_of_your_time():
+    passive, balanced, most = (time_weights(Settings(effort=e)) for e in (0, 50, 100))
+    assert passive["isk_per_m3"] > balanced["isk_per_m3"] > most["isk_per_m3"] == 0
+    assert most["isk_per_system"] == most["isk_per_factory"] == 0
+    own = time_weights(Settings(effort=0, hour_isk=0))           # the pilot's own value wins over the goal
+    assert own == most
+    double = time_weights(Settings(effort=50, hour_isk=2 * HOUR_DEFAULTS["balanced"]))
+    assert double["isk_per_m3"] == 2 * balanced["isk_per_m3"]
+    # the same minutes as the time estimate: 20 min per 60,000 m3, 5 min per system per pickup round,
+    # 3 min per factory restock per extractor cycle
+    s = Settings(effort=50, hour_isk=60e6, ship_every_days=7, cycle_days=3)
+    w = time_weights(s)
+    assert w["isk_per_m3"] == 1e6 * 20 / 60000
+    assert w["isk_per_system"] == 1e6 * 5 / 7 and w["isk_per_factory"] == 1e6 * 3 / 3
+    assert hour_value(Settings(effort=30)) == HOUR_DEFAULTS["balanced"]
+
+
+def test_valuing_time_more_never_plans_more_work(pi):
+    def run(hour):
+        return _plan(pi, effort=50, hour_isk=hour, max_tier=2)["totals"]
+    cheap, dear = run(0), run(5e9)
+    assert dear["m3_per_week"] <= cheap["m3_per_week"] and dear["systems"] <= cheap["systems"]
+    assert dear["isk_per_day"] <= cheap["isk_per_day"]
 
 
 def _area():

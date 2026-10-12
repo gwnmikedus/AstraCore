@@ -24,7 +24,7 @@ class Settings:
     hub_system: str = ""                         # drop-off / hub; empty = auto (prefers a VOC location)
 
     # --- Live sliders (step 3) ----------------------------------------------------
-    effort: int = 30            # 0 = least effort ... 100 = max ISK
+    effort: int = 30            # the goal: 0 = set and forget, 50 = balanced, 100 = max ISK
     max_tier: int = 4           # highest product tier allowed (1 = only sell P1)
     max_systems: int = 3        # 0 = unlimited
     max_jumps: int = 3          # from hub
@@ -42,7 +42,7 @@ class Settings:
     ship_every_days: int = 7         # how often you ship / sell a batch
 
     # --- Wizard state (was browser localStorage) ----------------------------------
-    hour_isk: float = -1.0          # what an hour of your time is worth; -1 = the goal's default
+    hour_isk: float = -1.0          # what an hour of your time is worth (drives the planner); -1 = the goal's default
     guide_step: int = 0             # where the plan wizard was left
     answered: List[str] = field(default_factory=list)   # wizard questions the user has answered
 
@@ -102,11 +102,34 @@ class Settings:
             setattr(self, name, str(val))
 
 
-def effort_weights(effort: int) -> dict:
-    """Map the single effort slider (0 = least effort, 100 = max ISK) to penalty weights."""
-    lazy = max(0.0, min(1.0, 1 - effort / 100.0)) ** 2
+# What an hour of your time is worth when you haven't set it yourself, per goal (the guided setup's
+# first question). "Max ISK" values time at 0: only income counts.
+HOUR_DEFAULTS = {"passive": 300e6, "balanced": 90e6, "max": 0.0}
+
+
+def goal_of(effort: int) -> str:
+    """The guided setup's goal for an effort value: 0 = set and forget, 50 = balanced, 100 = max ISK."""
+    return "passive" if effort <= 25 else "balanced" if effort <= 75 else "max"
+
+
+def hour_value(s: "Settings") -> float:
+    """ISK one hour of the pilot's time is worth: their own value, or their goal's default."""
+    try:
+        own = float(s.hour_isk)
+    except (TypeError, ValueError):
+        own = -1.0
+    return own if own >= 0 else HOUR_DEFAULTS[goal_of(int(s.effort))]
+
+
+def time_weights(s: "Settings") -> dict:
+    """Penalty weights (ISK per day) for the extra work a plan asks: hauling, systems on the pickup round
+    and factory restocks. They use the same minutes as the time estimate the guided setup shows
+    (planner/compare.py), valued at what an hour of the pilot's time is worth, so the planner and the
+    advice weigh effort the same way. Colonies themselves aren't charged: free slots get used."""
+    from .planner import compare
+    per_min = hour_value(s) / 60
     return {
-        "isk_per_m3": 400.0 * lazy,               # hauling
-        "isk_per_system": 1_500_000.0 * lazy,      # each system to fly to (per day)
-        "isk_per_factory": 2_000_000.0 * lazy,     # factory planets need restocking
+        "isk_per_m3": per_min * compare.MIN_PER_60K_M3 / 60000,
+        "isk_per_system": per_min * compare.MIN_PER_SYSTEM_VISIT / max(1.0, float(s.ship_every_days)),
+        "isk_per_factory": per_min * compare.MIN_PER_RESTOCK / max(1.0, float(s.cycle_days)),
     }

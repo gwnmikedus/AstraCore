@@ -182,6 +182,28 @@ def test_signed_out_unknown_creates_profile_and_onboards(browser, eve):
     assert "Secure" not in cookie            # local mode is plain http
 
 
+def test_new_pilot_can_choose_home_without_completing_welcome(browser, eve):
+    c = browser()
+    sso_login(c, eve, new_id(), "New navigator")
+    assert not db.get_profile(me(c))["onboarded"]
+    response = c.get("/", follow_redirects=False)
+    assert response.status_code == 200 and "Choose your operating area" in response.text
+    assert c.get("/welcome").status_code == 200
+
+
+def test_visiting_pi_completes_welcome_and_uses_setup_entry(browser, eve, monkeypatch):
+    from astracore.modules.pi import service
+    c = browser()
+    sso_login(c, eve, new_id(), "Setup navigator")
+    pid = me(c)
+    assert not db.get_profile(pid)["onboarded"]
+    monkeypatch.setattr(service, "entry_state", lambda profile_id: "area")
+    response = c.get("/pi", follow_redirects=False)
+    assert response.headers["location"] == "/pi/area"
+    assert db.get_profile(pid)["onboarded"]
+    assert c.get("/", follow_redirects=False).status_code == 200
+
+
 def test_signed_out_known_character_signs_into_its_profile(browser, eve):
     a, b = new_id(), new_id()
     c1 = browser()

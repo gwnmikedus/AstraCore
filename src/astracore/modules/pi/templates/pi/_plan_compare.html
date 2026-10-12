@@ -21,7 +21,7 @@
         <button class="outline">Set as active plan</button>
       </form>
       {% endif %}</th>
-    <td data-label="Income">{{ t.isk_per_day|isk }} ISK/day<small>{{ t.isk_per_week|isk }} ISK/week</small></td>
+    <td data-label="Income">{{ t.isk_per_day|isk }} ISK/day<small>{{ t.isk_per_week|isk }} ISK/week</small>{% if t.needs_recalculation %}<small>Character removed · recalculate income</small>{% endif %}</td>
     <td data-label="Your time">{% if f.minutes_per_week is number %}≈ {{ f.minutes_per_week|duration }} / week{% else %}–{% endif %}</td>
     <td data-label="Colonies">{{ t.colonies|count }} of {{ t.slots_total|count }} slots{% if t.factories %}<small>{{ t.factories|count }} factory planet{{ 's' if t.factories != 1 }}</small>{% endif %}</td>
     <td data-label="Characters">{% if f.characters_total %}{{ f.characters_used|count }} of {{ f.characters_total|count }}{% else %}{{ f.characters_used|count }}{% endif %}</td>

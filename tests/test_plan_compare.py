@@ -100,6 +100,81 @@ def test_saved_plans_list_facts_even_for_old_plans():
         db.delete_profile(pid)
 
 
+def test_saved_plan_slots_use_stored_eligible_characters():
+    pid = db.create_profile("Legacy slots")
+    try:
+        result = _fake_plan()
+        for ch in result["characters"]:
+            ch["slots"] = 2
+        result["totals"]["slots_total"] = 20
+        rid = store.save_plan_run(pid, "legacy", Settings(), result, active=True)
+        assert store.get_plan_run(pid, rid)["result"]["totals"]["slots_total"] == 8
+        assert store.active_plan(pid)["result"]["totals"]["slots_total"] == 8
+        assert store.list_plan_runs(pid)[0]["totals"]["slots_total"] == 8
+    finally:
+        db.delete_profile(pid)
+
+
+def test_removing_character_updates_saved_plan_counts_and_invalidates_income(pi):
+    pid = db.create_profile("Removed pilot")
+    try:
+        result = _plan(pi, chars=THREE_CHARS, max_jumps=2)
+        result["selling"] = {"net_per_day": 100, "batches": [{"net": 700}]}
+        removed = result["colonies"][0]["character_id"]
+        rid = store.save_plan_run(pid, "active", Settings(cycle_days=3), result, active=True)
+        store.strip_character(pid, removed)
+        saved = store.get_plan_run(pid, rid)["result"]
+        t = saved["totals"]
+        assert t["slots_total"] == 4
+        assert t["colonies"] == len(saved["colonies"]) < len(result["colonies"])
+        assert t["systems"] == len({c["system"] for c in saved["colonies"]})
+        assert t["miners"] == sum(c["kind"] == "miner" for c in saved["colonies"])
+        assert t["factories"] == t["colonies"] - t["miners"]
+        assert t["restarts_per_week"] == round(t["miners"] * 7 / 3, 1)
+        assert t["transfers"] == len(saved["transfers"])
+        assert t["m3_per_week"] == round(sum(c["m3_per_week"] for c in saved["colonies"]))
+        assert t["isk_per_day"] is None and t["isk_per_week"] is None
+        assert not saved["sold"] and not saved["selling"]
+        assert "Recalculate" in saved["warnings"][-1]
+        for ch in saved["characters"]:
+            mine = [c for c in saved["colonies"] if c["character_id"] == ch["character_id"]]
+            assert ch["used"] == len(mine)
+            assert ch["value_per_day"] == sum(c["value_per_day"] for c in mine)
+        store.strip_character(pid, removed)
+        assert store.get_plan_run(pid, rid)["result"] == saved
+        assert store.list_plan_runs(pid)[0]["totals"] == t
+        html = str(templates.env.get_template("pi/_plan_compare.html").module.plan_compare_table(
+            store.list_plan_runs(pid), "csrf-test"))
+        assert "Character removed · recalculate income" in html
+        assert "of 4 slots" in html
+    finally:
+        db.delete_profile(pid)
+
+
+def test_removing_idle_character_preserves_income_and_legacy_missing_slots():
+    pid = db.create_profile("Idle removal")
+    try:
+        result = _fake_plan()
+        rid = store.save_plan_run(pid, "legacy", Settings(), result)
+        store.strip_character(pid, 99)
+        saved = store.get_plan_run(pid, rid)["result"]
+        assert saved["totals"]["isk_per_day"] == result["totals"]["isk_per_day"]
+        assert saved["totals"]["slots_total"] is None
+        assert saved["selling"] == result["selling"]
+        for ch in saved["characters"]:
+            ch["slots"] = 2
+        # Remove all remaining pilots, including the final one with no remaining colonies.
+        rid2 = store.save_plan_run(pid, "current", Settings(), saved)
+        for cid in (1, 2, 3):
+            store.strip_character(pid, cid)
+        empty = store.get_plan_run(pid, rid2)["result"]
+        assert empty["totals"]["slots_total"] == empty["totals"]["colonies"] == 0
+        assert empty["totals"]["systems"] == empty["totals"]["restarts_per_week"] == 0
+        assert not empty["characters"] and not empty["colonies"]
+    finally:
+        db.delete_profile(pid)
+
+
 def test_saved_plan_table_has_units_labels_and_one_activate_form_per_inactive_plan():
     pid = db.create_profile("Compare table")
     try:

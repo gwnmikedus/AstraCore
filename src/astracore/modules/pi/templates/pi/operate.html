@@ -40,6 +40,7 @@
   {% if active %}
   <p style="margin:.2rem 0"><strong>{{ active.label }}</strong> <span class="muted">· saved {{ active.created|ago }}
     · {{ (plan.totals.isk_per_day if plan and plan.totals else 0)|isk }} ISK/day · drop-off {{ plan.hub if plan else '–' }}</span></p>
+  {% if plan.totals.needs_recalculation %}<p class="warn">A character was removed from this plan. <a href="/pi/plan">Recalculate your plan</a> to check production chains and income.</p>{% endif %}
   {% if progress and progress.total %}
   <progress value="{{ progress.done }}" max="{{ progress.total }}"></progress>
   <p class="muted">{{ progress.done }} of {{ progress.total }} planned colonies are built as planned ·

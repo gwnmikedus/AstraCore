@@ -28,6 +28,16 @@ const COMPACT = {
           uncertainty: {level: 'lower', label: 'Lower', reasons: ['Measured yield and instant sales']}},
 };
 
+test('removed-character plans explain unavailable income instead of showing the old estimate', () => {
+  const html = load().compareTableHTML({caption: 'Saved plans', rows: [{
+    label: 'Changed', totals: {isk_per_day: null, isk_per_week: null, colonies: 2, slots_total: 4,
+      needs_recalculation: true},
+  }]});
+  assert.match(html, /Character removed · recalculate income/);
+  assert.match(html, /2 of 4 slots/);
+  assert.match(html, /– ISK\/day/);
+});
+
 test('durations read as minutes and hours without a 60-minute remainder', () => {
   const AC = load();
   assert.equal(AC.duration(45), '45 min');

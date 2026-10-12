@@ -204,23 +204,23 @@ class ESIClient:
                   owner: Optional[int] = None, ttl: Optional[int] = None, force: bool = False,
                   stale_ok: bool = False) -> Any:
         """GET with cache. Returns parsed JSON. Follows X-Pages pagination.
-        Authenticated calls name the character whose token they use (`owner`): their cached copy belongs to
-        that character only, is never served to another one and is deleted with the character.
+        Authenticated calls name their character (`owner`) and always recheck ESI permissions.
+        Only public responses are cached.
 
         A cached copy is used until it expires, then revalidated with its ETag (If-None-Match).
         `force` skips our own longer `ttl`, never ESI's `Expires`: before that ESI has nothing newer.
         `stale_ok`: when ESI isn't answering, an expired public copy is better than nothing (static
-        universe data); the path is noted in `stale`. Never for authenticated data: that expired copy is
-        purged (privacy rule of #121)."""
+        universe data); the path is noted in `stale`. Authenticated data is never cached or served stale."""
         url = f"{ESI_BASE}{path}"
         params = dict(params or {})
         cache_key = url + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         if token:
             if not owner:
                 raise ValueError("An authenticated ESI call needs the character it is made for.")
-            cache_key += auth_suffix(owner)
-        with db.session() as c:
-            row = c.execute("SELECT * FROM http_cache WHERE url=?", (cache_key,)).fetchone()
+        row = None
+        if not token:
+            with db.session() as c:
+                row = c.execute("SELECT * FROM http_cache WHERE url=?", (cache_key,)).fetchone()
         if row:
             now = time.time()
             esi_until = row["esi_expires"] if row["esi_expires"] is not None else (0 if force else row["expires"])
@@ -255,12 +255,13 @@ class ESIClient:
                     if r.status_code == 200:
                         data.extend(r.json())
             body = json.dumps(data)
-        with db.session() as c:
-            c.execute(
-                "REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
-                (cache_key, body, resp.headers.get("etag") or (row["etag"] if resp.status_code == 304 else None),
-                 _expires(resp, ttl), _esi_expires(resp)),
-            )
+        if not token:
+            with db.session() as c:
+                c.execute(
+                    "REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
+                    (cache_key, body, resp.headers.get("etag") or (row["etag"] if resp.status_code == 304 else None),
+                     _expires(resp, ttl), _esi_expires(resp)),
+                )
         return json.loads(body)
 
     async def post(self, path: str, body: Any, ttl: Optional[int] = None, stale_ok: bool = False) -> Any:

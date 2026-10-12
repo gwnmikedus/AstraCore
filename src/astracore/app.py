@@ -92,6 +92,8 @@ def create_app() -> FastAPI:
         if crypto.rotating():
             log.info("token key rotation: re-encrypted %d stored EVE logins with the first key",
                      db.reencrypt_tokens())
+        from .esi.character import clear_legacy_private_cache
+        clear_legacy_private_cache()
         sessions.purge_expired()
         log.info("Astracore started in %s mode on %s", config.MODE, config.PUBLIC_URL)
         sync_task = asyncio.create_task(community.run_sync_loop())

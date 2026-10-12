@@ -3,6 +3,7 @@ products from planet to liquid ISK (assets, contracts, market orders, wallet).""
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
@@ -22,7 +23,23 @@ SKILL_IDS = {
     "Broker Relations": 3446,
 }
 LOCATIONS_KEY = "locations_v1"
+PRIVATE_CACHE_CLEANUP = "private_esi_cache_cleanup_v1"
 HISTORY_DAYS = 45
+
+
+def clear_legacy_private_cache() -> None:
+    """Remove old shared private responses; refresh customs data once under current permissions."""
+    with db.session() as c:
+        c.execute("DELETE FROM http_cache WHERE url LIKE '%#auth'")
+        row = c.execute("SELECT value FROM kv WHERE key=?", (LOCATIONS_KEY,)).fetchone()
+        if row:
+            cache = json.loads(row["value"])
+            shared = {k: v for k, v in cache.items() if int(k) <= 1_000_000_000_000}
+            c.execute("UPDATE kv SET value=? WHERE key=?", (json.dumps(shared), LOCATIONS_KEY))
+        done = c.execute("SELECT value FROM kv WHERE key=?", (PRIVATE_CACHE_CLEANUP,)).fetchone()
+        if not done:
+            c.execute("UPDATE characters SET customs_offices_json='[]'")
+            c.execute("INSERT INTO kv(key,value) VALUES(?,?)", (PRIVATE_CACHE_CLEANUP, "true"))
 
 
 async def affiliation(esi: ESIClient, character_id: int) -> Dict:
@@ -71,10 +88,11 @@ async def _name_colonies(esi: ESIClient, colonies: List[dict]) -> None:
 
 
 async def resolve_locations(esi: ESIClient, token: str, ids: List[int], owner: int) -> Dict[int, dict]:
-    """Station / structure id -> {name, system_id, system}. Cached across characters."""
+    """Share public station names; resolve private structures using this character's token."""
     known = locations()
-    # unresolved structures are retried after a day (another character may have docking access by then)
-    todo = [i for i in set(ids) if i not in known
+    resolved = {}
+    # Public failures retry after a day; private structures always check the current character's access.
+    todo = [i for i in set(ids) if i > 1_000_000_000_000 or i not in known
             or (known[i].get("unknown") and time.time() - known[i].get("at", 0) > 86400)]
     for lid in todo:
         info = None
@@ -93,9 +111,11 @@ async def resolve_locations(esi: ESIClient, token: str, ids: List[int], owner: i
             info["system"] = sysn.get(info["system_id"], "")
         if not info and known.get(lid) and not known[lid].get("unknown"):
             continue   # keep what we resolved earlier
-        known[lid] = info or unknown_location(lid)
+        resolved[lid] = info or unknown_location(lid)
+        if lid <= 1_000_000_000_000:
+            known[lid] = resolved[lid]
     db.kv_set(LOCATIONS_KEY, {str(k): v for k, v in known.items()})
-    return {i: known[i] for i in ids if i in known}
+    return {i: resolved.get(i, known.get(i)) for i in ids if i in resolved or i in known}
 
 
 def unknown_location(lid: int) -> dict:
@@ -112,6 +132,8 @@ def unknown_location(lid: int) -> dict:
 def locations() -> Dict[int, dict]:
     out = {}
     for k, v in (db.kv_get(LOCATIONS_KEY) or {}).items():
+        if int(k) > 1_000_000_000_000:
+            continue
         if str(v.get("name", "")).startswith("Location ") and not v.get("system_id"):   # MVP cache entries
             v = {**unknown_location(int(k)), "at": 0}
         out[int(k)] = v
@@ -216,7 +238,9 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
             return a["location_id"]
         assets = [{"type_id": a["type_id"], "qty": a["quantity"], "location_id": top(a),
                    "flag": a.get("location_flag")} for a in assets_raw if a["type_id"] in pi_types]
-        await resolve_locations(esi, token, [a["location_id"] for a in assets], cid)
+        resolved = await resolve_locations(esi, token, [a["location_id"] for a in assets], cid)
+        for a in assets:
+            a["location"] = resolved[a["location_id"]]
         extra["assets"] = assets
 
     # --- contracts (keep recent ones; items for VOC / PI-relevant ones) ------------------
@@ -246,8 +270,11 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
                                     if i.get("is_included", True)]
                     row["pi"] = any(i["type_id"] in pi_types for i in row["items"])
             contracts.append(row)
-        await resolve_locations(esi, token, [x for c in contracts for x in
-                                             (c["start_location_id"], c["end_location_id"]) if x], cid)
+        resolved = await resolve_locations(esi, token, [x for c in contracts for x in
+                                                      (c["start_location_id"], c["end_location_id"]) if x], cid)
+        for c in contracts:
+            c["start_location"] = resolved.get(c["start_location_id"])
+            c["end_location"] = resolved.get(c["end_location_id"])
         extra["contracts"] = contracts
 
     # --- market orders -------------------------------------------------------------------------
@@ -257,7 +284,9 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
                                                    "volume_total", "location_id", "region_id", "issued",
                                                    "is_buy_order", "duration")}
                            for o in orders_raw if o["type_id"] in pi_types]
-        await resolve_locations(esi, token, [o["location_id"] for o in extra["orders"]], cid)
+        resolved = await resolve_locations(esi, token, [o["location_id"] for o in extra["orders"]], cid)
+        for o in extra["orders"]:
+            o["location"] = resolved[o["location_id"]]
 
     # --- wallet: balance + ISK that came in from PI sales / buybacks -------------------------
     balance = await _safe(esi.get(f"/characters/{cid}/wallet/", token=token, owner=cid), None)
@@ -288,10 +317,9 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
     # Real POCO tax only when the user opted in to the customs bundle (and didn't switch it off).
     if aff.get("corporation_id") and bundle_active(me, "pi.optional.customs"):
         offices = await _safe(esi.get(f"/corporations/{aff['corporation_id']}/customs_offices/",
-                                      token=token, owner=cid, ttl=86400), None)
-        if offices is not None:
-            extra["customs_offices"] = [{**o, "owner_corporation_id": aff["corporation_id"]} for o in offices]
-    if not bundle_active(me, "pi.optional.customs"):
+                                      token=token, owner=cid, ttl=86400), [])
+        extra["customs_offices"] = [{**o, "owner_corporation_id": aff["corporation_id"]} for o in offices]
+    else:
         extra["customs_offices"] = []
     db.set_character(
         cid,

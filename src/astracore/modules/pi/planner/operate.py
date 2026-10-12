@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from ..settings import Settings
-from astracore.esi.character import locations
+from astracore.esi.character import locations, unknown_location
 from ..static_data import voc
 from ..static_data.sde_loader import PIData
 from . import selling, skills
@@ -108,15 +108,18 @@ def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: Li
     locs = locations()
     by_name = {ch["name"]: ch for ch in characters}
     groups: Dict[tuple, Dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    private_locations = {}
     for ch in characters:
         for a in ch.get("assets", []):
             if pi.tier(a["type_id"]) < 1 or a.get("flag") in ("Deliveries",):
                 continue
             groups[(ch["name"], a["location_id"])][a["type_id"]] += a["qty"]
+            if a.get("location"):
+                private_locations[(ch["name"], a["location_id"])] = a["location"]
     seller = skills.best_seller(characters) if s.taxes_from_skills else None
     out = []
     for (who, lid), stock in groups.items():
-        loc = locs.get(lid, {"name": f"Location {lid}", "system": ""})
+        loc = private_locations.get((who, lid)) or locs.get(lid) or unknown_location(lid)
         here = loc.get("system", "")
         no_access = bool(loc.get("unknown")) and lid > STRUCTURE_ID_MIN
         if no_access:
@@ -256,8 +259,10 @@ def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict
     courier, buyback, other, orders, done = [], [], [], [], []
     for ch in characters:
         for c in ch.get("contracts", []):
-            start = locs.get(c.get("start_location_id"), {}).get("name", "")
-            end = locs.get(c.get("end_location_id"), {}).get("name", "")
+            start_loc = c.get("start_location") or locs.get(c.get("start_location_id"), {})
+            end_loc = c.get("end_location") or locs.get(c.get("end_location_id"), {})
+            start = start_loc.get("name", "")
+            end = end_loc.get("name", "")
             row = {"character": ch["name"], "status": c["status"], "issued": c.get("date_issued"),
                    "completed": c.get("date_completed"), "from": start, "to": end,
                    "reward": c.get("reward") or 0, "collateral": c.get("collateral") or 0,
@@ -282,7 +287,7 @@ def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict
             if o.get("is_buy_order"):
                 continue
             best = books.get(o["type_id"], {})
-            loc = locs.get(o["location_id"], {})
+            loc = o.get("location") or locs.get(o["location_id"]) or unknown_location(o["location_id"])
             hub = "jita" if loc.get("system") == "Jita" else ("amarr" if loc.get("system") == "Amarr" else None)
             best_sell = best.get(f"{hub}_sell") if hub else None
             orders.append({"character": ch["name"], "item": pi.name(o["type_id"]), "price": o["price"],

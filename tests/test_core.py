@@ -291,7 +291,7 @@ def test_merge_is_refused_when_the_other_profile_has_more_characters(browser, ev
     assert db.character_profile(b) == p2                         # only the proven character moves
 
 
-def test_authenticated_esi_cache_is_per_character_and_deleted_with_it():
+def test_authenticated_esi_requests_recheck_the_current_token_without_caching():
     import httpx
     from astracore.esi.client import ESIClient
 
@@ -304,6 +304,7 @@ def test_authenticated_esi_cache_is_per_character_and_deleted_with_it():
 
     async def run():
         async with ESIClient() as esi:
+            await esi._client.aclose()
             esi._client = httpx.AsyncClient(transport=httpx.MockTransport(api))
             first = await esi.get("/corporations/1/customs_offices/", token="A", owner=111)
             second = await esi.get("/corporations/1/customs_offices/", token="B", owner=222)
@@ -312,11 +313,11 @@ def test_authenticated_esi_cache_is_per_character_and_deleted_with_it():
 
     first, second, again = asyncio.run(run())
     assert first["who"] == "Bearer A" and second["who"] == "Bearer B"   # never another character's copy
-    assert again["who"] == "Bearer A" and len(calls) == 2               # fresh copy reused for its owner
+    assert again["who"] == "Bearer A2" and len(calls) == 3
     with db.session() as c:
         db.forget_character_cache(c, 111)
-        left = [r[0] for r in c.execute("SELECT url FROM http_cache WHERE url LIKE '%customs_offices%'")]
-    assert left and all(u.endswith("#auth:222") for u in left)
+        left = [r[0] for r in c.execute("SELECT url FROM http_cache WHERE url LIKE '%/corporations/1/customs_offices/%'")]
+    assert not left
 
 
 def test_authenticated_esi_call_requires_its_character():

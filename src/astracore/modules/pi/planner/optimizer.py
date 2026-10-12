@@ -513,8 +513,9 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
                                             overrides, head_yield, eligible)
     if err:
         return {"error": err, "warnings": warnings, **({"error_steps": ["area"]} if err == NO_FIT else {})}
-    known = {pi.name(t).lower() for t in pi.items}
+    known = {pi.name(t).lower(): pi.name(t) for t in pi.items}
     unknown = sorted(b for b in s.product_blacklist if b.strip() and b.strip().lower() not in known)
+    never = sorted({known[b.strip().lower()] for b in s.product_blacklist if b.strip().lower() in known})
     if unknown:
         warnings.append(notices.note(
             "unknown_product", f"Never produce: {notices.names(unknown)} isn't a PI product name, so nothing was "
@@ -679,7 +680,28 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         "colonies": colonies, "characters": chars_out, "removals": removals,
         "transfers": transfer_rows, "sold": sold, "totals": totals, "warnings": warnings,
         "templates_needed": sorted({x["template_file"] for x in colonies}),
+        "tier_need": tier_need(pi, s, templates, colonies),
+        "never_produce": never,     # "Never produce", as PI product names (the plan result's checkboxes)
     }
+
+
+def tier_need(pi: PIData, s: Settings, templates: List[dict], colonies: List[dict]) -> dict:
+    """Why a plan stops below the tier it may use: what one factory of each higher tier eats, in miners.
+
+    `factory_miners[tier]` is how many of this plan's average miners one typical factory of that tier
+    needs at full speed; `miners` how many miners the plan has. Empty values where it can't be told."""
+    miners = [x for x in colonies if x["kind"] == "miner"]
+    p1 = sum(sum(x["out_per_day"].values()) for x in miners)
+    per_miner = p1 / len(miners) if miners else 0.0
+    out = {"allowed": int(s.max_tier), "used": max((x["tier"] for x in colonies), default=0),
+           "miners": len(miners), "factory_miners": {}}
+    if per_miner <= 0:
+        return out
+    for tier in range(2, 5):
+        need = setups.factory_p1_need(pi, templates, tier)
+        if need:
+            out["factory_miners"][str(tier)] = max(1, round(need / per_miner))
+    return out
 
 
 ALTERNATIVES = [

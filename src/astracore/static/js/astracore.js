@@ -27,13 +27,90 @@
           continue;
         }
       }
-      if (r.status === 409) { let j = {}; try { j = await r.clone().json(); } catch (e) {} if (j.superseded) return {superseded: true}; }
-      if (r.status === 401) { location.href = '/'; return {error: 'Signed out'}; }
-      let data; try { data = await r.json(); } catch (e) { data = {error: `Server error (${r.status})`}; }
-      if (!r.ok && !data.error) data.error = `Server error (${r.status})`;
-      return data;
+      return AC.post.handle(r);
     }
   };
+  // A finished (non-busy) response as data: {superseded}, {error} or the JSON body.
+  AC.post.handle = async function (r) {
+    if (r.status === 409) { let j = {}; try { j = await r.clone().json(); } catch (e) {} if (j.superseded) return {superseded: true}; }
+    if (r.status === 401) { location.href = '/'; return {error: 'Signed out'}; }
+    let data; try { data = await r.json(); } catch (e) { data = {error: `Server error (${r.status})`}; }
+    if (!r.ok && !data.error) data.error = `Server error (${r.status})`;
+    return data;
+  };
+
+  // The same for a streamed answer (application/x-ndjson: one JSON object per line). Every event goes to
+  // opts.onEvent as it arrives, so a page can show each result as soon as it is ready. Returns the final
+  // event ({done}, {superseded} or {error}); a {busy} event waits and asks again, like AC.post. A reply that
+  // isn't a stream (an error page, a 409, a 503 busy) is handled exactly as AC.post would.
+  AC.postStream = async function (url, body, opts = {}) {
+    const started = Date.now();
+    const busyWait = async j => {   // false: stop (waited too long, or the caller moved on)
+      if (opts.onBusy) opts.onBusy(Math.round((Date.now() - started) / 1000));
+      if (Date.now() - started > 120000) return false;
+      await new Promise(res => setTimeout(res, Math.min(10, Math.max(1, +j.retry_after || 3)) * 1000));
+      return !opts.signal?.aborted;
+    };
+    const gaveUp = () => Date.now() - started > 120000
+      ? {error: 'The planner is still busy. Try again in a moment.'} : {superseded: true};
+    for (;;) {
+      let r;
+      try { r = await fetch(url, {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf(), 'Accept': 'application/x-ndjson'},
+        body: JSON.stringify({...(body ?? {}), stream: true}), signal: opts.signal,
+      }); } catch (error) {
+        if (error.name === 'AbortError') return {superseded: true};
+        return {error: 'Connection lost. Check your connection and try again.'};
+      }
+      const type = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+      if (!r.ok || !type.includes('ndjson')) {
+        if (r.status === 503) {
+          let j = {}; try { j = await r.clone().json(); } catch (e) {}
+          if (j.busy) { if (await busyWait(j)) continue; return gaveUp(); }
+        }
+        return AC.post.handle(r);
+      }
+      let final;
+      try {
+        final = await readLines(r, event => {
+          if (event.busy || event.done || event.superseded || event.error) return true;
+          if (opts.onEvent) opts.onEvent(event);
+          return false;
+        });
+      } catch (error) {
+        if (error.name === 'AbortError') return {superseded: true};
+        return {error: 'Connection lost. Check your connection and try again.'};
+      }
+      if (!final) return {error: 'The comparison stopped early. Try again.'};
+      if (!final.busy) return final;
+      if (!(await busyWait(final))) return gaveUp();
+    }
+  };
+
+  // Reads newline-delimited JSON from a fetch response; stops at the first event `isLast` returns true for.
+  async function readLines(r, isLast) {
+    const pending = [];
+    const take = text => { for (const line of text.split('\n')) if (line.trim()) pending.push(JSON.parse(line)); };
+    if (!r.body || !r.body.getReader) {   // no streaming support: everything at once
+      take(await r.text());
+      return pending.find(isLast) || null;
+    }
+    const reader = r.body.getReader(), decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const {value, done} = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
+      const cut = done ? buffer.length : buffer.lastIndexOf('\n') + 1;
+      take(buffer.slice(0, cut));
+      buffer = buffer.slice(cut);
+      while (pending.length) {
+        const event = pending.shift();
+        if (isLast(event)) { reader.cancel().catch(() => {}); return event; }
+      }
+      if (done) return null;
+    }
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
     const tt = document.getElementById('theme-toggle');
@@ -41,10 +118,10 @@
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
     let themeTimer;
-    // The tooltip warns before the switch: dark to light is a flashbang, light to dark is shore leave for the eyes.
+    // The tooltip says what the switch does, in plain words.
     const themeTips = {
-      dark: ['Flashbang warning', 'Light theme ahead. Shield your eyes.'],
-      light: ['Rest your eyes', 'Back to the dark hull. Stand down, pupils.']
+      dark: ['Light theme', 'Easier in daylight.'],
+      light: ['Dark theme', 'Easier on the eyes at night.']
     };
     const themeLabel = () => {
       const themeColor = document.querySelector('meta[name="theme-color"]');

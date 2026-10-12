@@ -182,3 +182,39 @@ def test_area_save_never_stores_an_empty_selection(browser, eve):
     r = c.post("/pi/area", data={"csrf_token": csrf(c), "hub_system": ""}, follow_redirects=False)
     assert r.status_code == 303 and "Nothing was changed" in r.headers["location"].replace("%20", " ").replace("+", " ")
     assert store.load_settings(pid).selected_constellations == [7]
+
+
+def test_area_labels_are_readable_without_hover(browser, eve, monkeypatch):
+    from html.parser import HTMLParser
+    from astracore.modules.pi import service
+    from test_planner import _area
+
+    area = _area()
+    area["sources"] = {"alliances": [], "colony_constellations": [], "extra": ["Synthetic region"]}
+    area["systems"]["1"]["security"] = -0.9
+    area["systems"]["2"]["security"] = -0.1
+    for i, kind in enumerate(("Barren", "Oceanic", "Storm", "Shattered", "Unknown"), 14):
+        area["systems"]["1"]["planets"].append({"planet_id": i, "name": f"P{i}", "type": kind})
+
+    async def load_space(*args, **kwargs):
+        return area
+
+    monkeypatch.setattr(service, "load_space", load_space)
+    c = browser()
+    sso_login(c, eve, new_id(), "Area labels pilot")
+    r = c.get("/pi/area")
+    assert r.status_code == 200
+
+    class VisibleText(HTMLParser):
+        text = ""
+
+        def handle_data(self, data):
+            self.text += data
+
+    visible = VisibleText()
+    visible.feed(r.text)
+    assert "sec -0.9 to -0.1" in visible.text
+    assert "Barren×2" in visible.text
+    assert "Temperate" in visible.text and "Oceanic" in visible.text and "Storm" in visible.text
+    assert "Shattered" not in visible.text and "Unknown" not in visible.text
+    assert 'name="con" value="1" checked' in r.text

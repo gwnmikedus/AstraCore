@@ -5,6 +5,7 @@
 /pi/plan       -> the guided wizard (?view=advanced: every option on one screen)
 /pi/area       -> constellations and drop-off
 /pi/settings   -> economics and yield
+/pi/glossary   -> plain-English PI terms, linked from the "?" answers
 /pi/api/...    -> JSON for the wizard and the advanced view (CSRF header required)
 /pi/export/... -> templates zip, plan .md / .csv, first-build shopping .csv
 """
@@ -12,31 +13,33 @@ from __future__ import annotations
 
 import copy
 import csv
+import asyncio
 import io
 import json
 import logging
+import time
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 
 from astracore import db
 from astracore.core import fmt, freshness
 from astracore.core.registry import SCOPE_TEXT
 from astracore.core.auth import bundle_active
 from astracore.core.sessions import require_user
-from astracore.core.solvegate import GATE, Busy, Superseded, cache_key
+from astracore.core.solvegate import GATE, Busy, Skipped, Superseded, cache_key
 from astracore.core.web import redirect
 from astracore.core.web import render as core_render
 from astracore.esi import errors as esi_errors
 from astracore.esi import sso
 from astracore.esi.client import ESI_BASE, default_headers
 
-from . import service, store
+from . import glossary, service, store
 from .intel import space as space_mod
 from .module import MODULE
-from .planner import compare, nextup, operate, optimizer, prices, setups
+from .planner import compare, nextup, operate, optimizer, prices, selling, setups
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, TEXT_LIMITS, Settings, time_weights
 from .static_data import dalshooth, voc
@@ -48,7 +51,7 @@ PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
                "cross_character", "hub_system", "product_blacklist", "use_buyback", "use_jita",
-               "use_amarr", "use_local", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
+               "use_amarr", "use_local", "use_self_haul", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
                "answered", "selected_constellations", "extra_area"}
 
 
@@ -140,38 +143,74 @@ async def area_page(request: Request):
         store.save_settings(pid, s)
     sel_systems = space_mod.selected_systems(area, s.selected_constellations)
     overrides = store.planet_overrides(pid)
-    planets = sorted(({"planet_id": p["planet_id"], "name": p["name"], "type": p["type"], "system": v["name"]}
-                      for v in sel_systems.values() for p in v["planets"] if p["type"] not in ("Shattered", "Unknown")),
-                     key=lambda p: p["name"])
     names = {p["planet_id"]: p["name"] for v in area["systems"].values() for p in v["planets"]}
+    measured = _measured_richness(chars, area, s)
     return render(request, "space.html", "area", "Area", area=area, groups=groups, s=s,
                   sources=area.get("sources", {}), selected=s.selected_constellations,
                   sel_systems=sorted(v["name"] for v in sel_systems.values()),
-                  voc_hubs=voc.COURIER_ORIGINS, planets=planets,
-                  overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v} for k, v in overrides.items()],
-                  richness_labels=RICHNESS_LABELS, esi_outage=banner)
+                  voc_hubs=voc.COURIER_ORIGINS,
+                  overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v,
+                              "label": richness_label(v)} for k, v in overrides.items()],
+                  measured=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v}
+                            for k, v in sorted(measured.items(), key=lambda kv: names.get(kv[0], str(kv[0])))
+                            if k not in overrides],
+                  esi_outage=banner)
 
 
+# What an in-game scan shows, as a richness multiplier. Set per planet on the plan result rows.
 RICHNESS_LABELS = [("poor", 0.6), ("average", 1.0), ("good", 1.25), ("rich", 1.5)]
+
+
+def richness_label(value: float) -> str:
+    return next((label for label, v in RICHNESS_LABELS if abs(v - float(value)) < 1e-6), "")
+
+
+def _measured_richness(chars: list, area: Optional[dict], s: Settings) -> dict:
+    """Per-planet richness measured from the pilot's own extractors (empty without 2+ extracting colonies)."""
+    if not chars or not area or not s.auto_calibrate:
+        return {}
+    from .intel import richness as rich
+    cal = service.calibrated_yield(chars, area)
+    return rich.measured_richness({c["character_id"]: c["colonies"] for c in chars}, cal) if cal else {}
+
+
+def _richness_value(planet, raw):
+    """(planet_id, richness or None) for a richness change, or an error text."""
+    if not str(planet).isdigit():
+        return None, None, "Pick a planet."
+    try:
+        value = float(raw) if raw not in (None, "") else None
+    except (TypeError, ValueError):
+        return None, None, "Richness must be a number."
+    if value is not None and not 0.1 <= value <= 3:
+        return None, None, "Richness must be between 0.1 and 3."
+    return int(planet), value, None
 
 
 @router.post("/area/richness")
 async def area_richness(request: Request):
-    """Richness of one planet after scanning it in game (ESI can't tell). Empty value = remove."""
+    """Remove (or set) one planet's scanned richness from the Area page's list. Empty value = remove."""
     pid = _pid(request)
     form = await request.form()
-    planet = form.get("planet_id", "")
-    if not str(planet).isdigit():
-        return redirect("/pi/area", "Pick a planet.", "warn")
-    raw = form.get("richness", "")
-    try:
-        value = float(raw) if raw else None
-    except ValueError:
-        value = None
-    if value is not None and not 0.1 <= value <= 3:
-        return redirect("/pi/area", "Richness must be between 0.1 and 3.", "warn")
-    store.set_planet_override(pid, int(planet), value)
+    planet, value, err = _richness_value(form.get("planet_id", ""), form.get("richness", ""))
+    if err:
+        return redirect("/pi/area#richness", err, "warn")
+    store.set_planet_override(pid, planet, value)
     return redirect("/pi/area#richness", "Planet richness saved." if value is not None else "Override removed.")
+
+
+@router.post("/api/richness")
+async def api_richness(request: Request):
+    """Richness of one planet after scanning it in game (ESI can't tell), from a plan result row.
+    Body: {planet_id, richness}; richness null = back to the estimate (or what your extractors measured).
+    Saved straight away: it is what the pilot saw in game, not a planner preference to preview."""
+    pid = _pid(request)
+    body = await request.json()
+    planet, value, err = _richness_value(body.get("planet_id"), body.get("richness"))
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    store.set_planet_override(pid, planet, value)
+    return JSONResponse({"ok": True, "planet_id": planet, "richness": value})
 
 
 @router.post("/area")
@@ -250,11 +289,30 @@ async def plan_page(request: Request):
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
                   blocked_characters=len(ctx["chars"]) - len(eligible),
                   n_systems=len(ctx["systems"]),
-                  dropoff=ctx["dropoff"], seller=ctx["seller"], api="/pi/api", export="/pi/export",
+                  dropoff=ctx["dropoff"], selling_coverage=selling.coverage(ctx["dropoff"], ctx["area"]), seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
-                  esi_outage=service.outage_banner(ctx))
+                  esi_outage=service.outage_banner(ctx), products=_product_names(ctx.get("pi")),
+                  richness_labels=RICHNESS_LABELS, expert_url=EXPERT_URL,
+                  help_answers=glossary.answers(s, ctx["head_yield"], bool(ctx["calibrated"])), glossary_url=glossary.GLOSSARY_URL)
+
+
+EXPERT_URL = "/pi/settings?expert=1#expert"
+
+
+def _product_names(pi) -> list:
+    """Every PI product a plan can make (P1-P4), for the "Never produce" checkboxes: [{name, tier}]."""
+    if not pi:
+        return []
+    return sorted(({"name": pi.name(t), "tier": pi.tier(t)} for t in pi.items if 1 <= pi.tier(t) <= 4),
+                  key=lambda p: (p["tier"], p["name"]))
+
+
+# ----------------------------------------------------------------------------- glossary
+@router.get("/glossary", response_class=HTMLResponse)
+async def glossary_page(request: Request):
+    return render(request, "glossary.html", "glossary", "Glossary", entries=glossary.entries())
 
 
 def _waypoint_chars(pid: int) -> list:
@@ -292,6 +350,55 @@ async def api_suggest(request: Request):
     return JSONResponse(res)
 
 
+ADVANCED_FIELDS = LIVE_FIELDS - {"guide_step", "answered"}
+
+
+@router.post("/api/preview")
+async def api_preview(request: Request):
+    return await _advanced_result(request, apply=False)
+
+
+@router.post("/api/apply")
+async def api_apply(request: Request):
+    return await _advanced_result(request, apply=True)
+
+
+async def _advanced_result(request: Request, apply: bool):
+    """Experimental controls never change confirmed answers until explicitly applied."""
+    pid = _pid(request)
+    body = await request.json()
+    try:
+        async with GATE.request(pid, "advanced"):
+            original = store.load_settings(pid)
+            baseline = store.plan_settings(original)
+            if apply and body.get("baseline") != baseline:
+                return JSONResponse({"error": "Your saved settings changed. Reload before applying this preview.",
+                                     "stale": True}, status_code=409)
+            s = copy.deepcopy(original)
+            s.update({k: v for k, v in body.get("settings", {}).items() if k in ADVANCED_FIELDS})
+            before = _result_stamp(pid)
+            res = copy.deepcopy(await service.solve(pid, s))
+            if before != _result_stamp(pid) or baseline != store.plan_settings(store.load_settings(pid)):
+                return JSONResponse({"error": "Your planning data or answers changed. Recalculate your preview.",
+                                     "stale": True}, status_code=409)
+            if "error" not in res and apply:
+                # Navigation may have changed during the solve; retain its newest values.
+                current = store.load_settings(pid)
+                s.guide_step, s.answered = current.guide_step, current.answered
+                store.save_settings(pid, s)
+            res["weights"] = time_weights(s)
+            if "error" not in res and apply:
+                res["facts"] = compare.plan_facts(res, s)
+                res["result_id"] = store.remember_plan_result(pid, s, res, _result_stamp(pid))
+            res["preview"] = not apply
+            res["baseline"] = store.plan_settings(s) if apply and "error" not in res else baseline
+            return JSONResponse(res)
+    except Busy:
+        return busy_response()
+    except Superseded:
+        return superseded_response()
+
+
 @router.post("/api/save")
 async def api_save(request: Request):
     """Store wizard answers without solving. Only the fields sent are changed."""
@@ -302,30 +409,64 @@ async def api_save(request: Request):
     return JSONResponse({"ok": True})
 
 
+WHATIF_OPTIONS = 6          # answer cards per question at most
+PREFETCH_PATIENCE = 20.0    # seconds background warming waits for an idle planner before giving up
+PREFETCH_POLL = 0.5
+QUEUE_UPDATE = 1.0          # seconds between queue-position updates on a streamed comparison
+_BACKGROUND: set = set()    # running prefetch / stream tasks (the event loop only keeps weak references)
+
+
+def _background(coro) -> "asyncio.Task":
+    task = asyncio.get_running_loop().create_task(coro)
+    _BACKGROUND.add(task)
+    task.add_done_callback(_BACKGROUND.discard)
+    return task
+
+
+def _whatif_settings(base: Settings, opt: dict) -> Settings:
+    ss = copy.deepcopy(base)
+    ss.update({k: v for k, v in opt.get("patch", {}).items() if k in LIVE_FIELDS})
+    return ss
+
+
+async def _whatif_card(pid: int, base: Settings, opt: dict) -> dict:
+    """One answer card. The full plan is cached (shared with the plan result), the card shows its summary."""
+    ss = _whatif_settings(base, opt)
+    key = service.plan_key(pid, ss)
+    if key in GATE._cache:
+        res = GATE._cache[key]
+    else:
+        ctx = await service.planning_context(pid, ss, persist_default=False)
+        res = await GATE.cached(service.plan_key(pid, ss), service.run_plan, ctx)
+    return {"id": opt.get("id"), **service.whatif_summary(res, ss)}
+
+
 @router.post("/api/whatif")
 async def api_whatif(request: Request):
     """Plan several answers to one question side by side.
-    Body: {"base": {live fields}, "options": [{"id": ..., "patch": {live fields}}, ...]}"""
+    Body: {"base": {live fields}, "options": [{"id": ..., "patch": {live fields}}, ...]}
+
+    * Default: one JSON list once every card is planned.
+    * "stream": true -> application/x-ndjson, one line per event as it happens: {"queue": {ahead, solves, eta}}
+      while waiting for a solve slot, {"card": {...}} per answer as soon as it is planned, and one final
+      {"done": true} | {"superseded": true} | {"busy": true, "retry_after": s} | {"error": "..."}.
+      Same gate semantics as the list: one comparison per profile, a newer one supersedes it.
+    * "prefetch": true -> 202 at once; the cards are planned into the cache in the background, only while
+      the planner has a free slot nobody is waiting for (see `_prefetch`)."""
     pid = _pid(request)
     body = await request.json()
     base = _apply(store.load_settings(pid), body.get("base", {}))
-
-    async def one(opt):
-        ss = copy.deepcopy(base)
-        ss.update({k: v for k, v in opt.get("patch", {}).items() if k in LIVE_FIELDS})
-        # The full plan is cached (shared with the plan result), the card only shows its summary.
-        key = service.plan_key(pid, ss)
-        if key in GATE._cache:
-            res = GATE._cache[key]
-        else:
-            ctx = await service.planning_context(pid, ss, persist_default=False)
-            res = await GATE.cached(service.plan_key(pid, ss), service.run_plan, ctx)
-        return {"id": opt.get("id"), **service.whatif_summary(res, ss)}
-
-    import asyncio
+    options = body.get("options", [])[:WHATIF_OPTIONS]
+    if body.get("prefetch"):
+        generation = GATE.supersede(pid, "prefetch")
+        _background(_prefetch(pid, base, options, generation))
+        return JSONResponse({"queued": len(options)}, status_code=202)
+    if body.get("stream"):
+        return StreamingResponse(_whatif_stream(pid, base, options), media_type="application/x-ndjson",
+                                 headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache, no-transform"})  # proxies (Cloudflare) mustn't buffer or compress the stream
     try:
         async with GATE.request(pid, "whatif"):
-            rows = await asyncio.gather(*[one(o) for o in body.get("options", [])[:6]])
+            rows = await asyncio.gather(*[_whatif_card(pid, base, o) for o in options])
     except Busy:
         return busy_response()
     except Superseded:
@@ -333,12 +474,85 @@ async def api_whatif(request: Request):
     return JSONResponse(list(rows))
 
 
+async def _whatif_stream(pid: int, base: Settings, options: list):
+    """The comparison as newline-delimited JSON events (see api_whatif). The planning runs in its own task:
+    a client that disconnects (or moves on) doesn't cancel solves, and a newer comparison supersedes it."""
+    events: asyncio.Queue = asyncio.Queue()
+
+    async def card(opt):
+        await events.put({"card": await _whatif_card(pid, base, opt)})
+
+    async def work():
+        try:
+            async with GATE.request(pid, "whatif"):
+                await asyncio.gather(*[card(o) for o in options])
+            final = {"done": True}
+        except Busy:
+            final = {"busy": True, "retry_after": 3}
+        except Superseded:
+            final = {"superseded": True}
+        except Exception:  # noqa: BLE001 - the page offers a retry; the details belong in the log
+            log.exception("whatif stream failed")
+            final = {"error": "Could not compare these setups."}
+        await events.put(final)
+
+    task = _background(work())
+    shown = None
+    while True:
+        try:
+            event = await asyncio.wait_for(events.get(), timeout=QUEUE_UPDATE)
+        except asyncio.TimeoutError:
+            event = None
+        if event is None or "card" in event:
+            queue = GATE.position(pid)       # cheap: only this process's own queue
+            if queue != shown and (queue or shown):
+                shown = queue
+                yield json.dumps({"queue": queue or {"ahead": 0, "solves": 0, "eta": 0}}) + "\n"
+        if event is not None:
+            yield json.dumps(event, default=str) + "\n"
+            if "card" not in event:
+                break
+    await task
+
+
+async def _prefetch(pid: int, base: Settings, options: list, generation: int) -> None:
+    """Warm the next question's cards while the pilot reads this one. Low priority: a card is only solved in
+    a slot that is free with nobody waiting (GATE.warm); a newer prefetch from the same pilot stops this one
+    before its next card; after PREFETCH_PATIENCE seconds of a busy planner it gives up. Never raises."""
+    deadline = time.monotonic() + PREFETCH_PATIENCE
+    try:
+        for opt in options:
+            ss = _whatif_settings(base, opt)
+            while GATE.is_current(pid, "prefetch", generation):
+                if service.plan_key(pid, ss) in GATE._cache:
+                    break
+                if GATE.idle():
+                    ctx = await service.planning_context(pid, ss, persist_default=False)
+                    if not GATE.is_current(pid, "prefetch", generation):
+                        return
+                    try:
+                        await GATE.warm(service.plan_key(pid, ss), service.run_plan, ctx)
+                        break
+                    except Skipped:
+                        pass         # a pilot's request took the slot meanwhile: wait for the next one
+                if time.monotonic() > deadline:
+                    return
+                await asyncio.sleep(PREFETCH_POLL)
+            else:
+                return               # superseded
+    except Exception:  # noqa: BLE001 - background warming must never surface; the real request will retry
+        log.warning("prefetch for profile %s failed", pid, exc_info=True)
+
+
 @router.post("/api/alternatives")
 async def api_alternatives(request: Request):
     pid = _pid(request)
     try:
         async with GATE.request(pid, "alternatives"):
-            ctx = await service.planning_context(pid)
+            body = await request.json()
+            s = store.load_settings(pid)
+            s.update({k: v for k, v in body.get("base", {}).items() if k in ADVANCED_FIELDS})
+            ctx = await service.planning_context(pid, s, persist_default=False)
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "alternatives")
             alts = await GATE.cached(key, optimizer.alternatives, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
@@ -355,7 +569,10 @@ async def api_sensitivity(request: Request):
     pid = _pid(request)
     try:
         async with GATE.request(pid, "sensitivity"):
-            ctx = await service.planning_context(pid)
+            body = await request.json()
+            s = store.load_settings(pid)
+            s.update({k: v for k, v in body.get("base", {}).items() if k in ADVANCED_FIELDS})
+            ctx = await service.planning_context(pid, s, persist_default=False)
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "sensitivity")
             rows = await GATE.cached(key, optimizer.yield_sensitivity, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
@@ -768,10 +985,10 @@ async def settings_page(request: Request):
     measured = rich.measured_richness({c["character_id"]: c["colonies"] for c in chars}, cal) if cal else {}
     customs_on = [c["name"] for c in service.characters(pid) if bundle_active(c, "pi.optional.customs")]
     return render(request, "settings.html", "settings", "Settings", s=s, calibrated=cal, measured=measured,
+                  expert_open=request.query_params.get("expert") == "1",
                   rates=[skills_mod.character_rates(c) for c in chars if c.get("skills")],
                   seller=skills_mod.best_seller(chars), poco=skills_mod.customs_rates(chars),
-                  routes=voc.routes_cached(), routes_info=voc.routes_info(), voc_site=voc.SITE,
-                  customs_on=customs_on, is_admin=request.state.user.get("is_admin"),
+                  customs_on=customs_on,
                   esi_outage=outage.banner(c.get("synced_at") for c in chars))
 
 
@@ -784,7 +1001,7 @@ async def settings_save(request: Request):
     s = store.load_settings(pid)
     s.update(data)
     store.save_settings(pid, s)
-    return redirect("/pi/settings", "Saved.")
+    return redirect(EXPERT_URL, "Saved.")
 
 
 @router.get("/reset", response_class=HTMLResponse)

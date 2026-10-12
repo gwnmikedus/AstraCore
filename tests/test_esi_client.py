@@ -36,7 +36,7 @@ def run(handler, steps):
     return asyncio.run(go()), seen
 
 
-def test_authenticated_refresh_rechecks_permissions_without_using_a_cached_copy():
+def test_refresh_serves_fresh_copy_without_asking_esi():
     cid = 93_000_001
 
     def handler(request):
@@ -50,9 +50,9 @@ def test_authenticated_refresh_rechecks_permissions_without_using_a_cached_copy(
 
     (first, again, waits), seen = run(handler, steps)
     assert first == again == [{"planet_id": 1}]
-    assert len(seen) == 2
-    assert waits == {}
-    assert all("if-none-match" not in request.headers for request in seen)
+    assert len(seen) == 1                                   # the refresh didn't ask ESI again
+    assert 0 < waits["colonies"] <= 601
+    assert esi_char.wait_note(waits).startswith("Colonies are unchanged until EVE updates them (in up to 1")
 
 
 def test_force_skips_our_ttl_but_not_esis_expiry():
@@ -85,21 +85,21 @@ def test_force_skips_our_ttl_but_not_esis_expiry():
 
 
 def test_expired_copy_is_revalidated_with_if_none_match():
-    path = "/universe/systems/30000001/"
+    cid = 93_000_002
 
     def handler(request):
         if request.headers.get("if-none-match") == '"s1"':
             return httpx.Response(304, headers={"expires": http_date(time.time() + 120)})
-        return httpx.Response(200, json={"name": "Synthetic system"}, headers={"expires": http_date(time.time() - 5),
+        return httpx.Response(200, json={"skills": []}, headers={"expires": http_date(time.time() - 5),
                                                                   "etag": '"s1"'})
 
     async def steps(esi):
-        first = await esi.get(path)
-        again = await esi.get(path)
+        first = await esi.get(f"/characters/{cid}/skills/", token="T", owner=cid)
+        again = await esi.get(f"/characters/{cid}/skills/", token="T", owner=cid)
         return first, again
 
     (first, again), seen = run(handler, steps)
-    assert first == again == {"name": "Synthetic system"}
+    assert first == again == {"skills": []}
     assert len(seen) == 2 and "if-none-match" not in seen[0].headers
     assert seen[1].headers["if-none-match"] == '"s1"'
 

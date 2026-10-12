@@ -13,13 +13,13 @@ from astracore import db
 from astracore.core.releases import user_agent
 
 ESI_BASE = "https://esi.evetech.net/latest"
-# ESI serves every route in the version of the compatibility date a request names; a request without one
-# gets the *oldest* date (2020-01-01). We pin it so an ESI upgrade is a deliberate, tested change here and
-# never a surprise. Checked against https://esi.evetech.net/meta/changelog and the OpenAPI spec of each date
-# (issue #124): every route we read has the same parameters and response shape on 2025-12-16 as on
-# 2020-01-01. Don't move past 2026-05-19 without porting `public.sov_map`: from that date
-# /sovereignty/map/ is gone (404), replaced by /sovereignty/systems/ with a different shape.
-COMPATIBILITY_DATE = "2025-12-16"
+# Routes added after the dated versioning (e.g. /sovereignty/systems/) exist only at the root, not under
+# /latest (which answers 404 for them); they're requested with base=ESI_ROOT.
+ESI_ROOT = "https://esi.evetech.net"
+# Pin ESI's route versions so upgrades are deliberate. Checked the changelog and OpenAPI
+# on 2026-10-12: /sovereignty/systems/ replaces /sovereignty/map/; the other 26 routes
+# we read retain their request and response shapes (issue #141).
+COMPATIBILITY_DATE = "2026-08-18"
 
 # Static universe data rarely changes; keep it for a month regardless of headers.
 STATIC_TTL = 30 * 24 * 3600
@@ -202,25 +202,25 @@ class ESIClient:
 
     async def get(self, path: str, *, params: Optional[dict] = None, token: Optional[str] = None,
                   owner: Optional[int] = None, ttl: Optional[int] = None, force: bool = False,
-                  stale_ok: bool = False) -> Any:
+                  stale_ok: bool = False, base: str = ESI_BASE) -> Any:
         """GET with cache. Returns parsed JSON. Follows X-Pages pagination.
-        Authenticated calls name their character (`owner`) and always recheck ESI permissions.
-        Only public responses are cached.
+        Authenticated calls name the character whose token they use (`owner`): their cached copy belongs to
+        that character only, is never served to another one and is deleted with the character.
 
         A cached copy is used until it expires, then revalidated with its ETag (If-None-Match).
         `force` skips our own longer `ttl`, never ESI's `Expires`: before that ESI has nothing newer.
         `stale_ok`: when ESI isn't answering, an expired public copy is better than nothing (static
-        universe data); the path is noted in `stale`. Authenticated data is never cached or served stale."""
-        url = f"{ESI_BASE}{path}"
+        universe data); the path is noted in `stale`. Never for authenticated data: that expired copy is
+        purged (privacy rule of #121)."""
+        url = f"{base}{path}"
         params = dict(params or {})
         cache_key = url + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         if token:
             if not owner:
                 raise ValueError("An authenticated ESI call needs the character it is made for.")
-        row = None
-        if not token:
-            with db.session() as c:
-                row = c.execute("SELECT * FROM http_cache WHERE url=?", (cache_key,)).fetchone()
+            cache_key += auth_suffix(owner)
+        with db.session() as c:
+            row = c.execute("SELECT * FROM http_cache WHERE url=?", (cache_key,)).fetchone()
         if row:
             now = time.time()
             esi_until = row["esi_expires"] if row["esi_expires"] is not None else (0 if force else row["expires"])
@@ -255,13 +255,12 @@ class ESIClient:
                     if r.status_code == 200:
                         data.extend(r.json())
             body = json.dumps(data)
-        if not token:
-            with db.session() as c:
-                c.execute(
-                    "REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
-                    (cache_key, body, resp.headers.get("etag") or (row["etag"] if resp.status_code == 304 else None),
-                     _expires(resp, ttl), _esi_expires(resp)),
-                )
+        with db.session() as c:
+            c.execute(
+                "REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
+                (cache_key, body, resp.headers.get("etag") or (row["etag"] if resp.status_code == 304 else None),
+                 _expires(resp, ttl), _esi_expires(resp)),
+            )
         return json.loads(body)
 
     async def post(self, path: str, body: Any, ttl: Optional[int] = None, stale_ok: bool = False) -> Any:

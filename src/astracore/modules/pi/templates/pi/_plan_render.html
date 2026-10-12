@@ -1,20 +1,34 @@
 // Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC),
 // AC.planWarningsHTML (js/plan-warnings.js), AC.printChecklist (js/print-checklist.js),
 // API, EXPORT, EXPORT_Q (which plan the export links download) and WAYPOINT_CHARS.
+// The "?" answers need AC.helpFor (js/help.js) and AC.tierHelp (js/plan-help.js).
+const HELP = {{ (help_answers or {})|tojson }};   // glossary.answers(): {key: {label, text, more}}
+const GLOSSARY = {{ (glossary_url or '/pi/glossary')|tojson }};
+const RICHNESS = {{ (richness_labels or [])|tojson }};   // routes.RICHNESS_LABELS: [[scan label, multiplier], ...]
+// The page decides what a change on the result means: the guided setup saves and replans, the Advanced
+// view previews. onNeverProduce(names) and onRichnessSaved() are defined by each page.
+let NEVER = [];
 
 // While P0 yield is still an estimate, say so in the headline with the 0.5x / 2x range.
 function yieldHeadline(res) {
   const y = res.yield || {};
   if (y.calibrated || !y.head_yield) return '';
   return `<div class="warnbox headline">${AC.icon('triangle-alert')} <b>Yield is an estimate</b> (${num(y.head_yield)} P0/h per extractor head)
-    until your extractors run, and ISK scales with it. <span id="yieldband">Working out the range…</span>
-    Build 2–3 colonies and refresh: the plan then calibrates itself from your real extractors.</div>`;
+    until your extractors run, and ISK scales with it. <span id="yieldband"></span>
+    Build 2–3 colonies and refresh: the plan then calibrates itself from your real extractors.${AC.helpFor(HELP.yield, {glossary: GLOSSARY})}</div>`;
 }
-async function fillYieldBand() {
+// The 0.5× / 2× range costs two extra solves: worked out only when the pilot asks for it.
+function fillYieldBand(base = {}) {
   const el = document.getElementById('yieldband'); if (!el) return;
-  const r = await AC.post(API + '/sensitivity', {});
-  const rows = (r.rows || []).filter(x => !x.error);
-  el.textContent = rows.length ? 'At ' + rows.map(x => `${x.factor}× the yield this plan makes ${isk(x.isk_per_day)}/day`).join(', at ') + '.' : '';
+  el.innerHTML = '<button type="button" class="outline secondary inline-action" id="yieldband-show">Show the range at half and double the yield</button>';
+  document.getElementById('yieldband-show').onclick = async () => {
+    el.textContent = 'Working out the range…';
+    const r = await AC.post(API + '/sensitivity', {base});
+    if (!el.isConnected || r.superseded) return;
+    const rows = (r.rows || []).filter(x => !x.error);
+    el.textContent = rows.length ? 'At ' + rows.map(x => `${x.factor}× the yield this plan makes ${isk(x.isk_per_day)}/day`).join(', at ') + '.'
+      : 'The range is unavailable right now.';
+  };
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('button.send-route'); if (!b) return;
@@ -28,6 +42,24 @@ let PRINT_PLAN = null;
 document.addEventListener('click', e => {
   if (!e.target.closest('button[data-print-checklist]') || !PRINT_PLAN) return;
   AC.printChecklist(PRINT_PLAN);
+});
+// Changes made on the result ("Never produce", "Scanned in game"): see richnessHTML / neverProduceHTML.
+document.addEventListener('change', async e => {
+  const box = e.target.closest('input[data-never]');
+  if (box && typeof onNeverProduce === 'function') {
+    NEVER = toggledNever(NEVER, box.dataset.never, box.checked);
+    document.querySelectorAll('input[data-never]').forEach(b => { b.disabled = true; });
+    onNeverProduce(NEVER);
+    return;
+  }
+  const pick = e.target.closest('select[data-richness-planet]');
+  if (!pick) return;
+  const picks = document.querySelectorAll('select[data-richness-planet]');
+  picks.forEach(p => { p.disabled = true; });
+  const r = await AC.post(API + '/richness', {planet_id: +pick.dataset.richnessPlanet, richness: pick.value === '' ? null : +pick.value});
+  if (r && r.ok) { if (typeof onRichnessSaved === 'function') onRichnessSaved(); return; }
+  picks.forEach(p => { p.disabled = false; });
+  pick.insertAdjacentHTML('afterend', `<span class="bad" style="font-size:.8rem">${esc((r && r.error) || 'Could not save.')}</span>`);
 });
 // A colony's value cell: its ISK/day, and which factories it supplies. A feeder whose own market value
 // is 0 or meaningless says its value is counted at the factory, never a bare 0.
@@ -45,13 +77,48 @@ function transfersHTML(rows) {
     xs.map(x => `<span>${AC.eveImg(x.item, 16)}${num(x.units_per_day)} ${esc(x.item)}/day from ${esc(x.from)}</span>`).join(', ') +
     `</li>`).join('') + `</ul>`;
 }
+// Richness as scanned in game, per planet row: ESI can't show it, so it is an estimate from security (or
+// measured from the pilot's own extractors) until the pilot says what the scan showed.
+function richnessHTML(c, labels = RICHNESS) {
+  if (!c.planet_id || !labels.length) return '';
+  const src = c.richness_source || 'estimate', r = +c.richness;
+  const base = src === 'extractors' ? `Your extractors: ${num(r, 2)}×`
+    : src === 'scan' ? 'Not scanned (estimate)' : `Not scanned: ${num(r, 2)}×`;
+  let found = false;
+  const opts = labels.map(([label, v]) => {
+    const on = src === 'scan' && Math.abs(v - r) < 1e-6;
+    found = found || on;
+    return `<option value="${v}"${on ? ' selected' : ''}>Scanned: ${esc(label)} (${v}×)</option>`;
+  }).join('');
+  const own = src === 'scan' && !found ? `<option value="${r}" selected>Scanned: ${num(r, 2)}×</option>` : '';
+  return `<select class="rich-pick" data-richness-planet="${+c.planet_id}" aria-label="Richness of ${esc(c.planet)} as scanned in game"
+    title="Saved right away: it is what you saw in game, not a planner setting."><option value=""${src === 'scan' ? '' : ' selected'}>${esc(base)}</option><optgroup label="Scanned in game">${opts}${own}</optgroup></select>`;
+}
+// "Never produce": a checkbox per product this plan makes, plus the ones already left out (ticked).
+function neverProduceHTML(res) {
+  const never = res.never_produce || [];
+  const made = new Map();
+  for (const c of res.colonies || []) if (c.product && !made.has(c.product) && !never.includes(c.product)) made.set(c.product, +c.tier || 0);
+  if (!made.size && !never.length) return '';
+  const item = (n, on) => `<label><input type="checkbox" data-never="${esc(n)}"${on ? ' checked' : ''}> ${AC.eveImg(n, 16)}${esc(n)}</label>`;
+  const names = [...made].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([n]) => n);
+  return `<fieldset class="never-produce"><legend>Never produce</legend>
+    <p class="muted" style="margin:0;font-size:13px">Tick a product to plan without it${never.length ? '; untick one to allow it again' : ''}.</p>
+    <div class="never-items">${names.map(n => item(n, false)).join('')}${never.map(n => item(n, true)).join('')}</div></fieldset>`;
+}
+// The names left out after ticking or unticking one product on the result.
+function toggledNever(current, name, on) {
+  const rest = (current || []).filter(n => n.toLowerCase() !== String(name).toLowerCase());
+  return on ? [...rest, name] : rest;
+}
 // opts.steps (guided setup): step id -> answer name, for "Change <answer>" links on warnings.
 function planHTML(res, opts = {}) {
   if (res.error) return `<p class="bad">${esc(res.error)}</p>` + AC.planWarningsHTML(res.warnings, opts);
   PRINT_PLAN = res;
+  NEVER = [...(res.never_produce || [])];
   const t = res.totals;
   let h = `<div class="cards">
-    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">ISK / day, after taxes, hauling &amp; fees</div></div>
+    <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">${res.self_haul ? "ISK / day, after taxes &amp; fees, before your own trip" : "ISK / day, after taxes, hauling &amp; fees"}${AC.helpFor(HELP.isk, {glossary: GLOSSARY})}</div></div>
     <div class="card"><div class="v">${isk(t.isk_per_week)}</div><div class="l">ISK / week</div></div>
     <div class="card"><div class="v">${m3(t.m3_per_week)}</div><div class="l">to haul / week</div></div>
     <div class="card"><div class="v">${t.systems}</div><div class="l">systems · drop-off ${esc(res.hub)}</div></div>
@@ -59,6 +126,8 @@ function planHTML(res, opts = {}) {
     <div class="card"><div class="v">${count(t.restarts_per_week)}</div><div class="l">extractor restarts / week</div></div>
     <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
   </div>`;
+  const tier = AC.tierHelp(res.tier_need);
+  if (tier) h += `<p class="help-line">${AC.helpHTML({text: tier.text, label: tier.question, showLabel: true, more: GLOSSARY + '#higher-tiers'})}</p>`;
   h = yieldHeadline(res) + h;
   h += AC.planWarningsHTML(res.warnings, opts);
   h += `<div class="toolbar">
@@ -80,12 +149,13 @@ function planHTML(res, opts = {}) {
         ? `<button class="outline send-route copy" data-character="${ch.character_id}" data-systems='${esc(JSON.stringify(ch.route.order))}'>${AC.icon('send')} Send route to EVE</button>` : ''}
     </div>`;
     if (!mine.length) { h += `<p class="muted">Nothing worth placing for this character with the current settings.</p></div>`; continue; }
-    h += `<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
+    const upkeepHelp = AC.helpPartsFor(HELP.upkeep, {glossary: GLOSSARY});
+    h += `${upkeepHelp.answer}<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place${upkeepHelp.button}</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
     for (const c of mine) {
       const outs = Object.entries(c.out_per_day).map(([k, v]) => `<span>${AC.eveImg(k)}${num(v)} ${esc(k)}</span>`).join(', ');
       const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join('<br>');
       h += `<tr>
-        <td><div class="cellimg">${AC.planetImg(c.planet_type, 28)}<div>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span></div></div></td>
+        <td><div class="cellimg">${AC.planetImg(c.planet_type, 28)}<div>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span>${richnessHTML(c)}</div></div></td>
         <td><div class="cellimg">${AC.structureImg(c.kind === 'miner' ? 'miner' : (c.tier === 4 ? 'factory_p4' : 'factory'), 24)}<div>${AC.externalLink(c.template_url, c.template, {cls: `kind-${c.kind}`})}
             ${c.p0.length ? `<br><span class="muted">extract ${c.p0.map(esc).join(', ')}</span>` : ''}
             ${c.utilisation < 0.99 ? `<br><span class="muted">runs at ${Math.round(c.utilisation*100)}% (limited by inputs)</span>` : ''}
@@ -99,6 +169,7 @@ function planHTML(res, opts = {}) {
     }
     h += `</tbody></table></div></div>`;
   }
+  h += neverProduceHTML(res);
   h += transfersHTML(res.transfers);
   if (res.removals.length) {
     h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>
@@ -112,7 +183,7 @@ function planHTML(res, opts = {}) {
 function renderSelling(res) {
   const sp = res.selling; if (!sp) return '';
   const L = res.channel_labels || {};
-  let h = `<h5 style="margin-top:1.4rem">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span></h5>`;
+  let h = `<h5 style="margin-top:1.4rem">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.voc, {glossary: GLOSSARY})}</h5>`;
   const tx = res.taxes || {};
   h += `<p class="muted" style="font-size:.85rem">` + (res.seller
     ? `Sell with <b>${esc(res.seller.name)}</b>: Accounting ${res.seller.accounting} → ${tx.sales_tax_pct}% sales tax, Broker Relations ${res.seller.broker_relations} → ${tx.broker_fee_pct}% broker fee.

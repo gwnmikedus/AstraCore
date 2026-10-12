@@ -62,15 +62,15 @@ def cached(key, data):
                   (key, json.dumps(data), '"old-etag"', time.time() + 86400))
 
 
-def test_authenticated_requests_ignore_legacy_shared_cache_and_recheck_permissions():
+def test_authenticated_requests_ignore_legacy_shared_cache_and_never_share_a_copy():
     path = "/corporations/900001/customs_offices/"
-    cached(ESI_BASE + path + "?#auth", [{"office_id": 1}])
+    cached(ESI_BASE + path + "?#auth", [{"office_id": 1}])      # an old shared copy is never served
     calls = []
 
     def transport(request):
         calls.append(request)
         if request.headers["authorization"] == "Bearer synthetic-director":
-            return httpx.Response(200, json=[{"office_id": 2}], headers={"etag": '"private-etag"'})
+            return httpx.Response(200, json=[{"office_id": 2}], headers={"expires": "Fri, 01 Jan 2100 00:00:00 GMT"})
         return httpx.Response(403, json={"error": "Forbidden"})
 
     async def run():
@@ -78,16 +78,13 @@ def test_authenticated_requests_ignore_legacy_shared_cache_and_recheck_permissio
             await esi._client.aclose()
             esi._client = httpx.AsyncClient(transport=httpx.MockTransport(transport))
             assert await esi.get(path, token="synthetic-director", owner=900001, ttl=86400) == [{"office_id": 2}]
-            with pytest.raises(ESIError, match="403"):
+            with pytest.raises(ESIError, match="403"):       # another character asks ESI itself
                 await esi.get(path, token="synthetic-member", owner=900002, ttl=86400)
+            # the director's own fresh copy is reused until ESI's expiry (no early re-fetch)
             assert await esi.get(path, token="synthetic-director", owner=900001, ttl=86400) == [{"office_id": 2}]
 
     asyncio.run(run())
-    assert len(calls) == 3
-    assert all("if-none-match" not in request.headers for request in calls)
-    with db.session() as c:
-        bodies = [r[0] for r in c.execute("SELECT body FROM http_cache")]
-    assert not any('"office_id": 2' in body for body in bodies)
+    assert len(calls) == 2
 
 
 def test_public_requests_still_cache_and_revalidate():

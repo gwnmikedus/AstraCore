@@ -21,9 +21,9 @@ async def _system_ids_for(esi: ESIClient, query: str, force: bool) -> (List[int]
     found: List[str] = []
     alliances = ids.get("alliances", [])
     if alliances:
-        sov = await public.sov_map(esi, force=force)
+        sov = await public.sov_systems(esi, force=force)
         for a in alliances:
-            sys_ids = [s["system_id"] for s in sov if s.get("alliance_id") == a["id"]]
+            sys_ids = [system_id for system_id, alliance_id in sov.items() if alliance_id == a["id"]]
             system_ids += sys_ids
             found.append(f"alliance {a['name']} ({len(sys_ids)} sov systems)")
     for r in ids.get("regions", []):
@@ -59,7 +59,7 @@ async def resolve(esi: ESIClient, query: str, force: bool = False) -> dict:
     con_ids = {s["constellation_id"] for s in systems_raw}
     cons = await public.many(public.constellation(esi, c) for c in con_ids)
     con_region = {c["constellation_id"]: c["region_id"] for c in cons}
-    sov = {r["system_id"]: r.get("alliance_id") for r in await public.sov_map(esi)}
+    sov = await public.sov_systems(esi, force=force)
     owner_ids = {sov[s] for s in system_ids if sov.get(s)}
     con_names = await public.ids_to_names(
         esi, set(con_ids) | set(con_region.values()) | owner_ids) if con_ids else {}

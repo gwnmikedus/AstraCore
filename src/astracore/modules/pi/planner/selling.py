@@ -29,7 +29,7 @@ LABELS = {
     "jita_self": "Haul it to Jita yourself, sell to buy orders",
     "amarr_self": "Haul it to Amarr yourself, sell to buy orders",
 }
-PLANNER_CHANNELS = [k for k in LABELS if not k.endswith("_self")]
+PLANNER_CHANNELS = list(LABELS)
 SPEED = {"buyback": "instant", "jita_buy": "~3 days", "amarr_buy": "~3 days", "local_buy": "instant",
          "jita_sell": "3 days + listing", "amarr_sell": "3 days + listing",
          "jita_self": "your own trip", "amarr_self": "your own trip"}
@@ -108,6 +108,14 @@ def courier_origin(dropoff: str, area: Optional[dict]) -> Tuple[Optional[str], i
     return best or (None, 0)
 
 
+def coverage(dropoff: str, area: Optional[dict]) -> dict:
+    """Channels reachable from the resolved drop-off, without enabling any preferences."""
+    origin, _ = courier_origin(dropoff, area)
+    return {"local": in_delve(dropoff, area),
+            "courier": any(voc.route(origin or dropoff, dest) for dest in (voc.JITA, voc.AMARR)),
+            "trade_hub": dropoff in HUB_SYSTEMS.values()}
+
+
 def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, dropoff: str,
                    routes: Optional[List[dict]] = None, local: bool = True,
                    origin: Optional[str] = None, self_haul: bool = False) -> Dict[str, float]:
@@ -131,6 +139,10 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
             continue
         if dropoff == HUB_SYSTEMS[hub_key]:
             cost = 0.0  # already there
+        elif s.use_self_haul:
+            if b.get(f"{hub_key}_buy"):
+                out[f"{hub_key}_self"] = b[f"{hub_key}_buy"] * (1 - tax)
+            continue
         else:
             r = voc.route(origin, dest, routes)
             if not r:
@@ -192,13 +204,13 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
             per_item[t] = {"qty": q * days, "channels": ch}
 
     choice = {t: max(v["channels"], key=v["channels"].get) for t, v in per_item.items()}
-    if self_haul:
+    if self_haul or s.use_self_haul:
         _one_hub(choice, per_item, extra_trip_isk(s))
     for _ in range(3):  # re-check courier batches against the minimum fee
         changed = False
         for dest_key, dest in (("jita", voc.JITA), ("amarr", voc.AMARR)):
             r = voc.route(origin, dest, routes)
-            members = [t for t, c in choice.items() if c.startswith(dest_key)]
+            members = [t for t, c in choice.items() if c.startswith(dest_key) and not c.endswith("_self")]
             if not r or not members or origin == HUB_SYSTEMS[dest_key]:
                 continue
             m3 = sum(per_item[t]["qty"] * pi.volume(t) for t in members)
@@ -238,8 +250,9 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
             # Only point at a VOC pickup that courier_origin actually found within reach of this hangar.
             via = (f" (or move it to the VOC pickup in {origin}, {origin_jumps} jumps, and courier it from there)"
                    if origin != dropoff and origin in voc.COURIER_ORIGINS else "")
-            batch.update(note=f"VOC doesn't pick up here. Haul it to {'Jita' if c.startswith('jita') else 'Amarr'} "
-                              f"yourself{via}, then sell.")
+            batch.update(note=f"Haul it to {'Jita' if c.startswith('jita') else 'Amarr'} "
+                              f"yourself{via}, then sell. Proceeds are before your own trip time, fuel and loss risk; "
+                              "those costs are not priced.")
         elif c.startswith(("jita", "amarr")) and origin not in HUB_SYSTEMS.values():
             dest = voc.JITA if c.startswith("jita") else voc.AMARR
             r = voc.route(origin, dest, routes)

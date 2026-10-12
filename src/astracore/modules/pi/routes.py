@@ -35,7 +35,7 @@ from .intel import space as space_mod
 from .module import MODULE
 from .planner import compare, operate, optimizer, prices, upkeep
 from .planner import skills as skills_mod
-from .settings import ADMIN_FIELDS, Settings, effort_weights
+from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, Settings, time_weights
 from .static_data import dalshooth, voc
 
 router = APIRouter(prefix="/pi", dependencies=[Depends(require_user)])
@@ -235,7 +235,7 @@ async def plan_page(request: Request):
                   dropoff=ctx["dropoff"], seller=ctx["seller"], api="/pi/api", export="/pi/export",
                   settings_url="/pi/settings", operate_url="/pi/operate", advanced_url="/pi/plan?view=advanced",
                   guided_url="/pi/plan", first_visit=first_visit, panel=character_panel(pid),
-                  plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid))
+                  plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS)
 
 
 def _waypoint_chars(pid: int) -> list:
@@ -266,7 +266,7 @@ async def api_suggest(request: Request):
         return busy_response()
     except Superseded:
         return superseded_response()
-    res["weights"] = effort_weights(s.effort)
+    res["weights"] = time_weights(s)
     if "error" not in res:
         res["facts"] = compare.plan_facts(res, s)
         res["result_id"] = store.remember_plan_result(pid, s, res, _result_stamp(pid))

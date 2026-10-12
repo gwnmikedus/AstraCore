@@ -121,6 +121,7 @@ function guidedSlider(value = -1) {
   const {context, root, elements} = setup;
   const requests = [];
   let repaint = 0;
+  let reload = 0;
   context.st = {hour_isk: value};
   context.HOUR_DEFAULT = {balanced: 90e6};
   context.goalId = () => 'balanced';
@@ -134,22 +135,25 @@ function guidedSlider(value = -1) {
     repaint++;
     context.hourControl.setValue(context.iskPerHour(), 90e6, context.st.hour_isk < 0);
   };
+  context.load = () => { reload++; };   // the value of your time changes the plans: compare again
   context.AC.post = (url, body) => new Promise(resolve => requests.push({url, body, resolve}));
   const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
   vm.runInNewContext(guide.slice(guide.indexOf('function hourPicker()'), guide.indexOf('const net =')), context);
   context.wireHour({});
-  return {...setup, requests, repaints: () => repaint};
+  return {...setup, requests, repaints: () => repaint, reloads: () => reload};
 }
 
 test('guide serializes preference saves and skips stale queued values without recalculating on input', async () => {
-  const {context, elements, requests, repaints} = guidedSlider(12345678.125);
+  const {context, elements, requests, repaints, reloads} = guidedSlider(12345678.125);
   assert.equal(requests.length, 0);
   assert.equal(Number(elements.exact.value), 12345678.125);
   elements.range.value = '125000000';
   elements.range.listeners.input();
   assert.equal(requests.length, 0);
   assert.equal(repaints(), 0);
+  assert.equal(reloads(), 0);
   elements.range.listeners.change();
+  assert.equal(reloads(), 1);
   await Promise.resolve();
   assert.equal(requests.length, 1);
   assert.equal(requests[0].body.hour_isk, 125e6);

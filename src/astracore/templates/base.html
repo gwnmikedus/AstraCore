@@ -42,7 +42,7 @@
 <main class="container">
   {% include "_navigation.html" %}
   {% if subnav %}
-  <nav class="section-navigation" aria-label="{{ module.name if module else 'Section' }}">
+  <nav class="section-navigation{{ ' plan-navigation' if module and module.id == 'pi' else '' }}" aria-label="{{ 'Plan setup' if module and module.id == 'pi' else (module.name if module else 'Section') }}">
     <ul class="subnav">
       {% if module %}<li class="code"><span class="pill code">{{ module.short }}</span></li>{% endif %}
       {% for label, href, ic in subnav %}
@@ -60,8 +60,8 @@
       <a class="footer-credits" href="/credits#contributors">Built by capsuleers <span>/ Meet the contributors</span></a>
     </div>
     <div class="links">
+      <a href="/community">{{ icon('orbit', 'link-symbol') }} Community</a>
       <a href="/project">{{ icon('github', 'link-symbol') }} Source &amp; contribute</a>
-      <a href="/roadmap">{{ icon('orbit', 'link-symbol') }} Roadmap</a>
       <a href="/feedback?kind=bug">{{ icon('bug', 'link-symbol icon-bug') }} Report a bug</a>
       <a href="/releases">{{ icon('sparkles', 'link-symbol') }} What’s new</a>
       <a href="/what-we-read">{{ icon('eye', 'link-symbol') }} What we read</a>

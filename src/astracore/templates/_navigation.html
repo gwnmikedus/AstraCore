@@ -1,6 +1,10 @@
-{% macro menu_link(label, href, symbol, description='') %}
-{% set feedback_current = request.url.path == '/feedback' and href == '/feedback?kind=' ~ request.query_params.get('kind', 'idea') %}
-<li><a href="{{ href }}"{% if request.url.path == href or feedback_current or (href == '/' and page == 'home' and not user) %} aria-current="page"{% endif %}>{{ icon(symbol, 'icon-' ~ symbol) }}<span><strong>{{ label }}</strong>{% if description %}<small>{{ description }}</small>{% endif %}</span>{{ icon('arrow-right', 'menu-arrow') }}</a></li>
+{% macro current_link(href, section=false) %}
+{% set destination = href.split('?')[0].split('#')[0] %}
+{% set query_matches = destination != '/feedback' or href == '/feedback?kind=' ~ request.query_params.get('kind', 'idea') %}
+{% if request.url.path == destination and query_matches %} aria-current="page"{% elif section and navigation_section == href %} aria-current="true"{% endif %}
+{% endmacro %}
+{% macro menu_link(label, href, symbol, description='', section=false) %}
+<li><a href="{{ href }}"{{ current_link(href, section) }}>{{ icon(symbol, 'icon-' ~ symbol) }}<span><strong>{{ label }}</strong>{% if description %}<small>{{ description }}</small>{% endif %}</span>{{ icon('arrow-right', 'menu-arrow') }}</a></li>
 {% endmacro %}
 <header class="topbar site-header">
   <div class="brandline">
@@ -19,15 +23,13 @@
           <div class="menu-intro"><span class="console-label">AstraCore / Navigation</span><span>Your entire operation. Within reach.</span></div>
           <nav class="menu-navigation" aria-label="Main">
             {% if user %}
-            {% for m in modules %}
-            <section class="menu-group" aria-labelledby="menu-module-{{ m.id }}">
-              <h2 id="menu-module-{{ m.id }}">{{ m.name }}</h2>
-              <ul>{% for label, href, symbol in m.nav %}{{ menu_link(label, href, symbol) }}{% endfor %}</ul>
+            <section class="menu-group" aria-labelledby="menu-operation-title">
+              <h2 id="menu-operation-title">Your operation</h2>
+              <ul>{% for label, href, symbol, description in primary_nav %}{{ menu_link(label, href, symbol, description, section=true) }}{% endfor %}</ul>
             </section>
-            {% endfor %}
-            <section class="menu-group" aria-labelledby="menu-account-title">
-              <h2 id="menu-account-title">Your account</h2>
-              <ul>{{ menu_link('Dashboard', '/', 'house', 'Your operation at a glance') }}{{ menu_link('Characters & profile', '/profile', 'users', 'Manage all your connected alts') }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
+            <section class="menu-group" aria-labelledby="menu-plan-title">
+              <h2 id="menu-plan-title">Plan setup</h2>
+              <ul>{{ menu_link('Area', '/pi/area', 'map', 'Choose the systems available to your plan') }}{{ menu_link('Settings', '/pi/settings', 'settings', 'Fine-tune your planning assumptions') }}</ul>
             </section>
             {% else %}
             <section class="menu-group" aria-labelledby="menu-start-title">
@@ -35,17 +37,28 @@
               <ul>{{ menu_link('Home', '/', 'house', 'All your alts. One operation.') }}{{ menu_link('Explore PI', '/about#preview', 'orbit', 'Find a routine that fits your playtime') }}</ul>
             </section>
             {% endif %}
+            {% if user %}
+            <section class="menu-group" aria-labelledby="menu-community-title">
+              <h2 id="menu-community-title">AstraCore community</h2>
+              <ul>{{ menu_link('Community', '/community', 'orbit', 'Project, people, updates and feedback', section=true) }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
+            </section>
+            {% else %}
             <section class="menu-group" aria-labelledby="menu-about-title">
               <h2 id="menu-about-title">About AstraCore</h2>
-              <ul>{% if user %}{{ menu_link('Explore AstraCore', '/about', 'orbit') }}{% endif %}{{ menu_link('Contributors & our story', '/credits#contributors', 'users', 'Meet the people building AstraCore') }}{{ menu_link('What we read', '/what-we-read', 'eye', 'Your EVE permissions, explained') }}{{ menu_link('Privacy', '/privacy', 'shield-check') }}{{ menu_link('Credits', '/credits', 'sparkles') }}</ul>
+              <ul>{{ menu_link('Contributors & our story', '/credits#contributors', 'users', 'Meet the people building AstraCore') }}{{ menu_link('What we read', '/what-we-read', 'eye', 'Your EVE permissions, explained') }}{{ menu_link('Privacy', '/privacy', 'shield-check') }}{{ menu_link('Credits', '/credits', 'sparkles') }}</ul>
             </section>
             <section class="menu-group" aria-labelledby="menu-community-title">
               <h2 id="menu-community-title">Build with us</h2>
               <ul>{{ menu_link('Source & contribute', '/project', 'github', 'Explore the code and help improve AstraCore') }}{{ menu_link('Roadmap', '/roadmap', 'orbit', 'Follow what comes next') }}{{ menu_link('What’s new', '/releases', 'sparkles', 'Readable updates and release history') }}{{ menu_link('Suggest an idea', '/feedback?kind=idea', 'lightbulb', 'A bright idea for your next operation') }}{{ menu_link('Report a bug', '/feedback?kind=bug', 'bug', 'Found a stowaway? Help us catch it.') }}</ul>
             </section>
+            {% endif %}
           </nav>
           <div class="menu-footer">
             {% if user %}
+            <nav class="menu-help" aria-label="Help improve AstraCore">
+              <a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a>
+              <a class="text-action" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a>
+            </nav>
             <span class="menu-session">{{ icon('user') }}<span>Signed in as <strong>{{ user.display_name }}</strong></span></span>
             <form method="post" action="/auth/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="outline secondary">{{ icon('log-out') }} Sign out</button></form>
             {% else %}
@@ -60,9 +73,13 @@
     {% if local_mode %}<span class="local-badge" title="Running in local mode">LOCAL</span>{% endif %}
   </div>
   <nav class="header-shortcuts" aria-label="Quick navigation">
-    <a href="{{ '/pi/operate' if user else '/about#pi-today' }}"{% if request.url.path.startswith('/pi') %} aria-current="{{ 'page' if request.url.path == '/pi/operate' else 'true' }}"{% endif %}>PI</a>
+    {% if user %}
+    {% for label, href, symbol, description in primary_nav %}<a href="{{ href }}"{{ current_link(href, section=true) }}>{{ label }}</a>{% endfor %}
+    {% else %}
+    <a href="/about#pi-today">PI</a>
     <a href="/about"{% if request.url.path == '/about' %} aria-current="page"{% endif %}>About</a>
-    <a href="/roadmap"{% if request.url.path == '/roadmap' %} aria-current="page"{% endif %}>Community</a>
+    <a href="/community"{{ current_link('/community', section=request.url.path != '/about') }}>Community</a>
+    {% endif %}
   </nav>
   <div class="header-controls">
   <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme" aria-describedby="theme-tip">

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="ac-page-header">
+  <div class="eyebrow">PI / Selling reference</div>
+  <h1 class="page-title">About VOC Hauling</h1>
+  <p>Courier and buyback services provided by {{ corp_name }} (VOC), an EVE community service.</p>
+  <p>{{ external_link(voc_site, 'VOC Hauling website') }} · {{ external_link(buyback_site, 'VOC buyback') }}</p>
+</header>
+<article>
+  <header><strong>Buyback assumptions used by AstraCore</strong></header>
+  <p>VOC buyback is valued at <strong>{{ s.buyback_pct|pct }}</strong> of Jita buy for P2–P4 and
+    <strong>{{ s.buyback_pct_p1|pct }}</strong> for P1 ({{ 'refused' if not s.buyback_pct_p1 else 'accepted' }}).</p>
+  <p class="muted">These assumptions are the same for everyone on this site and are maintained by its administrator.
+    The starting values came from a VOC appraisal on 10 October 2026. Check the current appraisal and terms with VOC before creating a contract.</p>
+</article>
+<article>
+  <header><strong>VOC courier tariff used by AstraCore</strong></header>
+  {% if routes_info.live %}
+  <p class="muted">Cached from {{ external_link(voc_site, 'vochauling.com') }}{% if routes_info.at %}, refreshed {{ routes_info.at|ago }}{% endif %}.
+    Viewing this page does not refresh the tariff.</p>
+  {% else %}
+  <p class="muted">Fallback values recorded on 10 October 2026. A cached VOC tariff is not available.
+    Check {{ external_link(voc_site, 'vochauling.com') }} for current prices before creating a contract.</p>
+  {% endif %}
+  <div class="scroll"><table>
+    <caption>Courier fees and contract limits in the planner’s current tariff</caption>
+    <thead><tr><th>From</th><th>To</th><th>Minimum fee</th><th>ISK per m³</th><th>Collateral fee</th><th>Maximum m³</th></tr></thead>
+    <tbody>{% for r in routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|num }}</td><td>{{ r.collateral_pct|pct }}</td><td>{{ r.max_m3|num }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted">Availability depends on the drop-off and known VOC routes. Own trips are a separate selling choice; this tariff does not price their time or risk.</p>
+</article>
+<p><a href="/pi/settings">Back to your PI Settings</a></p>
+{% endblock %}

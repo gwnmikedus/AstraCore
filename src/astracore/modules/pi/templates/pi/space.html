@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_artwork.html" import artwork %}
 {% block content %}
+{% set empty_area = not sources.alliances and not sources.colony_constellations and not sources.extra %}
 <hgroup class="ac-page-header context-header">
   <div class="eyebrow">PI / Your operating space</div>
   <h1 class="page-title">Area</h1>
@@ -9,7 +10,7 @@
     {% for a in sources.alliances %}<span class="pill">sov of <b>{{ a }}</b></span>{% endfor %}
     {% for c in sources.colony_constellations %}<span class="pill">your colonies in <b>{{ c }}</b></span>{% endfor %}
     {% for e in sources.extra %}<span class="pill">added: <b>{{ e }}</b></span>{% endfor %}
-    {% if not sources.alliances and not sources.colony_constellations and not sources.extra %}nothing yet - add a region or system below.{% endif %}
+    {% if empty_area %}nothing yet: no colonies or sovereignty to start from.{% endif %}
   </p>
 {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </hgroup>
@@ -65,10 +66,21 @@
   {% endif %}
 </details>
 
+{% if empty_area %}
+<section class="area-start" id="area-start">
+  <h2>Where do you want to do PI?</h2>
+  <p>Your characters have no colonies yet and no sovereignty to start from. Enter the region you fly in, such as your
+    corporation's or alliance's home region; you can add constellations or systems too.</p>
+  <label>Region, constellation or system
+    <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)"></label>
+  <button name="refresh" value="1">{{ icon('map') }} Find planets</button>
+</section>
+{% else %}
 <details>
   <summary>Add another region, constellation or system</summary>
   <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)">
 </details>
+{% endif %}
 
 <div class="sticky-bar">
   <div class="grid" style="align-items:end">

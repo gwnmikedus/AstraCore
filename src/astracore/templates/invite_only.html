@@ -3,8 +3,12 @@
 <div class="error-page">
   <div class="code">{{ icon('lock', 'xl') }}</div>
   <h2>AstraCore is invite-only right now</h2>
-  <p>{{ who }} isn't on the invite list yet, so no profile was created and the EVE login was revoked straight away.</p>
-  <p class="muted">Ask the person who sent you the link to add your character, corporation or alliance.</p>
-  <p><a href="/">Back to the home page</a></p>
+  <p>{{ who }} isn't on the invite list yet.</p>
+  <p>Your EVE login was not kept: no profile was created and no token was stored.
+    {% if revoked %}AstraCore also asked EVE to revoke the login straight away, and EVE confirmed it.{% else %}EVE didn't confirm that it revoked the login, so you can remove AstraCore yourself on EVE's third-party applications page (account management on eveonline.com).{% endif %}</p>
+  <h3>What you can do</h3>
+  <p>Ask in your corporation or alliance channel for an invite. An AstraCore admin can add your character, corporation or alliance.</p>
+  {% if members %}<p class="muted">Members of {{ members.phrase }} can sign in straight away. Just joined? EVE can take a while to report a corporation change, so try again a little later.</p>{% endif %}
+  <p><a href="/">Back to the home page</a> · <a href="/what-we-read">What we read</a></p>
 </div>
 {% endblock %}

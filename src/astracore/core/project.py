@@ -11,4 +11,5 @@ PROJECT = {
     "license_url": f"{REPOSITORY_URL}/blob/main/LICENSE",
     "releases_url": f"{REPOSITORY_URL}/releases",
     "license_name": "PolyForm Noncommercial 1.0.0",
+    "creator": "CosmicCarrot",       # founding capsuleer, credited on the landing page (_creator.html)
 }

@@ -233,9 +233,11 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
             return redirect(destination or "/", f"Signed in as {name}." + (f" ({problem})" if problem else ""))
         aff = await _affiliation(cid)
         if not accounts.gate_allows(cid, aff.get("corporation_id"), aff.get("alliance_id")):
-            await sso.revoke(login["refresh_token"])
+            # Nothing is written for a refused login: no profile, character or token. The token is
+            # revoked at EVE straight away; the page says so only if EVE confirmed it.
+            revoked = await sso.revoke(login["refresh_token"])
             return render(request, "invite_only.html", page="invite", page_title="Invite only", who=name,
-                          status_code=403)
+                          revoked=revoked, members=accounts.member_groups(), status_code=403)
         pid = db.create_profile(name, cid)
         _link_new(pid, login, aff)
         await _store_token(login)

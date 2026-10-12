@@ -89,6 +89,24 @@ def merge_profiles(src: int, dst: int) -> None:
 
 
 # --------------------------------------------------------------------------- invite gate
+def member_groups() -> dict:
+    """The corporation/alliance whose members may always log in (landing and invite-only pages).
+
+    Each group keeps its exact EVE name (``name``) and gets ``label``, the name for running text: a
+    trailing full stop ("Insidious.") would otherwise end the sentence it is joined into. ``phrase``
+    joins the labels ("Dutch Legions and Insidious")."""
+    from astracore.core import eveimg
+    groups = eveimg.home_groups()
+    out = {}
+    for kind in ("corporation", "alliance"):
+        group = groups.get(kind)
+        if group and (group["id"] in config.ALLOWED[kind] or not config.ACCESS_GATE):
+            out[kind] = {**group, "label": group["name"].rstrip(". ") or group["name"]}
+    if out:
+        out["phrase"] = " and ".join(g["label"] for g in out.values())
+    return out
+
+
 def gate_allows(character_id: int, corporation_id: Optional[int], alliance_id: Optional[int]) -> bool:
     """Production invite list: a login passes if the character, its corporation or its alliance is listed
     (in the env file or on the admin page). Local mode has no gate."""

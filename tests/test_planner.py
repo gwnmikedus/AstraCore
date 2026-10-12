@@ -491,6 +491,37 @@ def test_plans_carry_a_storage_check_per_colony(pi):
     assert tight == any(w["code"] == "storage" for w in res["warnings"])
 
 
+@pytest.mark.parametrize("cycle", [3, 7])
+def test_factories_hold_a_full_extractor_cycle(pi, cycle):
+    """A factory is planned to need at most one restock per extractor cycle (#59).
+
+    Rich miners could feed a 12-factory template faster than one launchpad buffers for a cycle."""
+    chars = [{"character_id": i, "name": f"C{i}", "slots": 4, "ccu_level": 5, "colonies": []} for i in (1, 2, 3)]
+    res = _plan(pi, chars=chars, prices={**PRICES, 2329: 400000.0, 9832: 400000.0}, max_tier=2,
+                cross_character=True, max_jumps=2, cycle_days=cycle, head_yield_per_hour=10_000)
+    factories = [c for c in res["colonies"] if c["kind"] == "factory"]
+    assert factories, "the fixture should still make factories worth building"
+    for f in factories:
+        assert f["upkeep"]["visit_every_days"] >= cycle, f["upkeep"]
+        assert f["upkeep"]["issues"] == []
+    assert not any(c["upkeep"]["issues"] and c["kind"] == "factory" for c in res["colonies"])
+
+
+def test_roomy_factories_are_not_slowed_down(pi):
+    """The buffer cap only binds when the template's space is too small for the cycle."""
+    roomy = [t if t["kind"] != "factory" else {**t, "storage": 6} for t in TEMPLATES]
+    chars = [{"character_id": i, "name": f"C{i}", "slots": 3, "ccu_level": 5, "colonies": []} for i in (1, 2)]
+    s = Settings(hub_system="HUB", max_jumps=2, max_systems=0, effort=100, max_tier=2, cross_character=True,
+                 cycle_days=1)
+    area = _area()
+    systems = {int(k): v for k, v in area["systems"].items()}
+    res = optimizer.plan(pi, s, area, systems, chars, {**PRICES, 2329: 400000.0}, roomy)
+    factories = [c for c in res["colonies"] if c["kind"] == "factory"]
+    assert factories
+    for f in factories:
+        assert f["upkeep"]["visit_every_days"] >= 1 and f["upkeep"]["issues"] == []
+
+
 def _colonies(now):
     def iso(h):
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + h * 3600))
@@ -627,3 +658,19 @@ def test_character_sync_keeps_links_and_routes_compactly():
         "links": [{"source_pin_id": 1, "destination_pin_id": 3, "link_level": 2}],
         "routes": [{"source_pin_id": 1, "destination_pin_id": 3, "content_type_id": 2396, "quantity": 40}]}
     assert _layout_network({"pins": []}) == {"links": [], "routes": []}
+
+
+def test_solves_end_on_a_node_limit_so_results_dont_depend_on_machine_load(pi, monkeypatch):
+    seen = []
+    real = optimizer.pulp.PULP_CBC_CMD
+
+    def spy(**kw):
+        seen.append(kw)
+        return real(**kw)
+
+    monkeypatch.setattr(optimizer.pulp, "PULP_CBC_CMD", spy)
+    first = _plan(pi, max_tier=2, effort=50)
+    second = _plan(pi, max_tier=2, effort=50)
+    assert seen and all(k["maxNodes"] == optimizer.SOLVER_MAX_NODES and k["threads"] == 1 for k in seen)
+    assert all(k["timeLimit"] >= optimizer.SOLVER_SAFETY_SECONDS for k in seen)
+    assert first["totals"] == second["totals"] and first["colonies"] == second["colonies"]

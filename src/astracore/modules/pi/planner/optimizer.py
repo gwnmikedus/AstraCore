@@ -4,7 +4,9 @@ Two stages so the live sliders stay fast:
 
 1. Pooled integer program over (planet, template) pairs. n[j] = how many of your
    characters place template j on that planet. Factories get a utilisation
-   z[j] in [0, n[j]]. Item flows must balance; leftovers are sold.
+   z[j] in [0, n[j]]. Item flows must balance; leftovers are sold. A factory runs no faster
+   than its launchpad/storage can buffer for one extractor cycle, so it needs one restock per
+   cycle at most.
 
        maximise  sold value - customs tax
                  - w_m3 * m3/day moved - w_sys * systems used - w_fac * factories
@@ -34,7 +36,12 @@ from . import notices, operate, routing, setups, skills, upkeep
 
 NO_FIT = "No templates fit the planets in your area. Allow more systems or more jumps from the drop-off."
 MINER_CCU = 4  # DalShooth nullsec miners fit a level-4 command center (lowsec miners need 5)
+BUFFER_HEADROOM = 0.99  # factories are planned to fill at most 99% of their space in one cycle
 
+
+# Search steps per solve (see _solve); the time limit only guards against a stuck solver.
+SOLVER_MAX_NODES = 1000
+SOLVER_SAFETY_SECONDS = 30
 
 def _factory_planets(sys: dict) -> set:
     """Up to two planets per system are offered as factory sites (keeps the model small):
@@ -141,6 +148,12 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     y = {sid: pulp.LpVariable(f"y{sid}", cat="Binary") for sid in scope}
     use = {j: (z[j] if j in z else n[j]) for j in n}
 
+    cycle = max(0.0, float(s.cycle_days))
+
+    def room(st: setups.Setup) -> float:
+        # a little headroom so the rounded per-day flows shown on the plan still pass upkeep's check
+        return upkeep.plan_capacity(st.layout) * BUFFER_HEADROOM
+
     produced, consumed = defaultdict(list), defaultdict(list)
     tax, m3, fac = [], [], []
     by_planet, by_system = defaultdict(list), defaultdict(list)
@@ -149,6 +162,11 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
         if j in z:
             prob += z[j] <= n[j]
             fac.append(n[j])
+            # One restock per extractor cycle: the launchpad/storage space must hold a full cycle of
+            # inputs (and of the products made meanwhile), so run the factory no faster than that.
+            per_cycle = max(eco.m3(pi, st.inputs), eco.m3(pi, st.out)) * cycle
+            if per_cycle > room(st):
+                prob += per_cycle * z[j] <= room(st) * n[j]
         for t, q in st.out.items():
             produced[t].append(q * u)
         for t, q in st.inputs.items():
@@ -195,8 +213,11 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     if s.max_systems > 0:
         prob += pulp.lpSum(y.values()) <= s.max_systems
 
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=max(2, int(s.solver_time_limit)),
-                                          gapRel=0.01))
+    # A node limit, not a clock, ends the search: the same inputs always give the same plan, however busy
+    # the machine is. The plan is found early; the rest of a long search only proves it within 1%.
+    # The time limit is a safety net that a normal solve never reaches.
+    status = prob.solve(pulp.PULP_CBC_CMD(msg=False, maxNodes=SOLVER_MAX_NODES, threads=1, gapRel=0.01,
+                                          timeLimit=max(SOLVER_SAFETY_SECONDS, int(s.solver_time_limit))))
     if prob.objective is None or pulp.value(prob.objective) is None:
         return None, planets, scope, f"Solver: {pulp.LpStatus[status]}"
     instances = []

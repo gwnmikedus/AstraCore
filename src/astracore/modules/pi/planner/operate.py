@@ -191,7 +191,8 @@ def _reality(g: dict, b: dict, area: Optional[dict]) -> dict:
     return out
 
 
-TRADE_HUBS = ("Jita", "Amarr")
+# Trade hub systems: a PI courier from one of these brings starter stock in, it isn't a shipment out.
+TRADE_HUBS = ("Jita", "Perimeter", "Amarr", "Dodixie", "Rens", "Hek")
 
 
 def pi_shipment(c: dict, locs: Dict[int, dict]) -> bool:
@@ -350,6 +351,8 @@ def progress_against(pi: Optional[PIData], plan: dict, characters: List[dict],
         made = existing_product(pi, col) if pi else None
         if pi is None or want is None or made == want:
             c["action"] = "keep"            # (without static data the planet being taken is all we know)
+        elif made is None and c.get("saved_action", "new") == "new":
+            c["action"] = "new"             # command center placed, nothing set up yet: still being built
         else:
             c["action"] = "rebuild"
             c["current"] = pi.name(made) if made else "nothing yet"

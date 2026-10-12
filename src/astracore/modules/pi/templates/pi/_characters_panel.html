@@ -1,7 +1,9 @@
 {# "Characters in this plan": include/exclude, slots, CCU and what it allows, colonies, login state. Needs `panel`. #}
-<details class="box" {{ 'open' if open_panel else '' }}>
+{% set n_blocked = panel|selectattr('blocked')|list|length %}
+<details class="box" id="characters-panel" {{ 'open' if open_panel else '' }}>
   <summary><strong>{{ icon('users') }} Characters in this plan</strong>
-    <span class="muted">· {{ panel|selectattr('enabled')|list|length }} of {{ panel|length }} included</span></summary>
+    <span class="muted">· {{ panel|selectattr('enabled')|list|length }} of {{ panel|length }} included</span>
+    {%- if n_blocked %} <span class="bad">· {{ n_blocked }} can't be planned yet</span>{% endif %}</summary>
   <p class="muted ccu-rule">Templates need enough <strong>Command Center Upgrades</strong> (CCU): nullsec miners need CCU 4,
     lowsec miners CCU 5, factories CCU 2–3. Planet slots come from Interplanetary Consolidation.</p>
   <div class="scroll"><table>
@@ -12,7 +14,8 @@
       <td><img src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=32" alt="" width="24" height="24"
                style="vertical-align:-6px"> {{ c.name }}</td>
       <td>{{ c.slots }}</td>
-      <td><span class="{{ c.ccu_note[0] }}">{{ c.ccu_level }}</span> <span class="muted">· {{ c.ccu_note[1] }}</span></td>
+      <td><span class="{{ c.ccu_note[0] }}">{{ c.ccu_level }}</span> <span class="muted">· {{ c.ccu_note[1] }}</span>
+        {%- if c.ccu_note[2] %}<br><span class="{{ 'bad' if c.blocked else 'muted' }}">{{ c.ccu_note[2] }}</span>{% endif %}</td>
       <td>{{ c.colonies|length }}{% if c.colony_summary %} <span class="muted itemlist">{% for x in c.colony_summary %}<span>{{ planet_img(x.type, 16) }}{{ eve_img(x.product, 16) }}{{ x.product }}</span>{% endfor %}</span>{% endif %}</td>
       <td>{% if c.status == 'needs_login' or not c.has_token %}<a href="/auth/upgrade/{{ c.character_id }}" class="warn">needs login</a>
         {% elif c.missing_pi %}<a href="/auth/upgrade/{{ c.character_id }}" class="warn">needs one more login</a>

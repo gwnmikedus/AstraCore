@@ -335,10 +335,15 @@ def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
 
 # --------------------------------------------------------------------------- module entry + dashboard
 def entry_state(profile_id: int) -> str:
-    """Where /pi lands: connect | area | plan | operate."""
+    """Where /pi lands: connect | excluded | area | plan | operate.
+
+    Area, Plan and Operate work with `planning_characters`, so /pi only sends a pilot there when that set
+    isn't empty: with every connected character excluded from the plan it lands on `excluded` instead."""
     chars = characters(profile_id)
     if not any(pi_ready(c) or c.get("has_token") and REQUIRED_SCOPES <= set(c["scopes"]) for c in chars):
         return "connect"
+    if not planning_characters(profile_id):
+        return "excluded"
     if not store.load_settings(profile_id).selected_constellations:
         return "area"
     if not store.active_plan(profile_id):
@@ -350,20 +355,20 @@ async def dashboard_tile(profile: dict) -> dict:
     """Live status for the dashboard. Never solves: it reads the active plan and synced ESI data."""
     pid = profile["id"]
     state = entry_state(pid)
-    tile = {"state": state, "href": {"connect": "/pi", "area": "/pi/area", "plan": "/pi/plan",
+    tile = {"state": state, "href": {"connect": "/pi", "excluded": "/pi", "area": "/pi/area", "plan": "/pi/plan",
                                      "operate": "/pi/operate"}[state],
-            "cta": {"connect": "Connect characters", "area": "Choose your area", "plan": "Make a plan",
-                    "operate": "Open Operate"}[state]}
+            "cta": {"connect": "Connect characters", "excluded": "Include a character", "area": "Choose your area",
+                    "plan": "Make a plan", "operate": "Open Operate"}[state]}
     plan = store.active_plan(pid)
     chars = planning_characters(pid)
+    pi = sde_loader.cached()   # read once: progress and the colony status both need it
     if plan:
         res = plan["result"]
         tile["plan_isk_per_day"] = (res.get("totals") or {}).get("isk_per_day")
         tile["plan_label"] = plan["label"]
-        prog = operate.build_progress(_progress_against(res, chars))
+        prog = operate.build_progress(_progress_against(res, chars, pi))
         if prog:
             tile["built"], tile["planned"] = prog["done"], prog["total"]
-    pi = sde_loader.cached()
     if pi and chars:
         try:
             st = operate.colonies_status(pi, chars, None)

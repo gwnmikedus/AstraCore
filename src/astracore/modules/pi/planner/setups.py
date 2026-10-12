@@ -17,6 +17,38 @@ from ..static_data.sde_loader import PIData
 BASIC_P1_PER_HOUR = 40.0     # 20 P1 per 30-minute cycle
 P0_PER_P1 = 150.0
 
+# Command Center Upgrades levels DalShooth's templates need (template_min_ccu over the repo, 2026-10):
+# most factories fit level 2 and every factory fits 3, nullsec miners need 4 and lowsec miners 5.
+# Below FACTORY_CCU no template fits, so the planner leaves the character out.
+FACTORY_CCU = 2
+ALL_FACTORIES_CCU = 3
+NULLSEC_MINER_CCU = 4
+LOWSEC_MINER_CCU = 5
+
+
+def can_plan(ch: dict) -> bool:
+    """At least one DalShooth template fits the character's command centers."""
+    return int(ch.get("ccu_level") or 0) >= FACTORY_CCU
+
+
+def ccu_note(level) -> dict:
+    """What a Command Center Upgrades level allows, and the next level worth training.
+    `status` is ok / warn / bad, `label` what fits now, `next` the training advice ('' when nothing is left)."""
+    lvl = int(level or 0)
+    if lvl >= LOWSEC_MINER_CCU:
+        return {"status": "ok", "label": "OK for every template", "next": ""}
+    if lvl >= NULLSEC_MINER_CCU:
+        return {"status": "ok", "label": f"Nullsec miners and factories (lowsec miners need {LOWSEC_MINER_CCU})",
+                "next": ""}
+    if lvl >= FACTORY_CCU:
+        some = "Factories only" if lvl >= ALL_FACTORIES_CCU else "Most factories only"
+        return {"status": "warn", "label": some,
+                "next": f"Train Command Center Upgrades to {NULLSEC_MINER_CCU} for nullsec miners "
+                        f"({LOWSEC_MINER_CCU} for lowsec)."}
+    return {"status": "bad", "label": "Can't be planned yet",
+            "next": f"Train Command Center Upgrades to {FACTORY_CCU} to use this character for factories "
+                    f"({NULLSEC_MINER_CCU} recommended for nullsec miners)."}
+
 
 @dataclass
 class Setup:

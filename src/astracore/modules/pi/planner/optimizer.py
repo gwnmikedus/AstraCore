@@ -469,7 +469,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     t0 = time.time()
     overrides = overrides or {}
     head_yield = head_yield or s.head_yield_per_hour
-    eligible = [c for c in characters if int(c.get("ccu_level", 0)) >= 2]
+    eligible = [c for c in characters if setups.can_plan(c)]
     warnings = notices.low_ccu(characters, MINER_CCU)
     if not eligible:
         return {"error": "None of your characters can place the templates yet (Command Center Upgrades too low).",

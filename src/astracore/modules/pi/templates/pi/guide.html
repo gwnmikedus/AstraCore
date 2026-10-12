@@ -25,6 +25,7 @@
 
 <div class="guide-progress"><span id="progress-label">Your setup</span><span id="step-name" class="step-name"></span><span id="save-status" role="status">Answers save as you continue</span></div>
 <ol class="track" id="track"></ol>
+<div id="wizard-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <section class="q" id="q" aria-labelledby="question-title"></section>
 <noscript><div class="flash warn">The guided planner needs JavaScript. Enable it and reload to compare setups.</div></noscript>
 {% endblock %}
@@ -303,6 +304,11 @@ function blockedNote() {
     '<a href="#characters-panel" id="see-characters">see Characters in this plan</a></span></div>';
 }
 
+function setHint(text) {
+  if ($('navhint')) $('navhint').textContent = text;
+  $('wizard-status').textContent = text;
+}
+
 function showQuestion(step) {
   $('q').dataset.step = step.id;
   step.options = step.options.filter(o => !o.isCustom);
@@ -315,12 +321,13 @@ function showQuestion(step) {
     <p class="intro">${STEP_CONTEXT[step.id]}</p>
     ${cur <= 1 ? blockedNote() : ''}
     <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.intro}</p></details>
-    <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map(o => `
-      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false">
+    <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map((o, index) => `
+      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false"
+        aria-labelledby="answer-name-${index}" aria-describedby="answer-blurb-${index}${step.isGoal ? '' : ' answer-results-' + index}">
         <div class="badges"></div>
-        <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm">${esc(o.label)}</div>
-        <div class="bl">${esc(o.blurb || '')}</div>
-        ${step.isGoal ? '' : '<div class="res"><div class="skel"></div><div class="skel" style="width:60%"></div></div>'}
+        <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm" id="answer-name-${index}">${esc(o.label)}</div>
+        <div class="bl" id="answer-blurb-${index}">${esc(o.blurb || '')}</div>
+        ${step.isGoal ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel" style="width:60%"></div></div>`}
       </div>`).join('')}</div>
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
@@ -328,7 +335,7 @@ function showQuestion(step) {
     ${hourPicker()}
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
-      <span class="hint" id="navhint" role="status">${step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…'}</span>
+      <span class="hint" id="navhint"></span>
       <button id="next" ${step.isGoal ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
   const see = $('see-characters');
@@ -336,18 +343,31 @@ function showQuestion(step) {
   $('back').onclick = () => navigate(cur - 1);
   $('next').onclick = async () => { if (await commit(step, cur + 1)) go(cur + 1); };
   document.querySelectorAll('.opt').forEach(el => {
-    const pick = () => { if (!saving && el.getAttribute('aria-disabled') !== 'true') choose(step, JSON.parse(el.dataset.id)); };
+    const pick = () => {
+      const id = JSON.parse(el.dataset.id);
+      if (saving || el.getAttribute('aria-disabled') === 'true' ||
+          (!step.isGoal && !(results[step.id] || {})[id])) {
+        setHint(saving ? 'Saving your answer. Please wait.' :
+          (!results[step.id] ? 'Comparing setups. You can explore the answers while they load.' :
+            'This answer is unavailable. Choose another answer.'));
+        return;
+      }
+      choose(step, id);
+    };
     el.onclick = pick;
     el.onkeydown = e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
       if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
       e.preventDefault();
-      const options = [...document.querySelectorAll('.opt:not([aria-disabled="true"])')];
-      if (!options.length || saving) return;
+      const options = [...document.querySelectorAll('.opt')];
+      if (!options.length) return;
       const position = options.indexOf(el);
       const index = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 :
         (position + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1) + options.length) % options.length;
-      choose(step, JSON.parse(options[index].dataset.id));
+      options.forEach(option => option.tabIndex = option === options[index] ? 0 : -1);
+      const id = JSON.parse(options[index].dataset.id);
+      if (!saving && options[index].getAttribute('aria-disabled') !== 'true' &&
+          (step.isGoal || (results[step.id] || {})[id])) choose(step, id);
       options[index].focus();
     };
   });
@@ -356,6 +376,7 @@ function showQuestion(step) {
   // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
   if (picks[step.id] === undefined && (answered.has(step.id) || step.isGoal) && m != null) picks[step.id] = m;
   paint(step);
+  setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
   if (!step.isGoal) load(step);
 }
 
@@ -367,10 +388,10 @@ async function load(step) {
   paint(step);
   const base = {...st};
   const rows = await AC.post(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
-    {signal: comparisonRequest.signal, onBusy: () => { if (my === seq) $('navhint').textContent = 'AstraCore is busy, your plan is queued…'; }});
+    {signal: comparisonRequest.signal, onBusy: () => { if (my === seq) setHint('AstraCore is busy, your plan is queued…'); }});
   if (my !== seq || rows.superseded) return;            // user moved on
   if (!Array.isArray(rows)) {
-    $('navhint').textContent = rows.error || 'Could not compare these setups.';
+    setHint(rows.error || 'Could not compare these setups.');
     $('advice').innerHTML = '<div class="flash warn"><span>Comparison unavailable. Your saved answers are safe.</span><button class="outline" id="retry-comparison">Retry comparison</button></div>';
     $('retry-comparison').onclick = () => { $('advice').innerHTML = ''; load(step); };
     return;
@@ -378,9 +399,9 @@ async function load(step) {
   results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
   if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st)); else paint(step);
   const kept = results[step.id][picks[step.id]];
-  $('navhint').textContent = kept && kept.error
+  setHint(kept && kept.error
     ? 'Your earlier answer no longer works with your other choices. Pick another to continue.'
-    : 'Click an answer to compare. You can come back and change it later.';
+    : 'Click an answer to compare. You can come back and change it later.');
 }
 
 // The same answers as a table: income, your time, effort and uncertainty in one place.
@@ -423,7 +444,7 @@ function paint(step) {
     el.classList.toggle('pick', id === pick);
     el.classList.toggle('recd', id === rec && id === pick);
     el.setAttribute('aria-checked', id === pick ? 'true' : 'false');
-    el.setAttribute('aria-disabled', String(saving || (!step.isGoal && (!r || !!r.error))));
+    el.setAttribute('aria-disabled', String(saving || !!r?.error));
     el.tabIndex = id === pick || (pick == null && el === $('opts').firstElementChild) ? 0 : -1;
     el.classList.toggle('err', !!r?.error);
     // One badge story: the picked card says "Suggested" when it is the suggestion, otherwise "Your pick".
@@ -516,7 +537,7 @@ async function wireArea(step) {
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {
       const ids = [...det.querySelectorAll('input[type=checkbox]:checked')].map(x => +x.value);
-      if (!ids.length) { $('next').disabled = true; $('navhint').textContent = 'Select at least one constellation.'; return; }
+      if (!ids.length) { $('next').disabled = true; setHint('Select at least one constellation.'); return; }
       st.selected_constellations = ids; st.hub_system = $('area-hub').value;
       delete results[step.id];
       paint(step);
@@ -552,7 +573,7 @@ async function commit(step, target) {
   hourControl.setDisabled(false);
   if (result.error || result.superseded) {
     $('save-status').textContent = 'Answer not saved';
-    $('navhint').textContent = result.error || 'Try saving your answer again.';
+    setHint(result.error || 'Try saving your answer again.');
     $('next').disabled = false;
     $('back').disabled = cur === 0;
     drawTrack();

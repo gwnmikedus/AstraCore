@@ -552,7 +552,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     # removals: existing colonies not in the plan
     planned = {(c["character_id"], c["planet_id"]) for c in colonies}
     names = operate.planet_names(area)
-    removals = [{"character": by_id[cid]["name"], "planet_id": pid,
+    removals = [{"character": by_id[cid]["name"], "character_id": cid, "planet_id": pid,
                  "planet": names.get(pid, {}).get("name", ""), "system": names.get(pid, {}).get("system", ""),
                  "current": pi.name(prod) if prod else "?"}
                 for (cid, pid), prod in existing.items() if (cid, pid) not in planned]

@@ -40,7 +40,13 @@
   {% if active %}
   <p style="margin:.2rem 0"><strong>{{ active.label }}</strong> <span class="muted">· saved {{ active.created|ago }}
     · {{ (plan.totals.isk_per_day if plan and plan.totals else 0)|isk }} ISK/day · drop-off {{ plan.hub if plan else '–' }}</span></p>
-  {% if plan.totals.needs_recalculation %}<p class="warn">A character was removed from this plan. <a href="/pi/plan">Recalculate your plan</a> to check production chains and income.</p>{% endif %}
+  {% if plan.totals.needs_recalculation %}<p class="warn">A character was removed from this plan. <a href="/pi/plan">Recalculate your plan</a> to check production chains and income.</p>
+  {% elif drift %}<p class="warn plan-outdated">{{ icon('triangle-alert') }} Your plan is out of date ({{ drift.summary }}).
+    <a href="/pi/plan">Update plan</a>
+    {%- if drift.added or drift.removed %} <span class="muted">·
+      {%- if drift.added %} added since: {{ drift.added|join(', ') }}{% endif %}
+      {%- if drift.added and drift.removed %};{% endif %}
+      {%- if drift.removed %} no longer planned: {{ drift.removed|join(', ') }}{% endif %}</span>{% endif %}</p>{% endif %}
   {% if progress and progress.total %}
   <progress value="{{ progress.done }}" max="{{ progress.total }}"></progress>
   <p class="muted">{{ progress.done }} of {{ progress.total }} planned colonies are built as planned ·
@@ -203,11 +209,12 @@
     <div class="card"><div class="v {{ 'bad' if tr.restart.expired else ('warn' if tr.restart.due else '') }}">{% if tr.restart.next_hours is none %}–{% elif tr.restart.next_hours <= 0 %}now{% else %}{{ tr.restart.next_hours|hours }}{% endif %}</div>
       <div class="l">next extractor restart{% if tr.restart.colonies %} · {{ tr.restart.due }} within 24 h · every {{ tr.restart.every_days|num(1) }} days{% endif %}</div></div>
     <div class="card"><div class="v {{ 'warn' if tr.restock.due else '' }}">{% if tr.restock.next_hours is none %}–{% elif tr.restock.next_hours <= 0 %}now{% else %}{{ tr.restock.next_hours|hours }}{% endif %}</div>
-      <div class="l">next factory restock{% if tr.restock.colonies %} · {{ tr.restock.colonies }} factor{{ 'y' if tr.restock.colonies == 1 else 'ies' }} · tightest every {{ tr.restock.every_days|num(1) }} days{% endif %}</div></div>
+      <div class="l">next factory restock{% if tr.restock.colonies %} · {{ tr.restock.colonies }} factor{{ 'y' if tr.restock.colonies == 1 else 'ies' }}{% if tr.restock.every_days %} · tightest every {{ tr.restock.every_days|num(1) }} days{% endif %}{% endif %}</div></div>
     <div class="card"><div class="v {{ 'warn' if tr.collect.due else '' }}">{% if tr.collect.next_hours is none %}–{% elif tr.collect.next_hours <= 0 %}full{% else %}{{ tr.collect.next_hours|hours }}{% endif %}</div>
       <div class="l">until storage fills{% if tr.collect.colonies %} · {{ tr.collect.colonies }} colon{{ 'y' if tr.collect.colonies == 1 else 'ies' }} exporting{% endif %}</div></div>
-    <div class="card"><div class="v">{% if tr.ship.next_days is none %}–{% elif tr.ship.next_days <= 0 %}due{% else %}{{ (tr.ship.next_days * 24)|hours }}{% endif %}</div>
-      <div class="l">market shipment · every {{ tr.ship.every_days|num }} days · {% if tr.ship.last %}last {{ tr.ship.last|ago }}{% else %}no sale seen yet{% endif %}</div></div>
+    <div class="card"><div class="v {{ 'warn' if tr.ship.due else '' }}">{% if tr.ship.due %}due{% elif tr.ship.next_days is none or tr.ship.next_days <= 0 %}–{% else %}{{ (tr.ship.next_days * 24)|hours }}{% endif %}</div>
+      <div class="l">market shipment · every {{ tr.ship.every_days|num }} days · {% if tr.ship.last %}last {{ tr.ship.last|ago }}{% else %}no PI shipment seen yet{% endif %}
+        {%- if not tr.ship.has_stock %} · no PI products in hangars{% endif %}</div></div>
   </div>
   {% if upkeep.colonies %}
   <div class="scroll"><table><thead><tr><th>Colony</th><th>Next visit</th><th>Visit rhythm</th><th>Storage</th><th>Output vs plan</th><th>Colony data</th></tr></thead><tbody>
@@ -221,7 +228,8 @@
     <td>{% if u.capacity_m3 is none %}<span class="muted">unknown</span>{% else %}{{ u.used_m3|m3 }} / {{ u.capacity_m3|m3 }}
       <span class="muted">· {{ u.fill_pct }}%</span>{% endif %}</td>
     <td>{% if u.output %}{{ eve_img(u.output.product, 16) }}{{ u.output.actual|num }} {{ u.output.product }}/day
-      {% if u.output.planned %}<br><span class="st-{{ u.output.state }}">{{ u.output.pct }}% of planned {{ u.output.planned|num }}</span>{% elif plan %}<br><span class="muted">not in the active plan</span>{% endif %}
+      {% if u.output.expects %}<br><span class="st-{{ u.output.state }}">makes {{ u.output.product }}, plan expects {{ u.output.expects }}</span>
+      {% elif u.output.planned %}<br><span class="st-{{ u.output.state }}">{{ u.output.pct }}% of planned {{ u.output.planned|num }}</span>{% elif plan %}<br><span class="muted">not in the active plan</span>{% endif %}
       {% else %}<span class="muted">–</span>{% endif %}</td>
     <td class="{{ 'warn' if u.stale else 'muted' }}">{{ u.last_update|ago if u.last_update else 'unknown' }}
       {% if not u.routes_known %}<br><span class="muted" title="Refresh from ESI to check that factories and extractors are routed.">routes not checked yet</span>{% endif %}</td></tr>

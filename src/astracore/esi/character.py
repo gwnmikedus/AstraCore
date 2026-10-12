@@ -55,6 +55,21 @@ async def _safe(coro, default):
         return default
 
 
+async def _name_colonies(esi: ESIClient, colonies: List[dict]) -> None:
+    """Keep each colony's planet and system name, so Operate can name planets outside the selected
+    area too (public, long-cached lookups; a failure only leaves the name out)."""
+    if not colonies:
+        return
+    planets = await asyncio.gather(*[public.planet(esi, c["planet_id"]) for c in colonies], return_exceptions=True)
+    systems = {c["solar_system_id"] for c in colonies if c.get("solar_system_id")}
+    names = await _safe(public.ids_to_names(esi, systems), {}) if systems else {}
+    for col, p in zip(colonies, planets):
+        if isinstance(p, dict) and p.get("name"):
+            col["planet_name"] = p["name"]
+        if names.get(col.get("solar_system_id")):
+            col["system_name"] = names[col["solar_system_id"]]
+
+
 async def resolve_locations(esi: ESIClient, token: str, ids: List[int], owner: int) -> Dict[int, dict]:
     """Station / structure id -> {name, system_id, system}. Cached across characters."""
     known = locations()
@@ -185,6 +200,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
             col["pins"] = det.get("pins", [])
             col.update(_layout_network(det))
         colonies.append(col)
+    await _name_colonies(esi, colonies)
 
     extra: Dict = {}
     # --- assets: PI products wherever they are (top-level location resolved) ------
@@ -243,7 +259,8 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
         extra["wallet"] = {
             "balance": balance,
             "sales": [{"date": t["date"], "type_id": t["type_id"], "qty": t["quantity"],
-                       "unit_price": t["unit_price"], "location_id": t["location_id"]}
+                       "unit_price": t["unit_price"], "location_id": t["location_id"],
+                       "transaction_id": t.get("transaction_id")}
                       for t in tx if not t.get("is_buy") and t["type_id"] in pi_types and _recent(t["date"])],
             "journal": [{"date": j["date"], "ref_type": j["ref_type"], "amount": j.get("amount", 0.0),
                          "context_id": j.get("context_id"), "description": j.get("description", "")}

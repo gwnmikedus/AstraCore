@@ -300,9 +300,10 @@ def test_operate_flow(pi):
         ],
         "assets": [{"type_id": 2329, "qty": 100_000, "location_id": 1, "flag": "Hangar"}],
         "contracts": [
-            {"contract_id": 7, "type": "courier", "status": "in_progress", "voc": True, "collateral": 5e8,
-             "reward": 1.2e7, "volume": 75000, "date_issued": _iso(-30), "start_location_id": 1, "end_location_id": 1},
-            {"contract_id": 8, "type": "item_exchange", "status": "finished", "voc": True, "price": 9e7,
+            {"contract_id": 7, "type": "courier", "status": "in_progress", "voc": True, "pi": True, "collateral": 5e8,
+             "reward": 1.2e7, "volume": 75000, "date_issued": _iso(-30), "start_location_id": 1, "end_location_id": 1,
+             "items": [{"type_id": 2329, "qty": 50000}]},
+            {"contract_id": 8, "type": "item_exchange", "status": "finished", "voc": True, "pi": True, "price": 9e7,
              "date_issued": _iso(-40), "items": [{"type_id": 2329, "qty": 10000}]},
         ],
         "orders": [{"order_id": 1, "type_id": 2329, "price": 12000.0, "volume_remain": 50, "volume_total": 100,
@@ -314,7 +315,9 @@ def test_operate_flow(pi):
     st = operate.colonies_status(pi, [ch], None)
     assert st["extractors"][0]["state"] == "expired"
     assert st["pickups"][0]["items"] == {"Biofuels": 5000}
-    assert {r["item"] for r in st["restock"]} == {"Biofuels"}       # 100 Biofuels < 2 days for a Biocells factory
+    assert "restock" not in st                                      # restocks come from the upkeep schedule only
+    sch = upkeep.schedule(pi, Settings(), [ch], None)
+    assert {r["item"] for r in sch["shortages"]} == {"Biofuels"}    # 100 Biofuels < 2 days for a Biocells factory
 
     stock = operate.hangar_stock(pi, Settings(), BOOKS, [ch])
     assert stock[0]["items"] == {"Biocells": 100000}
@@ -432,8 +435,8 @@ def test_pipeline_hides_old_and_non_pi(pi):
     ch = {"character_id": 1, "name": "A", "orders": [], "contracts": [
         {"contract_id": 1, "type": "courier", "status": "finished", "voc": True, "date_issued": _iso(-24 * 20),
          "date_completed": _iso(-24 * 18)},
-        {"contract_id": 2, "type": "courier", "status": "finished", "voc": True, "date_issued": _iso(-48),
-         "date_completed": _iso(-24)},
+        {"contract_id": 2, "type": "courier", "status": "finished", "voc": True, "pi": True, "date_issued": _iso(-48),
+         "date_completed": _iso(-24), "items": [{"type_id": 2329, "qty": 10}]},
         {"contract_id": 3, "type": "item_exchange", "status": "outstanding", "voc": True, "price": 1e6,
          "date_issued": _iso(-2), "items": [{"type_id": 34, "qty": 100}]},
         {"contract_id": 4, "type": "item_exchange", "status": "outstanding", "voc": True, "price": 1e6,
@@ -532,7 +535,8 @@ def test_upkeep_schedule_derives_visits_from_each_colony(pi):
     assert f["next"] == "restock" and f["next_hours"] == pytest.approx(12, abs=0.1)   # 960 PM at 1,920/day
     assert f["visit_every_days"] == pytest.approx(10_500 / (3840 * 0.38), abs=0.05)
     assert f["restock"]["Biofuels"] == pytest.approx(1920 * 10_500 / (3840 * 0.38), rel=0.01)
-    assert f["output"] == {"product": "Biocells", "actual": 240.0, "planned": 480, "pct": 50, "state": "soon"}
+    assert f["output"] == {"product": "Biocells", "actual": 240.0, "planned": 480, "pct": 50, "state": "soon",
+                         "expects": None}
     assert [s["item"] for s in sch["shortages"]] == ["Precious Metals"]
     assert not f["stale"]
 

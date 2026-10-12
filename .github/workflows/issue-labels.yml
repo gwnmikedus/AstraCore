@@ -1,7 +1,7 @@
 name: Issue labels
 
 # A closed issue's state and reason (completed / not planned) are its status, so the labels that describe open
-# work come off when it closes. `status:released` stays: it's added at a minor release. See docs/releases.md.
+# work come off when it closes. `status:released` stays: `./astracore deploy` adds it when the fix goes live. See docs/releases.md.
 on:
   issues:
     types: [closed]

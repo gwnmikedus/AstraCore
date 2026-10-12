@@ -84,7 +84,6 @@ The maintainer can do all of this, and the merging and release steps on this pag
    ```
 
 4. Deploy that merge commit (`./astracore deploy`). The footer now reads `v0.2.0`, and the next merged pull request becomes `0.2.1`.
-5. Add `status:released` to the issues closed by the pull requests in this release, so the Community page shows them as Released.
 
 Tag only minor releases, never patches, and never move or reuse a published tag.
 
@@ -99,13 +98,14 @@ Every issue has one **type** label and, while it's open, one **status** label. T
 | `status:under-review` | Open: new, not yet triaged or decided |
 | `status:planned` | Open: accepted and planned, work not started |
 | `status:in-progress` | Open: someone is working on it |
-| `status:released` | Closed and shipped in a minor release |
+| `status:released` | Closed and live in production (set by `./astracore deploy`) |
 | `source:platform` | Submitted through the site's feedback form |
 | `roadmap` | A roadmap item (shown as *Planned* while open) |
 
 - Use the `type:` labels, not GitHub's default `bug` or `enhancement`: the Community page doesn't recognise those.
 - When an issue closes, its state and reason (*completed* or *not planned*) are its status. The `Issue labels` workflow removes `status:under-review`, `status:planned` and `status:in-progress` by itself, including when a merged pull request closes the issue.
-- Merged and deployed isn't released yet: `status:released` is added at the next minor release (step 5 above).
+- **Released means live.** `./astracore deploy` adds `status:released` to the issues closed by the pull requests it puts live, and a rollback takes it off again for what it removes. So *Released* on the Community page means pilots can use it now; merged but not deployed shows as *Completed*. If GitHub can't be reached during a deploy, it says so; catch up with `./astracore mark-released <from> [to]`.
+- Minor releases (`0.x.0`) don't change labels: they're the curated notes on the *What's new* page.
 - Reopening an issue: give it an open status label again.
 
 ## Who can merge

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="prose">
+  <h2>Reset AstraCore PI</h2>
+  <p>This deletes the PI settings, saved plans and planet overrides for <strong>{{ profile.display_name }}</strong>.
+    Your characters, EVE accounts and signed-in browsers stay connected. This can't be undone.</p>
+  <p><a role="button" class="outline" href="/profile/export.json">{{ icon('download') }} Download my data first (JSON)</a></p>
+  <form method="post" action="/pi/reset" class="typeconfirm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Type <strong>{{ profile.display_name }}</strong> to confirm
+      <input name="confirm" autocomplete="off" required></label>
+    <button class="danger">Reset AstraCore PI</button>
+    <a href="/profile">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -395,7 +395,7 @@ def test_opt_in_and_opt_out_round_trip(browser, eve):
     c.post(f"/profile/characters/{cid}/bundles/pi.optional.customs/pause", data={"csrf_token": csrf(c)})
     ch = db.get_character(cid)
     assert CUSTOMS in ch["scopes"] and not auth.bundle_active(ch, "pi.optional.customs")
-    assert "Granted but unused" in c.get("/profile").text
+    assert "Off in AstraCore" in c.get("/profile").text
     # opt out with a new login asking for the smaller set
     r, url = sso_login(c, eve, cid, "Director", path=f"/auth/upgrade/{cid}?bundle=pi.optional.customs&action=off")
     assert CUSTOMS not in scopes_in(url)
@@ -471,7 +471,16 @@ def test_reset_only_pi_keeps_characters(browser, eve):
     pid = me(c)
     store.save_settings(pid, Settings(effort=9))
     store.save_plan_run(pid, "p", Settings(), {"totals": {}})
-    c.post("/pi/reset", data={"csrf_token": csrf(c)})
+    token = csrf(c)
+    assert "Type <strong>Planner</strong> to confirm" in c.get("/pi/reset").text
+    for confirm in (None, "wrong"):
+        data = {"csrf_token": token}
+        if confirm is not None:
+            data["confirm"] = confirm
+        response = c.post("/pi/reset", data=data, follow_redirects=False)
+        assert response.headers["location"].startswith("/pi/reset")
+        assert store.list_plan_runs(pid) and store.has_settings(pid)
+    c.post("/pi/reset", data={"csrf_token": token, "confirm": "Planner"})
     assert not store.list_plan_runs(pid) and not store.has_settings(pid)
     assert db.character_profile(a) == pid
 

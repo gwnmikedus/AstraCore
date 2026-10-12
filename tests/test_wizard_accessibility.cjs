@@ -18,7 +18,7 @@ function fixture() {
   const context = {$, cur: 1, QUESTIONS: 8, st: {}, saving: false, results: {}, picks: {},
     SELL_COVERAGE: {local: true, courier: true, trade_hub: false}, saved: {},
     answered: new Set(), STEP_CONTEXT: {cycle: 'Pick a rhythm'}, esc: String,
-    AC: {icon: () => ''}, hourPicker: () => '', blockedNote: () => '', wireHour() {}, navigate() {}, commit() {}, go() {},
+    AC: {icon: () => ''}, hourPicker: () => '', blockedNote: () => '', stepHelp: () => '', wireHour() {}, navigate() {}, commit() {}, go() {},
     choose: (step, id) => chosen.push(id), paint() {}, load() {},
     document: {querySelectorAll: () => options}};
   vm.createContext(context);

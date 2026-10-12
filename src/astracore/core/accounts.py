@@ -146,6 +146,13 @@ def export_profile(profile_id: int) -> Dict:
         feedback = [dict(r) for r in c.execute(
             "SELECT id, kind, title, body, version, created_at, updated_at, delivery, issue_number "
             "FROM community_feedback WHERE profile_id=? ORDER BY created_at", (profile_id,))]
+        # "This would help me" marks and the credit you chose per report (which character, if any).
+        marks = [dict(r) for r in c.execute(
+            "SELECT target, created_at FROM community_votes WHERE profile_id=? ORDER BY created_at", (profile_id,))]
+        credits = [dict(r) for r in c.execute(
+            "SELECT cc.feedback_id, cc.character_id, cc.created_at FROM community_credit cc "
+            "JOIN community_feedback f ON f.id = cc.feedback_id WHERE f.profile_id=? ORDER BY cc.created_at",
+            (profile_id,))]
     return {"exported_at": time.time(), "profile": p, "eve_accounts": db.list_accounts(profile_id),
             "characters": chars, "module_settings": modset, "plans": plans, "planet_overrides": overrides,
-            "sessions": sessions, "feedback": feedback}
+            "sessions": sessions, "feedback": feedback, "community_marks": marks, "report_credits": credits}

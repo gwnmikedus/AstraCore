@@ -1,6 +1,34 @@
 {
-  "current_version": "0.2.0",
+  "current_version": "0.3.0",
   "releases": [
+    {
+      "version": "0.3.0",
+      "date": "2026-10-12",
+      "title": "Explained, shared and open to more of New Eden",
+      "changes": [
+        "Every surprising number now has a \"?\": why a wider area or more processing can show a bit less ISK, why higher tiers often give the same plan, how your weekly time is estimated, the yield estimate and shared deposits. A plain-English glossary explains the PI words AstraCore uses.",
+        "Plan outside Delve: choose \"Haul to Jita / Amarr myself\" and the planner sells to visible buy orders there. The Selling question only offers the routes your drop-off can actually reach.",
+        "The Advanced planner shows changes as a preview first; your guided answers only change when you press Apply these settings.",
+        "One Community page: your reports with their status in plain words, a thank-you when you send one, an optional \"Reported by\" credit with the character you choose, and a \"This would help me\" button on roadmap directions and ideas. You get a notice when something you reported or marked goes live.",
+        "The Area page writes planet types in full and shows security as a readable range.",
+        "On iPhones the strip behind the status bar stays solid in both themes, and the browser bar follows your light or dark theme."
+      ],
+      "limitations": [
+        "Your own trips to a trade hub are not priced: journey time, fuel and loss risk are yours to weigh.",
+        "Plans are still estimates; yield is estimated until your own extractors have run."
+      ],
+      "technical": [
+        "Sovereignty is read from ESI's current /sovereignty/systems/ route (served only at the root, not under /latest); the ESI compatibility date is 2026-08-18.",
+        "New additive database migrations v8 (community marks, credit choices, report stages) and v9 (seen live marks). The data export includes them.",
+        "Other community tools: we talk to their authors before building what they already do (docs/third-party.md)."
+      ],
+      "references": [
+        {
+          "label": "Issues completed in this release",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues?q=is%3Aissue+label%3Astatus%3Areleased"
+        }
+      ]
+    },
     {
       "version": "0.2.0",
       "date": "2026-10-12",

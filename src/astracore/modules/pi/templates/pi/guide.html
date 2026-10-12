@@ -296,6 +296,12 @@ function showQuestion(step) {
     <h2 id="question-title" tabindex="-1">${step.q}</h2>
     <p class="intro">${STEP_CONTEXT[step.id]}</p>
     <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.intro}</p></details>
+    ${step.isGoal ? '' : `<p class="muted">Estimates with your answers so far. Later answers and the final solve can change income and upkeep.</p>
+    <details class="question-explainer"><summary>How income and effort are compared</summary>
+      <p>Plans balance income against hauling, systems to visit and factory upkeep. ISK/day shows income after taxes and fees,
+      before the value of your time. A wider limit keeps a better-income narrower candidate when it still fits the same assumptions;
+      “Same plan as” identifies that allocation. These are feasible estimates, not a guarantee of the maximum income.
+      Differences under about 1% or 0.5M ISK/day count as about the same in our advice.</p></details>`}
     <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map(o => `
       <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false">
         <div class="badges"></div>
@@ -368,7 +374,8 @@ function compareHTML(step, rec, pick) {
   const sell = step.metric === 'sell';
   const rows = step.options.filter(o => res[o.id] && !res[o.id].error).map(o => ({
     label: o.label, totals: res[o.id].totals, facts: res[o.id].facts, current: o.id === pick,
-    note: o.id === pick ? (o.id === rec ? 'Your pick · suggested' : 'Your pick') : (o.id === rec ? 'Suggested' : ''),
+    note: [o.id === pick ? (o.id === rec ? 'Your pick · suggested' : 'Your pick') : (o.id === rec ? 'Suggested' : ''),
+           samePlanNote(step, res[o.id])].filter(Boolean).join(' · '),
     income: value(step, res[o.id]), incomeUnit: sell ? 'ISK/day paid out' : 'ISK/day',
   }));
   if (rows.length < 2) return '';
@@ -386,6 +393,12 @@ function choose(step, id) {
   picks[step.id] = id;
   Object.assign(st, optOf(step, id).patch);
   paint(step);
+}
+
+function samePlanNote(step, result) {
+  if (!result || !Object.prototype.hasOwnProperty.call(result, 'same_as')) return '';
+  const source = optOf(step, result.same_as);
+  return source ? `Same plan as ${source.label}` : '';
 }
 
 function paint(step) {
@@ -426,7 +439,10 @@ function paint(step) {
       <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small></div>
       <div class="bar"><i style="width:${Math.max(3, v / top * 100)}%"></i></div>
       <div class="metrics">${rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
-      <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>`;
+      <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>
+      ${samePlanNote(step, r) ? `<p class="muted">${esc(samePlanNote(step, r))}. The wider limit does not require extra work.</p>` : ''}
+      ${step.id === 'tier' && t.max_tier_used < o.patch.max_tier ? `<p class="muted">Uses up to P${t.max_tier_used}.
+        Higher tiers are allowed, but no better-income feasible candidate was found with these inputs and effort settings.</p>` : ''}`;
   });
   $('advice').innerHTML = step.isGoal ? '' : advice(step, rec, pick);
   $('compare').innerHTML = step.isGoal ? '' : compareHTML(step, rec, pick);
@@ -453,7 +469,9 @@ function advice(step, rec, pick) {
     if (easier) p.push(`Compared to <b>${esc(easier.label)}</b>, <b>${esc(r.label)}</b> means ${sentence(diffs(step, easier, r))}. Since ${worth}, that's worth it.`);
     if (best.id !== rec) {
       const d = diffs(step, r, best);
-      if (d.matters) p.push(`<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but since ${worth}, the extra effort isn't worth it.`);
+      if (d.matters) p.push(d.isk > 0
+        ? `<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but since ${worth}, the extra effort isn't worth it.`
+        : `<b>${esc(best.label)}</b> earns about the same (${sentence(d)}), but since ${worth}, the extra effort isn't worth it.`);
     }
     if (!p.length) return '';
   }

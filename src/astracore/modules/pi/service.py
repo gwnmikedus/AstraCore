@@ -16,7 +16,7 @@ from . import store
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import checklist, compare, demand, operate, optimizer, prices, selling
+from .planner import checklist, compare, demand, operate, optimizer, prices, selling, whatif
 from .planner import skills as skills_mod
 from .settings import Settings
 from .static_data import dalshooth, sde_loader, voc
@@ -252,6 +252,20 @@ async def solve(profile_id: int, s: Optional[Settings] = None) -> dict:
     ctx = await planning_context(profile_id, copy.deepcopy(s), persist_default=False) \
         if key not in GATE._cache else None
     return await GATE.cached(key, run_plan, ctx) if ctx else GATE._cache[key]
+
+
+def whatif_candidate(ctx: dict) -> dict:
+    return whatif.candidate(ctx, run_plan(ctx))
+
+
+def whatif_rows(candidates: list) -> list:
+    rows = []
+    for row in whatif.select(candidates):
+        summary = whatif_summary(row["plan"], row["settings"])
+        if "same_as" in row:
+            summary["same_as"] = row["same_as"]
+        rows.append({"id": row["id"], **summary})
+    return rows
 
 
 def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:

@@ -287,11 +287,11 @@ async def api_whatif(request: Request):
     async def one(opt):
         ss = copy.deepcopy(base)
         ss.update({k: v for k, v in opt.get("patch", {}).items() if k in LIVE_FIELDS})
-        key = cache_key(stamp, ss.to_json(), "whatif")
+        key = cache_key(stamp, ss.to_json(), "whatif-candidate")
         if key in GATE._cache:
             return {"id": opt.get("id"), **GATE._cache[key]}
         ctx = await service.planning_context(pid, ss, persist_default=False)
-        res = await GATE.cached(key, lambda: service.whatif_summary(service.run_plan(ctx), ss))
+        res = await GATE.cached(key, service.whatif_candidate, ctx)
         return {"id": opt.get("id"), **res}
 
     import asyncio
@@ -302,7 +302,7 @@ async def api_whatif(request: Request):
         return busy_response()
     except Superseded:
         return superseded_response()
-    return JSONResponse(list(rows))
+    return JSONResponse(service.whatif_rows(rows))
 
 
 @router.post("/api/alternatives")

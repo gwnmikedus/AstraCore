@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import copy
+import json
 import os
 import re
 from pathlib import Path
@@ -36,7 +37,7 @@ def create_demo():
     from astracore import db
     from astracore.core import community, sessions
     from astracore.modules.pi import service, store, routes
-    from astracore.modules.pi.settings import Settings
+    from astracore.modules.pi.settings import Settings, time_weights
     from astracore.modules.pi.static_data.sde_loader import build_from_rows
     from astracore.app import create_app
 
@@ -69,7 +70,8 @@ def create_demo():
                 "region": "Fictional Example Region", "constellation_id": -115, "constellation": "Demo Coast",
                 "neighbours": [], "planets": [{"planet_id": -1150 - i, "name": f"Demo Harbour {i}",
                     "type": kind} for i, kind in enumerate(("Barren", "Storm", "Oceanic"), 1)]}}}
-    s = Settings(effort=50, selected_constellations=[-115], hub_system="Demo Harbour")
+    s = Settings(effort=50, selected_constellations=[-115], hub_system="Demo Harbour",
+                 use_self_haul=True, use_buyback=False, use_local=False, use_jita=True)
     store.save_settings(pid, s)
     pi = build_from_rows([], [])
     result = {"totals": {"isk_per_day": 1200000, "isk_per_week": 8400000, "m3_per_week": 7000,
@@ -79,7 +81,8 @@ def create_demo():
               "systems_in_scope": 1, "yield": {"head_yield": 1000, "calibrated": False},
               "selling": {"net_per_day": 1200000, "net_per_cycle": 8400000, "every_days": 7,
                           "dropoff": "Demo Harbour", "batches": []}, "channels": [], "channel_labels": {},
-              "taxes": {"sales_tax_pct": 8, "broker_fee_pct": 3}}
+              "taxes": {"sales_tax_pct": 8, "broker_fee_pct": 3},
+              "selling_coverage": {"local": False, "courier": False, "trade_hub": False}}
     # A labelled summary fixture, not an optimizer result or an in-game colony template.
     result["warnings"] = [{"text": "Fictional summary only: no colony allocation, live prices or templates.",
                            "level": "warn", "code": "demo", "steps": []}]
@@ -134,8 +137,18 @@ def create_demo():
                 return JSONResponse({"ok": True, "demo": True})  # acknowledge UI position without storing it
             if path == "/pi/api/whatif":
                 body = await request.json()
-                return JSONResponse([{"id": o.get("id"), **service.whatif_summary(result, s)}
-                                     for o in body.get("options", [])])
+                if body.get("prefetch"):
+                    return JSONResponse({"queued": 0, "demo": True}, status_code=202)
+                cards = [{"id": option.get("id"), **service.whatif_summary(result, s)}
+                         for option in body.get("options", [])[:routes.WHATIF_OPTIONS]]
+                if body.get("stream"):
+                    events = [{"card": card} for card in cards] + [{"done": True}]
+                    return PlainTextResponse("".join(json.dumps(event) + "\n" for event in events),
+                                             media_type="application/x-ndjson")
+                return JSONResponse(cards)
+            if path == "/pi/api/preview":
+                return JSONResponse({**copy.deepcopy(result), "preview": True,
+                                     "baseline": store.plan_settings(s), "weights": time_weights(s)})
             if path == "/pi/api/suggest":
                 return JSONResponse(result)
             if path == "/pi/api/sensitivity":
@@ -147,7 +160,7 @@ def create_demo():
         if "text/html" in response.headers.get("content-type", ""):
             body = b"".join([chunk async for chunk in response.body_iterator])
             banner = ('<aside style="position:sticky;top:0;z-index:100;padding:16px 16px 16px 96px;background:#ff7619;color:#111;font-weight:bold">'
-                      'FICTIONAL DEMO · Screenshot-only · No EVE login or live pilot data. '
+                      'FICTIONAL DEMO · Screenshot-only · No EVE login or live pilot data. Fixed illustrative numbers; own-trip example, not an executable plan. '
                       '<a style="color:#111;text-decoration:underline" href="/demo/characters">Characters</a> · <a style="color:#111;text-decoration:underline" href="/demo/area">Area</a> · '
                       '<a style="color:#111;text-decoration:underline" href="/demo/question">Question</a> · <a style="color:#111;text-decoration:underline" href="/demo/result">Summary</a> · '
                       '<a style="color:#111;text-decoration:underline" href="/demo/operate">Operate</a></aside>')

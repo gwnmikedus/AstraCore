@@ -35,6 +35,27 @@ with tempfile.TemporaryDirectory() as tmp:
         assert c.get("/pi/export/templates.zip").status_code == 403
         assert c.post("/pi/api/save", json={"effort":100}).status_code == 200
         from astracore.modules.pi import store
+        original = store.load_settings(1).to_json()
+        assert store.load_settings(1).use_self_haul is True
+        r = c.post("/pi/api/preview", json={"settings": {"effort": 100}, "baseline": {}})
+        assert r.status_code == 200 and r.json()["preview"] is True
+        assert r.json()["totals"]["isk_per_day"] == 1200000
+        assert "result_id" not in r.json()
+        assert r.json()["baseline"] and r.json()["weights"]
+        options = [{"id": "daily", "patch": {"cycle_days": 1}}, {"id": "weekly", "patch": {"cycle_days": 7}}]
+        r = c.post("/pi/api/whatif", json={"options": options, "stream": True})
+        import json
+        assert r.headers["content-type"].startswith("application/x-ndjson")
+        events = [json.loads(line) for line in r.text.splitlines()]
+        assert [event["card"]["id"] for event in events[:-1]] == ["daily", "weekly"]
+        assert all(event["card"]["totals"]["isk_per_day"] == 1200000 for event in events[:-1])
+        assert events[-1] == {"done": True}
+        r = c.post("/pi/api/whatif", json={"options": options})
+        assert [card["id"] for card in r.json()] == ["daily", "weekly"]
+        assert c.post("/pi/api/whatif", json={"prefetch": True}).status_code == 202
+        for path in ("/pi/api/apply", "/pi/api/plans", "/pi/api/prices/refresh", "/pi/api/richness"):
+            assert c.post(path, json={}).status_code == 403
+        assert store.load_settings(1).to_json() == original
         assert store.load_settings(1).effort == 50
         assert c.post("/pi/api/plan/save", json={}).status_code == 403
         r = c.post("/pi/api/suggest", json={})

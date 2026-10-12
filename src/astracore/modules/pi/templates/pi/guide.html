@@ -636,6 +636,7 @@ async function showPlan() {
     linkSteps($('planres'));
     return;
   }
+  EXPORT_Q = '?result=' + encodeURIComponent(res.result_id);
   $('planres').innerHTML = planHTML(res, {steps: stepNames()});
   linkSteps($('planres'));
   $('plan-compare').innerHTML = activeComparison(res);

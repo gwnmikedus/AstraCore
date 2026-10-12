@@ -84,5 +84,11 @@
     return changed ? 'save' : 'keep';
   }
 
-  window.AC = Object.assign(window.AC || {}, {compareTableHTML, tourReach, tourLeave});
+  // Whether a new question has to be scrolled to: only when its top is above the screen, or so far
+  // down (below 60% of the screen, as on a phone under the full hero) that its answers start off screen.
+  function tourScroll({top, viewport}) {
+    return top < 0 || top > viewport * 0.6;
+  }
+
+  window.AC = Object.assign(window.AC || {}, {compareTableHTML, tourReach, tourLeave, tourScroll});
 })();

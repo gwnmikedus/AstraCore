@@ -1,5 +1,5 @@
 // Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC),
-// AC.planWarningsHTML (js/plan-warnings.js),
+// AC.planWarningsHTML (js/plan-warnings.js), AC.printChecklist (js/print-checklist.js),
 // API, EXPORT, EXPORT_Q (which plan the export links download) and WAYPOINT_CHARS.
 
 // While P0 yield is still an estimate, say so in the headline with the 0.5x / 2x range.
@@ -23,9 +23,16 @@ document.addEventListener('click', async e => {
   b.innerHTML = r.ok ? `Sent ${r.sent} waypoints to ${esc(r.character)}` : esc(r.error || 'Failed');
   setTimeout(() => { b.innerHTML = t; b.disabled = false; }, 4000);
 });
+// "Print build checklist" prints the plan shown last, as one compact table per character.
+let PRINT_PLAN = null;
+document.addEventListener('click', e => {
+  if (!e.target.closest('button[data-print-checklist]') || !PRINT_PLAN) return;
+  AC.printChecklist(PRINT_PLAN);
+});
 // opts.steps (guided setup): step id -> answer name, for "Change <answer>" links on warnings.
 function planHTML(res, opts = {}) {
   if (res.error) return `<p class="bad">${esc(res.error)}</p>` + AC.planWarningsHTML(res.warnings, opts);
+  PRINT_PLAN = res;
   const t = res.totals;
   let h = `<div class="cards">
     <div class="card"><div class="v">${isk(t.isk_per_day)}</div><div class="l">ISK / day, after taxes, hauling &amp; fees</div></div>
@@ -42,6 +49,7 @@ function planHTML(res, opts = {}) {
     <a href="${EXPORT}/templates.zip${EXPORT_Q}" data-export="templates.zip" role="button">${AC.icon('download')} Templates for this plan (${res.templates_needed.length})</a>
     <a href="${EXPORT}/plan.md${EXPORT_Q}" data-export="plan.md" role="button" class="outline">Export .md</a>
     <a href="${EXPORT}/plan.csv${EXPORT_Q}" data-export="plan.csv" role="button" class="outline">Export .csv</a>
+    <button type="button" class="outline" data-print-checklist title="One table per character with tick boxes: planet, template and upkeep. Print it or save it as PDF.">${AC.icon('printer')} Print build checklist</button>
     ${res.colonies.some(c => c.action === 'new' || c.action === 'rebuild')
       ? `<a href="${EXPORT}/shopping.csv${EXPORT_Q}" data-export="shopping.csv" role="button" class="outline" title="Command centers and starter stock to buy, with where and for how much. The .md export has the full first-build checklist.">${AC.icon('package')} Shopping list .csv</a>` : ''}
   </div>`;

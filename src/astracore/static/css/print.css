@@ -1,0 +1,64 @@
+/* Printing and "Save as PDF" (linked with media="print" from base.html).
+   Pilots print the plan to keep next to the EVE client: light paper colours from the Chart theme,
+   no app chrome, tables that keep their columns, one character per block where it fits.
+   "Print build checklist" (js/print-checklist.js) adds html.print-checklist: then only that sheet prints. */
+@page { margin: 12mm; }
+
+/* Chart (light) tokens on white paper, whatever theme is on screen. */
+:root, :root[data-theme] {
+  --void: #ffffff; --hull: #ffffff; --hull-raised: #f4f1ea;
+  --line: #d3cdc0; --line-strong: #7e786c;
+  --ink: #17181a; --ink-muted: #5d5950; --ink-faint: #8f8a80;
+  --signal: #b03f08; --signal-strong: #8c3204; --signal-tint: #fbe1d0; --on-signal: #ffffff;
+  --scan: #2a5f8a; --status-ok: #1b66b3; --status-warn: #8a6400; --status-danger: #c2183c; --on-status: #ffffff;
+  --shadow-lift: none;
+  color-scheme: light;
+}
+html, body { background: #fff; font-size: 10pt; line-height: 1.35; }
+* { box-shadow: none !important; text-shadow: none !important; animation: none !important; transition: none !important; }
+main.container, .site-shell { max-width: none; width: auto; padding: 0; margin: 0; }
+
+/* App chrome and controls. */
+.skip-link, .navigation-edge, .site-header, .section-navigation, .site-footer, .flash,
+.characters-panel, .guide-progress, .page-guide .track, .page-guide .chips, .page-guide .chips-note,
+.page-guide .nav, .page-guide #planbar, .page-guide #plan-compare, .page-guide .question-explainer,
+.money-slider, .toolbar, button, [role="button"], .primary-link, .text-action, .context-art, .context-header .adv,
+.page-guide .todo, .page-planner .controls, details:not([open]) { display: none !important; }
+.context-header, .command-header { padding: 0 0 8pt; margin: 0 0 8pt; border: 0; border-bottom: 1px solid var(--line); background: none; }
+.context-header h1, .command-header h1 { font-size: 18pt; line-height: 1.1; margin: 0 0 4pt; }
+.page-guide .q { border: 0; padding: 0; background: none; }
+.page-guide .q h2 { font-size: 16pt; line-height: 1.15; margin: 0 0 6pt; }
+a { color: inherit; text-decoration: none; }
+
+/* Tables: full width, no scroll boxes, headers repeat on every page, rows never split. */
+.scroll { overflow: visible !important; }
+table { width: 100%; font-size: 9pt; line-height: 1.3; }
+th, td { padding: 3pt 5pt; }
+th { background: var(--hull-raised); }
+thead { display: table-header-group; }
+tr, .cards .card { break-inside: avoid; }
+.cards { gap: 6pt; }
+.card { padding: 6pt; }
+img.eve { width: 14px; height: 14px; }
+.cellimg > img:not(.eve), .cellimg > svg { width: 18px; height: 18px; }
+.who { background: none; border: 1px solid var(--line); padding: 6pt; margin-bottom: 8pt; break-inside: avoid; }
+.who .h { break-after: avoid; }
+.who .h img { width: 24px; height: 24px; }
+.who td:first-child, .who td:first-child .cellimg > div, .who .h .muted { white-space: nowrap; }
+h1, h2, h3, h4, h5, h6 { break-after: avoid; }
+
+/* Build checklist: only the sheet, compact, with tick boxes. */
+html.print-checklist body > :not(.print-checklist-sheet) { display: none !important; }
+html.print-checklist .print-checklist-sheet[hidden] { display: block !important; }
+.print-checklist-sheet h1 { font: 600 16pt/1.1 var(--font-display); margin: 0 0 2pt; }
+.print-checklist-sheet .checklist-facts { color: var(--ink-muted); margin: 0 0 8pt; }
+.print-checklist-sheet h2 { font: 600 12pt/1.2 var(--font-display); margin: 0 0 3pt; }
+.print-checklist-sheet h2 span { font: 400 8pt var(--font-sans); color: var(--ink-muted); margin-left: 6pt; }
+.checklist-character { break-inside: avoid; margin-bottom: 10pt; }
+.checklist-character td { vertical-align: top; }
+.checklist-character small { display: block; color: var(--ink-muted); font-size: 8pt; }
+.checklist-character small.tier { display: inline; margin-left: 2pt; }
+.checklist-character .planet { white-space: nowrap; }
+.checklist-character .tick { width: 16pt; }
+.checklist-character ul { list-style: none; padding: 0; margin: 0; }
+.print-checklist-sheet .tickbox { display: inline-block; width: 9pt; height: 9pt; border: 1px solid var(--ink); vertical-align: -1pt; }

@@ -6,7 +6,7 @@
 <header class="ac-page-header community-header">
 <div class="eyebrow">AstraCore / Built with capsuleers</div>
 <h1 class="page-title">Roadmap & feedback</h1>
-<p class="community-intro">Help shape AstraCore. Browse the priorities, suggest something useful, or tell us what went wrong.</p>
+<p class="community-intro">Help shape AstraCore. See what's being built now, what's planned next and which directions we're exploring, then suggest something useful or tell us what went wrong.</p>
 {{ artwork('community-rendezvous', '(max-width: 760px) 100vw, 480px', 'community-header-art') }}
 <div class="community-actions"><a class="primary-link" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a><a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a>{{ external_link(github_url, 'Source & contributions', new_tab=false) }}{% if user and user.is_admin %}<a href="/community/admin">Manage feedback</a>{% endif %}</div>
 <div class="community-status">
@@ -14,22 +14,41 @@
 {% if sync.problem %}<p class="flash warn" role="status">{{ sync.problem }}</p>{% endif %}
 {% if sync.last_success %}<p class="muted">GitHub last checked {{ sync.last_success|ago }}. Issue links show the current discussion.</p>{% else %}<p class="muted">The roadmap is available below. GitHub issue status will appear after the first successful connection.</p>{% endif %}
 </div>
-<nav class="community-page-nav" aria-label="Roadmap sections"><a href="#priorities-title">Priorities</a><a href="#reports-title">Public issues & ideas</a>{% if user %}<a href="#my-reports-title">Your reports</a>{% endif %}</nav>
+<nav class="community-page-nav" aria-label="Roadmap sections"><a href="#roadmap-title">Roadmap</a><a href="#reports-title">Open issues & ideas</a><a href="#released-title">Released</a>{% if user %}<a href="#my-reports-title">Your reports</a>{% endif %}</nav>
 </header>
-<section class="ac-section" aria-labelledby="priorities-title">
-<h2 id="priorities-title">Priorities</h2>
-<div class="community-roadmap">
-{% for item in roadmap %}<article class="ac-panel" aria-labelledby="priority-{{ item.slug }}">
-  <header><span class="pill">{{ item.issue.status if item.issue else 'Proposed' }}</span></header>
-  <h3 id="priority-{{ item.slug }}">{{ item.title }}</h3><p>{{ item.summary }}</p>
-  <details><summary>Why this is on the roadmap</summary><p>{{ item.basis }}</p><p>{{ item.details }}</p>{% if item.slug == 'clearer-plan-comparison' %}<p>{{ external_link(research_url, 'Read the community feedback that informed this direction', new_tab=false) }}. This describes other tools and does not measure AstraCore demand.</p>{% endif %}</details>
-  {% if item.issue %}<p>{% call external_link(item.issue.url, new_tab=false) %}Follow issue #{{ item.issue.number }}{% endcall %}</p>{% endif %}
-</article>{% endfor %}
+{% macro roadmap_card(item, lane) %}<li class="horizon-card ac-panel">
+  <div class="horizon-card-meta"><span class="console-label">{{ item.area }}</span>{% if item.issue and item.issue.status == 'Completed' %}<span class="pill horizon-soon">Going live soon</span>{% endif %}</div>
+  <h4>{{ item.title }}</h4>{% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
+  {% if item.basis %}<details><summary>Why this is on the roadmap</summary><p>{{ item.basis }}</p><p>{{ item.details }}</p>{% if item.slug == 'clearer-plan-comparison' %}<p>{{ external_link(research_url, 'Read the community feedback that informed this direction', new_tab=false) }}. This describes other tools and does not measure AstraCore demand.</p>{% endif %}</details>{% endif %}
+  {% if item.issue %}<p class="horizon-card-link">{% call external_link(item.issue.url, new_tab=false) %}Follow issue #{{ item.issue.number }}{% endcall %}</p>{% elif lane == 'exploring' %}<p class="horizon-card-link"><a class="text-action" href="/feedback?kind=idea">Shape this direction {{ icon('arrow-right') }}</a></p>{% endif %}
+</li>{% endmacro %}
+<section class="ac-section" aria-labelledby="roadmap-title">
+<h2 id="roadmap-title">Roadmap</h2>
+<p class="horizon-live">{{ icon('circle-check') }} <span><strong>{{ board.released|length }}</strong> {{ 'improvement is' if board.released|length == 1 else 'improvements are' }} live today.</span> <a href="#released-title">See what's released</a> · <a href="/releases">What's new</a></p>
+<div class="horizon-board">
+{% set lanes = [
+  ('now', 'Now', 'Being built, or finished and about to go live.', 'Nothing is being built at this moment. Everything finished so far is live.'),
+  ('next', 'Next', 'Accepted and planned, work not started yet.', 'Nothing is planned yet. Ideas move here once they are accepted.'),
+  ('exploring', 'Exploring', 'Directions to shape together. No promised availability.', 'No open directions right now.')] %}
+{% for key, label, hint, empty in lanes %}<section class="horizon-lane horizon-{{ key }}" aria-labelledby="lane-{{ key }}">
+  <header class="horizon-lane-head"><span class="horizon-station" aria-hidden="true"></span><h3 id="lane-{{ key }}">{{ label }} <span class="horizon-count">{{ board[key]|length }}</span></h3><p>{{ hint }}</p></header>
+  {% if board[key] %}<ul class="horizon-cards" role="list">{% for item in board[key] %}{{ roadmap_card(item, key) }}{% endfor %}</ul>{% else %}<p class="horizon-empty">{{ empty }}</p>{% endif %}
+  {% if key == 'exploring' and board.under_review %}<p class="horizon-review"><a href="#reports-title">{{ board.under_review }} {{ 'idea is' if board.under_review == 1 else 'ideas are' }} under review</a> and may join the roadmap.</p>{% endif %}
+</section>{% endfor %}
 </div>
 </section>
 <section class="ac-section" aria-labelledby="reports-title">
-<h2 id="reports-title">Public issues & ideas</h2>
-{% if issues %}<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for issue in issues %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ issue.title }}{% endcall %}</td><td><span class="pill">{{ issue.status }}</span></td><td>{{ 'Bug' if 'type:bug' in issue.labels else ('Idea' if 'type:idea' in issue.labels else 'Project work') }}</td></tr>{% endfor %}</tbody></table></div><p>{{ external_link(github_url ~ '/issues', 'See all issues and discussions on GitHub', new_tab=false) }}</p>{% else %}<p class="muted">No confirmed public issues are available here yet. Saved reports remain visible to their author until delivery is confirmed.</p>{% endif %}
+<h2 id="reports-title">Open issues & ideas</h2>
+{% if board.open %}<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for issue in board.open %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ issue.title }}{% endcall %}</td><td><span class="pill">{{ issue.status }}</span></td><td>{{ 'Bug' if 'type:bug' in issue.labels else ('Idea' if 'type:idea' in issue.labels else 'Project work') }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">There are no open issues or ideas right now. <a href="/feedback?kind=idea">Suggest an idea</a> or <a href="/feedback?kind=bug">report a bug</a>.</p>{% endif %}
+<p>{{ external_link(github_url ~ '/issues', 'See all issues and discussions on GitHub', new_tab=false) }}</p>
+</section>
+<section class="ac-section" aria-labelledby="released-title">
+<h2 id="released-title">Released</h2>
+{% set finished = board.released + board.closed %}
+{% if finished %}<details class="horizon-archive"><summary>Show {{ board.released|length }} released {{ 'item' if board.released|length == 1 else 'items' }}{% if board.closed %} and {{ board.closed|length }} closed without changes{% endif %}</summary>
+<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for item in finished|sort(attribute='issue.number', reverse=true) %}{% set issue = item.issue %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ item.title }}{% endcall %}</td><td><span class="pill">{{ issue.status }}</span></td><td>{% if item.summary %}Roadmap{% elif 'type:bug' in issue.labels %}Bug{% elif 'type:idea' in issue.labels %}Idea{% else %}Project work{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+<p><a href="/releases">Read the release notes</a> for the highlights of each release.</p>
+</details>{% else %}<p class="muted">Released work will appear here once it's live.</p>{% endif %}
 </section>
 {% if user %}<section class="ac-section" aria-labelledby="my-reports-title"><h2 id="my-reports-title">Your reports</h2>{% if mine %}<ul class="community-report-list">{% for report in mine %}<li><a href="/community/reports/{{ report.id }}">{{ report.title }}</a><span class="muted">{{ 'Published' if report.delivery == 'published' else ('Withdrawn' if report.delivery == 'withdrawn' else ('Delivery being checked' if report.delivery == 'ambiguous' else 'Waiting for publication')) }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">You have not submitted a report yet.</p>{% endif %}</section>{% endif %}
 </div>

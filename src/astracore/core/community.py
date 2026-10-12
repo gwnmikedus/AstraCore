@@ -57,22 +57,39 @@ INSERT OR IGNORE INTO community_sync(id) VALUES(1);
 
 ROADMAP_VERSION = 1
 ROADMAP = (
-    {"slug": "reliable-market-advice", "title": "PI recommendations that account for real market demand",
+    {"slug": "reliable-market-advice", "area": "PI", "title": "PI recommendations that account for real market demand",
      "summary": "Compare prices with available buyers and historical trading, and distinguish estimated value from sale proceeds.",
      "basis": "Requested by the creator and confirmed by the PI planner audit.",
      "details": "Use full buy-order depth, market-history coverage, conservative sell-order scenarios and one consistent calculation of taxes and hauling. Show data freshness and uncertainty."},
-    {"slug": "complete-first-build", "title": "A complete shopping and construction checklist",
+    {"slug": "complete-first-build", "area": "PI", "title": "A complete shopping and construction checklist",
      "summary": "Know which command centers to buy, where to collect them, and what each character needs to build.",
      "basis": "Requested by the creator during the first-build review.",
      "details": "Copy a Multibuy list from the saved plan; separate purchased items from planetary construction and upgrades. Include template compatibility, startup costs and initial factory supplies."},
-    {"slug": "practical-upkeep", "title": "A restock and collection schedule that fits each colony",
+    {"slug": "practical-upkeep", "area": "PI", "title": "A restock and collection schedule that fits each colony",
      "summary": "Plan factory restocks, extractor restarts and collections around real storage limits.",
      "basis": "Storage and scheduling problems confirmed by the PI planner audit.",
      "details": "Keep extractor cadence separate from factory visits and market shipments. Validate launchpad capacity and show actual-versus-planned output, input shortages and data freshness. Optional reminders are a later extension."},
-    {"slug": "clearer-plan-comparison", "title": "Clear comparisons and easy plan editing",
+    {"slug": "clearer-plan-comparison", "area": "PI", "title": "Clear comparisons and easy plan editing",
      "summary": "Compare income and effort clearly, revisit earlier choices, and use the planner comfortably on mobile.",
      "basis": "Tour findings and firsthand feedback about other community PI tools; not an AstraCore vote count.",
      "details": "Preserve answered choices, support direct navigation to completed steps, fix time formatting and offer readable comparison tables. Validate actual multi-character and multi-system examples rather than only theoretical totals."},
+    # Directions without an issue sit under Exploring; a linked `roadmap` issue moves them by its status.
+    {"slug": "upkeep-reminders", "area": "PI", "title": "Reminders when a colony needs you",
+     "summary": "Optional notices when an extractor stops or a colony's storage is about to fill.",
+     "basis": "Named as a later extension of the upkeep schedule.",
+     "details": "Reminders would stay opt-in. Tell us which moments are worth a notice and where you'd like to receive it."},
+    {"slug": "fittings", "area": "Fittings", "title": "Fittings across your alts",
+     "summary": "The right ship on the right character, with a shared preparation routine.",
+     "basis": "A community direction, not yet scoped.",
+     "details": "Describe the fitting problem across your characters you'd most like AstraCore to solve."},
+    {"slug": "fleet-preparation", "area": "Fleet", "title": "Ready for the next fleet",
+     "summary": "PvP and fleet preparation across your characters.",
+     "basis": "A community direction, not yet scoped.",
+     "details": "Bring the preparation step that costs you the most time before a fleet."},
+    {"slug": "more-modules", "area": "Your operation", "title": "More of your operation in one place",
+     "summary": "Logistics, industry, markets, skills and intel could follow.",
+     "basis": "Ideas to explore together, with no promised availability.",
+     "details": "Suggest the part of your operation you'd like to see next."},
 )
 RESEARCH_URL = "https://www.reddit.com/r/Eve/comments/1w5vnhx/the_new_and_improved_solution_to_your_pi_problems/"
 FIELDS = ("kind", "title", "description", "steps", "expected", "actual")
@@ -465,16 +482,44 @@ def sync_state() -> dict:
     return dict(row) if row else {"last_success": 0, "problem": "GitHub has not been connected yet."}
 
 
+def _lane(status: str) -> str:
+    return {"In progress": "now", "Completed": "now", "Planned": "next",
+            "Released": "released", "Closed": "closed"}.get(status, "review")
+
+
+def roadmap_board(issues: list) -> dict:
+    """Group curated directions and labelled issues into Now / Next / Exploring, plus released work.
+
+    A curated item follows its linked roadmap issue; without one it is still being explored.
+    Issues under review stay in the issue list instead of the board: they aren't decided yet.
+    """
+    by_slug = {i["roadmap_slug"]: i for i in issues if i["roadmap_slug"]}
+    board = {"now": [], "next": [], "exploring": [], "released": [], "closed": []}
+    linked = set()
+    for item in ROADMAP:
+        issue = by_slug.get(item["slug"])
+        lane = _lane(issue["status"]) if issue else "exploring"
+        if issue:
+            linked.add(issue["number"])
+        board["next" if lane == "review" else lane].append({**item, "issue": issue})
+    for issue in issues:
+        lane = _lane(issue["status"])
+        if issue["number"] not in linked and lane != "review":
+            board[lane].append({"title": issue["title"], "issue": issue,
+                                "area": "Bug fix" if "type:bug" in issue["labels"] else "Improvement"})
+    board["open"] = [i for i in issues if i["state"] == "open"]
+    board["under_review"] = sum(1 for i in board["open"] if i["status"] == "Under review")
+    return board
+
+
 @router.get("/roadmap")
 @router.get("/community")
 async def roadmap_page(request: Request):
-    issues = public_issues()
-    by_slug = {i["roadmap_slug"]: i for i in issues if i["roadmap_slug"]}
-    items = [{**item, "issue": by_slug.get(item["slug"])} for item in ROADMAP]
     user = request.state.user
     mine = feedback_for(user["id"]) if user else []
-    return render(request, "community.html", page="community", page_title="Roadmap & feedback", roadmap=items,
-                  issues=issues[:100], mine=mine, sync=sync_state(), github_url=repository_url(), research_url=RESEARCH_URL)
+    return render(request, "community.html", page="community", page_title="Roadmap & feedback",
+                  board=roadmap_board(public_issues()), mine=mine, sync=sync_state(), github_url=repository_url(),
+                  research_url=RESEARCH_URL)
 
 
 def _feedback_context(request: Request, data: Optional[dict] = None, error: str = "") -> dict:

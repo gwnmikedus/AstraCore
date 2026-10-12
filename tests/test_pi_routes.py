@@ -135,3 +135,30 @@ def test_operate_shows_the_upkeep_schedule(browser, eve, monkeypatch):
     assert "market shipment · every 7 days" in html
     assert "Precious Metals" in html and "doesn't send reminders" in html
     assert "50% of planned 480" in html and "not in the active plan" in html
+
+
+def test_plan_cache_ignores_wizard_bookkeeping_and_files_plans_under_the_data_they_used(monkeypatch):
+    import asyncio
+    from astracore.core.solvegate import GATE
+    from astracore.modules.pi import service
+    from astracore.modules.pi.settings import Settings
+
+    GATE.clear()
+    stamps = iter(["before-refresh", "after-refresh", "after-refresh", "after-refresh"])
+    monkeypatch.setattr(service, "data_stamp", lambda pid: next(stamps))
+    runs = []
+
+    async def context(pid, s=None, persist_default=True):
+        return {"solve_s": s}
+
+    def run(ctx, s=None):
+        runs.append(ctx["solve_s"].guide_step)
+        return {"totals": {"isk_per_day": 1.0}}
+
+    monkeypatch.setattr(service, "planning_context", context)
+    monkeypatch.setattr(service, "run_plan", run)
+    asyncio.run(service.solve(1, Settings(guide_step=2, answered=["goal"])))
+    # the next request sees the refreshed data stamp and other wizard bookkeeping: same plan, no new solve
+    asyncio.run(service.solve(1, Settings(guide_step=5, answered=["goal", "cycle"])))
+    assert runs == [2]
+    GATE.clear()

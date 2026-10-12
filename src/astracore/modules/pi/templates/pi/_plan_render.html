@@ -29,6 +29,22 @@ document.addEventListener('click', e => {
   if (!e.target.closest('button[data-print-checklist]') || !PRINT_PLAN) return;
   AC.printChecklist(PRINT_PLAN);
 });
+// A colony's value cell: its ISK/day, and which factories it supplies. A feeder whose own market value
+// is 0 or meaningless says its value is counted at the factory, never a bare 0.
+function colonyValueHTML(c) {
+  const feeds = (c.feeds || []).map(f =>
+    `<br><span class="muted" style="font-size:.8rem" title="${esc(num(f.units))} ${esc(f.item)}/day">→ feeds ${esc(f.character)}’s ${esc(f.product)} factory</span>`).join('');
+  return (c.value_at_factory && feeds ? `<span class="muted">value counted at the factory</span>` : isk(c.value_per_day)) + feeds;
+}
+// Transfers between characters, one line per receiving character.
+function transfersHTML(rows) {
+  if (!rows || !rows.length) return '';
+  const by = new Map();
+  for (const x of rows) { if (!by.has(x.to)) by.set(x.to, []); by.get(x.to).push(x); }
+  return `<h5>Transfers between characters</h5><ul>` + [...by].map(([to, xs]) => `<li><b>${esc(to)}</b> receives ` +
+    xs.map(x => `<span>${AC.eveImg(x.item, 16)}${num(x.units_per_day)} ${esc(x.item)}/day from ${esc(x.from)}</span>`).join(', ') +
+    `</li>`).join('') + `</ul>`;
+}
 // opts.steps (guided setup): step id -> answer name, for "Change <answer>" links on warnings.
 function planHTML(res, opts = {}) {
   if (res.error) return `<p class="bad">${esc(res.error)}</p>` + AC.planWarningsHTML(res.warnings, opts);
@@ -78,15 +94,12 @@ function planHTML(res, opts = {}) {
             ${(c.notes || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}</div></div></td>
         <td><span class="itemlist">${outs}</span> <span class="muted">P${c.tier}</span></td>
         <td class="muted">${ins || '-'}</td>
-        <td>${isk(c.value_per_day)}</td>
+        <td>${colonyValueHTML(c)}</td>
         <td><span class="act ${c.action}">${c.action}</span></td></tr>`;
     }
     h += `</tbody></table></div></div>`;
   }
-  if (res.transfers.length) {
-    h += `<h5>Transfers between characters</h5><ul>` + res.transfers.map(x =>
-      `<li>${esc(x.from)} → ${esc(x.to)}: ${AC.eveImg(x.item, 16)}${num(x.units_per_day)} ${esc(x.item)}/day</li>`).join('') + `</ul>`;
-  }
+  h += transfersHTML(res.transfers);
   if (res.removals.length) {
     h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>
       `<li>${esc(x.character)}: ${esc(x.current)} (${x.planet ? esc(x.planet) : 'planet ' + esc(x.planet_id)})</li>`).join('') + `</ul>`;

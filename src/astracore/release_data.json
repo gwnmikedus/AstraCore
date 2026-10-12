@@ -1,6 +1,43 @@
 {
-  "current_version": "0.1.0",
+  "current_version": "0.2.0",
   "releases": [
+    {
+      "version": "0.2.0",
+      "date": "2026-10-12",
+      "title": "Clearer, steadier and kinder to your time",
+      "changes": [
+        "Home, Plan, Operate and Characters: one simple menu. Area and Settings live under Plan, also on phones, and \"Report a bug\" is always in the menu.",
+        "\"An hour of my time is worth\" now shapes the plan itself: the more your time is worth, the less hauling, travelling and factory restocking the planner asks for. The guided setup and the Advanced planner use the same setting.",
+        "The same answers always give the same plan, about five times faster, and the plan you see is exactly the plan you save, download and track on Operate.",
+        "Factories are only planned when their storage lasts a full extractor cycle, so the plan fits the login rhythm you chose.",
+        "Calmer plan results: notes are grouped into a short \"Before you build\" box with links straight to the answer that changes them. Feeder miners say which factory they supply instead of showing 0 ISK.",
+        "Operate opens with a Next up list of the most urgent actions and is split into Build, Upkeep, Sell and Income. It refreshes your characters by itself when the data is old, and only counts PI contracts, sales and taxes. Home shows the top three actions.",
+        "Selling advice keeps one hangar on one trade hub unless a second trip really pays, never sends high-sec stock to null-sec pickups, and treats market data that didn't load as \"not checked\" instead of \"no buyers\".",
+        "Easier first steps: the welcome page shows which characters can plan PI and what to train, explains how to add alts from another EVE account, and the landing page says up front that AstraCore is free, invite-only and read-only.",
+        "A tidier profile page, a printable plan with a build checklist, a wizard that fits a phone screen, and friendlier pages when EVE's servers don't answer."
+      ],
+      "limitations": [
+        "Set and forget plans can earn less than before: they now really ask less of your time. Pick Balanced or lower the value of your time for more ISK.",
+        "Plans are still estimates: yield, prices, taxes and hauling can change. Yield is estimated until your own extractors have run.",
+        "Selling and courier options are built around Delve and VOC Hauling. Other areas work with self-hauling; more choice is planned."
+      ],
+      "technical": [
+        "Solves stop on a fixed number of search steps instead of a 6-second clock, and comparison cards and the plan result share one cache.",
+        "ESI: the cache is respected on refresh (no forced re-fetches), requests carry a proper user agent and a pinned compatibility date, outages fall back to the last stored public data, and only real outages make other requests wait.",
+        "Security and privacy: cached EVE data is kept per character and deleted with it, profile merging is restricted to a profile's last character, token encryption supports key rotation, and the data export includes feedback reports.",
+        "New database migrations up to schema version 7 (additive)."
+      ],
+      "references": [
+        {
+          "label": "Issues completed in this release",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues?q=is%3Aissue+label%3Astatus%3Areleased+closed%3A2026-10-12"
+        },
+        {
+          "label": "UX overhaul (#53)",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues/53"
+        }
+      ]
+    },
     {
       "version": "0.1.0",
       "date": "2026-10-11",
@@ -24,7 +61,10 @@
         "Fittings, PvP and fleet preparation are community directions, not available modules or promised dates."
       ],
       "references": [
-        {"label": "Pull requests in this release", "url": "https://github.com/gwnmikedus/AstraCore/pulls?q=is%3Apr+is%3Amerged"}
+        {
+          "label": "Pull requests in this release",
+          "url": "https://github.com/gwnmikedus/AstraCore/pulls?q=is%3Apr+is%3Amerged"
+        }
       ]
     }
   ]

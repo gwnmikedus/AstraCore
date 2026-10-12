@@ -1153,8 +1153,7 @@ html[data-menu-open] { overflow: hidden; }
 @keyframes menu-backdrop-out { to { opacity: 0; } }
 @media (min-width: 760px) { .menu-slot { --menu-inset: max(var(--space-6), env(safe-area-inset-left)); } }
 @media (max-width: 1079px) {
-  html[data-header-away] .navigation-edge { display: block; position: fixed; inset: 0 0 auto; height: calc(14px + env(safe-area-inset-top)); background-color: var(--void); z-index: 29; pointer-events: none; }
-  html[data-header-away] .site-menu::before { content: ''; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top) + 128px); z-index: -1; pointer-events: none; background: linear-gradient(to bottom, var(--void) 0, var(--void) calc(env(safe-area-inset-top) + 14px), transparent calc(env(safe-area-inset-top) + 86px)), radial-gradient(ellipse 96px 80px at calc(var(--menu-inset) + 24px) calc(env(safe-area-inset-top) + 38px), var(--void) 24%, color-mix(in srgb, var(--void) 88%, transparent) 43%, transparent 100%); }
+  .navigation-edge { display: block; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background-color: var(--void); z-index: 29; pointer-events: none; }
 }
 @media (max-width: 760px) {
   .site-header { min-height: 76px; gap: 8px; }
@@ -1404,3 +1403,13 @@ html[data-menu-open] { overflow: hidden; }
 .area-start h2 { margin-top: 0; }
 .area-start p { color: var(--ink-muted); max-width: 64ch; }
 .scope-list li { margin-bottom: 6px; }
+
+/* Character controls use the same native disclosures as EVE account editing. */
+.pchar .character-actions { margin: 0; flex: 1 1 auto; }
+.pchar .character-actions summary { width: fit-content; min-height: 44px; padding: 10px 12px; }
+.pchar .character-actions .ac-actions { margin-top: var(--space-2); }
+.bundles .bundle a[role="switch"], .bundles .bundle button[role="switch"] { min-height: 44px; padding: 0 var(--space-3); }
+.bundles .bundle [aria-checked="true"] { border-color: var(--signal); color: var(--signal); }
+.permissions-notice summary { min-height: 44px; }
+
+.pchar .row select { min-height: 44px; }

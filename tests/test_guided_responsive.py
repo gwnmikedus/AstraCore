@@ -274,6 +274,7 @@ def test_streamed_cards_arrive_one_by_one_then_done(pilot, monkeypatch):
     monkeypatch.setattr(routes, '_whatif_card', card)
     r = client.post('/pi/api/whatif', json={'base': {}, 'options': OPTIONS, 'stream': True}, headers=headers)
     assert r.status_code == 200 and r.headers['content-type'].startswith('application/x-ndjson')
+    assert 'no-transform' in r.headers['cache-control'] and r.headers['x-accel-buffering'] == 'no'
     events = lines(r)
     assert [e['card']['id'] for e in events if 'card' in e] == order == [2, 3, 1]
     assert events[-1] == {'done': True}

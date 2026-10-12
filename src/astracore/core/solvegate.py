@@ -13,6 +13,7 @@ import asyncio
 import json
 from collections import OrderedDict, defaultdict
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from typing import Any, Callable, Dict, Hashable, Optional, Tuple
 
 from fastapi.concurrency import run_in_threadpool
@@ -35,6 +36,8 @@ class SolveGate:
         self.cache_size = cache_size
         self._cache: "OrderedDict[Hashable, Any]" = OrderedDict()
         self._gen: Dict[Tuple[int, str], int] = defaultdict(int)
+        self._request: ContextVar[Optional[Tuple[Tuple[int, str], int]]] = ContextVar(
+            "solve_request", default=None)
         self._loop_id: Optional[int] = None
         self._sem: Optional[asyncio.Semaphore] = None
         self._locks: Dict[int, asyncio.Lock] = {}
@@ -68,14 +71,26 @@ class SolveGate:
         try:
             if self._gen[key] != mine:
                 raise Superseded()
-            yield
+            token = self._request.set((key, mine))
+            try:
+                yield
+            finally:
+                self._request.reset(token)
         finally:
             lock.release()
+
+    def _check_current(self) -> None:
+        request = self._request.get()
+        if request is not None:
+            key, generation = request
+            if self._gen[key] != generation:
+                raise Superseded()
 
     # ---------------------------------------------------------------- global CPU slots
     async def run(self, fn: Callable, *args: Any, **kwargs: Any) -> Any:
         """Run a blocking solve in a worker thread once a global slot is free."""
         self._bind()
+        self._check_current()
         self.waiting += 1
         try:
             await asyncio.wait_for(self._sem.acquire(), timeout=self.wait_timeout)
@@ -83,14 +98,18 @@ class SolveGate:
             raise Busy() from None
         finally:
             self.waiting -= 1
-        self.running += 1
         try:
-            return await run_in_threadpool(fn, *args, **kwargs)
+            self._check_current()
+            self.running += 1
+            try:
+                return await run_in_threadpool(fn, *args, **kwargs)
+            finally:
+                self.running -= 1
         finally:
-            self.running -= 1
             self._sem.release()
 
     async def cached(self, key: Hashable, fn: Callable, *args: Any, **kwargs: Any) -> Any:
+        self._check_current()
         if key in self._cache:
             self._cache.move_to_end(key)
             return self._cache[key]

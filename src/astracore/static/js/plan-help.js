@@ -21,10 +21,10 @@
     const short = same && sameLabel ? `Same plan as ${sameLabel}`
       : need.used === 1 ? 'Uses no factories' : `Builds up to P${need.used} only`;
     const why = n && miners
-      ? `A P${next} factory needs about ${n} ${n === 1 ? 'miner’s' : 'miners’'} output; this plan has ${miners}.`
-      : `A P${next} factory needs more input than your miners make.`;
+      ? `At full speed, a typical P${next} factory uses about ${n} ${n === 1 ? 'miner’s' : 'miners’'} output; this plan has ${miners}. This is a full-speed estimate, not a minimum colony count: factories can run partially.`
+      : `Higher-tier factories need their complete input chain and suitable planets.`;
     return {short, question: `Why no P${next} factories?`,
-            text: `${why} The planner adds a factory only when the ISK justifies the slot it takes.`};
+            text: `${why} Inputs must come from your planned colonies; buying inputs is not modelled. Chains spanning characters need teamwork enabled. The planner adds a factory only when the ISK justifies its colonies and logistics.`};
   }
 
   window.AC = Object.assign(window.AC || {}, {aboutSame, tierHelp});

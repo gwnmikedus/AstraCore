@@ -58,6 +58,7 @@ html.print-checklist .print-checklist-sheet[hidden] { display: block !important;
 .checklist-character td { vertical-align: top; }
 .checklist-character small { display: block; color: var(--ink-muted); font-size: 8pt; }
 .checklist-character small.tier { display: inline; margin-left: 2pt; }
+.checklist-character .template-source { overflow-wrap: anywhere; }
 .checklist-character .planet { white-space: nowrap; }
 .checklist-character .tick { width: 16pt; }
 .checklist-character ul { list-style: none; padding: 0; margin: 0; }

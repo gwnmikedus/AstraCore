@@ -55,6 +55,8 @@ Production never runs the maintainer's working checkout. It runs its own git wor
 
 After a deploy, check that the footer shows the expected build (`v0.2.<n>`). The release page links those commits.
 
+The maintainer can do all of this, and the merging and release steps on this page, from **AstraCore Control.app** (see the README): it runs the same `./astracore`, `git` and `gh` commands, asks before each change and shows their output. Agents use the commands, and only when the maintainer asks.
+
 - Hand edits in the production checkout are flagged by `status` and discarded by the next deploy. Fix things through a pull request and deploy that.
 - A rollback doesn't undo database migrations. The backup taken before each start is in `data/backups/production/`.
 - If a deploy changes dependencies, `deploy` says so; install them with `.venv/bin/pip install -r ~/Eve-production/requirements.txt`.

@@ -8,7 +8,7 @@
 #   ./astracore rollback       pin production back to the previously deployed commit and restart it
 #   ./astracore stop           stops the tunnel first (visitors get the offline page), then the app
 #   ./astracore restart [--prod]
-#   ./astracore status
+#   ./astracore status [--json]   (--json: machine-readable, for AstraCore Control.app)
 #   ./astracore logs           follow the app (and tunnel) logs
 #
 # The app listens on 127.0.0.1 only; in production the tunnel is the only way in.
@@ -154,6 +154,44 @@ cmd_status() {
 
 prod_commit() { git -C "$PROD_CODE" rev-parse HEAD 2>/dev/null || true; }
 
+cmd_status_json() {   # the same facts as cmd_status, as one JSON object (no fetch: "undeployed" is as of the last fetch)
+  local mode="" app_pid="" healthy=0 url="" tunnel_pid="" checkout=0 commit="" describe="" subject="" dirty=0 undeployed=""
+  if alive "$RUN/app.pid"; then
+    mode=$(cat "$RUN/mode" 2>/dev/null || echo "")
+    app_pid=$(cat "$RUN/app.pid")
+    PORT=$(port_for "$ROOT/.env.$mode")
+    curl -fsS --max-time 3 "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1 && healthy=1
+    url=$(url_for "$ROOT/.env.$mode")
+  fi
+  alive "$RUN/tunnel.pid" && tunnel_pid=$(cat "$RUN/tunnel.pid")
+  if [[ -e "$PROD_CODE/.git" ]]; then
+    checkout=1
+    commit=$(prod_commit)
+    describe=$(git -C "$PROD_CODE" describe --tags --always 2>/dev/null || true)
+    subject=$(git -C "$PROD_CODE" log -1 --format='%s' 2>/dev/null || true)
+    [[ -z "$(git -C "$PROD_CODE" status --porcelain 2>/dev/null)" ]] || dirty=1
+    undeployed=$(git -C "$ROOT" rev-list --count "$commit..origin/main" 2>/dev/null || true)
+  fi
+  local py="$PY"; [[ -x "$py" ]] || py=python3
+  S_MODE="$mode" S_APP_PID="$app_pid" S_HEALTHY="$healthy" S_URL="$url" S_TUNNEL_PID="$tunnel_pid" \
+  S_PROD_URL="$(url_for "$ROOT/.env.production")" S_LOCAL_URL="$(url_for "$ROOT/.env.local")" \
+  S_CHECKOUT="$checkout" S_COMMIT="$commit" S_DESCRIBE="$describe" S_SUBJECT="$subject" S_DIRTY="$dirty" \
+  S_UNDEPLOYED="$undeployed" S_HOME="$ROOT" S_PROD_CODE="$PROD_CODE" "$py" -c '
+import json, os
+e = os.environ.get
+num = lambda k: int(e(k)) if (e(k) or "").isdigit() else None
+print(json.dumps({
+    "home": e("S_HOME"),
+    "app": {"running": bool(e("S_APP_PID")), "mode": e("S_MODE") or None, "pid": num("S_APP_PID"),
+            "healthy": e("S_HEALTHY") == "1", "url": e("S_URL") or None},
+    "tunnel": {"running": bool(e("S_TUNNEL_PID")), "pid": num("S_TUNNEL_PID")},
+    "urls": {"production": e("S_PROD_URL"), "local": e("S_LOCAL_URL")},
+    "production": {"checkout": e("S_PROD_CODE"), "exists": e("S_CHECKOUT") == "1", "commit": e("S_COMMIT") or None,
+                   "build": e("S_DESCRIBE") or None, "subject": e("S_SUBJECT") or None,
+                   "edited": e("S_DIRTY") == "1", "undeployed": num("S_UNDEPLOYED")},
+}))'
+}
+
 pin_production() {   # pin_production <sha>: put the production checkout on exactly that commit
   local sha="$1"
   if [[ -e "$PROD_CODE/.git" ]]; then
@@ -228,7 +266,7 @@ case "${1:-}" in
   restart) shift; cmd_stop; cmd_start "$@" ;;
   deploy)  shift; cmd_deploy "${1:-origin/main}" ;;
   rollback) cmd_rollback ;;
-  status)  cmd_status ;;
+  status)  if [[ "${2:-}" == "--json" ]]; then cmd_status_json; else cmd_status; fi ;;
   logs)    cmd_logs ;;
   *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

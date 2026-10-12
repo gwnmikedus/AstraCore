@@ -126,7 +126,10 @@ const STEPS = [
    custom: st => ({id: +st.ship_every_days, icon: 'map-pin', label: `Every ${st.ship_every_days} days`, patch: {ship_every_days: +st.ship_every_days}, blurb: 'Your current setting.'})},
   {id: 'plan', title: 'Your plan'},
 ];
-const QUESTIONS = STEPS.length - 1;
+const OPTIONAL_IDS = new Set(['share', 'chain', 'batch']);
+const MAIN = STEPS.map((step, i) => OPTIONAL_IDS.has(step.id) ? -1 : i).filter(i => i >= 0);
+const RESULT = STEPS.length - 1;
+const QUESTIONS = MAIN.length - 1;
 STEPS.find(s => s.id === 'share').intro += ` <a href="/pi/settings?expert=1#expert-sharing">Expert: how much an extra colony yields</a>`;
 const routineOnly = step => step.isGoal || (step.id === 'cycle' && !st.selected_constellations?.length);
 STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after VOC’s fees and your taxes' +
@@ -214,7 +217,7 @@ function wireHour(step) {
 const net = (step, o, r) => value(step, r) - minutesPerWeek(o, r) / 7 / 60 * iskPerHour();   // ISK/day minus time cost
 const byEffort = (step, res) => step.options.filter(o => res[o.id] && !res[o.id].error)
   .sort((a, b) => minutesPerWeek(a, res[a.id]) - minutesPerWeek(b, res[b.id]));
-const labelOf = step => { const o = optOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : 'custom'; };
+const labelOf = step => { const o = optOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : (step.custom ? step.custom(st).label : 'custom'); };
 
 function recommend(step) {
   const res = results[step.id]; if (!res || step.isGoal) return null;
@@ -245,30 +248,57 @@ function diffs(step, a, b) {          // what answer b means compared with answe
 const iskText = d => d.isk ? `${d.isk > 0 ? '+' : '−'}${isk(Math.abs(d.isk))}/day` : 'about the same ISK';
 const sentence = d => iskText(d) + (d.parts.length ? ` for ${d.parts.join(', ')}` : '');
 
+// ---- question route -------------------------------------------------------------------------
+// Persist the original indices (including optional questions) so older saved positions still open.
+const optionalConfirmed = () => [...OPTIONAL_IDS].every(id => answered.has(id));
+const firstMainQuestion = () => MAIN.find(i => STEPS[i].options && !answered.has(STEPS[i].id)) ?? RESULT;
+let optionalReturn = firstMainQuestion();
+const nextIndex = (index = cur) => OPTIONAL_IDS.has(STEPS[index].id)
+  ? (optionalReturn === RESULT && !optionalConfirmed() ? STEPS.findIndex(s => s.id === 'sell') : optionalReturn)
+  : MAIN[Math.min(MAIN.indexOf(index) + 1, MAIN.length - 1)];
+const backIndex = () => OPTIONAL_IDS.has(STEPS[cur].id) ? optionalReturn : MAIN[Math.max(0, MAIN.indexOf(cur) - 1)];
+const questionPosition = () => MAIN.indexOf(cur) + 1;
+
+function additionalChoicesHTML() {
+  const optional = STEPS.filter(step => OPTIONAL_IDS.has(step.id));
+  return `<div class="additional-choices">
+    <p class="muted">Additional choices: ${optional.map(step => `<b>${step.title}:</b> ${esc(labelOf(step))}`).join(' · ')}</p>
+    <details class="question-explainer"><summary>More options</summary>
+      <p>Keep these choices, or compare and change one. Your saved settings stay in place.</p>
+      <div class="toolbar">${optional.map(step => `<button type="button" class="outline" data-optional-i="${STEPS.indexOf(step)}">Change ${step.title}</button>`).join('')}</div>
+    </details>
+    ${STEPS[cur].id === 'sell' ? '<p class="muted">Confirming and building your plan also confirms the additional choices shown above.</p>' : ''}
+  </div>`;
+}
+function wireAdditionalChoices() {
+  document.querySelectorAll('[data-optional-i]').forEach(button => button.onclick = () => navigate(+button.dataset.optionalI));
+}
+
 // ---- tracker --------------------------------------------------------------------------------
-// Every answered step stays open: jump back to change one answer, then straight forward again.
 function drawTrack() {
-  const reach = Math.max(cur, AC.tourReach(STEPS, answered));
-  const done = STEPS.filter(s => s.options && answered.has(s.id)).length;
-  $('track').innerHTML = STEPS.map((s, i) => {
-    const result = s.id === 'plan';
-    const isDone = i !== cur && (answered.has(s.id) || i < cur);
+  const mainSteps = MAIN.map(i => STEPS[i]);
+  const reachPosition = Math.max(MAIN.indexOf(cur), AC.tourReach(mainSteps, answered));
+  const done = mainSteps.filter(s => s.options && answered.has(s.id)).length;
+  $('track').innerHTML = MAIN.map((i, position) => {
+    const s = STEPS[i], result = i === RESULT;
+    const isDone = i !== cur && answered.has(s.id);
     const ans = s.options && answered.has(s.id) && i !== cur ? labelOf(s) : '';
-    const dot = result ? AC.icon('layers') : (isDone ? AC.icon('check') : i + 1);
-    const hint = i === cur || i > reach ? '' : i > cur ? ' (jump ahead)' : ' (change)';
+    const dot = result ? AC.icon('layers') : (isDone ? AC.icon('check') : position + 1);
+    const disabled = position > reachPosition || (result && i !== cur && !optionalConfirmed()) || saving;
+    const hint = i === cur || disabled ? '' : i > cur ? ' (jump ahead)' : ' (change)';
     return `<li class="${isDone ? 'done' : i === cur ? 'cur' : ''} ${result ? 'result' : ''}" data-i="${i}">
-      <button type="button" ${i > reach || saving ? 'disabled' : ''} ${i === cur ? 'aria-current="step"' : ''} aria-label="${esc(s.title)}${ans ? ': ' + esc(ans) : ''}${hint}">
-      <span class="dot">${dot}</span>
-      <span class="lbl">${s.title}</span>
-      <span class="ans">${esc(ans)}</span>
+      <button type="button" ${disabled ? 'disabled' : ''} ${i === cur ? 'aria-current="step"' : ''} aria-label="${esc(s.title)}${ans ? ': ' + esc(ans) : ''}${hint}">
+      <span class="dot">${dot}</span><span class="lbl">${s.title}</span><span class="ans">${esc(ans)}</span>
       </button></li>`;
   }).join('');
-  $('track').style.setProperty('--progress', (cur / QUESTIONS) * 92 + '%');
-  $('progress-label').textContent = cur === QUESTIONS ? 'Your flight plan'
-    : `Setup ${Math.round(done / QUESTIONS * 100)}% complete · ${QUESTIONS - done} question${QUESTIONS - done === 1 ? '' : 's'} remaining`;
-  // Phones show only numbers in the tracker: name the current step next to it.
-  $('step-name').textContent = cur === QUESTIONS ? STEPS[cur].title
-    : `Step ${cur + 1} of ${QUESTIONS} · ${STEPS[cur].title}`;
+
+  const position = Math.max(0, MAIN.indexOf(cur));
+  $('track').style.setProperty('--progress', (position / QUESTIONS) * 92 + '%');
+  $('progress-label').textContent = cur === RESULT ? 'Your flight plan'
+    : `Setup ${Math.round(done / QUESTIONS * 100)}% complete · ${QUESTIONS - done} main question${QUESTIONS - done === 1 ? '' : 's'} remaining`;
+  $('step-name').textContent = OPTIONAL_IDS.has(STEPS[cur].id) ? `More options · ${STEPS[cur].title}`
+    : cur === RESULT ? STEPS[cur].title : `Step ${questionPosition()} of ${QUESTIONS} · ${STEPS[cur].title}`;
+
   document.querySelectorAll('.track li button:not(:disabled)').forEach(button => {
     const i = +button.parentElement.dataset.i;
     if (i !== cur) button.onclick = () => navigate(i);
@@ -280,15 +310,18 @@ function drawTrack() {
 // Later answers are never cleared: a step whose saved answer no longer works says so when opened.
 async function navigate(target) {
   if (saving || target === cur) return;
+  if (OPTIONAL_IDS.has(STEPS[target].id) && !OPTIONAL_IDS.has(STEPS[cur].id)) optionalReturn = cur;
   const step = STEPS[cur];
   if (!step.options) { go(target); return; }
   const pick = picks[step.id], o = optOf(step, pick), res = results[step.id] || {};
   const valid = !!o && (step.isGoal || !!(res[pick] && !res[pick].error));
   const changed = !!o && Object.entries(o.patch).some(([k, v]) => JSON.stringify(saved[k]) !== JSON.stringify(v));
-  const action = AC.tourLeave({forward: target > cur, valid, wasAnswered: answered.has(step.id), changed});
+  const action = AC.tourLeave({forward: target > cur && !OPTIONAL_IDS.has(step.id) && !OPTIONAL_IDS.has(STEPS[target].id), valid, wasAnswered: answered.has(step.id), changed});
   if (action === 'revert') revert(step);
   if (action === 'save' && !(await commit(step, target))) return;
-  go(target);
+  const needsConfirmation = target === RESULT && !optionalConfirmed();
+  go(needsConfirmation ? STEPS.findIndex(s => s.id === 'sell') : target);
+  if (needsConfirmation) setHint('Confirm the additional choices shown here before building your plan.');
 }
 function revert(step) {
   for (const o of step.options) for (const k of Object.keys(o.patch)) st[k] = saved[k];
@@ -355,7 +388,7 @@ function stepOptions(step) {
 let prefetchTimer = null;
 function prefetchNext(step) {
   clearTimeout(prefetchTimer);
-  const next = STEPS[STEPS.indexOf(step) + 1];
+  const next = STEPS[nextIndex(STEPS.indexOf(step))];
   if (!next || !next.options || !st.selected_constellations?.length || needsOwnTrip()) return;
   prefetchTimer = setTimeout(() => {
     if (STEPS[cur] !== step || saving) return;
@@ -376,7 +409,7 @@ function showQuestion(step) {
   step.options = stepOptions(step);
   const m = step.match(st);
   $('q').innerHTML = `
-    <div class="eyebrow">Step ${cur + 1} of ${QUESTIONS}</div>
+    <div class="eyebrow">${OPTIONAL_IDS.has(step.id) ? 'More options' : `Step ${questionPosition()} of ${QUESTIONS}`}</div>
     <h2 id="question-title" tabindex="-1">${step.q}</h2>
     <p class="intro">${step.id === 'batch' && st.use_self_haul ? 'Balance quicker payouts against fewer trips and more cargo.' : STEP_CONTEXT[step.id]}</p>
     ${cur <= 1 ? blockedNote() : ''}
@@ -395,10 +428,11 @@ function showQuestion(step) {
     <div id="advice"></div>
     <div id="compare"></div>
     ${hourPicker()}
+    ${OPTIONAL_IDS.has(step.id) ? '' : additionalChoicesHTML()}
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
       <span class="hint" id="navhint"></span>
-      <button id="next" ${routineOnly(step) ? '' : 'disabled'}>${cur === QUESTIONS - 1 ? 'Build my plan' : 'Continue'} ${AC.icon('arrow-right')}</button>
+      <button id="next" ${routineOnly(step) ? '' : 'disabled'}>${OPTIONAL_IDS.has(step.id) ? 'Save and return' : step.id === 'sell' ? 'Confirm and build' : 'Continue'} ${AC.icon('arrow-right')}</button>
     </div>`;
   const ownTrip = $('enable-own-trip');
   if (ownTrip) ownTrip.onclick = async () => {
@@ -417,8 +451,9 @@ function showQuestion(step) {
   };
   const see = $('see-characters');
   if (see) see.onclick = () => { $('characters-panel').open = true; };
-  $('back').onclick = () => navigate(cur - 1);
-  $('next').onclick = async () => { if (await commit(step, cur + 1)) go(cur + 1); };
+  $('back').onclick = () => navigate(backIndex());
+  wireAdditionalChoices();
+  $('next').onclick = async () => { const target = nextIndex(); if (await commit(step, target, step.id === 'sell')) go(target); };
   document.querySelectorAll('.opt').forEach(el => {
     const pick = () => {
       const id = JSON.parse(el.dataset.id);
@@ -451,7 +486,7 @@ function showQuestion(step) {
   if (step.isArea) wireArea(step);
   wireHour(step);
   // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
-  if (picks[step.id] === undefined && (answered.has(step.id) || routineOnly(step)) && m != null) picks[step.id] = m;
+  if (picks[step.id] === undefined && (answered.has(step.id) || routineOnly(step) || OPTIONAL_IDS.has(step.id)) && m != null) picks[step.id] = m;
   paint(step);
   setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
   if (needsOwnTrip()) $('next').disabled = true;
@@ -702,7 +737,7 @@ async function wireArea(step) {
 }
 
 // Save the answer on screen, with the buttons locked meanwhile. False (and a message) if it failed.
-async function commit(step, target) {
+async function commit(step, target, confirmOptions = false) {
   if (!hourControl.reportValidity()) return false;
   saving = true;
   hourControl.setDisabled(true);
@@ -710,7 +745,7 @@ async function commit(step, target) {
   $('back').disabled = true;
   drawTrack();
   $('save-status').textContent = 'Saving your answer…';
-  const result = await save(step, target);
+  const result = await save(step, target, confirmOptions);
   saving = false;
   hourControl.setDisabled(false);
   if (result.error || result.superseded) {
@@ -726,16 +761,24 @@ async function commit(step, target) {
 }
 
 // Saves only what was picked (or seen pre-selected) on this question, never stale fields.
-async function save(step, target) {
+async function save(step, target, confirmOptions = false) {
   await hourSave;
   const id = picks[step.id];
   const o = optOf(step, id);
   const body = {answered: [...new Set([...answered, step.id])], guide_step: target, hour_isk: st.hour_isk ?? -1};
   if (o) Object.assign(body, o.patch);
+  if (confirmOptions) {
+    body.answered = [...new Set([...body.answered, ...OPTIONAL_IDS])];
+    Object.assign(body, {per_planet: st.per_planet, cross_character: st.cross_character, ship_every_days: st.ship_every_days});
+  }
   if (step.isArea) Object.assign(body, {selected_constellations: st.selected_constellations, hub_system: st.hub_system || '', extra_area: st.extra_area || ''});
   const result = await AC.post(API + '/save', body);
   if (result.ok) {
     answered.add(step.id);
+    if (confirmOptions) {
+      OPTIONAL_IDS.forEach(id => answered.add(id));
+      Object.assign(saved, {per_planet: body.per_planet, cross_character: body.cross_character, ship_every_days: body.ship_every_days});
+    }
     Object.assign(saved, o ? o.patch : {}, {hour_isk: body.hour_isk});
   }
   return result;
@@ -745,13 +788,14 @@ async function save(step, target) {
 async function showPlan() {
   const my = ++seq;
   $('q').dataset.step = 'plan';
-  const chips = STEPS.filter(s => s.options).map((s, i) =>
-    `<button type="button" class="chip" data-i="${i}" aria-label="Change ${esc(s.title)}: ${esc(labelOf(s))}">${s.title}: <b>${esc(labelOf(s))}</b></button>`).join('');
+  const chips = STEPS.filter(s => s.options && !OPTIONAL_IDS.has(s.id)).map(s =>
+    `<button type="button" class="chip" data-i="${STEPS.indexOf(s)}" aria-label="Change ${esc(s.title)}: ${esc(labelOf(s))}">${s.title}: <b>${esc(labelOf(s))}</b></button>`).join('');
   $('q').innerHTML = `
     <div class="eyebrow">Done</div>
     <h2 id="question-title" tabindex="-1">Your operation, mapped out.</h2>
     <p class="muted chips-note">Change any answer: the others stay as they are. Yield, taxes and shared deposits are under <a href="{{ expert_url }}">Expert</a>.</p>
     <div class="chips">${chips}</div>
+    ${additionalChoicesHTML()}
     <div id="planbar" role="status" aria-live="polite"></div>
     <div id="plan-compare"></div>
     <div class="todo" id="build-instructions" hidden><h6 style="margin:0">What to do now</h6><ol>
@@ -766,7 +810,8 @@ async function showPlan() {
       <span id="operate-handoff"></span>
     </div>`;
   document.querySelectorAll('.chip').forEach(c => c.onclick = () => navigate(+c.dataset.i));
-  $('back').onclick = () => navigate(cur - 1);
+  wireAdditionalChoices();
+  $('back').onclick = () => navigate(backIndex());
   operateHandoff(PLANS.some(p => p.active), 'Calculating your plan…');
   const res = await AC.post(API + '/suggest', {}, {onBusy: () => {
     if (my === seq) $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});

@@ -16,6 +16,7 @@ function fixture(active = false) {
   };
   const calls = [];
   const context = {seq: 0, PLANS: active ? [{id: 5, active: true, label: 'Original', totals: {isk_per_day: 100}}] : [],
+    OPTIONAL_IDS: new Set(['share','chain','batch']), additionalChoicesHTML: () => '', wireAdditionalChoices() {}, backIndex: () => 6,
     $, API: '/pi/api', EXPORT: '/pi/export', EXPORT_Q: '', STEPS: [], cur: 8,
     AC: {icon: () => '', compareTableHTML: () => '', post: (url, body) => new Promise(resolve => calls.push({url, body, resolve}))},
     document: {querySelectorAll: () => []}, esc: String, isk: String, encodeURIComponent,

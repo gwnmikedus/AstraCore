@@ -73,7 +73,7 @@ test('Continue saves the chosen area together with its travel answer once', asyn
     AC: {post: async (url, body) => { calls.push({url, body}); return {ok: true}; }},
   };
   vm.createContext(ctx);
-  const start = guide.indexOf('async function save(step, target)');
+  const start = guide.indexOf('async function save(');
   vm.runInContext(guide.slice(start, guide.indexOf('\n}', start) + 2), ctx);
   await ctx.save({id: 'area', isArea: true}, 3);
   assert.equal(calls.length, 1);

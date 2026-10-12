@@ -28,7 +28,7 @@
               <ul>{% for label, href, symbol, description in primary_nav %}{{ menu_link(label, href, symbol, description, section=true) }}{% endfor %}</ul>
             </section>
             <section class="menu-group" aria-labelledby="menu-plan-title">
-              <h2 id="menu-plan-title">Plan / Setup</h2>
+              <h2 id="menu-plan-title">Plan setup</h2>
               <ul>{{ menu_link('Area', '/pi/area', 'map', 'Choose the systems available to your plan') }}{{ menu_link('Settings', '/pi/settings', 'settings', 'Fine-tune your planning assumptions') }}</ul>
             </section>
             {% else %}
@@ -55,6 +55,10 @@
           </nav>
           <div class="menu-footer">
             {% if user %}
+            <nav class="menu-help" aria-label="Help improve AstraCore">
+              <a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a>
+              <a class="text-action" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a>
+            </nav>
             <span class="menu-session">{{ icon('user') }}<span>Signed in as <strong>{{ user.display_name }}</strong></span></span>
             <form method="post" action="/auth/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="outline secondary">{{ icon('log-out') }} Sign out</button></form>
             {% else %}
@@ -74,7 +78,7 @@
     {% else %}
     <a href="/about#pi-today">PI</a>
     <a href="/about"{% if request.url.path == '/about' %} aria-current="page"{% endif %}>About</a>
-    <a href="/community"{{ current_link('/community', section=true) }}>Community</a>
+    <a href="/community"{{ current_link('/community', section=request.url.path != '/about') }}>Community</a>
     {% endif %}
   </nav>
   <div class="header-controls">

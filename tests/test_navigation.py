@@ -91,3 +91,44 @@ def test_community_hub_exposes_existing_information_routes(browser):
         "/about", "/project", "/credits#contributors", "/releases", "/what-we-read", "/privacy"]
     assert 'href="/feedback?kind=idea"' in html and 'href="/feedback?kind=bug"' in html
     assert 'href="#roadmap-title"' in html and 'href="#reports-title"' in html
+
+
+@pytest.mark.parametrize("path,selected,current", [
+    ("/", None, None), ("/about", "/about", "page"),
+    ("/community", "/community", "page"), ("/roadmap", "/community", "true"),
+    ("/project", "/community", "true"), ("/credits", "/community", "true"),
+    ("/releases", "/community", "true"), ("/feedback?kind=bug", "/community", "true"),
+    ("/privacy", "/community", "true"), ("/what-we-read", "/community", "true"),
+])
+def test_signed_out_shortcuts_have_one_current_destination(browser, path, selected, current):
+    response = browser().get(path)
+    assert response.status_code == 200
+    links = _links(response.text, '<nav class="header-shortcuts"')
+    assert [link["attrs"]["href"] for link in links] == ["/about#pi-today", "/about", "/community"]
+    active = [(link["attrs"]["href"], link["attrs"]["aria-current"]) for link in links
+              if "aria-current" in link["attrs"]]
+    assert active == ([(selected, current)] if selected else [])
+
+
+@pytest.mark.parametrize("admin", [False, True])
+def test_admin_navigation_is_visible_only_to_admins(navigator, monkeypatch, admin):
+    monkeypatch.setattr(db, "is_admin", lambda profile_id: admin)
+    html = navigator.get("/about").text
+    header = html.split('<header class="topbar site-header">', 1)[1].split('</header>', 1)[0]
+    assert ('href="/admin"' in header) == admin
+
+
+def test_signed_out_navigation_never_exposes_admin(browser):
+    html = browser().get("/about").text
+    header = html.split('<header class="topbar site-header">', 1)[1].split('</header>', 1)[0]
+    assert 'href="/admin"' not in header
+
+
+def test_menu_feedback_links_and_single_footer_community_destination(navigator):
+    html = navigator.get("/about").text
+    help_links = _links(html, 'aria-label="Help improve AstraCore"')
+    assert [(link["text"].strip(), link["attrs"]["href"]) for link in help_links] == [
+        ("Report a bug", "/feedback?kind=bug"), ("Suggest an idea", "/feedback?kind=idea")]
+    footer = _links(html, '<footer class="site-footer">', '</footer>')
+    assert [link["attrs"]["href"] for link in footer if link["attrs"]["href"] in ("/community", "/roadmap")] == ["/community"]
+    assert '<h2 id="menu-plan-title">Plan setup</h2>' in html

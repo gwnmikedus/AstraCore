@@ -44,7 +44,7 @@ def test_signed_in_navigation_keeps_operation_and_account_actions_on_public_page
         header = response.text.split('<header class="topbar site-header">')[1].split('</header>')[0]
         for href in ("/", "/pi/operate", "/pi/plan", "/pi/area", "/pi/settings", "/profile", "/community"):
             assert f'href="{href}"' in header
-        for href in ("/about", "/credits", "/project", "/roadmap", "/releases", "/feedback?kind=bug"):
+        for href in ("/about", "/credits", "/project", "/roadmap", "/releases"):
             assert f'href="{href}"' not in header
         assert 'method="post" action="/auth/logout"' in header
         assert 'name="csrf_token"' in header

@@ -13,9 +13,7 @@
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <article>
   <header><strong>Selling &amp; taxes</strong></header>
-  <p class="muted">VOC buyback pays <strong>{{ s.buyback_pct|pct }}</strong> of Jita buy for P2–P4 and
-    <strong>{{ s.buyback_pct_p1|pct }}</strong> for P1 ({{ 'refused' if not s.buyback_pct_p1 else 'accepted' }}).
-    These values are the same for everyone on this site{% if is_admin %}; change them on the <a href="/admin">admin page</a>{% endif %}.</p>
+  <p class="muted">Buyback terms and courier fees are shared site assumptions. See <a href="/voc-hauling">About VOC Hauling</a> for the credited tariff reference.</p>
   <p>{% if s.taxes_from_skills %}Sales tax and broker fee come from your characters’ skills and standings.
     {% else %}You entered sales tax {{ s.sales_tax_pct|pct }} and broker fee {{ s.broker_fee_pct|pct }} yourself
     (<a href="/pi/settings?expert=1#expert-taxes">Expert</a>).{% endif %}</p>
@@ -78,11 +76,4 @@
 </details>
 </form>
 
-<article>
-  <header><strong>VOC courier tariff</strong> <span class="muted">{{ 'read live from' if routes_info.live else 'defaults - could not read' }} {{ external_link(voc_site, 'vochauling.com') }}{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
-  <div class="scroll"><table>
-    <thead><tr><th>From</th><th>To</th><th>Min fee</th><th>Per m³</th><th>Collateral</th><th>Max m³</th></tr></thead>
-    <tbody>{% for r in routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|num }}</td><td>{{ r.collateral_pct|pct }}</td><td>{{ r.max_m3|num }}</td></tr>{% endfor %}</tbody>
-  </table></div>
-</article>
 {% endblock %}

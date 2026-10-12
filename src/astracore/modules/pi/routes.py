@@ -988,8 +988,7 @@ async def settings_page(request: Request):
                   expert_open=request.query_params.get("expert") == "1",
                   rates=[skills_mod.character_rates(c) for c in chars if c.get("skills")],
                   seller=skills_mod.best_seller(chars), poco=skills_mod.customs_rates(chars),
-                  routes=voc.routes_cached(), routes_info=voc.routes_info(), voc_site=voc.SITE,
-                  customs_on=customs_on, is_admin=request.state.user.get("is_admin"),
+                  customs_on=customs_on,
                   esi_outage=outage.banner(c.get("synced_at") for c in chars))
 
 

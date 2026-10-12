@@ -2,7 +2,9 @@
 
 Personal data always belongs to a profile: every function that reads or changes it takes a
 `profile_id` (or a character id that the caller has already checked belongs to the profile).
-Shared, non-personal caches (http_cache, kv: prices, SDE, VOC tariff, area data) stay global.
+Shared, non-personal caches (kv: prices, SDE, VOC tariff, area data, public ESI responses in http_cache)
+stay global. Authenticated ESI responses in http_cache are personal: keyed per character (`#auth:<id>`),
+deleted with the character and dropped once expired.
 Module data access lives with the module (e.g. modules/pi/store.py).
 """
 from __future__ import annotations
@@ -257,7 +259,14 @@ def _migrate_v5(c: sqlite3.Connection) -> None:
               "REFERENCES plan_runs(id) ON DELETE SET NULL)")
 
 
-MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5]
+def _migrate_v6(c: sqlite3.Connection) -> None:
+    """Authenticated ESI responses used to share one cache entry per URL; drop them (they're re-fetched
+    per character) and keep personal responses only while fresh."""
+    c.execute("DELETE FROM http_cache WHERE url LIKE '%#auth'")
+    c.execute("DELETE FROM http_cache WHERE url LIKE '%#auth:%' AND expires < ?", (time.time(),))
+
+
+MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6]
 
 
 def adopt_legacy_db() -> bool:
@@ -389,6 +398,8 @@ def delete_profile(profile_id: int) -> None:
     with session() as c:
         cids = [r[0] for r in c.execute("SELECT character_id FROM characters WHERE profile_id=?", (profile_id,))]
         c.executemany("DELETE FROM tokens WHERE character_id=?", [(x,) for x in cids])
+        for x in cids:
+            forget_character_cache(c, x)
         for table in ("characters", "eve_accounts", "module_settings", "plan_runs", "planet_overrides", "sessions"):
             c.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
         c.execute("DELETE FROM profiles WHERE id=?", (profile_id,))
@@ -473,8 +484,20 @@ def set_character(character_id: int, **kw: Any) -> None:
                 raise KeyError(k)
 
 
+def forget_character_cache(c: sqlite3.Connection, character_id: int) -> None:
+    """Delete every cached authenticated ESI response made with this character's token."""
+    c.execute("DELETE FROM http_cache WHERE url LIKE ?", (f"%#auth:{int(character_id)}",))
+
+
+def purge_expired_private_cache() -> None:
+    """Authenticated ESI responses are only kept while ESI says they're fresh."""
+    with session() as c:
+        c.execute("DELETE FROM http_cache WHERE url LIKE '%#auth:%' AND expires < ?", (time.time(),))
+
+
 def delete_character(character_id: int) -> None:
     with session() as c:
+        forget_character_cache(c, character_id)
         c.execute("DELETE FROM tokens WHERE character_id=?", (character_id,))
         c.execute("DELETE FROM characters WHERE character_id=?", (character_id,))
 

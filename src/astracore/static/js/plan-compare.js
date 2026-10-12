@@ -40,7 +40,7 @@
     const week = r.week ?? (income == null ? null : income * 7);
     const unit = esc(r.incomeUnit || 'ISK/day');
     const cells = [
-      `${isk(income)} ${unit}<small>${isk(week)} ISK/week</small>`,
+      `${isk(income)} ${unit}<small>${isk(week)} ISK/week</small>${t.needs_recalculation ? '<small>Character removed · recalculate income</small>' : ''}`,
       f.minutes_per_week == null ? '–' : `≈ ${duration(f.minutes_per_week)} / week`,
       `${count(t.colonies)} of ${count(t.slots_total)} slots${t.factories ? `<small>${count(t.factories)} factory planet${t.factories === 1 ? '' : 's'}</small>` : ''}`,
       f.characters_total ? `${count(f.characters_used)} of ${count(f.characters_total)}` : count(f.characters_used),

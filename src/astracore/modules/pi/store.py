@@ -160,7 +160,7 @@ def list_plan_runs(profile_id: int, limit: int = MAX_PLANS) -> List[dict]:
                          "WHERE profile_id=? ORDER BY active DESC, id DESC LIMIT ?", (profile_id, limit)).fetchall()
     out = []
     for r in rows:
-        res = json.loads(r["result_json"])
+        res = _normalise_plan(json.loads(r["result_json"]))
         try:
             settings = json.loads(r["settings_json"] or "{}")
         except ValueError:
@@ -176,7 +176,37 @@ def get_plan_run(profile_id: int, run_id: int) -> Optional[dict]:
     if not r:
         return None
     return dict(id=r["id"], created=r["created"], label=r["label"], active=bool(r["active"]),
-                settings=json.loads(r["settings_json"]), result=json.loads(r["result_json"]))
+                settings=json.loads(r["settings_json"]), result=_normalise_plan(json.loads(r["result_json"])))
+
+
+def _normalise_plan(result: dict) -> dict:
+    """Older totals included slots belonging to characters the solver excluded."""
+    characters = result.get("characters")
+    if characters is not None and all("slots" in ch for ch in characters):
+        result.setdefault("totals", {})["slots_total"] = sum(int(ch["slots"]) for ch in characters)
+    return result
+
+
+def _remaining_plan_totals(result: dict, settings: Settings) -> None:
+    colonies = result.get("colonies", [])
+    for ch in result.get("characters", []):
+        mine = [x for x in colonies if x.get("character_id") == ch.get("character_id")]
+        ch.update(used=len(mine), value_per_day=sum(x.get("value_per_day", 0) for x in mine),
+                  m3_per_week=round(sum(x.get("m3_per_week", 0) for x in mine)),
+                  systems=sorted({x["system"] for x in mine if x.get("system")}))
+    miners = sum(x.get("kind") == "miner" for x in colonies)
+    result.setdefault("totals", {}).update(
+        colonies=len(colonies), systems=len({x["system"] for x in colonies if x.get("system")}),
+        system_visits=sum(len(ch["systems"]) for ch in result.get("characters", [])),
+        miners=miners, factories=len(colonies) - miners,
+        restarts_per_week=round(miners * 7 / max(0.5, settings.cycle_days), 1),
+        transfers=len(result.get("transfers", [])),
+        m3_per_week=round(sum(x.get("m3_per_week", 0) for x in colonies)),
+        max_tier_used=max((x.get("tier", 0) for x in colonies), default=0))
+    result["templates_needed"] = sorted({x["template_file"] for x in colonies if x.get("template_file")})
+    if any("slots" not in ch for ch in result.get("characters", [])):
+        result["totals"]["slots_total"] = None
+    _normalise_plan(result)
 
 
 def active_plan(profile_id: int) -> Optional[dict]:
@@ -202,18 +232,27 @@ def delete_plan_run(profile_id: int, run_id: int) -> bool:
 def strip_character(profile_id: int, character_id: int) -> None:
     """A removed character disappears from saved plans (its colonies and transfers are stripped)."""
     with db.session() as c:
-        rows = c.execute("SELECT id, result_json FROM plan_runs WHERE profile_id=?", (profile_id,)).fetchall()
+        rows = c.execute("SELECT id, settings_json, result_json FROM plan_runs WHERE profile_id=?", (profile_id,)).fetchall()
         for r in rows:
             res = json.loads(r["result_json"])
             gone = {ch.get("name") for ch in res.get("characters", []) if ch.get("character_id") == character_id}
             if not gone:
                 continue
+            had_colonies = any(x.get("character_id") == character_id for x in res.get("colonies", []))
             res["characters"] = [ch for ch in res.get("characters", []) if ch.get("character_id") != character_id]
             res["colonies"] = [x for x in res.get("colonies", []) if x.get("character_id") != character_id]
             res["transfers"] = [x for x in res.get("transfers", []) if x.get("from") not in gone and x.get("to") not in gone]
             res["removals"] = [x for x in res.get("removals", []) if x.get("character") not in gone]
+            _remaining_plan_totals(res, Settings.from_json(r["settings_json"]))
+            if had_colonies:
+                # Removing feeders can break another character's factories; subtraction is not a new solve.
+                res["totals"].update(isk_per_day=None, isk_per_week=None, needs_recalculation=True)
+                res["sold"] = []
+                res["selling"] = {}
             res.setdefault("warnings", []).append(f"{', '.join(sorted(gone))} was removed from your profile after this plan "
-                                                  "was made; their colonies are no longer listed.")
+                                                  "was made; their colonies are no longer listed."
+                                                  + (" Recalculate the plan to check production chains and income."
+                                                     if had_colonies else ""))
             c.execute("UPDATE plan_runs SET result_json=? WHERE id=?", (json.dumps(res), r["id"]))
 
 

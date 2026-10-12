@@ -266,7 +266,13 @@ def _migrate_v6(c: sqlite3.Connection) -> None:
     c.execute("DELETE FROM http_cache WHERE url LIKE '%#auth:%' AND expires < ?", (time.time(),))
 
 
-MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6]
+def _migrate_v7(c: sqlite3.Connection) -> None:
+    """Remember ESI's own expiry next to ours, so a refresh never asks ESI again before it has new data."""
+    if "esi_expires" not in _cols(c, "http_cache"):
+        c.execute("ALTER TABLE http_cache ADD COLUMN esi_expires REAL")
+
+
+MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6, _migrate_v7]
 
 
 def adopt_legacy_db() -> bool:

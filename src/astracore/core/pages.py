@@ -166,11 +166,15 @@ async def profile_refresh(request: Request):
         return redirect(back, f"ESI was read less than 5 minutes ago. Try again in {wait // 60 + 1} min.", "warn")
     db.update_profile(user["id"], last_esi_refresh_at=time.time())
     only = int(form["character_id"]) if str(form.get("character_id", "")).isdigit() else None
+    from astracore.esi.character import wait_note
     from astracore.modules.pi.service import refresh_profile
-    problems = await refresh_profile(user["id"], only)
+    waits: dict = {}
+    problems = await refresh_profile(user["id"], only, waits)
+    note = (" " + wait_note(waits)) if waits else ""
     if problems:
-        return redirect(back, "Refreshed, with problems: " + "; ".join(f"{k}: {v}" for k, v in problems.items()), "warn")
-    return redirect(back, "Refreshed from ESI.")
+        return redirect(back, "Refreshed, with problems: " + "; ".join(f"{k}: {v}" for k, v in problems.items())
+                        + note, "warn")
+    return redirect(back, "Refreshed from ESI." + note)
 
 
 @router.post("/profile/main")

@@ -15,7 +15,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from .project import REPOSITORY_URL
+from .project import REPOSITORY_URL, SITE_URL
 
 RELEASE_DATA = Path(__file__).resolve().parent.parent / "release_data.json"
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -144,3 +144,15 @@ def current() -> dict:
         "commit_url": f"{REPOSITORY_URL}/commit/{commit}" if commit else "",
         "changes_url": since,
     }
+
+
+@lru_cache(maxsize=1)
+def user_agent() -> str:
+    """User-Agent for every outbound request (ESI, GitHub, template downloads): name, real version, site
+    and, when the operator set ASTRACORE_CONTACT, a contact address so CCP or GitHub can reach us before
+    blocking the app. The contact comes from the environment only; never hardcode one."""
+    from astracore import config
+
+    contact = config.env("ASTRACORE_CONTACT").strip()
+    about = SITE_URL + (f"; {contact}" if contact else "")
+    return f"AstraCore/{current()['version']} (+{about})"

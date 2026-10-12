@@ -148,6 +148,7 @@ const complete = {};       // step id -> every card of its comparison is in
 let seq = 0;
 let comparisonRequest = null;
 let compareOpen = false;   // the side-by-side table stays open across answers once opened
+const answerDetailsOpen = new Set();
 let saving = false;
 let hourControl = null;
 let hourSave = Promise.resolve();
@@ -412,6 +413,7 @@ function showQuestion(step) {
     <div class="eyebrow">${OPTIONAL_IDS.has(step.id) ? 'More options' : `Step ${questionPosition()} of ${QUESTIONS}`}</div>
     <h2 id="question-title" tabindex="-1">${step.q}</h2>
     <p class="intro">${step.id === 'batch' && st.use_self_haul ? 'Balance quicker payouts against fewer trips and more cargo.' : STEP_CONTEXT[step.id]}</p>
+    ${routineOnly(step) ? '' : '<p class="muted comparison-context">Estimates use your answers so far. Later choices can change them.</p>'}
     ${cur <= 1 ? blockedNote() : ''}
     <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.id === 'batch' && st.use_self_haul ? 'You make the trip yourself. Bigger batches mean fewer journeys, but more cargo to move. Journey time, fuel and loss risk are not priced.' : step.intro}</p></details>
     ${stepHelp(step)}
@@ -427,7 +429,7 @@ function showQuestion(step) {
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
     <div id="compare"></div>
-    ${hourPicker()}
+    ${step.isGoal ? hourPicker() : `<details class="question-explainer time-settings"><summary>Change the value of your time</summary>${hourPicker()}</details>`}
     ${OPTIONAL_IDS.has(step.id) ? '' : additionalChoicesHTML()}
     <div class="nav">
       <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
@@ -466,8 +468,9 @@ function showQuestion(step) {
       }
       choose(step, id);
     };
-    el.onclick = pick;
+    el.onclick = e => { if (!e?.target?.closest('.answer-details')) pick(); };
     el.onkeydown = e => {
+      if (e.target?.closest('.answer-details')) return;
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
       if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
       e.preventDefault();
@@ -592,24 +595,40 @@ function paint(step) {
     const v = value(step, r), t = r.totals;
     // The card's "?" buttons sit next to their figures; their answers open below the figures, at full card width.
     const iskHelp = AC.helpPartsFor(HELP.isk, {glossary: GLOSSARY}), timeHelp = AC.helpPartsFor(HELP.time, {glossary: GLOSSARY});
-    const rows = [
+    const primary = [
       [AC.icon('clock') + 'Your time / week' + timeHelp.button, '≈ ' + duration(minutesPerWeek(o, r))],
+    ];
+    const rows = [
       [AC.icon('truck') + 'Haul / week', m3(t.m3_per_week)],
       [AC.icon('refresh-cw') + 'Restarts / week', count(t.restarts_per_week)],
       [AC.icon('map') + 'Systems', t.systems],
       [AC.icon('factory') + 'Factory planets', t.factories],
     ];
-    if (step.logins) rows.unshift([AC.icon('key-round') + 'Logins / week', count(7 / o.patch.cycle_days)]);
+    if (step.logins) primary.push([AC.icon('key-round') + 'Logins / week', count(7 / o.patch.cycle_days)]);
+    else if (step.metric === 'sell') primary.push([AC.icon('coins') + 'Per batch', isk(r.sell_net_per_cycle)]);
+    else primary.push(rows.shift());
     if (t.transfers) rows.push([AC.icon('handshake') + 'Transfers', t.transfers]);
-    if (step.metric === 'sell') rows.unshift([AC.icon('coins') + 'Per batch', isk(r.sell_net_per_cycle)]);
     if (r.holds) rows.push([AC.icon('pause') + 'Batches held back', r.holds]);
+    const detailsKey = JSON.stringify([step.id, id]);
+    const focusedSummary = el.querySelector('.answer-details > summary');
+    const restoreDetailsFocus = focusedSummary && focusedSummary === document.activeElement;
     el.querySelector('.res').innerHTML = `
       <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small>${iskHelp.button}</div>
       <div class="bar"><i style="width:${Math.max(3, v / top * 100)}%"></i></div>
-      <div class="metrics">${rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
-      <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>
+      <div class="metrics">${primary.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
+      <details class="answer-details" ${answerDetailsOpen.has(detailsKey) ? 'open' : ''}>
+        <summary>More figures and production <span class="sr-only">for ${esc(o.label)}</span></summary>
+        <div class="metrics">${rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
+        <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>
+      </details>
       ${iskHelp.answer}${timeHelp.answer}
       ${step.id === 'tier' ? samePlanHTML(step, o, r, res) : ''}`;
+    const details = el.querySelector('.answer-details');
+    details.addEventListener('toggle', () => {
+      if (details.open) answerDetailsOpen.add(detailsKey);
+      else answerDetailsOpen.delete(detailsKey);
+    });
+    if (restoreDetailsFocus) details.querySelector('summary').focus({preventScroll: true});
   });
   $('advice').innerHTML = routineOnly(step) ? '' : advice(step, rec, pick);
   $('compare').innerHTML = routineOnly(step) || !done ? '' : compareHTML(step, rec, pick);

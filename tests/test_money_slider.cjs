@@ -16,6 +16,8 @@ function slider(value = 90e6, defaultValue = 90e6, isDefault = true) {
       addEventListener(event, callback) { this.listeners[event] = callback; },
       setAttribute(name, content) { this.attributes[name] = content; },
       setCustomValidity(message) { this.validationMessage = message; },
+      get validity() { return {valid: !this.validationMessage}; },
+      closest() { return null; },
       reportValidity() { return !this.validationMessage; },
     };
   }
@@ -87,6 +89,20 @@ test('blank, negative, nonnumeric and infinite entries cannot save a preference'
   elements.exact.listeners.change();
   assert.equal(control.reportValidity(), true);
   assert.deepEqual(commits, [{next: 0, useDefault: false}]);
+});
+
+test('invalid input reveals a closed containing disclosure before the browser reports validity', () => {
+  const {control, elements, commits} = slider();
+  const details = {open: false};
+  elements.exact.closest = selector => selector === 'details:not([open])' && !details.open ? details : null;
+  elements.exact.reportValidity = () => {
+    assert.equal(details.open, true);
+    return elements.exact.validity.valid;
+  };
+  elements.exact.value = '';
+  assert.equal(control.reportValidity(), false);
+  assert.equal(elements.error.hidden, false);
+  assert.deepEqual(commits, []);
 });
 
 test('reset uses the current goal default and controls lock during answer saving', () => {

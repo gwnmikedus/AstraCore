@@ -1055,6 +1055,10 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 .page-guide .opt .badges { top: 12px; left: 24px; }
 .page-guide .opt .metrics { line-height: 22px; }
 .page-guide .opt .mix { margin-top: 16px; }
+.page-guide .opt .answer-details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.page-guide .opt .answer-details > summary { font-size: 12px; color: var(--ink-muted); cursor: pointer; }
+.page-guide .opt .answer-details[open] > summary { margin-bottom: 12px; }
+.page-guide .time-settings { margin-top: 24px; }
 .page-guide .nav { align-items: center; }
 .page-guide .nav > button { min-height: 44px; padding-inline: 24px; }
 .page-guide .chip { background: var(--void); text-transform: none; letter-spacing: 0; font: 400 13px var(--font-sans); min-height: 44px; white-space: normal; }

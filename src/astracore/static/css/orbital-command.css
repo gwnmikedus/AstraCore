@@ -27,7 +27,11 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .platform-copy .text-action { color: var(--ink); }
 .platform-copy .text-action:hover { color: var(--signal); }
 .platform-copy .primary-link { min-height: 48px; padding-inline: 24px; }
-.hero-access { color: var(--ink-muted); font-size: 12px; line-height: 18px; max-width: 44ch; margin: 4px 0 0 24px; }
+.assurance-row { display: flex; flex-wrap: wrap; gap: 4px 0; list-style: none; padding: 0; margin: 24px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 20px; }
+.assurance-row li { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0; }
+.assurance-row li + li::before { content: "·"; margin: 0 10px; color: var(--ink-muted); }
+.assurance-row a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+.assurance-row a:hover { color: var(--signal); }
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .hero-caption > :first-child { color: var(--ink); border-left: 2px solid var(--signal); padding-left: 12px; }
 .hero-caption > :last-child { background: var(--void); padding: 2px 8px; }
@@ -201,7 +205,7 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   .platform-copy h1 { font-size: 54px; }
   .platform-copy .hero-actions { flex-direction: column; align-items: start; }
   .platform-copy .primary-link { width: 100%; }
-  .platform-copy .hero-assurance { margin-top: 16px; }
+  .platform-copy .assurance-row { margin-top: 16px; }
   .platform-hero { min-height: 830px; }
   .workflow-band { padding-inline: 16px; }
   .product-tour .hero-copy-slides { min-height: 370px; }

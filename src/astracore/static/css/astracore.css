@@ -855,7 +855,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 .preview-output { min-width: 0; padding: 32px 40px; }
 .preview-output > .console-label { display: flex; align-items: center; justify-content: space-between; }
 .preview-output h3 { font-size: 32px; line-height: 36px; margin: 24px 0 12px; }
-.preview-output > p { max-width: 640px; color: var(--ink-muted); line-height: 24px; }
+.preview-output > p, .preview-live > p { max-width: 640px; color: var(--ink-muted); line-height: 24px; }
 .production-chain { display: flex; align-items: center; justify-content: space-around; gap: 12px; padding: 24px 0; margin: 24px 0; border-block: 1px solid var(--line); }
 .production-chain > div { display: flex; align-items: center; flex-direction: column; gap: 12px; }
 .production-chain img { object-fit: contain; height: 64px; }
@@ -1327,3 +1327,8 @@ html[data-menu-open] { overflow: hidden; }
   .compare-table tr:last-child td:last-child { border-bottom: 0; }
   .compare-table tbody tr:hover { background: transparent; }
 }
+/* PI Area: first-run empty state with a visible search field */
+.area-start { background: var(--hull); border: 1px solid var(--line-strong); padding: 24px; margin: 24px 0; }
+.area-start h2 { margin-top: 0; }
+.area-start p { color: var(--ink-muted); max-width: 64ch; }
+.scope-list li { margin-bottom: 6px; }

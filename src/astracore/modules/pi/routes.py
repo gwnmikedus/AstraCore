@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 from astracore import db
 from astracore.core import fmt
+from astracore.core.registry import SCOPE_TEXT
 from astracore.core.auth import bundle_active
 from astracore.core.sessions import require_user
 from astracore.core.solvegate import GATE, Busy, Superseded, cache_key
@@ -74,7 +75,7 @@ async def entry(request: Request):
     if state == "connect":
         chars = service.characters(pid)
         return render(request, "connect.html", "connect", "Connect characters", chars=chars,
-                      bundle=MODULE.required_bundle)
+                      bundle=MODULE.required_bundle, scope_text=SCOPE_TEXT)
     if state == "excluded":   # Area/Plan/Operate need an included character: never bounce back to them
         return render(request, "excluded.html", "connect", "Characters in this plan", panel=character_panel(pid),
                       open_panel=True)

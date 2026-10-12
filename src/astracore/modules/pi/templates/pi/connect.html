@@ -9,10 +9,11 @@
 </header>
 <div class="prose connection-panel">
   <h2>Connect your characters to AstraCore PI</h2>
-  <p>AstraCore PI reads your colonies, PI skills, hangars, contracts, sell orders and wallet (read-only) to plan and track
-    your Planetary Interaction. That takes one EVE login per character with these permissions:</p>
-  <ul>{% for sc in bundle.scopes %}<li><code>{{ sc }}</code></li>{% endfor %}</ul>
-  <p class="muted">{{ bundle.why }} <a href="/what-we-read">What we read, in plain words</a>.</p>
+  <p>AstraCore PI reads your colonies, PI skills, hangars, contracts, sell orders and wallet to plan and track
+    your Planetary Interaction. That takes one EVE login per character.{% if not bundle.writes %} <strong>Every permission it asks for is read-only:
+    AstraCore can't change anything in your account.</strong>{% endif %} What each one is used for:</p>
+  <ul class="scope-list">{% for sc in bundle.scopes %}<li>{{ scope_text.get(sc) or sc }}</li>{% endfor %}</ul>
+  <p class="muted">{{ bundle.why }} <a href="/what-we-read">What we read, with EVE's own permission names</a>.</p>
   {% if chars %}
   <h4>Your characters</h4>
   {% for c in chars %}

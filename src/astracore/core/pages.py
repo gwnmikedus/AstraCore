@@ -93,10 +93,20 @@ async def welcome(request: Request):
     user = _user(request)
     if not user:
         return _login_first()
+    from astracore.modules.pi.planner import setups
     chars = db.list_characters(user["id"])
-    return render(request, "welcome.html", page="welcome", page_title="Welcome", chars=chars,
-                  accounts=db.list_accounts(user["id"]), first=chars[0] if chars else None,
-                  max_per_account=db.MAX_CHARACTERS_PER_ACCOUNT)
+    for ch in chars:
+        if not ch["has_token"] or ch["status"] == "needs_login" or missing_required(ch, "pi"):
+            ch["readiness"] = {"status": "warn", "label": "Log in again to read PI skills",
+                               "next": "Your character stays connected while you renew its EVE login.",
+                               "href": f"/auth/upgrade/{ch['character_id']}", "action": "Log in again"}
+        elif not ch.get("synced_at"):
+            ch["readiness"] = {"status": "warn", "label": "PI skills have not been read yet",
+                               "next": "Refresh this character from ESI on your profile. You can still explore setup.",
+                               "href": f"/profile#char-{ch['character_id']}", "action": "Open profile"}
+        else:
+            ch["readiness"] = setups.ccu_note(ch.get("ccu_level"))
+    return render(request, "welcome.html", page="welcome", page_title="Welcome", chars=chars)
 
 
 @router.post("/welcome/done")

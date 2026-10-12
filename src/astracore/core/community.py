@@ -6,6 +6,8 @@ issue status. A timed-out create is reconciled before any administrator can retr
 The Community hub also keeps three small, private signals per profile (ENGAGEMENT_SCHEMA):
 "this would help me" marks on roadmap directions and open ideas, opt-in "Reported by" credit
 per report, and the last report stage a pilot has seen (for the "your report moved" notice).
+MARK_SEEN_SCHEMA adds the same "seen" record for marks, so a pilot hears once when something they
+said would help them goes live.
 """
 from __future__ import annotations
 
@@ -77,6 +79,15 @@ CREATE TABLE IF NOT EXISTS community_report_seen (
     feedback_id TEXT PRIMARY KEY REFERENCES community_feedback(id) ON DELETE CASCADE,
     stage TEXT NOT NULL, seen_at REAL NOT NULL
 );
+"""
+# Added by migration v9. Additive only: older builds ignore the table and the index.
+MARK_SEEN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS community_vote_seen (
+    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    target TEXT NOT NULL, stage TEXT NOT NULL, seen_at REAL NOT NULL,
+    PRIMARY KEY(profile_id, target)
+);
+CREATE INDEX IF NOT EXISTS community_issues_roadmap ON community_issues(roadmap_slug);
 """
 
 ROADMAP_VERSION = 1
@@ -733,6 +744,7 @@ def toggle_vote(profile_id: int, target: str) -> bool:
     with db.session() as c:
         removed = c.execute("DELETE FROM community_votes WHERE profile_id=? AND target=?", (profile_id, target))
         if removed.rowcount:
+            c.execute("DELETE FROM community_vote_seen WHERE profile_id=? AND target=?", (profile_id, target))
             return False
         c.execute("INSERT INTO community_votes(profile_id,target,created_at) VALUES(?,?,?)",
                   (profile_id, target, time.time()))
@@ -750,7 +762,64 @@ def my_votes(profile_id: int) -> set:
         return {r["target"] for r in c.execute("SELECT target FROM community_votes WHERE profile_id=?", (profile_id,))}
 
 
-templates.env.globals.update(community_moved=moved_count, community_credits=credited_pilots,
+# A marked item's issue: the issue itself, or the roadmap issue linked to a direction. Both lookups use
+# an index (the issue number, community_issues_roadmap). Only a closed issue can be live; a direction reads
+# all its issues so it follows the same (lowest-numbered, visible) issue as the roadmap board.
+_MARKS_LIVE_SQL = (
+    "SELECT v.target, s.stage AS seen, i.* FROM community_votes v "
+    "JOIN community_issues i ON i.number = CAST(substr(v.target, 7) AS INTEGER) "
+    "LEFT JOIN community_vote_seen s ON s.profile_id=v.profile_id AND s.target=v.target "
+    "WHERE v.profile_id=? AND v.target LIKE 'issue:%' AND i.state='closed' "
+    "UNION ALL "
+    "SELECT v.target, s.stage AS seen, i.* FROM community_votes v "
+    "JOIN community_issues i ON i.roadmap_slug = substr(v.target, 11) "
+    "LEFT JOIN community_vote_seen s ON s.profile_id=v.profile_id AND s.target=v.target "
+    "WHERE v.profile_id=? AND v.target LIKE 'direction:%' "
+    "ORDER BY number")
+
+
+def marks_live(profile_id: int) -> list:
+    """Marked items that reached Live since the pilot was last told: [{target, title, number, url}].
+
+    Same stage words as reports (closed with status:released is Live). A direction follows its linked
+    roadmap issue, the lowest-numbered one as on the roadmap board. Hidden issues never notify."""
+    with db.session() as c:
+        rows = c.execute(_MARKS_LIVE_SQL, (profile_id, profile_id)).fetchall()
+    out, done = [], set()
+    for row in rows:
+        target = row["target"]
+        if target in done or "platform:hidden" in json.loads(row["labels_json"]):
+            continue
+        done.add(target)
+        issue = _issue_row({k: row[k] for k in row.keys() if k not in ("target", "seen")})
+        if issue["stage"] != "live" or row["seen"] == "live":
+            continue
+        direction = ROADMAP_BY_SLUG.get(target.split(":", 1)[1]) if target.startswith("direction:") else None
+        out.append({"target": target, "title": direction["title"] if direction else issue["title"],
+                    "number": issue["number"], "url": issue["url"]})
+    return out
+
+
+def mark_marks_seen(profile_id: int, items: list) -> None:
+    now = time.time()
+    with db.session() as c:
+        for item in items:
+            c.execute("INSERT INTO community_vote_seen(profile_id,target,stage,seen_at) VALUES(?,?,'live',?) "
+                      "ON CONFLICT(profile_id,target) DO UPDATE SET stage=excluded.stage,seen_at=excluded.seen_at",
+                      (profile_id, item["target"], now))
+
+
+def marks_live_count(user: Optional[dict]) -> int:
+    """For the menu: one indexed query per signed-in page view; it never contacts GitHub."""
+    if not user:
+        return 0
+    try:
+        return len(marks_live(user["id"]))
+    except sqlite3.Error:
+        return 0
+
+
+templates.env.globals.update(community_moved=moved_count, community_marks_live=marks_live_count, community_credits=credited_pilots,
                              release_credits=release_credits)
 
 
@@ -762,15 +831,18 @@ async def roadmap_page(request: Request):
 
     user = request.state.user
     mine = my_reports(user["id"]) if user else []
+    marked_live = marks_live(user["id"]) if user else []
     latest = history()[0]
     response = render(request, "community.html", page="community", page_title="Community",
                       board=roadmap_board(public_issues()), mine=mine, moved=sum(r["moved"] for r in mine),
-                      live_now=[r for r in mine if r["moved"] and r["stage"] == "live"],
+                      live_now=[r for r in mine if r["moved"] and r["stage"] == "live"], marked_live=marked_live,
                       votes=vote_counts(), voted=my_votes(user["id"]) if user else set(),
                       latest_release=latest, latest_credits=release_credits(latest), shaped=credited_pilots(),
                       contributor_credits=contributors.snapshot(), tools=COMMUNITY_TOOLS,
                       sync=sync_state(), github_url=repository_url(), research_url=RESEARCH_URL)
     mark_seen(mine)   # after rendering: this visit shows what moved, the next one starts fresh
+    if marked_live:
+        mark_marks_seen(user["id"], marked_live)
     return response
 
 

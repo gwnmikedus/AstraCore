@@ -40,7 +40,7 @@
             {% if user %}
             <section class="menu-group" aria-labelledby="menu-community-title">
               <h2 id="menu-community-title">AstraCore community</h2>
-              <ul>{% set moved = community_moved(user) if community_moved is defined else 0 %}{{ menu_link('Community', '/community', 'orbit', (moved ~ ' of your reports moved' if moved else 'Project, people, updates and feedback'), section=true) }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
+              <ul>{% set moved = community_moved(user) if community_moved is defined else 0 %}{% set marked = community_marks_live(user) if community_marks_live is defined else 0 %}{% set news = ([moved ~ ' of your reports moved'] if moved else []) + ([marked ~ (' item you marked is live' if marked == 1 else ' items you marked are live')] if marked else []) %}{{ menu_link('Community', '/community', 'orbit', (news|join(' · ') if news else 'Project, people, updates and feedback'), section=true) }}{% if user.is_admin %}{{ menu_link('Admin', '/admin', 'shield-check') }}{% endif %}</ul>
             </section>
             {% else %}
             <section class="menu-group" aria-labelledby="menu-about-title">

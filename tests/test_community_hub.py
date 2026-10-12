@@ -11,7 +11,8 @@ from astracore import db
 from astracore.core import community, releases
 from test_core import browser, csrf, eve, me, new_id, sso_login  # noqa: F401
 
-TABLES = ("community_votes", "community_credit", "community_report_seen", "community_feedback", "community_issues")
+TABLES = ("community_vote_seen", "community_votes", "community_credit", "community_report_seen", "community_feedback",
+          "community_issues")
 
 
 @pytest.fixture(autouse=True)
@@ -52,11 +53,11 @@ def flash(response):
 
 
 def test_migration_adds_only_new_tables():
-    assert len(db.MIGRATIONS) == 8 and db.MIGRATIONS[-1].__name__ == "_migrate_v8"
+    assert len(db.MIGRATIONS) == 9 and db.MIGRATIONS[-1].__name__ == "_migrate_v9"
     with db.session() as c:
         assert c.execute("PRAGMA user_version").fetchone()[0] == len(db.MIGRATIONS)
         names = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"community_votes", "community_credit", "community_report_seen"} <= names
+    assert {"community_votes", "community_credit", "community_report_seen", "community_vote_seen"} <= names
 
 
 def test_report_stage_words_follow_the_roadmap():
@@ -243,3 +244,81 @@ def test_hub_sections_thanks_and_copy(browser):
     assert "Shape this direction" in page
     for path in ("/roadmap", "/project", "/credits", "/releases"):
         assert browser().get(path).status_code == 200
+
+
+# --------------------------------------------------------------------------- marks that go live (#165)
+_edits = iter(range(10_000, 100_000))
+RELEASED = {"state": "closed", "state_reason": "completed"}
+
+
+def issue(number, *labels, body="Public idea", **updates):
+    """Cache a public issue; every call is a newer GitHub edit than the last."""
+    community.cache_issue({"number": number, "title": f"Idea {number}", "body": body, "state": "open", "state_reason": None,
+                           "labels": [{"name": n} for n in labels], "updated_at": f"2026-10-12T{next(_edits)}Z",
+                           **updates})
+
+
+def test_a_marked_idea_going_live_is_told_once(browser, eve):
+    client, other = browser(), browser()
+    sso_login(client, eve, new_id(), "Marker")
+    sso_login(other, eve, new_id(), "Bystander")
+    issue(801, "type:idea")
+    client.post("/community/votes", data={"csrf_token": csrf(client), "target": "issue:801"})
+    assert "you marked" not in client.get("/about").text
+    issue(801, "type:idea", "status:in-progress")
+    assert community.marks_live(me(client)) == []
+    issue(801, "type:idea", **RELEASED)                                    # finished, not yet live
+    assert community.marks_live(me(client)) == []
+    issue(801, "type:idea", "status:released", **RELEASED)
+    assert "1 item you marked is live" in client.get("/about").text
+    head = client.get("/community").text.split('aria-label="On this page"', 1)[0]
+    assert "You said this would help you, and it's live" in head and "Idea 801" in head
+    assert "/issues/801" in head and 'href="/releases"' in head
+    # Told once: the banner and the menu line go away after this visit.
+    assert "it's live" not in client.get("/community").text
+    assert "you marked" not in client.get("/about").text
+    assert "you marked" not in other.get("/about").text and "it's live" not in other.get("/community").text
+
+
+def test_a_marked_direction_follows_its_roadmap_issue(browser, eve):
+    client = browser()
+    sso_login(client, eve, new_id(), "Direction Marker")
+    pid = me(client)
+    client.post("/community/votes", data={"csrf_token": csrf(client), "target": "direction:fittings"})
+    client.post("/community/votes", data={"csrf_token": csrf(client), "target": "direction:fleet-preparation"})
+    roadmap = "Linked\n\n<!-- astracore-roadmap:fittings -->"
+    issue(811, "roadmap", body=roadmap)
+    assert community.marks_live(pid) == []
+    issue(811, "roadmap", "status:released", body=roadmap, **RELEASED)
+    issue(812, "roadmap", "status:released", "platform:hidden", body="<!-- astracore-roadmap:fleet-preparation -->",
+          **RELEASED)                                                      # hidden issues never notify
+    live = community.marks_live(pid)
+    assert [(x["target"], x["title"], x["number"]) for x in live] == [("direction:fittings", "Fittings across your alts", 811)]
+    assert "2 items you marked" not in client.get("/about").text and "1 item you marked is live" in client.get("/about").text
+    assert "Fittings across your alts" in client.get("/community").text.split('aria-label="On this page"', 1)[0]
+    assert community.marks_live(pid) == []
+    with db.session() as c:   # cheap on every page: both lookups use an index
+        plan = " ".join(r[-1] for r in c.execute("EXPLAIN QUERY PLAN " + community._MARKS_LIVE_SQL, (pid, pid)))
+    assert "community_issues_roadmap" in plan and "SCAN i" not in plan
+
+
+def test_seen_marks_follow_unmark_merge_export_and_deletion():
+    from astracore.core import accounts
+    issue(821, "type:idea")
+    issue(822, "type:idea")
+    src, dst = db.create_profile("Source"), db.create_profile("Destination")
+    for target in ("issue:821", "issue:822"):
+        community.toggle_vote(src, target)
+    issue(821, "type:idea", "status:released", **RELEASED)
+    issue(822, "type:idea", "status:released", **RELEASED)
+    community.mark_marks_seen(src, community.marks_live(src))
+    assert community.marks_live(src) == []
+    community.toggle_vote(src, "issue:822")                                # unmarking forgets it was told
+    with db.session() as c:
+        assert [r[0] for r in c.execute("SELECT target FROM community_vote_seen WHERE profile_id=?", (src,))] == ["issue:821"]
+    accounts.merge_profiles(src, dst)
+    assert community.my_votes(dst) == {"issue:821"} and community.marks_live(dst) == []
+    assert [m["target"] for m in accounts.export_profile(dst)["community_marks_seen"]] == ["issue:821"]
+    db.delete_profile(dst)
+    with db.session() as c:
+        assert c.execute("SELECT COUNT(*) FROM community_vote_seen").fetchone()[0] == 0

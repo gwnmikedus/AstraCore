@@ -31,7 +31,7 @@ SOV = {'solar_systems': [
 def test_current_sovereignty_endpoint_maps_only_alliance_claims():
     result, requests = run(lambda request: httpx.Response(200, json=SOV), public.sov_systems)
     assert result == {1: 99000141, 2: None, 3: None, 4: 99000142}
-    assert requests[0].url.path == '/latest/sovereignty/systems/'
+    assert requests[0].url.path == '/sovereignty/systems/'   # only served at the root, /latest answers 404
     assert requests[0].headers['x-compatibility-date'] == COMPATIBILITY_DATE == '2026-08-18'
 
 
@@ -48,7 +48,7 @@ def test_sovereignty_preserves_public_cache_and_explicit_refresh():
 
 @pytest.mark.parametrize('force', [False, True])
 def test_sovereignty_outage_uses_stale_copy_only_without_explicit_refresh(force):
-    path = 'https://esi.evetech.net/latest/sovereignty/systems/?'
+    path = 'https://esi.evetech.net/sovereignty/systems/?'
     with db.session() as c:
         c.execute("REPLACE INTO http_cache(url, body, expires, esi_expires) VALUES(?,?,0,0)",
                   (path, json.dumps(SOV)))

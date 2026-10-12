@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict, Iterable, List, Optional
 
-from .client import STATIC_TTL, ESIClient, ESIError
+from .client import ESI_ROOT, STATIC_TTL, ESIClient, ESIError
 
 
 async def resolve_names(esi: ESIClient, names: List[str]) -> Dict[str, List[dict]]:
@@ -26,7 +26,7 @@ async def ids_to_names(esi: ESIClient, ids: Iterable[int]) -> Dict[int, str]:
 
 async def sov_systems(esi: ESIClient, force: bool = False) -> Dict[int, Optional[int]]:
     """Alliance sovereignty by system; faction and unclaimed systems have no alliance."""
-    data = await esi.get("/sovereignty/systems/", ttl=3600, force=force, stale_ok=not force)
+    data = await esi.get("/sovereignty/systems/", ttl=3600, force=force, stale_ok=not force, base=ESI_ROOT)
     return {row["solar_system_id"]: row["claim"].get("alliance", {}).get("alliance_id")
             for row in data["solar_systems"]}
 

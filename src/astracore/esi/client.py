@@ -13,6 +13,9 @@ from astracore import db
 from astracore.core.releases import user_agent
 
 ESI_BASE = "https://esi.evetech.net/latest"
+# Routes added after the dated versioning (e.g. /sovereignty/systems/) exist only at the root, not under
+# /latest (which answers 404 for them); they're requested with base=ESI_ROOT.
+ESI_ROOT = "https://esi.evetech.net"
 # Pin ESI's route versions so upgrades are deliberate. Checked the changelog and OpenAPI
 # on 2026-10-12: /sovereignty/systems/ replaces /sovereignty/map/; the other 26 routes
 # we read retain their request and response shapes (issue #141).
@@ -199,7 +202,7 @@ class ESIClient:
 
     async def get(self, path: str, *, params: Optional[dict] = None, token: Optional[str] = None,
                   owner: Optional[int] = None, ttl: Optional[int] = None, force: bool = False,
-                  stale_ok: bool = False) -> Any:
+                  stale_ok: bool = False, base: str = ESI_BASE) -> Any:
         """GET with cache. Returns parsed JSON. Follows X-Pages pagination.
         Authenticated calls name the character whose token they use (`owner`): their cached copy belongs to
         that character only, is never served to another one and is deleted with the character.
@@ -209,7 +212,7 @@ class ESIClient:
         `stale_ok`: when ESI isn't answering, an expired public copy is better than nothing (static
         universe data); the path is noted in `stale`. Never for authenticated data: that expired copy is
         purged (privacy rule of #121)."""
-        url = f"{ESI_BASE}{path}"
+        url = f"{base}{path}"
         params = dict(params or {})
         cache_key = url + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         if token:

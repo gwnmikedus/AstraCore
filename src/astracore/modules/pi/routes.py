@@ -290,17 +290,18 @@ async def api_whatif(request: Request):
     pid = _pid(request)
     body = await request.json()
     base = _apply(store.load_settings(pid), body.get("base", {}))
-    stamp = service.data_stamp(pid)
 
     async def one(opt):
         ss = copy.deepcopy(base)
         ss.update({k: v for k, v in opt.get("patch", {}).items() if k in LIVE_FIELDS})
-        key = cache_key(stamp, ss.to_json(), "whatif")
+        # The full plan is cached (shared with the plan result), the card only shows its summary.
+        key = service.plan_key(pid, ss)
         if key in GATE._cache:
-            return {"id": opt.get("id"), **GATE._cache[key]}
-        ctx = await service.planning_context(pid, ss, persist_default=False)
-        res = await GATE.cached(key, lambda: service.whatif_summary(service.run_plan(ctx), ss))
-        return {"id": opt.get("id"), **res}
+            res = GATE._cache[key]
+        else:
+            ctx = await service.planning_context(pid, ss, persist_default=False)
+            res = await GATE.cached(service.plan_key(pid, ss), service.run_plan, ctx)
+        return {"id": opt.get("id"), **service.whatif_summary(res, ss)}
 
     import asyncio
     try:
@@ -319,7 +320,7 @@ async def api_alternatives(request: Request):
     try:
         async with GATE.request(pid, "alternatives"):
             ctx = await service.planning_context(pid)
-            key = cache_key(service.data_stamp(pid), ctx["solve_s"].to_json(), "alternatives")
+            key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "alternatives")
             alts = await GATE.cached(key, optimizer.alternatives, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
                                      ctx["head_yield"])
@@ -336,7 +337,7 @@ async def api_sensitivity(request: Request):
     try:
         async with GATE.request(pid, "sensitivity"):
             ctx = await service.planning_context(pid)
-            key = cache_key(service.data_stamp(pid), ctx["solve_s"].to_json(), "sensitivity")
+            key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "sensitivity")
             rows = await GATE.cached(key, optimizer.yield_sensitivity, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
                                      ctx["head_yield"])

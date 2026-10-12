@@ -12,6 +12,8 @@ from typing import List, Optional
 
 # Instance-wide values: only the admin profile may change them (kept in the `admin_settings` kv).
 ADMIN_FIELDS = ("buyback_pct", "buyback_pct_p1", "solver_time_limit")
+# Wizard bookkeeping: saved with the settings, but no plan depends on it.
+UI_FIELDS = ("guide_step", "answered")
 
 
 @dataclass
@@ -70,6 +72,13 @@ class Settings:
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
+
+    def solve_json(self) -> str:
+        """The settings a plan depends on, for cache keys: without where the guided setup was left."""
+        data = asdict(self)
+        for name in UI_FIELDS:
+            data.pop(name, None)
+        return json.dumps(data, sort_keys=True)
 
     def update(self, data: dict) -> None:
         """Apply values from a JSON body or HTML form, coercing to each field's type."""

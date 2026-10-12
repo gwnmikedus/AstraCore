@@ -18,7 +18,7 @@ def navigator(browser, eve, monkeypatch, pi):
     async def no_space(chars, settings, **kw):
         return None
 
-    async def context(profile_id):
+    async def context(profile_id, **kwargs):
         return {"chars": service.planning_characters(profile_id), "s": store.load_settings(profile_id),
                 "pi": pi, "books": {}, "area": None, "systems": {}, "tpl": [],
                 "calibrated": False, "head_yield": 9000, "dropoff": "", "seller": {}}

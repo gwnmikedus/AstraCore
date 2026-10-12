@@ -11,7 +11,7 @@ function fixture(active = false) {
   const nodes = new Map();
   const $ = id => {
     if (!nodes.has(id)) nodes.set(id, {innerHTML: '', textContent: '', value: '', dataset: {},
-      querySelector: () => null, insertAdjacentHTML() {}});
+      querySelector: () => null, querySelectorAll: () => [], insertAdjacentHTML() {}});
     return nodes.get(id);
   };
   const calls = [];

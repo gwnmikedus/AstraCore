@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="{{ asset('css/money-slider.css') }}">
 <script src="{{ asset('js/money-slider.js') }}"></script>
 <script src="{{ asset('js/plan-compare.js') }}"></script>
+<script src="{{ asset('js/plan-warnings.js') }}"></script>
 {% endblock %}
 {% block content %}
 <div class="g-head context-header">
@@ -74,7 +75,7 @@ const STEPS = [
      {id: 'wide', icon: 'map', label: 'Wherever pays most', patch: {max_systems: 0, max_jumps: 6}, blurb: 'No system limit, up to 6 jumps.'}],
    match: st => (+st.max_systems === 1 && +st.max_jumps === 1) ? 'compact' : (+st.max_systems === 3 && +st.max_jumps === 3) ? 'near'
                : (+st.max_systems === 0 && +st.max_jumps === 6) ? 'wide' : 'custom',
-   custom: st => ({id: 'custom', icon: 'map-pin', label: `${+st.max_systems || 'Any number of'} system(s), ≤ ${st.max_jumps} jumps`,
+   custom: st => ({id: 'custom', icon: 'map-pin', label: `${+st.max_systems ? `Up to ${+st.max_systems} system${+st.max_systems === 1 ? '' : 's'}` : 'Any number of systems'}, ≤ ${st.max_jumps} jumps`,
                    patch: {max_systems: +st.max_systems, max_jumps: +st.max_jumps}, blurb: 'Your current setting.'})},
   {id: 'tier', title: 'Products', q: 'How far should your planets process?',
    intro: 'Miner planets turn raw resources (P0) into P1 on their own. Factory planets turn P1 into P2 and up: worth more per m³, so less hauling, and VOC buyback takes P2+ (not P1). But a factory has to be stocked with its inputs on every run.',
@@ -588,17 +589,35 @@ async function showPlan() {
     if (my === seq) $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});
   if (my !== seq || res.superseded) return;
   if (res.error) {
-    $('planres').innerHTML = `<div class="flash warn"><span>${esc(res.error)}</span><button class="outline" id="retry-plan">Retry plan</button></div>`;
+    $('planres').innerHTML = `<div class="flash warn"><span>${esc(res.error)}${stepLinks(res.error_steps)}</span><button class="outline" id="retry-plan">Retry plan</button></div>`
+      + AC.planWarningsHTML(res.warnings, {steps: stepNames()});
     operateHandoff(PLANS.some(p => p.active), 'Plan unavailable');
     $('retry-plan').onclick = () => showPlan();
+    linkSteps($('planres'));
     return;
   }
-  $('planres').innerHTML = planHTML(res);
+  $('planres').innerHTML = planHTML(res, {steps: stepNames()});
+  linkSteps($('planres'));
   $('plan-compare').innerHTML = activeComparison(res);
   $('build-instructions').hidden = false;
   fillYieldBand();
   $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
   planBar(res.result_id);
+}
+
+// Warnings on the result link to the question that changes them ("Change Area").
+const stepNames = () => Object.fromEntries(STEPS.filter(s => s.options).map(s => [s.id, s.title]));
+function stepLinks(ids) {
+  const names = stepNames();
+  const links = (ids || []).filter(id => names[id]).map(id => `<a href="#" data-step="${esc(id)}">Change ${esc(names[id])}</a>`);
+  return links.length ? ` <span class="note-links">${links.join(' · ')}</span>` : '';
+}
+function linkSteps(root) {
+  root.querySelectorAll('a[data-step]').forEach(a => a.onclick = e => {
+    e.preventDefault();
+    const i = STEPS.findIndex(s => s.id === a.dataset.step);
+    if (i >= 0) navigate(i);
+  });
 }
 
 // This plan next to the active one, before deciding whether to replace it.

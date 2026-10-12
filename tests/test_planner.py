@@ -167,7 +167,7 @@ def test_max_systems_limits_spread(pi):
 def test_low_ccu_character_excluded(pi):
     res = _plan(pi, chars=CHARS + [{"character_id": 3, "name": "Low", "slots": 6, "ccu_level": 1, "colonies": []}])
     assert all(c["character"] != "Low" for c in res["colonies"])
-    assert any("Low" in w for w in res["warnings"])
+    assert any("Low" in w["text"] for w in res["warnings"])
     assert res["totals"]["slots_total"] == sum(c["slots"] for c in CHARS)
     assert res["totals"]["slots_total"] == sum(c["slots"] for c in res["characters"])
 
@@ -488,7 +488,7 @@ def test_plans_carry_a_storage_check_per_colony(pi):
     res = _plan(pi, chars=chars, prices={**PRICES, 2329: 400000.0}, max_tier=2, cross_character=True, max_jumps=2)
     assert res["colonies"] and all("visit_every_days" in c["upkeep"] for c in res["colonies"])
     tight = any(c["upkeep"]["issues"] for c in res["colonies"])
-    assert tight == any(w.startswith("Storage check") for w in res["warnings"])
+    assert tight == any(w["code"] == "storage" for w in res["warnings"])
 
 
 def _colonies(now):

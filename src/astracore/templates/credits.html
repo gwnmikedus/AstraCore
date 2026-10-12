@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_artwork.html" import artwork %}
+{% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
 {% block content_class %}ac-stack ac-stack--major{% endblock %}
 {% block content %}
 <header class="ac-page-header context-header">
@@ -8,6 +9,14 @@
 {{ artwork('community-rendezvous', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </header>
 {% include "_contributors.html" %}
+{% set shaped = community_credits() if community_credits is defined else [] %}
+<section class="contributors-section" id="shaped" aria-labelledby="shaped-title">
+  <h2 id="shaped-title">Pilots who shaped AstraCore</h2>
+  <p>Pilots whose bug reports and ideas were accepted, listed only when they chose “Reported by” credit on their own report. We never show wallets, locations or game data.</p>
+  {% if shaped %}<ul class="shaped-list" aria-label="Pilots who shaped AstraCore">{% for name in shaped %}<li>{{ name }}</li>{% endfor %}</ul>
+  {% else %}<p class="muted">No credited reports yet. <a href="/feedback?kind=idea">Suggest an idea</a> or <a href="/feedback?kind=bug">report a bug</a>, and choose credit if you’d like your name here.</p>{% endif %}
+  <p><a class="text-action" href="/community#thanks">Everyone we thank, on the Community page {{ icon('arrow-right') }}</a></p>
+</section>
 {% include "_creator.html" %}
 <div class="prose">
   <h2>Tools, data &amp; community</h2>

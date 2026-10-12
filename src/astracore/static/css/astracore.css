@@ -280,6 +280,7 @@ p.muted, div.muted { margin-top: 0; }
 .flash.info, .warnbox.info { --tone: var(--line-strong); }
 .warnbox { display: block; margin-bottom: var(--space-2); }
 .warnbox.headline { font-size: 15px; padding: var(--space-3) var(--space-4); }
+button.inline-action { display: inline-flex; width: auto; min-height: 28px; margin: var(--space-1) var(--space-1) var(--space-1) 0; padding: 2px var(--space-2); font-size: 13px; line-height: 18px; vertical-align: baseline; }
 .plan-notes { margin-bottom: var(--space-4); }
 .plan-notes h6 { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); }
 .plan-notes ul { margin: 0; padding-left: 1.25rem; display: grid; gap: var(--space-2); }
@@ -454,6 +455,23 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 .kind-miner { color: var(--scan); } .kind-factory { color: var(--status-warn); }
 .planbar { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; margin: var(--space-2) 0 var(--space-4); }
 .planbar input { width: 16rem; margin: 0; }
+/* Plan result: richness as scanned in game, per planet row; "Never produce" per product (issue #105) */
+.rich-pick { display: block; width: auto; min-width: 10.5rem; max-width: 100%; min-height: 28px; margin: var(--space-1) 0 0; padding: 0 var(--space-2); font-size: 12px; }
+.never-produce { background: var(--hull); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); border: 0; }
+.never-produce legend { font-family: var(--font-display); font-weight: 600; padding: 0; margin-bottom: var(--space-1); }
+.never-produce .never-items { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin-top: var(--space-2); }
+.never-produce label, .never-list label, .page-planner .ctl .never-list label { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0; font-size: 13px; font-weight: 400; }
+.never-list .never-tier { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: var(--space-1) 0 var(--space-3); }
+.never-list .never-tier-name { width: 100%; font-size: 12px; color: var(--ink-muted); }
+
+/* ------------------------------------------------------------------ PI: settings, the Expert panel */
+.expert .expert-part { padding: var(--space-3) 0; border-top: var(--stroke-hair) solid var(--line); }
+.expert .expert-part:first-of-type { border-top: 0; padding-top: 0; }
+.expert .expert-part h3 { font-size: 16px; margin: 0 0 var(--space-2); }
+.expert .expert-status { font-weight: 600; margin-bottom: var(--space-2); }
+.expert .expert-edit { margin: var(--space-2) 0 0; }
+.expert .tax-manual { display: none; }   /* manual sales tax / broker fee: only when "from skills" is off */
+.expert:has(input[name="taxes_from_skills"]:not(:checked)) .tax-manual { display: block; }
 
 /* ------------------------------------------------------------------ PI: plan wizard */
 .page-guide .g-head { display: flex; justify-content: space-between; align-items: end; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }
@@ -1413,3 +1431,25 @@ html[data-menu-open] { overflow: hidden; }
 .permissions-notice summary { min-height: 44px; }
 
 .pchar .row select { min-height: 44px; }
+
+/* "?" help toggle (templates/_help.html, js/help.js): a small hairline "?" with a short answer below it */
+.help-toggle { display: inline; }
+button.help-btn { position: relative; min-height: 24px; height: 24px; min-width: 24px; padding: 0; margin: 0 0 0 var(--space-1); gap: var(--space-2);
+  vertical-align: middle; background: transparent; color: var(--ink-muted); box-shadow: none;
+  font: 600 12px/1 var(--font-mono); letter-spacing: 0; text-transform: none; }
+button.help-btn .help-mark { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none;
+  border: var(--stroke-hair) solid var(--line-strong); border-radius: 50%; }
+button.help-btn.labelled { height: auto; padding-right: var(--space-1); margin-left: 0; font: 500 13px/18px var(--font-sans); white-space: normal; text-align: left; }
+button.help-btn::after { content: ""; position: absolute; inset: -6px; }   /* a finger-sized hit area */
+button.help-btn:hover, button.help-btn[aria-expanded="true"] { background: transparent; color: var(--ink); }
+button.help-btn:hover .help-mark, button.help-btn[aria-expanded="true"] .help-mark { border-color: var(--scan); color: var(--scan); }
+.help-answer { display: block; max-width: 64ch; margin: var(--space-2) 0; padding: var(--space-2) var(--space-3); background: var(--hull-raised);
+  border-left: var(--stroke-bar) solid var(--scan); color: var(--ink); font: 400 13px/19px var(--font-sans); letter-spacing: 0;
+  text-transform: none; text-align: left; white-space: normal; }
+.help-answer[hidden] { display: none; }
+.help-line { margin: var(--space-2) 0; }
+.page-guide .opt .same-plan { margin-top: var(--space-2); font-size: 13px; color: var(--ink-muted); }
+.glossary { max-width: 72ch; }
+.glossary dt { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin-top: var(--space-6); scroll-margin-top: 80px; }
+.glossary dt:target { color: var(--scan); }
+.glossary dd { margin: var(--space-1) 0 0; color: var(--ink-muted); line-height: 1.55; }

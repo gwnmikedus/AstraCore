@@ -2,30 +2,50 @@
 {% from "_artwork.html" import artwork %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
 {% block content %}
+{% macro pilots(count) %}{{ count }} {{ 'pilot' if count == 1 else 'pilots' }} would use this{% endmacro %}
+{# "This would help me": a signal for the maintainer, never a ranking or a promise. #}
+{% macro help_mark(target) %}{% set count = votes.get(target, 0) %}{% set mine = target in voted %}
+<div class="help-mark">
+  {% if user %}<form method="post" action="/community/votes"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="target" value="{{ target }}"><button type="submit" class="outline secondary" aria-pressed="{{ 'true' if mine else 'false' }}">{{ icon('check' if mine else 'plus') }} {{ 'This would help me' if not mine else 'You would use this' }}</button></form>{% endif %}
+  {% if count %}<span class="help-mark-count">{{ icon('users') }} {{ pilots(count) }}</span>{% endif %}
+</div>
+{% endmacro %}
+{% macro stage_pill(report) %}{% if report.stage %}<span class="pill stage stage-{{ report.stage }}">{{ report.stage_label }}</span>{% elif report.delivery == 'withdrawn' %}<span class="pill stage">Withdrawn</span>{% elif report.delivery == 'ambiguous' %}<span class="pill stage">Delivery being checked</span>{% elif report.delivery == 'published' %}<span class="pill stage">Published</span>{% else %}<span class="pill stage">Waiting for publication</span>{% endif %}{% endmacro %}
 <div class="ac-stack community-page">
-<header class="ac-page-header community-header">
+<header class="ac-page-header community-header" id="welcome">
 <div class="eyebrow">AstraCore / Built with capsuleers</div>
 <h1 class="page-title">Community</h1>
-<p class="community-intro">Help shape AstraCore. See what's being built now, what's planned next and which directions we're exploring, then suggest something useful or tell us what went wrong.</p>
+<p class="community-intro">AstraCore is free, and it's built with the pilots who use it. Every idea, bug report and "this would help me" tells us what to build next. Thank you for flying with us.</p>
 {{ artwork('community-rendezvous', '(max-width: 760px) 100vw, 480px', 'community-header-art') }}
-<div class="community-actions"><a class="primary-link" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a><a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a>{{ external_link(github_url, 'Source & contributions', new_tab=false) }}{% if user and user.is_admin %}<a href="/community/admin">Manage feedback</a>{% endif %}</div>
+<div class="community-actions"><a class="primary-link" href="/feedback?kind=idea">{{ icon('lightbulb', 'icon-lightbulb') }} Suggest an idea</a><a class="text-action" href="/feedback?kind=bug">{{ icon('bug', 'icon-bug') }} Report a bug</a><a class="text-action" href="#build">{{ icon('github') }} Contribute</a>{% if user and user.is_admin %}<a href="/community/admin">Manage feedback</a>{% endif %}</div>
+{% if moved %}<p class="community-moved" role="status"><a href="#my-reports-title">{{ icon('sparkles') }} {{ moved }} of your reports moved</a> since your last visit.</p>{% endif %}
+{% for report in live_now %}<p class="flash ok community-live" role="status">{{ icon('circle-check') }}<span>Your {{ 'bug fix' if report.kind == 'bug' else 'idea' }} is live: <a href="/community/reports/{{ report.id }}">{{ report.title }}</a>. Thank you.</span></p>{% endfor %}
+{% for item in marked_live %}<p class="flash ok community-live" role="status">{{ icon('circle-check') }}<span>You said this would help you, and it's live: {% call external_link(item.url, new_tab=false) %}{{ item.title }}{% endcall %}. <a href="/releases">See what's new</a>. Thanks for telling us.</span></p>{% endfor %}
+<nav class="community-page-nav" aria-label="On this page">{% if user %}<a href="#my-reports-title">Your reports</a>{% endif %}<a href="#roadmap-title">Roadmap</a><a href="#reports-title">Open ideas & bugs</a><a href="#whats-new-title">What's new</a><a href="#thanks">Thank you</a><a href="#build">Build with us</a><a href="#creator">Founder & support</a></nav>
 <nav class="community-page-nav" aria-label="About AstraCore"><a href="/about">About</a><a href="/project">Source & contribute</a><a href="/credits#contributors">People & credits</a><a href="/releases">What's new</a><a href="/what-we-read">What we read</a><a href="/privacy">Privacy</a></nav>
-<div class="community-status">
-<p class="muted">Priorities may change. These are proposed directions, not promised delivery dates or community vote counts. New suggestions are reviewed before becoming planned work.</p>
-{% if sync.problem %}<p class="flash warn" role="status">{{ sync.problem }}</p>{% endif %}
-{% if sync.last_success %}<p class="muted">GitHub last checked {{ sync.last_success|ago }}. Issue links show the current discussion.</p>{% else %}<p class="muted">The roadmap is available below. GitHub issue status will appear after the first successful connection.</p>{% endif %}
-</div>
-<nav class="community-page-nav" aria-label="Roadmap sections"><a href="#roadmap-title">Roadmap</a><a href="#reports-title">Open issues & ideas</a><a href="#released-title">Released</a>{% if user %}<a href="#my-reports-title">Your reports</a>{% endif %}</nav>
 </header>
-{% macro roadmap_card(item, lane) %}<li class="horizon-card ac-panel">
+
+{% if user %}<section class="ac-section" aria-labelledby="my-reports-title" id="your-reports"><h2 id="my-reports-title">Your reports</h2>
+{% if mine %}<p class="muted">Only you and the maintainer see who sent these. The status follows the public discussion on GitHub.</p>
+<ul class="community-report-list">{% for report in mine %}<li{% if report.moved %} class="report-moved"{% endif %}><a href="/community/reports/{{ report.id }}">{{ report.title }}</a><span class="report-state">{% if report.moved %}<span class="report-moved-label">Moved</span>{% endif %}{{ stage_pill(report) }}{% if report.stage == 'declined' %} {% call external_link(report.issue.url, new_tab=false) %}Read the reply{% endcall %}{% endif %}{% if report.credit %}<span class="muted">Reported by {{ report.credit.name }}</span>{% endif %}</span></li>{% endfor %}</ul>
+{% else %}<p class="muted">You haven't sent a report yet. When you do, you'll see here where it stands: Under review · Planned · Being built · Going live soon · Live.</p>{% endif %}
+</section>{% endif %}
+
+{% macro roadmap_card(item, lane) %}<li class="horizon-card ac-panel"{% if item.slug %} id="direction-{{ item.slug }}"{% endif %}>
   <div class="horizon-card-meta"><span class="console-label">{{ item.area }}</span>{% if item.issue and item.issue.status == 'Completed' %}<span class="pill horizon-soon">Going live soon</span>{% endif %}</div>
   <h4>{{ item.title }}</h4>{% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
   {% if item.basis %}<details><summary>Why this is on the roadmap</summary><p>{{ item.basis }}</p><p>{{ item.details }}</p>{% if item.slug == 'clearer-plan-comparison' %}<p>{{ external_link(research_url, 'Read the community feedback that informed this direction', new_tab=false) }}. This describes other tools and does not measure AstraCore demand.</p>{% endif %}</details>{% endif %}
-  {% if item.issue %}<p class="horizon-card-link">{% call external_link(item.issue.url, new_tab=false) %}Follow issue #{{ item.issue.number }}{% endcall %}</p>{% elif lane == 'exploring' %}<p class="horizon-card-link"><a class="text-action" href="/feedback?kind=idea">Shape this direction {{ icon('arrow-right') }}</a></p>{% endif %}
+  {% if item.slug and lane != 'released' %}{{ help_mark('direction:' ~ item.slug) }}{% endif %}
+  {% if item.issue %}<p class="horizon-card-link">{% call external_link(item.issue.url, new_tab=false) %}Follow issue #{{ item.issue.number }}{% endcall %}</p>{% elif item.slug %}<p class="horizon-card-link"><a class="text-action" href="/feedback?direction={{ item.slug }}">Shape this direction {{ icon('arrow-right') }}</a></p>{% endif %}
 </li>{% endmacro %}
-<section class="ac-section" aria-labelledby="roadmap-title">
+<section class="ac-section" aria-labelledby="roadmap-title" id="roadmap">
 <h2 id="roadmap-title">Roadmap</h2>
-<p class="horizon-live">{{ icon('circle-check') }} <span><strong>{{ board.released|length }}</strong> {{ 'improvement is' if board.released|length == 1 else 'improvements are' }} live today.</span> <a href="#released-title">See what's released</a> · <a href="/releases">What's new</a></p>
+<div class="community-status">
+<p class="muted">Priorities may change. These are proposed directions, not promised delivery dates. "This would help me" is a signal we read, not a vote count that decides the order. New suggestions are reviewed before becoming planned work.</p>
+{% if sync.problem %}<p class="flash warn" role="status">{{ sync.problem }}</p>{% endif %}
+{% if sync.last_success %}<p class="muted">GitHub last checked {{ sync.last_success|ago }}. Issue links show the current discussion.</p>{% else %}<p class="muted">The roadmap is available below. GitHub issue status will appear after the first successful connection.</p>{% endif %}
+</div>
+<p class="horizon-live">{{ icon('circle-check') }} <span><strong>{{ board.released|length }}</strong> {{ 'improvement is' if board.released|length == 1 else 'improvements are' }} live today.</span> <a href="#released-title">See what's released</a> · <a href="#whats-new-title">What's new</a></p>
 <div class="horizon-board">
 {% set lanes = [
   ('now', 'Now', 'Being built, or finished and about to go live.', 'Nothing is being built at this moment. Everything finished so far is live.'),
@@ -38,19 +58,86 @@
 </section>{% endfor %}
 </div>
 </section>
+
 <section class="ac-section" aria-labelledby="reports-title">
-<h2 id="reports-title">Open issues & ideas</h2>
-{% if board.open %}<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for issue in board.open %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ issue.title }}{% endcall %}</td><td><span class="pill">{{ issue.status }}</span></td><td>{{ 'Bug' if 'type:bug' in issue.labels else ('Idea' if 'type:idea' in issue.labels else 'Project work') }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">There are no open issues or ideas right now. <a href="/feedback?kind=idea">Suggest an idea</a> or <a href="/feedback?kind=bug">report a bug</a>.</p>{% endif %}
+<h2 id="reports-title">Open ideas & bugs</h2>
+<p class="community-hint">Same problem? Give it a thumbs-up or a comment on GitHub; it helps us prioritise.</p>
+{% if board.open %}<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th><th>Would help</th></tr></thead><tbody>{% for issue in board.open %}<tr id="issue-{{ issue.number }}"><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ issue.title }}{% endcall %}</td><td><span class="pill stage stage-{{ issue.stage }}">{{ issue.stage_label }}</span></td><td>{{ 'Bug' if 'type:bug' in issue.labels else ('Idea' if 'type:idea' in issue.labels else 'Project work') }}</td><td>{% if 'type:bug' not in issue.labels %}{{ help_mark('issue:' ~ issue.number) }}{% else %}<span class="muted">Give it a thumbs-up on GitHub</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">There are no open issues or ideas right now. <a href="/feedback?kind=idea">Suggest an idea</a> or <a href="/feedback?kind=bug">report a bug</a>.</p>{% endif %}
 <p>{{ external_link(github_url ~ '/issues', 'See all issues and discussions on GitHub', new_tab=false) }}</p>
 </section>
+
 <section class="ac-section" aria-labelledby="released-title">
 <h2 id="released-title">Released</h2>
 {% set finished = board.released + board.closed %}
 {% if finished %}<details class="horizon-archive"><summary>Show {{ board.released|length }} released {{ 'item' if board.released|length == 1 else 'items' }}{% if board.closed %} and {{ board.closed|length }} closed without changes{% endif %}</summary>
-<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for item in finished|sort(attribute='issue.number', reverse=true) %}{% set issue = item.issue %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ item.title }}{% endcall %}</td><td><span class="pill">{{ issue.status }}</span></td><td>{% if item.summary %}Roadmap{% elif 'type:bug' in issue.labels %}Bug{% elif 'type:idea' in issue.labels %}Idea{% else %}Project work{% endif %}</td></tr>{% endfor %}</tbody></table></div>
-<p><a href="/releases">Read the release notes</a> for the highlights of each release.</p>
+<div class="scroll"><table><thead><tr><th>Issue</th><th>Status</th><th>Type</th></tr></thead><tbody>{% for item in finished|sort(attribute='issue.number', reverse=true) %}{% set issue = item.issue %}<tr><td>{% call external_link(issue.url, new_tab=false) %}#{{ issue.number }} · {{ item.title }}{% endcall %}</td><td><span class="pill stage stage-{{ issue.stage }}">{{ issue.stage_label }}</span></td><td>{% if item.summary %}Roadmap{% elif 'type:bug' in issue.labels %}Bug{% elif 'type:idea' in issue.labels %}Idea{% else %}Project work{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 </details>{% else %}<p class="muted">Released work will appear here once it's live.</p>{% endif %}
 </section>
-{% if user %}<section class="ac-section" aria-labelledby="my-reports-title"><h2 id="my-reports-title">Your reports</h2>{% if mine %}<ul class="community-report-list">{% for report in mine %}<li><a href="/community/reports/{{ report.id }}">{{ report.title }}</a><span class="muted">{{ 'Published' if report.delivery == 'published' else ('Withdrawn' if report.delivery == 'withdrawn' else ('Delivery being checked' if report.delivery == 'ambiguous' else 'Waiting for publication')) }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">You have not submitted a report yet.</p>{% endif %}</section>{% endif %}
+
+<section class="ac-section" aria-labelledby="whats-new-title" id="whats-new">
+<h2 id="whats-new-title">What's new</h2>
+<article class="ac-panel community-release">
+  <div class="eyebrow">Version {{ latest_release.version }}{% if latest_release.date %} · <time datetime="{{ latest_release.date }}">{{ latest_release.date }}</time>{% endif %}</div>
+  <h3>{{ latest_release.title }}</h3>
+  {% if latest_release.changes %}<ul>{% for change in latest_release.changes[:3] %}<li>{{ change }}</li>{% endfor %}</ul>{% endif %}
+  {% if latest_credits %}<p class="community-reported-by">{{ icon('heart') }} <span>Reported by {% for credit in latest_credits %}{% for name in credit.names %}<strong>{{ name }}</strong>{{ ', ' if not loop.last }}{% endfor %} ({% call external_link(credit.url, new_tab=false) %}#{{ credit.number }}{% endcall %}){{ '; ' if not loop.last }}{% endfor %}. Thank you.</span></p>{% endif %}
+  <p><a class="text-action" href="/releases#release-{{ latest_release.version }}">Read the full release notes {{ icon('arrow-right') }}</a></p>
+</article>
+</section>
+
+<section class="ac-section community-thanks" aria-labelledby="thanks-title" id="thanks">
+<h2 id="thanks-title">Thank you</h2>
+<p class="community-intro">AstraCore stands on other people's work. Here's who makes it possible, and what we use from each of them.</p>
+<ul class="thanks-grid" role="list">
+  <li class="thanks-card ac-panel" id="shaped">
+    <span class="console-label">{{ icon('heart') }} Pilots who shaped it</span>
+    <p>Pilots who report bugs, send ideas and test early builds decide what gets better next.</p>
+    {% if shaped %}<p class="thanks-names">{% for name in shaped %}<strong>{{ name }}</strong>{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+    <p class="muted">Names appear only when a pilot chooses "Reported by" credit on their own report. We never show wallets, locations or game data.</p>
+  </li>
+  <li class="thanks-card ac-panel">
+    <span class="console-label">{{ icon('github') }} Code contributors</span>
+    <p>Code, documentation and reviews on GitHub.</p>
+    {% if contributor_credits.people %}<p class="thanks-names">{% for person in contributor_credits.people %}<strong>{{ person.characters|map(attribute='name')|join(', ') if person.characters else person.login }}</strong>{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+    <a class="text-action" href="/credits#contributors">Meet the contributors {{ icon('arrow-right') }}</a>
+  </li>
+  <li class="thanks-card ac-panel">
+    <span class="console-label">{{ icon('layers') }} DalShooth</span>
+    <p>Every PI template AstraCore suggests comes from DalShooth's collection. We refer to those templates and never write our own.</p>
+    {{ external_link('https://github.com/DalShooth/EVE_PI_Templates', 'DalShooth/EVE_PI_Templates') }}
+  </li>
+  <li class="thanks-card ac-panel">
+    <span class="console-label">{{ icon('truck') }} VOC Hauling</span>
+    <p>The courier tariff and buyback that hauling costs and sale options are based on.</p>
+    {{ external_link('https://vochauling.com', 'VOC Hauling') }}
+  </li>
+  <li class="thanks-card ac-panel">
+    <span class="console-label">{{ icon('globe-lock') }} ESI and Fuzzwork</span>
+    <p>Fenris Creations (formerly CCP Games) for EVE Online, ESI, EVE SSO and the image server. Steve Ronuken's Fuzzwork for the static data with PI schematics.</p>
+    <span class="thanks-links">{{ external_link('https://developers.eveonline.com', 'EVE developers') }} {{ external_link('https://www.fuzzwork.co.uk/dump/', 'Fuzzwork') }}</span>
+  </li>
+  <li class="thanks-card ac-panel">
+    <span class="console-label">{{ icon('route') }} Other community tools</span>
+    <p>Tools many pilots use alongside AstraCore. Listed for convenience, not as partners or endorsements.</p>
+    <ul class="thanks-tools">{% for tool in tools %}<li>{{ external_link(tool.url, tool.name) }} <span class="muted">{{ tool.use }}</span></li>{% endfor %}</ul>
+    <p class="muted">Before we build something another tool already does, we talk to its author. Tool authors can {{ external_link(github_url ~ '/issues/72', 'ask for an edit on GitHub', new_tab=false) }}.</p>
+  </li>
+  <li class="thanks-card ac-panel">
+    <span class="console-label">{{ icon('house') }} Our home</span>
+    <p>Dutch Legions and Insidious., the corporation and alliance AstraCore grew up in.</p>
+    {{ external_link('https://dutchlegions.nl', 'Dutch Legions') }}
+  </li>
+</ul>
+<p class="muted">Libraries, fonts, licences and the full list of credits are on the <a href="/credits">Credits page</a>.</p>
+</section>
+
+<section class="ac-section" aria-labelledby="build-title" id="build">
+<h2 id="build-title">Build with us</h2>
+<p class="community-intro">Code, documentation and careful testing all help. Start with the contribution guide and an existing issue, or propose an improvement before starting a larger change.</p>
+<div class="ac-actions">{{ external_link(project.repository_url, 'Explore the source on GitHub', cls='text-action') }}{{ external_link(project.contributing_url, 'Contribution guide', cls='text-action') }}<a class="text-action" href="/project">Source, licence and how to contribute {{ icon('arrow-right') }}</a></div>
+<p class="muted">The source is available under {{ external_link(project.license_url, project.license_name) }}: noncommercial use, changes and sharing are allowed. Issues and pull requests are public, so keep character names, wallets and locations out of them.</p>
+</section>
+
+{% include "_creator.html" %}
 </div>
 {% endblock %}

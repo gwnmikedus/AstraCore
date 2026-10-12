@@ -9,7 +9,7 @@ function setup() {
   const c = {API:"/pi/api", AbortController, setTimeout, clearTimeout, JSON, String, document: {querySelectorAll:()=>links},
     $: id=>nodes[id], state: ()=>({effort:100}), showLabels(){}, esc:String,
     AC:{post(url, body){return new Promise(resolve=>requests.push({url, body, resolve}));}},
-    render(res,st){draws.push(res);}, markAlt(){}, loadAlts(){}};
+    render(res,st){draws.push(res);}, updateSellingCoverage(){}, markAlt(){}, loadAlts(){}};
   vm.createContext(c);
   const code = source.slice(source.indexOf('let timer ='), source.indexOf('let altSeq ='));
   vm.runInContext('let altSeq = 0;'+code, c);

@@ -295,6 +295,9 @@ def test_authenticated_esi_cache_is_per_character_and_deleted_with_it():
     import httpx
     from astracore.esi.client import ESIClient
 
+    with db.session() as c:   # start clean, whatever other tests cached for this path
+        c.execute("DELETE FROM http_cache WHERE url LIKE '%customs_offices%'")
+
     calls = []
 
     def api(request):

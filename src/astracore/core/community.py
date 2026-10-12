@@ -2,6 +2,12 @@
 
 Private ownership and delivery state stay in SQLite. GitHub is authoritative for public
 issue status. A timed-out create is reconciled before any administrator can retry it.
+
+The Community hub also keeps three small, private signals per profile (ENGAGEMENT_SCHEMA):
+"this would help me" marks on roadmap directions and open ideas, opt-in "Reported by" credit
+per report, and the last report stage a pilot has seen (for the "your report moved" notice).
+MARK_SEEN_SCHEMA adds the same "seen" record for marks, so a pilot hears once when something they
+said would help them goes live.
 """
 from __future__ import annotations
 
@@ -12,6 +18,7 @@ import json
 import logging
 import re
 import secrets
+import sqlite3
 import time
 from pathlib import Path
 from typing import Optional
@@ -22,8 +29,9 @@ from fastapi import APIRouter, HTTPException, Request
 
 from astracore import config, db
 from . import sessions
+from .project import REPOSITORY_URL, SITE_URL
 from .releases import user_agent
-from .web import redirect, render
+from .web import redirect, render, templates
 
 router = APIRouter()
 log = logging.getLogger("astracore.community")
@@ -55,6 +63,32 @@ CREATE TABLE IF NOT EXISTS community_sync (
 );
 INSERT OR IGNORE INTO community_sync(id) VALUES(1);
 """
+# Added by migration v8. Additive only: older builds ignore these tables.
+ENGAGEMENT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS community_votes (
+    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    target TEXT NOT NULL, created_at REAL NOT NULL,
+    PRIMARY KEY(profile_id, target)
+);
+CREATE INDEX IF NOT EXISTS community_votes_target ON community_votes(target);
+CREATE TABLE IF NOT EXISTS community_credit (
+    feedback_id TEXT PRIMARY KEY REFERENCES community_feedback(id) ON DELETE CASCADE,
+    character_id INTEGER NOT NULL, created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS community_report_seen (
+    feedback_id TEXT PRIMARY KEY REFERENCES community_feedback(id) ON DELETE CASCADE,
+    stage TEXT NOT NULL, seen_at REAL NOT NULL
+);
+"""
+# Added by migration v9. Additive only: older builds ignore the table and the index.
+MARK_SEEN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS community_vote_seen (
+    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    target TEXT NOT NULL, stage TEXT NOT NULL, seen_at REAL NOT NULL,
+    PRIMARY KEY(profile_id, target)
+);
+CREATE INDEX IF NOT EXISTS community_issues_roadmap ON community_issues(roadmap_slug);
+"""
 
 ROADMAP_VERSION = 1
 ROADMAP = (
@@ -78,7 +112,9 @@ ROADMAP = (
     {"slug": "upkeep-reminders", "area": "PI", "title": "Reminders when a colony needs you",
      "summary": "Optional notices when an extractor stops or a colony's storage is about to fill.",
      "basis": "Named as a later extension of the upkeep schedule.",
-     "details": "Reminders would stay opt-in. Tell us which moments are worth a notice and where you'd like to receive it."},
+     "details": "Reminders would stay opt-in. Community tools such as Industrial EVE and Planets in Space already send PI "
+                "alerts, so we'd rather work with them or link to them than build a copy. Tell us what they miss for you, "
+                "which moments are worth a notice and where you'd like to receive it."},
     {"slug": "fittings", "area": "Fittings", "title": "Fittings across your alts",
      "summary": "The right ship on the right character, with a shared preparation routine.",
      "basis": "A community direction, not yet scoped.",
@@ -91,6 +127,14 @@ ROADMAP = (
      "summary": "Logistics, industry, markets, skills and intel could follow.",
      "basis": "Ideas to explore together, with no promised availability.",
      "details": "Suggest the part of your operation you'd like to see next."},
+)
+ROADMAP_BY_SLUG = {item["slug"]: item for item in ROADMAP}
+# Other tools pilots use alongside AstraCore (#72). Only tools verified to exist; neutral wording.
+COMMUNITY_TOOLS = (
+    {"name": "Janice", "url": "https://janice.e-351.com", "use": "Appraisals and item prices."},
+    {"name": "EVE Ref", "url": "https://everef.net", "use": "Reference data for items, blueprints and markets."},
+    {"name": "zKillboard", "url": "https://zkillboard.com", "use": "Killmails and PvP history."},
+    {"name": "Pyfa", "url": "https://github.com/pyfa-org/Pyfa", "use": "Ship fitting, offline on your own computer."},
 )
 RESEARCH_URL = "https://www.reddit.com/r/Eve/comments/1w5vnhx/the_new_and_improved_solution_to_your_pi_problems/"
 FIELDS = ("kind", "title", "description", "steps", "expected", "actual")
@@ -229,11 +273,24 @@ def issue_status(issue: dict) -> str:
     return "Under review"
 
 
+# The words a pilot sees, matching the roadmap lanes. `issue_status` stays the internal status.
+STAGES = {"review": "Under review", "planned": "Planned", "building": "Being built",
+          "soon": "Going live soon", "live": "Live", "declined": "Not planned for now"}
+SHAPED_STAGES = ("planned", "building", "soon", "live")
+
+
+def issue_stage(issue: dict) -> str:
+    return {"Released": "live", "Completed": "soon", "Closed": "declined", "In progress": "building",
+            "Planned": "planned"}.get(issue_status(issue), "review")
+
+
 def _issue_row(row) -> dict:
     value = dict(row)
     value["labels"] = json.loads(value.pop("labels_json"))
     value["url"] = f"{repository_url()}/issues/{value['number']}"
     value["status"] = issue_status(value)
+    value["stage"] = issue_stage(value)
+    value["stage_label"] = STAGES[value["stage"]]
     return value
 
 
@@ -513,24 +570,321 @@ def roadmap_board(issues: list) -> dict:
     return board
 
 
+# --------------------------------------------------------------------------- your reports: stage, notices, credit
+def _issues_by_number(c, numbers) -> dict:
+    numbers = sorted({n for n in numbers if n})
+    if not numbers:
+        return {}
+    rows = c.execute(f"SELECT * FROM community_issues WHERE number IN ({','.join('?' * len(numbers))})", numbers)
+    return {r["number"]: _issue_row(r) for r in rows}
+
+
+def _credit_names(c, where: str, args: tuple) -> dict:
+    """feedback id -> credited character. A credit only shows while the character still belongs to the
+    reporter's profile; removing the character (or the profile) ends it without a trace."""
+    rows = c.execute("SELECT cr.feedback_id, ch.character_id, ch.name FROM community_credit cr "
+                     "JOIN community_feedback f ON f.id=cr.feedback_id "
+                     "JOIN characters ch ON ch.character_id=cr.character_id AND ch.profile_id=f.profile_id "
+                     f"WHERE {where}", args)
+    return {r["feedback_id"]: {"character_id": r["character_id"], "name": r["name"]} for r in rows}
+
+
+def my_reports(profile_id: int) -> list:
+    """The pilot's reports with their roadmap stage, whether it moved since they last looked, and credit."""
+    reports = feedback_for(profile_id)
+    with db.session() as c:
+        issues = _issues_by_number(c, [r["issue_number"] for r in reports])
+        seen = {r["feedback_id"]: r["stage"] for r in c.execute(
+            "SELECT s.feedback_id, s.stage FROM community_report_seen s "
+            "JOIN community_feedback f ON f.id=s.feedback_id WHERE f.profile_id=?", (profile_id,))}
+        credits = _credit_names(c, "f.profile_id=?", (profile_id,))
+    for report in reports:
+        issue = issues.get(report["issue_number"]) if report["delivery"] == "published" else None
+        report["issue"] = issue
+        report["stage"] = issue["stage"] if issue else None
+        report["stage_label"] = issue["stage_label"] if issue else None
+        report["moved"] = bool(issue) and issue["stage"] != seen.get(report["id"], "review")
+        report["credit"] = credits.get(report["id"])
+    return reports
+
+
+def mark_seen(reports: list) -> None:
+    now = time.time()
+    with db.session() as c:
+        for report in reports:
+            if report.get("stage"):
+                c.execute("INSERT INTO community_report_seen(feedback_id,stage,seen_at) VALUES(?,?,?) "
+                          "ON CONFLICT(feedback_id) DO UPDATE SET stage=excluded.stage,seen_at=excluded.seen_at",
+                          (report["id"], report["stage"], now))
+
+
+def moved_count(user: Optional[dict]) -> int:
+    """How many of the pilot's published reports changed stage since they last looked (menu and hub).
+
+    One small query per signed-in page view; it never contacts GitHub."""
+    if not user:
+        return 0
+    try:
+        with db.session() as c:
+            rows = c.execute("SELECT i.state, i.state_reason, i.labels_json, s.stage AS seen FROM community_feedback f "
+                             "JOIN community_issues i ON i.number=f.issue_number "
+                             "LEFT JOIN community_report_seen s ON s.feedback_id=f.id "
+                             "WHERE f.profile_id=? AND f.delivery='published'", (user["id"],)).fetchall()
+    except sqlite3.Error:
+        return 0
+    return sum(1 for r in rows if issue_stage({"state": r["state"], "state_reason": r["state_reason"],
+                                               "labels": json.loads(r["labels_json"])}) != (r["seen"] or "review"))
+
+
+def own_characters(profile_id: int) -> list:
+    with db.session() as c:
+        return [dict(r) for r in c.execute("SELECT character_id, name FROM characters WHERE profile_id=? "
+                                            "ORDER BY name COLLATE NOCASE", (profile_id,))]
+
+
+def set_credit(profile_id: int, feedback_id: str, character_id: Optional[int]) -> bool:
+    """Opt-in "Reported by" credit for one report; None withdraws it. Only the reporter's own characters."""
+    with db.session() as c:
+        row = c.execute("SELECT profile_id FROM community_feedback WHERE id=?", (feedback_id,)).fetchone()
+        if not row or row["profile_id"] != profile_id:
+            return False
+        if character_id is None:
+            c.execute("DELETE FROM community_credit WHERE feedback_id=?", (feedback_id,))
+            return True
+        owned = c.execute("SELECT 1 FROM characters WHERE character_id=? AND profile_id=?",
+                          (character_id, profile_id)).fetchone()
+        if not owned:
+            return False
+        c.execute("INSERT INTO community_credit(feedback_id,character_id,created_at) VALUES(?,?,?) "
+                  "ON CONFLICT(feedback_id) DO UPDATE SET character_id=excluded.character_id,created_at=excluded.created_at",
+                  (feedback_id, character_id, time.time()))
+    return True
+
+
+def _credit_choice(value) -> Optional[int]:
+    value = str(value or "").strip()
+    return int(value) if value.isdigit() and len(value) < 16 else None
+
+
+def _public_credits() -> list:
+    """(name, issue) for every opted-in, published report whose issue is visible on the platform."""
+    with db.session() as c:
+        credits = _credit_names(c, "f.delivery='published'", ())
+        if not credits:
+            return []
+        numbers = {r["id"]: r["issue_number"] for r in c.execute(
+            f"SELECT id, issue_number FROM community_feedback WHERE id IN ({','.join('?' * len(credits))})",
+            list(credits))}
+        issues = _issues_by_number(c, numbers.values())
+    out = []
+    for feedback_id, credit in credits.items():
+        issue = issues.get(numbers.get(feedback_id))
+        if issue and "platform:hidden" not in issue["labels"]:
+            out.append((credit["name"], issue))
+    return out
+
+
+def credited_pilots() -> list:
+    """Names of pilots who opted in and whose report was accepted (planned, being built or live)."""
+    try:
+        names = {name for name, issue in _public_credits() if issue["stage"] in SHAPED_STAGES}
+    except sqlite3.Error:
+        return []
+    return sorted(names, key=str.casefold)
+
+
+def release_issue_numbers(release: dict) -> list:
+    """Issues a release lists in its `references` (links to /issues/<n> in this repository)."""
+    numbers = []
+    for reference in release.get("references") or []:
+        found = re.fullmatch(re.escape(REPOSITORY_URL) + r"/issues/([0-9]+)/?", str(reference.get("url") or ""))
+        if found and int(found.group(1)) not in numbers:
+            numbers.append(int(found.group(1)))
+    return numbers
+
+
+def release_credits(release: dict) -> list:
+    """[{number, url, title, names}] for the issues a release lists that have opt-in "Reported by" names."""
+    numbers = release_issue_numbers(release)
+    if not numbers:
+        return []
+    try:
+        credits = _public_credits()
+    except sqlite3.Error:
+        return []
+    out = []
+    for number in numbers:
+        matches = [(name, issue) for name, issue in credits if issue["number"] == number]
+        if matches:
+            out.append({"number": number, "url": f"{REPOSITORY_URL}/issues/{number}", "title": matches[0][1]["title"],
+                        "names": sorted({name for name, _ in matches}, key=str.casefold)})
+    return out
+
+
+# --------------------------------------------------------------------------- "this would help me"
+def votable(issue: dict) -> bool:
+    return (issue["state"] == "open" and "platform:hidden" not in issue["labels"]
+            and "type:bug" not in issue["labels"])
+
+
+def vote_anchor(target: str) -> Optional[str]:
+    """The hub anchor of a valid mark target: a curated direction, or an open idea shown on the platform."""
+    found = re.fullmatch(r"direction:([a-z0-9-]{1,80})", target or "")
+    if found:
+        return f"direction-{found.group(1)}" if found.group(1) in ROADMAP_BY_SLUG else None
+    found = re.fullmatch(r"issue:([1-9][0-9]{0,8})", target or "")
+    if not found:
+        return None
+    with db.session() as c:
+        row = c.execute("SELECT * FROM community_issues WHERE number=?", (int(found.group(1)),)).fetchone()
+    issue = _issue_row(row) if row else None
+    return f"issue-{issue['number']}" if issue and votable(issue) else None
+
+
+def toggle_vote(profile_id: int, target: str) -> bool:
+    """One mark per pilot and item; a second press takes it back. Returns whether it is now set."""
+    with db.session() as c:
+        removed = c.execute("DELETE FROM community_votes WHERE profile_id=? AND target=?", (profile_id, target))
+        if removed.rowcount:
+            c.execute("DELETE FROM community_vote_seen WHERE profile_id=? AND target=?", (profile_id, target))
+            return False
+        c.execute("INSERT INTO community_votes(profile_id,target,created_at) VALUES(?,?,?)",
+                  (profile_id, target, time.time()))
+    return True
+
+
+def vote_counts() -> dict:
+    with db.session() as c:
+        return {r["target"]: r["n"] for r in c.execute(
+            "SELECT target, COUNT(*) AS n FROM community_votes GROUP BY target")}
+
+
+def my_votes(profile_id: int) -> set:
+    with db.session() as c:
+        return {r["target"] for r in c.execute("SELECT target FROM community_votes WHERE profile_id=?", (profile_id,))}
+
+
+# A marked item's issue: the issue itself, or the roadmap issue linked to a direction. Both lookups use
+# an index (the issue number, community_issues_roadmap). Only a closed issue can be live; a direction reads
+# all its issues so it follows the same (lowest-numbered, visible) issue as the roadmap board.
+_MARKS_LIVE_SQL = (
+    "SELECT v.target, s.stage AS seen, i.* FROM community_votes v "
+    "JOIN community_issues i ON i.number = CAST(substr(v.target, 7) AS INTEGER) "
+    "LEFT JOIN community_vote_seen s ON s.profile_id=v.profile_id AND s.target=v.target "
+    "WHERE v.profile_id=? AND v.target LIKE 'issue:%' AND i.state='closed' "
+    "UNION ALL "
+    "SELECT v.target, s.stage AS seen, i.* FROM community_votes v "
+    "JOIN community_issues i ON i.roadmap_slug = substr(v.target, 11) "
+    "LEFT JOIN community_vote_seen s ON s.profile_id=v.profile_id AND s.target=v.target "
+    "WHERE v.profile_id=? AND v.target LIKE 'direction:%' "
+    "ORDER BY number")
+
+
+def marks_live(profile_id: int) -> list:
+    """Marked items that reached Live since the pilot was last told: [{target, title, number, url}].
+
+    Same stage words as reports (closed with status:released is Live). A direction follows its linked
+    roadmap issue, the lowest-numbered one as on the roadmap board. Hidden issues never notify."""
+    with db.session() as c:
+        rows = c.execute(_MARKS_LIVE_SQL, (profile_id, profile_id)).fetchall()
+    out, done = [], set()
+    for row in rows:
+        target = row["target"]
+        if target in done or "platform:hidden" in json.loads(row["labels_json"]):
+            continue
+        done.add(target)
+        issue = _issue_row({k: row[k] for k in row.keys() if k not in ("target", "seen")})
+        if issue["stage"] != "live" or row["seen"] == "live":
+            continue
+        direction = ROADMAP_BY_SLUG.get(target.split(":", 1)[1]) if target.startswith("direction:") else None
+        out.append({"target": target, "title": direction["title"] if direction else issue["title"],
+                    "number": issue["number"], "url": issue["url"]})
+    return out
+
+
+def mark_marks_seen(profile_id: int, items: list) -> None:
+    now = time.time()
+    with db.session() as c:
+        for item in items:
+            c.execute("INSERT INTO community_vote_seen(profile_id,target,stage,seen_at) VALUES(?,?,'live',?) "
+                      "ON CONFLICT(profile_id,target) DO UPDATE SET stage=excluded.stage,seen_at=excluded.seen_at",
+                      (profile_id, item["target"], now))
+
+
+def marks_live_count(user: Optional[dict]) -> int:
+    """For the menu: one indexed query per signed-in page view; it never contacts GitHub."""
+    if not user:
+        return 0
+    try:
+        return len(marks_live(user["id"]))
+    except sqlite3.Error:
+        return 0
+
+
+templates.env.globals.update(community_moved=moved_count, community_marks_live=marks_live_count, community_credits=credited_pilots,
+                             release_credits=release_credits)
+
+
 @router.get("/roadmap")
 @router.get("/community")
 async def roadmap_page(request: Request):
+    from . import contributors
+    from .releases import history
+
     user = request.state.user
-    mine = feedback_for(user["id"]) if user else []
-    return render(request, "community.html", page="community", page_title="Community",
-                  board=roadmap_board(public_issues()), mine=mine, sync=sync_state(), github_url=repository_url(),
-                  research_url=RESEARCH_URL)
+    mine = my_reports(user["id"]) if user else []
+    marked_live = marks_live(user["id"]) if user else []
+    latest = history()[0]
+    response = render(request, "community.html", page="community", page_title="Community",
+                      board=roadmap_board(public_issues()), mine=mine, moved=sum(r["moved"] for r in mine),
+                      live_now=[r for r in mine if r["moved"] and r["stage"] == "live"], marked_live=marked_live,
+                      votes=vote_counts(), voted=my_votes(user["id"]) if user else set(),
+                      latest_release=latest, latest_credits=release_credits(latest), shaped=credited_pilots(),
+                      contributor_credits=contributors.snapshot(), tools=COMMUNITY_TOOLS,
+                      sync=sync_state(), github_url=repository_url(), research_url=RESEARCH_URL)
+    mark_seen(mine)   # after rendering: this visit shows what moved, the next one starts fresh
+    if marked_live:
+        mark_marks_seen(user["id"], marked_live)
+    return response
 
 
-def _feedback_context(request: Request, data: Optional[dict] = None, error: str = "") -> dict:
+@router.post("/community/votes")
+async def community_vote(request: Request):
+    user = sessions.require_user(request)
+    form = await request.form()
+    target = str(form.get("target") or "")
+    anchor = vote_anchor(target)
+    if not anchor:
+        return redirect("/community#roadmap-title", "This item can't take a mark right now. It may have closed.", "warn")
+    added = toggle_vote(user["id"], target)
+    return redirect(f"/community#{anchor}", "Thanks. You're counted as a pilot who would use this." if added
+                    else "Your mark is removed. Add it again any time.", "ok")
+
+
+def _feedback_context(request: Request, data: Optional[dict] = None, error: str = "",
+                      direction: Optional[dict] = None) -> dict:
     return dict(page="feedback", page_title="Share an idea or report a bug", data=data or {}, error=error,
-                github_url=repository_url(), connected=configured(), feedback_login_url="/auth/community")
+                github_url=repository_url(), connected=configured(), feedback_login_url="/auth/community",
+                direction=direction)
+
+
+def direction_prefill(slug: str) -> Optional[dict]:
+    """"Shape this direction": an idea form that names the direction and links back to it."""
+    item = ROADMAP_BY_SLUG.get(slug or "")
+    if not item:
+        return None
+    return {"kind": "idea", "title": f"{item['title']}: ",
+            "description": f"About the roadmap direction “{item['title']}” "
+                           f"({SITE_URL}/community#direction-{item['slug']}).\n\n"}
 
 
 @router.get("/feedback")
 @router.get("/community/report")
-async def feedback_page(request: Request, kind: str = "idea"):
+async def feedback_page(request: Request, kind: str = "idea", direction: str = ""):
+    prefill = direction_prefill(direction)
+    if prefill:
+        return render(request, "feedback.html",
+                      **_feedback_context(request, prefill, direction=ROADMAP_BY_SLUG[direction]))
     return render(request, "feedback.html", **_feedback_context(request, {"kind": "bug" if kind == "bug" else "idea"}))
 
 
@@ -547,7 +901,8 @@ async def feedback_preview(request: Request):
     signature = preview_signature(data, version, nonce, timestamp, user["id"])
     return render(request, "feedback_preview.html", page="feedback", page_title="Preview your public report", data=data,
                   body=public_body(data, version), version=version, submission_key=nonce, preview_at=timestamp,
-                  preview_signature=signature, github_url=repository_url(), connected=configured(), error="")
+                  preview_signature=signature, github_url=repository_url(), connected=configured(), error="",
+                  characters=own_characters(user["id"]))
 
 
 @router.post("/feedback/edit")
@@ -568,7 +923,13 @@ async def feedback_submit(request: Request):
     except ValueError as exc:
         return render(request, "feedback.html", status_code=400,
                       **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS}, str(exc)))
-    return redirect(f"/community/reports/{feedback_id}", "Your report is saved. It will appear publicly once GitHub confirms delivery.", "ok")
+    credit = _credit_choice(form.get("credit_character"))
+    if credit is not None:
+        set_credit(user["id"], feedback_id, credit)
+    return redirect(f"/community/reports/{feedback_id}", THANKS, "ok")
+
+
+THANKS = "Thanks, pilot. Your report is in. We read every one; you'll see its status under Your reports."
 
 
 @router.get("/community/reports/{feedback_id}")
@@ -578,10 +939,29 @@ async def feedback_detail(request: Request, feedback_id: str):
         row = c.execute("SELECT * FROM community_feedback WHERE id=?", (feedback_id,)).fetchone()
     if not row or (row["profile_id"] != user["id"] and not user.get("is_admin")):
         raise HTTPException(status_code=404, detail="Report not found.")
+    own = row["profile_id"] == user["id"]
     with db.session() as c:
         issue = c.execute("SELECT * FROM community_issues WHERE number=?", (row["issue_number"],)).fetchone()
-    return render(request, "feedback_detail.html", page="feedback", page_title="Your report", report=dict(row),
-                  issue=_issue_row(issue) if issue else None, github_url=repository_url())
+        credit = _credit_names(c, "f.id=?", (feedback_id,)).get(feedback_id)
+    issue = _issue_row(issue) if issue else None
+    response = render(request, "feedback_detail.html", page="feedback", page_title="Your report", report=dict(row),
+                      issue=issue, github_url=repository_url(), credit=credit, own=own,
+                      characters=own_characters(user["id"]) if own else [])
+    if own and issue and row["delivery"] == "published":
+        mark_seen([{"id": feedback_id, "stage": issue["stage"]}])
+    return response
+
+
+@router.post("/community/reports/{feedback_id}/credit")
+async def feedback_credit(request: Request, feedback_id: str):
+    user = sessions.require_user(request)
+    form = await request.form()
+    character_id = _credit_choice(form.get("credit_character"))
+    if not set_credit(user["id"], feedback_id, character_id):
+        raise HTTPException(status_code=404, detail="Report not found.")
+    return redirect(f"/community/reports/{feedback_id}",
+                    "Credit saved. Your character name can appear as “Reported by” once this is accepted."
+                    if character_id else "Credit removed. This report stays anonymous.", "ok")
 
 
 @router.post("/community/reports/{feedback_id}/withdraw")

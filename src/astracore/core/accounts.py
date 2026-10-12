@@ -72,20 +72,32 @@ def move_character(character_id: int, to_profile: int) -> Optional[int]:
     return src
 
 
-def merge_profiles(src: int, dst: int) -> None:
-    """Fold profile `src` into `dst`: characters, EVE accounts and saved plans move; planet overrides move
-    where dst has none; dst's settings win. `src` is deleted afterwards (its sessions too)."""
+def merge_profiles(src: int, dst: int, character_id: int) -> bool:
+    """Merge only a profile whose sole character was authenticated by the caller.
+
+    Check and transfer under the same write lock, so a concurrent character link cannot expand
+    the caller's authority. Destination settings win; source sessions are removed.
+    """
     if src == dst:
-        return
+        return False
     with db.session() as c:
+        c.execute("BEGIN IMMEDIATE")
+        chars = c.execute("SELECT character_id FROM characters WHERE profile_id=? LIMIT 2", (src,)).fetchall()
+        if len(chars) != 1 or chars[0]["character_id"] != character_id:
+            return False
         c.execute("UPDATE eve_accounts SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("UPDATE characters SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("UPDATE plan_runs SET profile_id=?, active=0 WHERE profile_id=?", (dst, src))
         c.execute("UPDATE community_feedback SET profile_id=? WHERE profile_id=?", (dst, src))
+        c.execute("INSERT OR IGNORE INTO community_votes(profile_id, target, created_at) "
+                  "SELECT ?, target, created_at FROM community_votes WHERE profile_id=?", (dst, src))
+        c.execute("INSERT OR IGNORE INTO community_vote_seen(profile_id, target, stage, seen_at) "
+                  "SELECT ?, target, stage, seen_at FROM community_vote_seen WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO planet_overrides(profile_id, planet_id, richness) "
                   "SELECT ?, planet_id, richness FROM planet_overrides WHERE profile_id=?", (dst, src))
-    db.delete_profile(src)
+        c.execute("DELETE FROM profiles WHERE id=?", (src,))
     _fix_main(dst)
+    return True
 
 
 # --------------------------------------------------------------------------- invite gate
@@ -144,6 +156,17 @@ def export_profile(profile_id: int) -> Dict:
         feedback = [dict(r) for r in c.execute(
             "SELECT id, kind, title, body, version, created_at, updated_at, delivery, issue_number "
             "FROM community_feedback WHERE profile_id=? ORDER BY created_at", (profile_id,))]
+        # "This would help me" marks and the credit you chose per report (which character, if any).
+        marks = [dict(r) for r in c.execute(
+            "SELECT target, created_at FROM community_votes WHERE profile_id=? ORDER BY created_at", (profile_id,))]
+        # Which marked items you were already told went live.
+        marks_seen = [dict(r) for r in c.execute(
+            "SELECT target, stage, seen_at FROM community_vote_seen WHERE profile_id=? ORDER BY seen_at", (profile_id,))]
+        credits = [dict(r) for r in c.execute(
+            "SELECT cc.feedback_id, cc.character_id, cc.created_at FROM community_credit cc "
+            "JOIN community_feedback f ON f.id = cc.feedback_id WHERE f.profile_id=? ORDER BY cc.created_at",
+            (profile_id,))]
     return {"exported_at": time.time(), "profile": p, "eve_accounts": db.list_accounts(profile_id),
             "characters": chars, "module_settings": modset, "plans": plans, "planet_overrides": overrides,
-            "sessions": sessions, "feedback": feedback}
+            "sessions": sessions, "feedback": feedback, "community_marks": marks, "community_marks_seen": marks_seen,
+            "report_credits": credits}

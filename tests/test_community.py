@@ -421,7 +421,9 @@ def test_merging_profiles_keeps_feedback_ownership():
     from astracore.core import accounts
     src, fid = create_saved()
     dst = db.create_profile("Destination")
-    accounts.merge_profiles(src, dst)
+    cid = new_id()
+    db.link_character(cid, src, "Sole character")
+    assert accounts.merge_profiles(src, dst, cid)
     assert load_saved(fid)["profile_id"] == dst
     assert not community.feedback_for(src)
     assert community.feedback_for(dst)[0]["id"] == fid

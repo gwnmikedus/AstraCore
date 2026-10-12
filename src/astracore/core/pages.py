@@ -26,6 +26,15 @@ async def project_page(request: Request):
     return render(request, "project.html", page="project", page_title="Source & contribute")
 
 
+@router.get("/voc-hauling", response_class=HTMLResponse)
+async def voc_hauling_page(request: Request):
+    from astracore.modules.pi import store as pi_store
+    from astracore.modules.pi.static_data import voc
+    return render(request, "voc_hauling.html", page="voc-hauling", page_title="About VOC Hauling",
+                  s=pi_store.admin_settings(), routes=voc.routes_cached(), routes_info=voc.routes_info(),
+                  voc_site=voc.SITE, buyback_site=voc.BUYBACK_SITE, corp_name=voc.CORP_NAME)
+
+
 @router.get("/releases", response_class=HTMLResponse)
 async def releases_page(request: Request):
     return render(request, "releases.html", page="releases", page_title="What’s new",

@@ -42,3 +42,47 @@ test('transfers are grouped per receiving character', () => {
   assert.equal(transfersHTML([]), '');
   assert.equal(transfersHTML(undefined), '');
 });
+
+const LABELS = [['poor', 0.6], ['average', 1], ['good', 1.25], ['rich', 1.5]];
+
+test('each plan row offers what an in-game scan showed, and says where its richness comes from now', () => {
+  const {richnessHTML} = load();
+  const estimate = richnessHTML({planet_id: 4001, planet: 'Gas <I>', richness: 1.2}, LABELS);
+  assert.match(estimate, /data-richness-planet="4001"/);
+  assert.match(estimate, /aria-label="Richness of Gas &lt;I> as scanned in game"/);
+  assert.match(estimate, /<option value="" selected>Not scanned: 1.2×<\/option><optgroup label="Scanned in game">/);
+  assert.match(estimate, /<option value="1.5">Scanned: rich \(1.5×\)<\/option>/);
+  assert.equal((estimate.match(/ selected/g) || []).length, 1);
+
+  const measured = richnessHTML({planet_id: 1, planet: 'X', richness: 0.9, richness_source: 'extractors'}, LABELS);
+  assert.match(measured, /<option value="" selected>Your extractors: 0.9×/);
+
+  const scanned = richnessHTML({planet_id: 1, planet: 'X', richness: 1.25, richness_source: 'scan'}, LABELS);
+  assert.match(scanned, /<option value="1.25" selected>Scanned: good/);
+  assert.match(scanned, /<option value="">Not scanned \(estimate\)/);
+
+  const typed = richnessHTML({planet_id: 1, planet: 'X', richness: 1.3, richness_source: 'scan'}, LABELS);
+  assert.match(typed, /<option value="1.3" selected>Scanned: 1.3×<\/option><\/optgroup>/);   // an older custom value stays
+
+  assert.equal(richnessHTML({planet: 'old plan without ids', richness: 1}, LABELS), '');
+  assert.equal(richnessHTML({planet_id: 1, planet: 'X', richness: 1}, []), '');
+});
+
+test('"Never produce" lists the products of the plan and the ones already left out', () => {
+  const {neverProduceHTML} = load();
+  const html = neverProduceHTML({never_produce: ['Oxygen'], colonies: [
+    {product: 'Coolant', tier: 2}, {product: 'Water', tier: 1}, {product: 'Water', tier: 1}, {product: 'Bacteria', tier: 1}]});
+  const boxes = [...html.matchAll(/data-never="([^"]+)"( checked)?/g)].map(m => m[1] + (m[2] ? '*' : ''));
+  assert.deepEqual(boxes, ['Bacteria', 'Water', 'Coolant', 'Oxygen*']);
+  assert.match(html, /untick one to allow it again/);
+  assert.doesNotMatch(neverProduceHTML({colonies: [{product: 'Water', tier: 1}]}), /untick/);
+  assert.equal(neverProduceHTML({colonies: []}), '');
+});
+
+test('ticking and unticking keeps the stored list of names', () => {
+  const {toggledNever} = load();
+  assert.deepEqual([...toggledNever(['Water'], 'Coolant', true)], ['Water', 'Coolant']);
+  assert.deepEqual([...toggledNever(['water', 'Coolant'], 'Water', false)], ['Coolant']);   // typed lists match too
+  assert.deepEqual([...toggledNever(['Water'], 'Water', true)], ['Water']);
+  assert.deepEqual([...toggledNever(undefined, 'Water', true)], ['Water']);
+});

@@ -16,11 +16,13 @@ function fixture() {
     getAttribute() { return this.failed ? 'true' : 'false'; }, focus() { context.focused = id; }}));
   const chosen = [];
   const context = {$, cur: 1, QUESTIONS: 8, st: {}, saving: false, results: {}, picks: {},
+    SELL_COVERAGE: {local: true, courier: true, trade_hub: false}, saved: {},
     answered: new Set(), STEP_CONTEXT: {cycle: 'Pick a rhythm'}, esc: String,
-    AC: {icon: () => ''}, hourPicker: () => '', blockedNote: () => '', wireHour() {}, navigate() {}, commit() {}, go() {},
+    AC: {icon: () => ''}, hourPicker: () => '', blockedNote: () => '', stepHelp: () => '', wireHour() {}, navigate() {}, commit() {}, go() {},
     choose: (step, id) => chosen.push(id), paint() {}, load() {},
     document: {querySelectorAll: () => options}};
   vm.createContext(context);
+  vm.runInContext(guide.slice(guide.indexOf('const SELL ='), guide.indexOf('const STEPS =')), context);
   vm.runInContext(code, context);
   context.showQuestion({id: 'cycle', q: 'How often?', match: () => 1,
     options: options.map((o, i) => ({id: i + 1, label: 'Answer ' + (i + 1), blurb: 'Details'}))});
@@ -86,4 +88,39 @@ test('ready answers retain arrow selection and saving prevents answer changes', 
   options[2].onkeydown(key('Home'));
   options[0].onclick();
   assert.deepEqual(chosen, [2, 3]);
+});
+
+
+test('outside coverage waits for an explicit own-trip choice before comparisons', async () => {
+  const {context, $} = fixture();
+  context.SELL_COVERAGE = {local: false, courier: false, trade_hub: false};
+  const requests = [];
+  context.AC.post = async (url, body) => { requests.push({url, body}); return {ok: true}; };
+  context.API = '/pi/api';
+  let loads = 0;
+  context.load = () => loads++;
+  const step = {id: 'cycle', q: 'How often?', match: () => 1, options: []};
+  context.showQuestion(step);
+  assert.equal($('next').disabled, true);
+  assert.equal(loads, 0);
+  assert.match($('q').innerHTML, /Use my own trip to a trade hub/);
+  $('enable-own-trip').isConnected = true;
+  await $('enable-own-trip').onclick();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/pi/api/save');
+  assert.equal(requests[0].body.use_self_haul, true);
+  assert.equal(context.st.use_self_haul, true);
+  assert.equal(context.saved.use_self_haul, true);
+  assert.equal(loads, 1);
+});
+
+test('outside selling offers own trips and hides unreachable Delve or courier choices', () => {
+  const {context, $} = fixture();
+  context.SELL_COVERAGE = {local: false, courier: false, trade_hub: false};
+  context.st.use_self_haul = true;
+  context.showQuestion({id: 'sell', q: 'Selling?', match: () => 'self', options: [
+    {id: 'nohaul', label: 'Delve'}, {id: 'courier', label: 'VOC'},
+    {id: 'self', label: 'Own trip'}, {id: 'orders', label: 'List orders'}]});
+  assert.match($('q').innerHTML, /Own trip/);
+  assert.doesNotMatch($('q').innerHTML, /answer-name-\d+">(?:Delve|VOC|List orders)/);
 });

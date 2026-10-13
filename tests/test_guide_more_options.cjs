@@ -6,10 +6,14 @@ const path = require('node:path');
 const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
 
 function fixture(settings = {}) {
-  const calls = [], visits = [];
+  const calls = [], visits = [], nodes = new Map();
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, {style: {setProperty(key, value) { this[key] = value; }}});
+    return nodes.get(id);
+  };
   const context = {S: {guide_step: 0, answered: [], effort: 50, per_planet: 2, cross_character: true,
     ship_every_days: 21, hour_isk: -1, ...settings}, SELLER: {}, API: '/pi/api',
-    Promise, window: {}, document: {querySelectorAll: () => []},
+    Promise, window: {}, document: {querySelectorAll: () => []}, $,
     go(index) { visits.push(index); }, setHint() {},
   };
   context.window = context;
@@ -18,15 +22,17 @@ function fixture(settings = {}) {
     vm.runInContext(readFileSync(path.join(__dirname, '../src/astracore/static/js', file), 'utf8'), context);
   context.AC.post = async (url, body) => { calls.push({url, body: JSON.parse(JSON.stringify(body))}); return context.reply || {ok: true}; };
   context.esc = context.AC.esc;
+  context.AC.icon = () => '';
   vm.runInContext(guide.slice(guide.indexOf('const SELL ='), guide.indexOf('// ---- state')), context);
   vm.runInContext(guide.slice(guide.indexOf('const st ='), guide.indexOf('const STEP_CONTEXT')), context);
   vm.runInContext(guide.match(/^const optOf = .*$/m)[0] + guide.match(/^const labelOf = .*$/m)[0], context);
   vm.runInContext(guide.slice(guide.indexOf('// ---- question route'), guide.indexOf('// ---- tracker')), context);
+  vm.runInContext(guide.slice(guide.indexOf('function drawTrack()'), guide.indexOf('// Leave the current question')), context);
   vm.runInContext(guide.slice(guide.indexOf('async function navigate('), guide.indexOf('// ---- a question')), context);
   vm.runInContext(guide.slice(guide.indexOf('async function save('), guide.indexOf('// ---- the result')), context);
   const run = code => vm.runInContext(code, context);
   const state = () => JSON.parse(run('JSON.stringify({st, saved, answered:[...answered], cur, MAIN, optionalReturn})'));
-  return {context, calls, visits, run, state};
+  return {context, calls, visits, run, state, $};
 }
 
 const MAIN_IDS = ['goal', 'cycle', 'area', 'tier', 'sell'];
@@ -39,6 +45,33 @@ test('five main questions retain the original indices and skip the optional stop
   assert.equal(run('cur = 6; backIndex()'), 3);
   assert.equal(run('nextIndex(6)'), 8);
   assert.equal(run('cur = 8; backIndex()'), 6);
+});
+
+test('optional questions preserve their originating main progress without changing saved answers', async () => {
+  for (const [origin, optional, expected] of [[3, 4, 55.2], [6, 5, 73.6], [8, 7, 92]]) {
+    const {context, run, state, $} = fixture({guide_step: origin, answered: [...MAIN_IDS, 'share', 'chain', 'batch']});
+    context.go = index => run(`cur = ${index}`);
+    const before = state();
+    run('drawTrack()');
+    const progress = $('track').style['--progress'];
+    await run(`navigate(${optional})`);
+    run('drawTrack()');
+    assert.equal($('track').style['--progress'], progress);
+    assert.ok(Math.abs(parseFloat(progress) - expected) < 0.001);
+    assert.deepEqual(state().st, before.st);
+    assert.deepEqual(state().saved, before.saved);
+    assert.deepEqual(state().answered, before.answered);
+  }
+});
+
+test('reloading a saved optional question keeps progress at its main return position', () => {
+  for (const index of [4, 5, 7]) {
+    const {run, $, state} = fixture({guide_step: index, answered: ['goal', 'cycle', 'area', 'tier']});
+    const before = state();
+    run('drawTrack()');
+    assert.ok(Math.abs(parseFloat($('track').style['--progress']) - 73.6) < 0.001);
+    assert.deepEqual(state(), before);
+  }
 });
 
 test('More options shows saved non-default settings without treating them as answered', () => {

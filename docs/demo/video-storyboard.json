@@ -1,0 +1,74 @@
+{
+  "capture_build": "v0.3.13",
+  "capture_commit": "0a37a329a175fff92917fd57d134aeff8629ae8f",
+  "fixture_issue": 196,
+  "scenes": [
+    {
+      "image": "characters.png",
+      "title": "Your characters",
+      "points": [
+        "Connect each character",
+        "Review what is read",
+        "Check skills and slots"
+      ],
+      "narration": "This is AstraCore's fictional screenshot tour, with no live pilot data. On your own profile, connect each EVE character separately, review the permissions, and check planetary skills and colony slots."
+    },
+    {
+      "image": "area.png",
+      "title": "Your operating area",
+      "points": [
+        "Choose where you fly",
+        "Fine-tune constellations",
+        "Check the drop-off"
+      ],
+      "narration": "Choose your goal and login routine, then confirm an operating area in guided setup. Use the detailed Area page to fine tune constellations and the drop off. Demo Harbour is entirely fictional."
+    },
+    {
+      "image": "question.png",
+      "title": "A routine that fits",
+      "points": [
+        "Income versus upkeep",
+        "Logins and travel",
+        "Products and selling"
+      ],
+      "narration": "Balance income against the time you spend on upkeep. Review login frequency, travel, products and selling. These demo comparisons use fixed illustrative figures. They do not optimize the fictional crew or save changes."
+    },
+    {
+      "image": "result.png",
+      "title": "Check assumptions",
+      "points": [
+        "Yield is estimated",
+        "Prices and demand change",
+        "Read limits before building"
+      ],
+      "narration": "Review production, time, hauling and assumptions before building. Yield is estimated, while prices, order depth and demand can change. This summary has no colony allocation or templates. It is not an executable plan."
+    },
+    {
+      "image": "operate.png",
+      "title": "Your next action",
+      "points": [
+        "Restart or restock",
+        "Open colonies in EVE",
+        "Refresh before acting"
+      ],
+      "narration": "After building, Operate highlights your next action, such as a restart, pickup or restock. Colony data updates after you open the colony in EVE. Check freshness, then restart extractors and move cargo yourself."
+    },
+    {
+      "image": "operate.png",
+      "title": "Fly and sell yourself",
+      "points": [
+        "Check routes and capacity",
+        "Templates by DalShooth",
+        "EVE Online by CCP"
+      ],
+      "narration": "Check routes, docking access, cargo capacity and provider terms before hauling or selling. Real plans refer to DalShooth's templates. EVE Online belongs to CCP. Built by capsuleers and contributors, AstraCore is independent. Estimates are not guaranteed earnings."
+    }
+  ],
+  "updated_captures": {
+    "question.png": {
+      "build": "v0.3.21",
+      "commit": "968e103171f050ad686eb16d0cb2b3dfffaec3a5",
+      "reason": "Five main guided questions and simpler answer details"
+    }
+  }
+}

@@ -363,7 +363,7 @@ def data_stamp(profile_id: int) -> tuple:
                   for c in db.list_characters(profile_id))
     return (profile_id, chars, tuple(sorted(store.planet_overrides(profile_id).items())),
             prices.cached().get("at"), prices.history_cached().get("at"), voc.routes_info().get("at"),
-            tuple(sorted(store.admin_defaults().items())))
+            tuple(sorted(store.admin_defaults().items())), sde_loader.stamp())
 
 
 def plan_key(profile_id: int, s: Settings) -> str:

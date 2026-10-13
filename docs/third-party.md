@@ -55,9 +55,11 @@ terms again).
 | URL | `https://www.fuzzwork.co.uk/dump/latest/csv/<table>.csv` (`modules/pi/static_data/sde_loader.py`) |
 | Basis | Public conversion of CCP's static data export; the SDE itself falls under the EVE Developer License. Credited as a courtesy |
 | What we use | Planet schematics, item names, volumes, tiers and groups needed for PI |
-| Stored | Downloaded at runtime into the ignored data directory; not committed |
+| Stored | Source CSVs and derived recipes share one runtime database cache; legacy files in the ignored data directory are retained as fallback. Not committed |
+| Refresh | The two PI CSV tables are checked at most once every 24 hours using HTTP validators. Both are validated and confirmed unchanged during the fetch before one cache write publishes their recipes. A forced load requests both tables anew; failed checks retry after an hour |
+| Provenance | The shared `pi_data_v1` cache records each table's URL basis, ETag, Last-Modified and SHA-256, plus successful check/load times and the latest failed attempt. `sde_loader.source_info()` exposes these diagnostics without raw CSV text; there is no claim to know the dump's global revision number |
 | Attribution | Credits page and THIRD_PARTY_NOTICES.md |
-| On failure | The last downloaded copy keeps working; CCP's official SDE is an alternative source |
+| On failure | The last validated recipes keep working, with a logged warning and stale/error diagnostics. Legacy local CSVs are a fallback when no derived cache exists; their age is unknown. If no valid copy exists, loading fails. CCP's official SDE is an alternative source, not an automatic fallback |
 
 ## DalShooth PI templates: open
 

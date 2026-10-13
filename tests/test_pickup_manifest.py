@@ -140,6 +140,8 @@ def test_item_list_empty_authentication_and_missing_name(browser, eve, metadata,
     db.set_character(cid, colonies=[colony()])
     del metadata.items[1]["volume"]
     assert client.get("/pi/export/pickup.txt").text == "Biofuels\t15\n"
+    metadata.items[1]["name"] = "1"
+    assert client.get("/pi/export/pickup.txt").status_code == 503
     del metadata.items[1]["name"]
     assert client.get("/pi/export/pickup.txt").status_code == 503
     monkeypatch.setattr(sde_loader, "cached", lambda: None)

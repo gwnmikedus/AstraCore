@@ -776,7 +776,8 @@ def _pickup_item_list(pi, chars):
     totals = defaultdict(int)
     for row in _pickup_rows(pi, chars):
         name = pi.items[row["type_id"]].get("name")
-        if not name or any(char in name for char in "\r\n\t"):
+        if (not name or not name.strip() or name == str(row["type_id"])
+                or any(char in name for char in "\r\n\t")):
             raise HTTPException(503, "The item list needs cached EVE product names. Open Operate to load them first.")
         totals[name] += row["quantity"]
     return voc.paste_list(totals)

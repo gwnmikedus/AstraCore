@@ -929,7 +929,7 @@ async def feedback_submit(request: Request):
     return redirect(f"/community/reports/{feedback_id}", THANKS, "ok")
 
 
-THANKS = "Thanks, pilot. Your report is in. We read every one; you'll see its status under Your reports."
+THANKS = "Thanks, pilot. Your report is in. We read every one; you'll see its status under Your bug reports & ideas."
 
 
 @router.get("/community/reports/{feedback_id}")

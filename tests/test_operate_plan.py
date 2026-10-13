@@ -237,3 +237,37 @@ def test_starter_stock_from_any_trade_hub_is_no_shipment():
     assert not operate.pi_shipment(_courier(21, pi_items=True, start=3), locs)
     assert not operate.pi_shipment(_courier(22, pi_items=True, start=4), locs)
     assert operate.pi_shipment(_courier(23, pi_items=True, start=1), locs)
+
+
+def test_operate_colony_notes_are_closed_and_escaped_but_urgent_visits_remain_visible(browser, eve, monkeypatch, pi):
+    import re
+    from astracore.modules.pi import service
+
+    c = browser()
+    cid = new_id()
+    sso_login(c, eve, cid, "Notes Pilot")
+    db.save_token(cid, "rt", "at", 1199, PI_SCOPES)
+    factory, _ = _colonies(time.time())
+    db.set_character(cid, colonies=[factory], synced_at=time.time())
+    async def ctx(profile_id, *args, **kwargs):
+        return {"chars": service.planning_characters(profile_id), "pi": pi, "s": Settings(),
+                "books": {}, "area": None, "tpl": []}
+    original = service.operate_overview
+    def overview(*args, **kwargs):
+        value = original(*args, **kwargs)
+        row = value["upkeep"]["colonies"][0]
+        row.update(state="expired", next="restock", next_hours=0, visit_every_days=7,
+                   issues=["Storage fills before your next visit.", "<script>fictional note</script>"])
+        return value
+    monkeypatch.setattr(service, "planning_context", ctx)
+    monkeypatch.setattr(service, "operate_overview", overview)
+    response = c.get("/pi/operate")
+    assert response.status_code == 200, response.text
+    html = response.text
+    notes = re.search(r'<details><summary class="warn">.*?Colony notes \(2\)</summary>.*?</details>', html, re.S)
+    assert notes
+    assert '<li class="warn">Storage fills before your next visit.</li>' in notes.group()
+    assert '&lt;script&gt;fictional note&lt;/script&gt;' in notes.group()
+    assert '<script>fictional note' not in html
+    assert 'Restock inputs' in html and '<b>now</b>' in html and 'every 7.0 days' in html
+    assert 'Restock inputs' not in notes.group() and '<b>now</b>' not in notes.group()

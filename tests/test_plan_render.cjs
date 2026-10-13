@@ -8,7 +8,7 @@ const render = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/te
 const helpers = render.slice(render.indexOf('function colonyValueHTML'), render.indexOf('// opts.steps'));
 
 function load() {
-  const context = {AC: {eveImg: () => ''}, esc: s => String(s).replace(/</g, '&lt;'), isk: v => `${v} ISK`, num: String};
+  const context = {AC: {eveImg: () => '', icon: () => ''}, esc: s => String(s).replace(/</g, '&lt;'), isk: v => `${v} ISK`, num: String};
   vm.createContext(context);
   vm.runInContext(helpers, context);
   return context;
@@ -21,6 +21,25 @@ test('a feeder says which factory it supplies and never shows a bare 0', () => {
   assert.match(html, /value counted at the factory/);
   assert.match(html, /→ feeds Pilot B’s Polyaramids factory/);
   assert.doesNotMatch(html, /0 ISK/);
+});
+
+test('colony notes combine upkeep and planning notes in one closed disclosure with escaped text', () => {
+  const {colonyNotesHTML} = load();
+  const html = colonyNotesHTML({upkeep: {issues: ['Storage fills before the next visit.']},
+    notes: ['Shared hotspot: counted at 70% yield.', '<img src=x onerror=alert(1)>']});
+  assert.match(html, /^<details><summary class="warn">.*Colony notes \(3\)<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b|<img/);
+  assert.match(html, /<li class="warn">Storage fills before the next visit\.<\/li>/);
+  assert.match(html, /<li class="warn">Shared hotspot: counted at 70% yield\.<\/li>/);
+  assert.match(html, /&lt;img src=x/);
+  assert.equal((html.match(/<li /g) || []).length, 3);
+});
+
+test('old plans and colonies without notes have no empty disclosure', () => {
+  const {colonyNotesHTML} = load();
+  assert.equal(colonyNotesHTML({}), '');
+  assert.equal(colonyNotesHTML({notes: [], upkeep: {issues: []}}), '');
+  assert.match(colonyNotesHTML({notes: ['Keep this note.']}), /Colony notes \(1\)/);
 });
 
 test('a priced feeder keeps its value; old saved plans without feeds still render', () => {

@@ -68,6 +68,12 @@ function colonyValueHTML(c) {
     `<br><span class="muted" style="font-size:.8rem" title="${esc(num(f.units))} ${esc(f.item)}/day">→ feeds ${esc(f.character)}’s ${esc(f.product)} factory</span>`).join('');
   return (c.value_at_factory && feeds ? `<span class="muted">value counted at the factory</span>` : isk(c.value_per_day)) + feeds;
 }
+function colonyNotesHTML(c) {
+  const notes = [...(c.upkeep && c.upkeep.issues || []), ...(c.notes || [])];
+  if (!notes.length) return '';
+  return `<details><summary class="warn">${AC.icon('triangle-alert')} Colony notes (${notes.length})</summary>` +
+    `<ul style="white-space:normal">${notes.map(n => `<li class="warn">${esc(n)}</li>`).join('')}</ul></details>`;
+}
 // Transfers between characters, one line per receiving character.
 function transfersHTML(rows) {
   if (!rows || !rows.length) return '';
@@ -161,8 +167,7 @@ function planHTML(res, opts = {}) {
             ${c.p0.length ? `<br><span class="muted">extract ${c.p0.map(esc).join(', ')}</span>` : ''}
             ${c.utilisation < 0.99 ? `<br><span class="muted">runs at ${Math.round(c.utilisation*100)}% (limited by inputs)</span>` : ''}
             ${c.upkeep && c.upkeep.visit_every_days ? `<br><span class="muted">${c.kind === 'miner' ? 'visit' : 'restock'} every ${num(c.upkeep.visit_every_days, 1)} days · ${m3(c.upkeep.capacity_m3)} buffer</span>` : ''}
-            ${(c.upkeep && c.upkeep.issues || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}
-            ${(c.notes || []).map(n => `<br><span class="warn" style="font-size:.8rem">${esc(n)}</span>`).join('')}</div></div></td>
+            ${colonyNotesHTML(c)}</div></div></td>
         <td><span class="itemlist">${outs}</span> <span class="muted">P${c.tier}</span></td>
         <td class="muted">${ins || '-'}</td>
         <td>${colonyValueHTML(c)}</td>

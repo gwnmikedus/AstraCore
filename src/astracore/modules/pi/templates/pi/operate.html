@@ -261,7 +261,9 @@
       {% else %}<span class="muted">–</span>{% endif %}</td>
     <td class="{{ 'warn' if u.stale else 'muted' }}">{{ u.last_update|ago if u.last_update else 'unknown' }}
       {% if not u.routes_known %}<br><span class="muted" title="Refresh from ESI to check that factories and extractors are routed.">routes not checked yet</span>{% endif %}</td></tr>
-  {% if u.issues %}<tr><td colspan="6">{% for i in u.issues %}<span class="warn">{{ icon('triangle-alert') }} {{ i }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endif %}
+  {% if u.issues %}<tr><td colspan="6"><details><summary class="warn">{{ icon('triangle-alert') }} Colony notes ({{ u.issues|length }})</summary>
+    <ul style="white-space:normal">{% for i in u.issues %}<li class="warn">{{ i }}</li>{% endfor %}</ul>
+  </details></td></tr>{% endif %}
   {% endfor %}</tbody></table></div>
   {% endif %}
   {% if upkeep.plan_checks %}

@@ -15,5 +15,5 @@
 {% if characters %}<form method="post" action="/community/reports/{{ report.id }}/credit" class="community-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Credit<select name="credit_character"><option value=""{% if not credit %} selected{% endif %}>Keep me anonymous</option>{% for character in characters %}<option value="{{ character.character_id }}"{% if credit and credit.character_id == character.character_id %} selected{% endif %}>Show “Reported by {{ character.name }}”</option>{% endfor %}</select></label><button class="outline secondary" type="submit">Save credit choice</button></form>{% endif %}
 </section>{% endif %}
 {% if report.delivery == 'queued' %}<form action="/community/reports/{{ report.id }}/withdraw" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="outline secondary" type="submit">Withdraw before publication</button></form>{% endif %}
-<p><a href="/community#my-reports-title">Back to your reports</a>{% if user.is_admin %} · <a href="/community/admin">Manage delivery</a>{% endif %}</p>
+<p><a href="/community#my-reports-title">Back to your bug reports &amp; ideas</a>{% if user.is_admin %} · <a href="/community/admin">Manage delivery</a>{% endif %}</p>
 {% endblock %}

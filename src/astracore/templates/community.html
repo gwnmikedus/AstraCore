@@ -21,14 +21,15 @@
 {% if moved %}<p class="community-moved" role="status"><a href="#my-reports-title">{{ icon('sparkles') }} {{ moved }} of your reports moved</a> since your last visit.</p>{% endif %}
 {% for report in live_now %}<p class="flash ok community-live" role="status">{{ icon('circle-check') }}<span>Your {{ 'bug fix' if report.kind == 'bug' else 'idea' }} is live: <a href="/community/reports/{{ report.id }}">{{ report.title }}</a>. Thank you.</span></p>{% endfor %}
 {% for item in marked_live %}<p class="flash ok community-live" role="status">{{ icon('circle-check') }}<span>You said this would help you, and it's live: {% call external_link(item.url, new_tab=false) %}{{ item.title }}{% endcall %}. <a href="/releases">See what's new</a>. Thanks for telling us.</span></p>{% endfor %}
-<nav class="community-page-nav" aria-label="On this page">{% if user %}<a href="#my-reports-title">Your reports</a>{% endif %}<a href="#roadmap-title">Roadmap</a><a href="#reports-title">Open ideas & bugs</a><a href="#whats-new-title">What's new</a><a href="#thanks">Thank you</a><a href="#build">Build with us</a><a href="#creator">Founder & support</a></nav>
+<nav class="community-page-nav" aria-label="On this page">{% if user %}<a href="#my-reports-title">Your bug reports &amp; ideas</a>{% endif %}<a href="#roadmap-title">Roadmap</a><a href="#reports-title">Open ideas & bugs</a><a href="#whats-new-title">What's new</a><a href="#thanks">Thank you</a><a href="#build">Build with us</a><a href="#creator">Founder & support</a></nav>
 <nav class="community-page-nav" aria-label="About AstraCore"><a href="/about">About</a><a href="/project">Source & contribute</a><a href="/credits#contributors">People & credits</a><a href="/releases">What's new</a><a href="/what-we-read">What we read</a><a href="/privacy">Privacy</a></nav>
 </header>
 
-{% if user %}<section class="ac-section" aria-labelledby="my-reports-title" id="your-reports"><h2 id="my-reports-title">Your reports</h2>
+{% if user %}<section class="ac-section" aria-labelledby="my-reports-title" id="your-reports"><h2 id="my-reports-title">Your bug reports &amp; ideas</h2>
+<p class="muted">Track feedback you submitted through AstraCore.</p>
 {% if mine %}<p class="muted">Only you and the maintainer see who sent these. The status follows the public discussion on GitHub.</p>
 <ul class="community-report-list">{% for report in mine %}<li{% if report.moved %} class="report-moved"{% endif %}><a href="/community/reports/{{ report.id }}">{{ report.title }}</a><span class="report-state">{% if report.moved %}<span class="report-moved-label">Moved</span>{% endif %}{{ stage_pill(report) }}{% if report.stage == 'declined' %} {% call external_link(report.issue.url, new_tab=false) %}Read the reply{% endcall %}{% endif %}{% if report.credit %}<span class="muted">Reported by {{ report.credit.name }}</span>{% endif %}</span></li>{% endfor %}</ul>
-{% else %}<p class="muted">You haven't sent a report yet. When you do, you'll see here where it stands: Under review · Planned · Being built · Going live soon · Live.</p>{% endif %}
+{% else %}<p class="muted">You haven't submitted a bug report or idea yet. When you do, you'll see here where it stands: Under review · Planned · Being built · Going live soon · Live.</p>{% endif %}
 </section>{% endif %}
 
 {% macro roadmap_card(item, lane) %}<li class="horizon-card ac-panel"{% if item.slug %} id="direction-{{ item.slug }}"{% endif %}>

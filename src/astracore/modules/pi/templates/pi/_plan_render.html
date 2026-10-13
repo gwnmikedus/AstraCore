@@ -240,7 +240,7 @@ function renderDemand(d) {
     const [cls, label] = r.book_missing ? ['muted', 'Not checked'] : DEMAND_STATUS[r.status] || DEMAND_STATUS.unknown;
     const hs = r.history;
     const traded = hs && hs.days
-      ? `${num(hs.avg_volume)}<br><span class="muted">${hs.days}/${hs.window} days with trades${r.volume_share !== null ? ` · plan = ${AC.pct(r.volume_share * 100, 0)}` : ''}</span>`
+      ? `${num(hs.avg_volume)}<br><span class="muted">${hs.days}/${hs.window} days with trades${Number.isFinite(r.volume_share) ? ` · plan = ${AC.pct(r.volume_share * 100, 0)}` : ''}</span>`
       : '<span class="muted">no history</span>';
     let sale = '<span class="muted">VOC buyback</span>';
     if (r.book_missing) {
@@ -252,7 +252,7 @@ function renderDemand(d) {
       sale = !im.filled ? '<span class="bad">no visible buyers</span>' : `≈ ${num(im.avg_net, 2)} net / unit<br><span class="muted">${im.short ? `fills ${num(im.filled)} of ${num(r.qty)}` : `fills all`} · ${im.levels} price level${im.levels === 1 ? '' : 's'}${im.avg_net < im.quoted_net ? ` · quoted ${num(im.quoted_net, 2)}` : ''}</span>`;
     } else if (r.side === 'sell') {
       sale = r.horizon_days ? `est. ${num(r.horizon_days[0], 1)}–${num(r.horizon_days[1], 1)} days` : '<span class="muted">no estimate</span>';
-      if (r.price_uncertainty_pct !== null) sale += `<br><span class="muted">price moved ±${AC.pct(r.price_uncertainty_pct)}</span>`;
+      if (Number.isFinite(r.price_uncertainty_pct)) sale += `<br><span class="muted">price moved ±${AC.pct(r.price_uncertainty_pct)}</span>`;
     }
     h += `<tr><td>${AC.eveImg(r.item, 16)}${esc(r.item)} <span class="muted">P${r.tier}</span></td>
       <td>${esc(r.market_label)}${r.hold ? '<br><span class="muted">held for a later batch</span>' : ''}</td>

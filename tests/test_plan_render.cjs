@@ -45,6 +45,40 @@ test('transfers are grouped per receiving character', () => {
 
 const LABELS = [['poor', 0.6], ['average', 1], ['good', 1.25], ['rich', 1.5]];
 
+function demandRow(fields = {}) {
+  const context = {window: {}};
+  vm.createContext(context);
+  vm.runInContext(readFileSync(path.join(__dirname, '../src/astracore/static/js/fmt.js'), 'utf8'), context);
+  context.AC = context.window.AC;
+  context.AC.eveImg = () => '';
+  context.esc = context.AC.esc;
+  context.num = context.AC.num;
+  vm.runInContext(render.slice(render.indexOf('const DEMAND_STATUS')), context);
+  return context.renderDemand({capture: [0.1, 0.3], books_at: 0, rows: [{
+    item: 'Fictional PI product', tier: 2, market_label: 'Jita sell orders', side: 'sell',
+    status: 'unknown', per_day: 10, qty: 70, history: {days: 7, window: 7, avg_volume: 100},
+    horizon_days: [1, 2], ...fields,
+  }]});
+}
+
+test('legacy demand rows omit unavailable optional percentages but keep trade and selling information', () => {
+  for (const value of [undefined, null, NaN, Infinity, -Infinity, '0', '']) {
+    const html = demandRow({volume_share: value, price_uncertainty_pct: value});
+    assert.doesNotMatch(html, /plan =|price moved/);
+    assert.match(html, /7\/7 days with trades/);
+    assert.match(html, /est\. 1\.0–2\.0 days/);
+  }
+});
+
+test('demand percentages retain numeric zero and normal measured values', () => {
+  const zero = demandRow({volume_share: 0, price_uncertainty_pct: 0});
+  assert.match(zero, /plan = 0%/);
+  assert.match(zero, /price moved ±0%/);
+  const measured = demandRow({volume_share: 0.25, price_uncertainty_pct: 12.5});
+  assert.match(measured, /plan = 25%/);
+  assert.match(measured, /price moved ±12\.5%/);
+});
+
 test('each plan row offers what an in-game scan showed, and says where its richness comes from now', () => {
   const {richnessHTML} = load();
   const estimate = richnessHTML({planet_id: 4001, planet: 'Gas <I>', richness: 1.2}, LABELS);

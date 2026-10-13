@@ -296,6 +296,18 @@
     <p class="muted">Cached colony stock for included characters. The CSV keeps colony snapshot times;
       customs-office access and cargo capacity are not checked. Empty stock gives a CSV with headings only.
       Missing item metadata must load before unknown stock can be exported.</p>
+    {% if pickup_error %}<p class="muted warn">Item list unavailable: {{ pickup_error }}</p>
+    {% elif pickup_text %}
+    <details>
+      <summary>Item list for copying or appraisal</summary>
+      <p class="muted">Whole-unit cached products, totaled across included characters. Copy into EVE or an
+        appraisal tool you choose. The CSV keeps source timestamps and locations; check colony stock before acting.</p>
+      <textarea class="paste" readonly aria-label="Cached pickup item list">{{ pickup_text }}</textarea>
+      <button class="copy outline" data-copy="{{ pickup_text }}">{{ icon('copy') }} Copy item list</button>
+      <a role="button" class="outline" href="/pi/export/pickup.txt">{{ icon('download') }} Download item list</a>
+      <p class="muted">Copying does not send the list to another service. If copying fails, select the text above.</p>
+    </details>
+    {% endif %}
     {% for p in status.pickups %}
       <p style="margin:.2rem 0"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
       <span class="muted itemlist">{% for k, v in p['items'].items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</span></p>

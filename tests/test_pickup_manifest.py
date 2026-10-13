@@ -97,3 +97,66 @@ def test_export_metadata_limits_and_missing_timestamps(browser, eve, metadata, m
     assert client.get("/pi/export/pickup.csv").status_code == 503
     monkeypatch.setattr(sde_loader, "cached", lambda: None)
     assert client.get("/pi/export/pickup.csv").status_code == 503
+
+
+def test_item_list_aggregates_cached_stock_without_pilot_details(browser, eve, metadata):
+    client, other = browser(), browser()
+    cid, alt, excluded, foreign = [new_id() for _ in range(4)]
+    sso_login(client, eve, cid, "Synthetic Private Pilot")
+    sso_login(client, eve, alt, "Synthetic Alt", path="/auth/login?intent=add")
+    sso_login(client, eve, excluded, "Excluded", path="/auth/login?intent=add")
+    sso_login(other, eve, foreign, "Foreign")
+    for char in (cid, alt, excluded, foreign):
+        db.set_character(char, colonies=[colony()])
+    db.set_character(excluded, enabled=0)
+    response = client.get("/pi/export/pickup.txt")
+    assert response.status_code == 200
+    assert response.text == "Biofuels\t30\n"
+    assert response.headers["cache-control"] == "no-store"
+    assert "astracore-pi-pickup-items.txt" in response.headers["content-disposition"]
+    csv_rows = rows(client.get("/pi/export/pickup.csv"))
+    assert sum(int(row["quantity"]) for row in csv_rows) == 30
+    assert {row["character_id"] for row in csv_rows} == {str(cid), str(alt)}
+
+
+def test_item_list_keeps_csv_per_colony_whole_unit_rounding(browser, eve, metadata):
+    client, cid = browser(), new_id()
+    sso_login(client, eve, cid, "Synthetic Pilot")
+    first, second = colony(), colony()
+    first["pins"][0]["contents"][0]["amount"] = 12.9
+    second["pins"] = [{"contents": [{"type_id": 1, "amount": 2.2}]}]
+    db.set_character(cid, colonies=[first, second])
+    assert client.get("/pi/export/pickup.txt").text == "Biofuels\t17\n"
+    csv_rows = rows(client.get("/pi/export/pickup.csv"))
+    assert [row["quantity"] for row in csv_rows] == ["15", "2"]
+    assert [row["volume_m3"] for row in csv_rows] == ["6.042", "0.836"]
+
+
+def test_item_list_empty_authentication_and_missing_name(browser, eve, metadata, monkeypatch):
+    client, cid = browser(), new_id()
+    assert client.get("/pi/export/pickup.txt", follow_redirects=False).status_code == 303
+    sso_login(client, eve, cid, "Synthetic Pilot")
+    assert client.get("/pi/export/pickup.txt").text == ""
+    db.set_character(cid, colonies=[colony()])
+    del metadata.items[1]["volume"]
+    assert client.get("/pi/export/pickup.txt").text == "Biofuels\t15\n"
+    del metadata.items[1]["name"]
+    assert client.get("/pi/export/pickup.txt").status_code == 503
+    monkeypatch.setattr(sde_loader, "cached", lambda: None)
+    assert client.get("/pi/export/pickup.txt").status_code == 503
+
+
+@pytest.mark.parametrize("damage", ["unknown item", "unknown recipe", "missing quantity"])
+def test_pickup_formats_refuse_incomplete_stock(browser, eve, metadata, damage):
+    client, cid = browser(), new_id()
+    sso_login(client, eve, cid, "Synthetic Pilot")
+    col = colony()
+    if damage == "unknown item":
+        col["pins"][0]["contents"].append({"type_id": 9999, "amount": 2})
+    elif damage == "unknown recipe":
+        col["pins"][0]["schematic_id"] = 999
+    else:
+        del col["pins"][0]["contents"][0]["amount"]
+    db.set_character(cid, colonies=[col])
+    for path in ("/pi/export/pickup.txt", "/pi/export/pickup.csv"):
+        assert client.get(path).status_code == 503

@@ -17,6 +17,8 @@ import asyncio
 import io
 import json
 import logging
+import math
+from collections import defaultdict
 import time
 from typing import Optional
 
@@ -718,8 +720,14 @@ async def operate_page(request: Request):
     days = 30 if request.query_params.get("days") == "30" else 7
     missing = [c["name"] for c in chars if not service.pi_ready(c)]
     ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], plan)
+    pickup_text, pickup_error = "", ""
+    try:
+        pickup_text = _pickup_item_list(ctx["pi"], chars)
+    except HTTPException as exc:
+        pickup_error = exc.detail
     return render(request, "operate.html", "operate", "Operate", chars=chars,
                   status=operate.colonies_status(ctx["pi"], chars, ctx["area"]),
+                  pickup_text=pickup_text, pickup_error=pickup_error,
                   upkeep=ov["upkeep"], stock=ov["stock"], consolidated=ov["consolidated"], pipe=ov["pipe"],
                   next_up=ov["next_up"][:nextup.SHOWN], next_up_more=max(0, len(ov["next_up"]) - nextup.SHOWN),
                   all_clear=ov["all_clear"], has_colonies=ov["has_colonies"],
@@ -741,36 +749,67 @@ def _csv_text(value: str) -> str:
     return "'" + value if value.lstrip().startswith(("=", "+", "-", "@")) else value
 
 
-@router.get("/export/pickup.csv")
-async def export_pickup(request: Request):
-    chars = service.planning_characters(_pid(request))
-    pi = sde_loader.cached()
+def _pickup_rows(pi, chars):
+    """Validated cached whole-unit pickups shared by the CSV and item list."""
     if pi is None and any(ch.get("colonies") for ch in chars):
         raise HTTPException(503, "Pickup export needs cached PI item metadata. Open Operate to load it first.")
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["character", "character_id", "planet", "planet_id", "system", "product", "type_id",
-                     "quantity", "volume_m3", "colony_snapshot", "character_synced_at_utc", "metadata", "limits"])
+    rows = []
     for ch in chars:
-        synced = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ch["synced_at"])) if ch.get("synced_at") else ""
         for col in ch.get("colonies", []):
             for pin in col.get("pins", []):
                 if pin.get("schematic_id") and pin["schematic_id"] not in pi.schematics:
                     raise HTTPException(503, "Pickup export needs cached factory recipes to exclude colony inputs.")
                 for item in pin.get("contents", []) or []:
-                    if item["amount"] > 0 and pi.tier(item["type_id"]) < 0:
+                    amount = item.get("amount")
+                    if (isinstance(amount, bool) or not isinstance(amount, (int, float))
+                            or not math.isfinite(amount) or amount < 0):
+                        raise HTTPException(503, "Pickup export needs known stock quantities. Refresh colony data first.")
+                    if amount > 0 and pi.tier(item["type_id"]) < 0:
                         raise HTTPException(503, "Pickup export needs complete cached PI item metadata. "
                                             "Unknown stock cannot be classified as a finished product.")
-            planet = operate.colony_name({}, col)
             for tid, qty in sorted(operate.pickup_stock(pi, col).items()):
-                item = pi.items[tid]
-                volume = item.get("volume")
-                missing = [key for key in ("name", "volume") if item.get(key) is None]
-                writer.writerow([_csv_text(ch["name"]), ch["character_id"], _csv_text(planet["name"]),
-                                 col["planet_id"], _csv_text(planet["system"]), _csv_text(item.get("name") or str(tid)), tid,
-                                 int(qty), round(qty * volume, 3) if volume is not None else "",
-                                 col.get("last_update") or "", synced,
-                                 "missing " + ", ".join(missing) if missing else "complete", PICKUP_NOTE])
+                rows.append({"character": ch, "colony": col, "type_id": tid, "quantity": int(qty), "stock_quantity": qty})
+    return rows
+
+
+def _pickup_item_list(pi, chars):
+    totals = defaultdict(int)
+    for row in _pickup_rows(pi, chars):
+        name = pi.items[row["type_id"]].get("name")
+        if not name or any(char in name for char in "\r\n\t"):
+            raise HTTPException(503, "The item list needs cached EVE product names. Open Operate to load them first.")
+        totals[name] += row["quantity"]
+    return voc.paste_list(totals)
+
+
+@router.get("/export/pickup.txt")
+async def export_pickup_items(request: Request):
+    text = _pickup_item_list(sde_loader.cached(), service.planning_characters(_pid(request)))
+    return Response(text + "\n" if text else "", media_type="text/plain",
+                    headers={"Content-Disposition": 'attachment; filename="astracore-pi-pickup-items.txt"',
+                             "Cache-Control": "no-store"})
+
+
+@router.get("/export/pickup.csv")
+async def export_pickup(request: Request):
+    chars = service.planning_characters(_pid(request))
+    pi = sde_loader.cached()
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["character", "character_id", "planet", "planet_id", "system", "product", "type_id",
+                     "quantity", "volume_m3", "colony_snapshot", "character_synced_at_utc", "metadata", "limits"])
+    for row in _pickup_rows(pi, chars):
+        ch, col, tid, qty = row["character"], row["colony"], row["type_id"], row["quantity"]
+        synced = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ch["synced_at"])) if ch.get("synced_at") else ""
+        planet = operate.colony_name({}, col)
+        item = pi.items[tid]
+        volume = item.get("volume")
+        missing = [key for key in ("name", "volume") if item.get(key) is None]
+        writer.writerow([_csv_text(ch["name"]), ch["character_id"], _csv_text(planet["name"]),
+                         col["planet_id"], _csv_text(planet["system"]), _csv_text(item.get("name") or str(tid)), tid,
+                         qty, round(row["stock_quantity"] * volume, 3) if volume is not None else "",
+                         col.get("last_update") or "", synced,
+                         "missing " + ", ".join(missing) if missing else "complete", PICKUP_NOTE])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="astracore-pi-pickup.csv"',
                              "Cache-Control": "no-store"})

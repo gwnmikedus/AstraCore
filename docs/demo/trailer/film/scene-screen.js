@@ -19,7 +19,7 @@ kit.scene('screen', {
       '<span class="mono muted" style="font-size:18px">Example data</span></div>' +
       '<ul style="list-style:none;margin:22px 0 0;padding:0">' + rows + '</ul></div>' +
       '<div class="screen-mark" style="position:absolute;left:30px;top:108px;width:1080px;height:84px;border:3px solid var(--main)"></div>' +
-      '<p class="mono hot screen-tag" style="position:absolute;right:30px;top:66px;margin:0;font-size:20px">▸ Next action</p></div>' +
+      '<p class="mono hot screen-tag" style="position:absolute;right:30px;top:-46px;margin:0;font-size:20px">▸ Next action</p></div>' +
       '<div class="screen-frame" style="position:absolute;border:3px solid var(--main);box-sizing:border-box"></div>' +
       '<div class="screen-seed" style="position:absolute;background:var(--main)"></div>' +
       '<div class="vignette"></div><div class="grain screen-grain"></div></div>'));

@@ -20,7 +20,7 @@ kit.scene('area', {
       '<div class="layer area-map" style="transform-origin:' + AR_H[0] + 'px ' + AR_H[1] + 'px">' + svg +
       lab(AR_H[0] + 24, AR_H[1] - 40, 'Demo Harbour · drop-off', 'hot area-lab') +
       lab(AR_H[0] - 250, AR_H[1] + 280, 'Demo Coast · ≤ 3 jumps', 'muted area-lab') + '</div>' +
-      '<div class="words area-words" style="left:150px;top:170px;width:900px;gap:16px"><h2 class="line area-line" style="font-size:88px">Planned around where you fly</h2>' +
+      '<div class="words area-words" style="left:210px;top:160px;width:900px;gap:16px"><h2 class="line area-line" style="font-size:88px">Planned around where you fly</h2>' +
       '<p class="sub area-sub">Systems, planets and drop-off, found from your characters</p></div>' +
       '<div class="area-seed" style="position:absolute;left:940px;top:520px;width:40px;height:40px;background:var(--main)"></div>' +
       '<div class="vignette"></div><div class="grain area-grain"></div></div>'));

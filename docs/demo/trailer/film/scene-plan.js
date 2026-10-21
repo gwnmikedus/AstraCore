@@ -1,6 +1,6 @@
 const { seg, eo, ei, eio, lerp, TextFx } = kit;
 const PL_TILES = [['ISK / week', 8.4, (v) => v.toFixed(1) + 'M'], ['Your time / week', 105, (v) => Math.floor(v / 60) + 'h ' + String(Math.round(v % 60)).padStart(2, '0') + 'm'], ['To haul / week', 7000, (v) => Math.round(v).toLocaleString('en-US') + ' m³'], ['Colonies', 12, (v) => String(Math.round(v))]];
-window.PLAN_BTN = '<div class="planbtn" style="position:absolute;left:310px;top:780px;height:70px;padding:0 30px;display:flex;align-items:center;gap:14px;background:var(--main);color:#1a0a00;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:28px;letter-spacing:.06em;text-transform:uppercase">↓ Templates for this plan (12)</div>';
+window.PLAN_BTN = '<div class="planbtn" style="position:absolute;left:260px;top:780px;height:70px;padding:0 30px;display:flex;align-items:center;gap:14px;background:var(--main);color:#1a0a00;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:28px;letter-spacing:.06em;text-transform:uppercase">↓ Templates for this plan (12)</div>';
 kit.scene('plan', {
   init(kit) {
     const tiles = PL_TILES.map((x) => '<div style="flex:1;min-width:0;padding:26px 28px;background:var(--ground);box-shadow:inset 0 0 0 1px #2a2e33">' +
@@ -8,14 +8,14 @@ kit.scene('plan', {
       '<div class="plan-num" style="margin-top:14px;font-family:var(--mono, ui-monospace, monospace);font-size:48px;white-space:nowrap;font-variant-numeric:tabular-nums"></div></div>').join('');
     kit.stage.append(kit.h('<div class="ground bars">' +
       '<canvas class="sky plan-sky" width="1920" height="1080"></canvas>' +
-      '<div class="words plan-words" style="left:260px;top:150px;width:1400px"><h2 class="line plan-line" style="font-size:84px">A plan sized to your time</h2></div>' +
+      '<div class="words plan-words" style="left:210px;top:160px;width:1500px"><h2 class="line plan-line" style="font-size:84px">A plan sized to your time</h2></div>' +
       '<div class="plan-rig" style="position:absolute;inset:0;transform-origin:960px 600px">' +
-      '<div class="panel plan-panel" style="left:260px;top:300px;width:1400px;height:600px;padding:44px 50px;box-sizing:border-box">' +
+      '<div class="panel plan-panel" style="left:210px;top:300px;width:1500px;height:600px;padding:44px 50px;box-sizing:border-box">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline"><h3 style="margin:0;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:48px">Your plan</h3>' +
       '<span class="mono muted" style="font-size:18px">Example figures</span></div>' +
       '<div class="plan-warn" style="margin-top:24px;padding:18px 24px;box-shadow:inset 0 0 0 1px #f2c230;font-size:24px;color:var(--second)"><b style="color:#f2c230">▲ Yield is an estimate</b> until your extractors run. Prices and demand change.</div>' +
       '<div style="display:flex;gap:20px;margin-top:28px">' + tiles + '</div></div>' +
-      '<div class="plan-chk" style="position:absolute;left:820px;top:780px;height:70px;padding:0 30px;display:flex;align-items:center;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:28px;letter-spacing:.06em;text-transform:uppercase;box-shadow:inset 0 0 0 2px #646a72">Print build checklist</div></div>' +
+      '<div class="plan-chk" style="position:absolute;left:770px;top:780px;height:70px;padding:0 30px;display:flex;align-items:center;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:28px;letter-spacing:.06em;text-transform:uppercase;box-shadow:inset 0 0 0 2px #646a72">Print build checklist</div></div>' +
       window.PLAN_BTN +
       '<div class="plan-frame" style="position:absolute;border:3px solid var(--main);box-sizing:border-box"></div>' +
       '<div class="plan-seed" style="position:absolute;background:var(--main)"></div>' +

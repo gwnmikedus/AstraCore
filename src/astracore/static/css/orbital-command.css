@@ -32,32 +32,60 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .assurance-row li + li::before { content: "·"; margin: 0 10px; color: var(--ink-muted); }
 .assurance-row a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
 .assurance-row a:hover { color: var(--signal); }
+/* Film hero: the trailer plays once over the header (js/hero-film.js), then dissolves into it; Play the film replays it.
+   The hero spans the window (the script measures it); the copy keeps to the page column through --column-left. */
+.platform-hero.is-live { margin-right: 0; }
+@media (min-width: 761px) {
+  .platform-hero.is-live .platform-copy { padding-left: calc(var(--column-left, 0px) + 24px);
+    width: calc(var(--column-left, 0px) + 24px + min(780px, 50vw)); max-width: none; }
+  .platform-hero.is-live .hero-caption { left: calc(var(--column-left, 0px) + 24px); }
+}
+.hero-film { display: none; }
+.platform-hero.is-live .hero-film { display: block; position: absolute; inset: 0; z-index: 5; overflow: hidden; background: #0b0c0d;
+  transition: opacity 1.4s ease, visibility 0s linear 0s; }
+.platform-hero.film-done .hero-film { opacity: 0; visibility: hidden; transition: opacity 1.4s ease, visibility 0s linear 1.4s; }
+.platform-hero.film-done .platform-copy > * { animation: hero-rise .9s cubic-bezier(.2, .7, .2, 1) both; }
+.platform-hero.film-done .platform-copy > :nth-child(2) { animation-delay: .12s; }
+.platform-hero.film-done .platform-copy > :nth-child(3) { animation-delay: .22s; }
+.platform-hero.film-done .platform-copy > :nth-child(n+4) { animation-delay: .32s; }
+@keyframes hero-rise { from { opacity: 0; transform: translateY(18px); } }
+.hero-film-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0;
+  --display: var(--font-display); --sans: var(--font-sans); --mono: var(--font-mono);   /* the film's fonts are the site's */
+  /* The film is always night: pin the dark theme's tokens so the light theme's ink can't reach into it. */
+  --void: #0b0c0d; --hull: #131517; --hull-raised: #1b1e21; --line: #2a2e33; --line-strong: #646a72;
+  --ink: #ece8df; --ink-muted: #a19d94; --ink-faint: #6f6c66; --signal: #ff6a1a; --signal-strong: #ff8a47; --signal-tint: #3a1c0c; --on-signal: #1a0a00; }
+.hero-film-stage :is(h1, h2, h3, h4, h5, h6, p) { color: inherit; max-width: none; }
+.hero-film-stage :is(h1, h2, h3, h4, h5, h6) { line-height: 1.15; letter-spacing: normal; }   /* the site's heading rhythm stays outside */
+.hero-film-stage .grain { transform: none !important; opacity: .05; }   /* still grain: moving grain shimmers on thin lines */
+.hero-film-stage .words { text-shadow: 0 0 14px #0b0c0d, 0 0 36px #0b0c0d; }   /* lines over the star map stay clear */
+.hero-film-stage .bars::before, .hero-film-stage .bars::after { display: none; }   /* the hero frames it, not letterbox bars */
+.film-scene { position: absolute; inset: 0; }
+.film-cursor { position: absolute; left: 0; top: 0; z-index: 60; pointer-events: none; }
+.film-click { position: absolute; left: 6px; top: 4px; width: 56px; height: 56px; border: 3px solid #ff6a1a; border-radius: 50%; opacity: 0; }
+.hero-film-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 28px calc(var(--column-left, 0px) + 24px) 20px; color: #a19d94;
+  background: linear-gradient(rgba(11, 12, 13, 0), rgba(11, 12, 13, .88) 45%); }   /* readable whatever flies past */
+.hero-film-bar[hidden] { display: none; }
+.hero-film-note { margin: 0; font: 400 11px/16px var(--font-mono); letter-spacing: .04em; }
+.hero-film-controls { display: flex; gap: 8px; flex: none; }
+.hero-film-button { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid #646a72; background: rgba(11, 12, 13, .7); color: #ece8df;
+  font: 400 11px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.hero-film-button:hover, .hero-film-button:focus-visible { border-color: #ff6a1a; }
+.hero-film-button [data-hero-film-icon] { display: inline-flex; }
+.hero-film-button[data-hero-film-sound][aria-pressed="true"] { border-color: #ff6a1a; color: #ff8a47; }
+.hero-replay { position: absolute; right: max(32px, calc(var(--column-left, 0px) + 24px)); bottom: 64px; display: flex; align-items: center; gap: 14px; padding: 12px 18px 12px 12px;
+  border: 0; border-left: 2px solid var(--signal); background: var(--void); color: var(--ink); text-align: left; cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+.hero-replay[hidden] { display: none; }
+.hero-replay > .ic { width: 40px; height: 40px; padding: 10px; box-sizing: border-box; background: var(--signal); color: var(--on-signal); fill: currentColor; }
+.hero-replay-text { display: grid; gap: 2px; font-size: 13px; line-height: 18px; color: var(--ink-muted); }
+.hero-replay-label { font: 600 16px/20px var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); }
+.hero-replay:hover .hero-replay-label, .hero-replay:focus-visible .hero-replay-label { color: var(--signal); }
+.hero-replay:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
+.platform-hero.film-done .hero-replay { animation: hero-rise .9s .5s cubic-bezier(.2, .7, .2, 1) both; }
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .hero-caption > :first-child { color: var(--ink); border-left: 2px solid var(--signal); padding-left: 12px; }
 .hero-caption > :last-child { background: var(--void); padding: 2px 8px; }
-/* The trailer card sits on the scene like a ship's monitor; the film itself opens in a dialog (#216). */
-.hero-trailer { position: absolute; right: max(32px, calc((100% - 1312px) / 2)); bottom: 64px; width: clamp(300px, 26vw, 420px); display: grid; gap: 0;
-  padding: 0; border: 0; background: var(--void); color: var(--ink); text-align: left; text-transform: none; letter-spacing: normal; font: inherit; min-height: 0; cursor: pointer; box-shadow: var(--shadow-lift);
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px)); }
-.hero-trailer-poster { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; }
-.hero-trailer-poster img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease-out; }
-.hero-trailer-play { position: absolute; left: 16px; bottom: 16px; display: grid; place-items: center; width: 56px; height: 56px;
-  background: var(--signal); color: var(--on-signal); transition: transform .2s ease-out; }
-.hero-trailer-play .ic { width: 26px; height: 26px; margin-left: 3px; fill: currentColor; }
-.hero-trailer-text { display: grid; gap: 2px; padding: 12px 16px 14px; border-top: 2px solid var(--signal); font-size: 14px; line-height: 20px; color: var(--ink-muted); }
-.hero-trailer-label { font: 600 18px/24px var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); }
-.hero-trailer:hover .hero-trailer-poster img, .hero-trailer:focus-visible .hero-trailer-poster img { transform: scale(1.04); }
-.hero-trailer:hover .hero-trailer-play, .hero-trailer:focus-visible .hero-trailer-play { transform: scale(1.08); }
-.hero-trailer:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
-.trailer-dialog { width: min(1280px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 0; background: transparent; color: var(--ink); overflow: visible; }
-.trailer-dialog::backdrop { background: rgba(0, 0, 0, .86); }
-.trailer-frame { background: #0b0c0d; box-shadow: inset 0 0 0 1px #2a2e33; clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px)); }
-.trailer-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px 10px 20px; }
-.trailer-head h2 { margin: 0; font: 600 18px/24px var(--font-display); text-transform: uppercase; letter-spacing: .06em; color: #ece8df; }
-.trailer-close { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: #ece8df; font: 600 15px var(--font-display); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
-.trailer-close:hover, .trailer-close:focus-visible { color: #ff6a1a; }
-.trailer-dialog video { display: block; width: 100%; height: auto; max-height: calc(100dvh - 160px); aspect-ratio: 16 / 9; background: #000; }
-.trailer-note { margin: 0; padding: 12px 20px 16px; font-size: 13px; line-height: 20px; color: #a19d94; }
 .page-home .capability-strip { margin: 0; padding-block: 24px; border-bottom: 1px solid var(--line); }
 .page-home .landing-section { margin-block: 80px; }
 .page-home .section-heading h2 { font-size: clamp(36px, 4.4vw, 60px); line-height: 1.04; letter-spacing: -.01em; }
@@ -181,7 +209,13 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   .platform-copy .primary-link { width: auto; }
   .hero-caption { inset-inline: 24px; font-size: 8px; letter-spacing: .02em; }
   .hero-caption > :last-child { display: none; }
-  .hero-trailer { position: relative; right: auto; bottom: auto; width: auto; margin: 0 24px 64px; }
+  /* Phones: the film plays as a block at the top of the hero, controls under it, the copy still below. */
+  .platform-hero.is-live:not(.film-done) { display: flex; flex-direction: column; }
+  .platform-hero.is-live:not(.film-done) .hero-film { position: relative; inset: auto; order: -2; flex: none; align-self: stretch; aspect-ratio: 16 / 8; }
+  .platform-hero.is-live:not(.film-done) .hero-film-bar { position: relative; order: -1; align-self: stretch; background: #0b0c0d; padding-top: 10px; }
+  .hero-film-bar { padding-inline: 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .hero-film-button { min-height: 40px; }
+  .hero-replay { position: relative; right: auto; bottom: auto; margin: 0 24px 64px; }
   .page-home .landing-section { margin-block: 48px; }
   .page-home .capability-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 11px; gap: 16px; }
   .pi-story { grid-template-columns: minmax(0, 1fr); gap: 24px; }
@@ -223,7 +257,6 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .platform-scene img, .art-viewport > img { transform: none; }
-  .hero-trailer-poster img, .hero-trailer-play { transition: none; }
 }
 @media (max-width: 390px) {
   .platform-copy { padding-inline: 20px; }

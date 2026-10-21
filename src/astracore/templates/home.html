@@ -21,8 +21,21 @@
       <li><a href="#creator">{{ icon('user') }} Run by {{ project.creator }}</a></li>
     </ul>
   </div>
+  <button type="button" class="hero-trailer" data-trailer-open aria-haspopup="dialog" aria-controls="trailer-dialog">
+    <span class="hero-trailer-poster"><img src="{{ asset('img/trailer/trailer-poster-1280.jpg') }}" width="1280" height="720" alt="" loading="lazy" decoding="async"><span class="hero-trailer-play">{{ icon('play') }}</span></span>
+    <span class="hero-trailer-text"><span class="hero-trailer-label">Watch the trailer · 1:00</span><span>PI setup, without the spreadsheet</span></span>
+  </button>
   <div class="hero-caption" aria-hidden="true"><span>PI available today</span><span>Orbital Command / AstraCore</span></div>
 </section>
+<dialog id="trailer-dialog" class="trailer-dialog" aria-labelledby="trailer-title" data-trailer-dialog>
+  <div class="trailer-frame">
+    <div class="trailer-head"><h2 id="trailer-title">AstraCore PI · Trailer</h2><button type="button" class="trailer-close" data-trailer-close>{{ icon('x') }} Close</button></div>
+    <video data-trailer-video controls playsinline preload="none" poster="{{ asset('img/trailer/trailer-poster-1280.jpg') }}" width="1280" height="720">
+      <source src="{{ asset('video/astracore-trailer.mp4') }}" type="video/mp4">
+    </video>
+    <p class="trailer-note">Fictional example pilots and figures. Yield and prices are estimates, not guaranteed income. Colony templates by DalShooth. EVE Online belongs to CCP.</p>
+  </div>
+</dialog>
 <div class="capability-strip" aria-label="What your plan includes"><span>{{ icon('users') }} Every alt, planned together</span><span>{{ icon('clock') }} Your time counts</span><span>{{ icon('download') }} DalShooth colony templates, ready to place</span><span>{{ icon('route') }} From extraction to selling</span></div>
 <section class="pi-story landing-section" id="pi-today" aria-labelledby="pi-today-title">
   <div class="pi-story-copy"><div class="eyebrow">01 / PI available today</div><h2 id="pi-today-title">Your planets.<br>Your pace.</h2><p class="lead">Plan, build and run your planetary operation across all your characters.</p><p>Compare income against the time it takes. Place DalShooth colony templates. See the next restart, pickup and sale in one place.</p><a class="text-action" href="#preview">Find your routine {{ icon('arrow-right') }}</a><p class="muted">Forecasts account for taxes and hauling. Yield and prices can change.</p></div>
@@ -137,4 +150,4 @@
 {% if members %}<div class="members landing-members"><span class="muted">Built for pilots of</span>{% if members.corporation %}<span class="m">{{ logo_img('corporation', members.corporation.id, 32) }}{{ members.corporation.label }}</span>{% endif %}{% if members.alliance %}<span class="m">{{ logo_img('alliance', members.alliance.id, 32) }}{{ members.alliance.label }}</span>{% endif %}<span class="muted">and invited capsuleers.</span></div>{% endif %}
 {% endblock %}
 
-{% block scripts %}<script src="{{ asset('js/hero-tour.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ asset('js/hero-tour.js') }}" defer></script><script src="{{ asset('js/trailer.js') }}" defer></script>{% endblock %}

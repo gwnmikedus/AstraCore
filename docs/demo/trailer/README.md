@@ -2,7 +2,8 @@
 
 A 60-second cinematic trailer for the home page ([#216](https://github.com/gwnmikedus/AstraCore/issues/216)). It sells the
 idea rather than every feature: setting up PI is the chore everyone hates, AstraCore's guided setup makes it the
-easy part, and Operate keeps watch afterwards. The home hero shows a poster card that opens the film in a dialog.
+easy part, and Operate keeps watch afterwards. The home hero plays it live, edge to edge and without sound: the
+scenes are drawn in code by a small player, so there is no video to download.
 
 Everything on screen is fictional or illustrative: Demo Pilot Aurora, Beacon and Corvid, Demo Harbour, Demo Coast
 and every figure are examples, labelled "Example data" or "Example figures" in the film. The plan scene keeps the
@@ -36,26 +37,22 @@ wizard and one big hit on the end card.
 - [`film/`](film) is the film's source as written for the Motion player: `scenes.json` (order, length, palette and
   fonts), `base.css`, `shared.js` (the shared starfield, planet and wizard stepper), one `scene-*.js` per scene and
   `score.js`. Every frame is a pure function of time, so the same source always renders the same film.
-- `src/astracore/static/video/astracore-trailer.mp4` is the web copy: 1280×720 H.264 at 2.5 Mbit/s with AAC audio
-  and fast start, about 19 MB.
-- `src/astracore/static/img/trailer/trailer-poster-1280.jpg` is the poster, taken from the end card.
+- `scripts/trailer/build_hero_film.py` bundles the scenes for the home hero: `src/astracore/static/js/hero-film-scenes.js`
+  and the stage styles in `src/astracore/static/css/hero-film.css`. `src/astracore/static/js/hero-film.js` is the
+  player (timing helpers, word fades, the typed line and the demo pointer). The score isn't bundled.
 
-## Rebuilding the web copy
+## Updating the hero
 
-The maintainer edits the film in a private Motion artifact ("AstraCore PI Teaser") and saves a 1920×1080 MP4 with
-its **Export → MP4** button; the file lands in Downloads as `astracore-pi-teaser.mp4`. Then, on macOS (no FFmpeg
-needed), from the repository root:
+Replace the files in `film/` with the Motion artifact's current modules whenever the film changes, then run:
 
 ```bash
-swiftc -O scripts/trailer/transcode.swift -o /tmp/trailer-transcode
-/tmp/trailer-transcode ~/Downloads/astracore-pi-teaser.mp4 src/astracore/static/video/astracore-trailer.mp4 1280 720 2500000
-swiftc -O scripts/trailer/poster.swift -o /tmp/trailer-poster
-/tmp/trailer-poster ~/Downloads/astracore-pi-teaser.mp4 58 /tmp/trailer-poster.png
-sips -s format jpeg -s formatOptions 78 -Z 1280 /tmp/trailer-poster.png --out src/astracore/static/img/trailer/trailer-poster-1280.jpg
+python scripts/trailer/build_hero_film.py
 ```
 
-Check the result before committing: `mdls -name kMDItemDurationSeconds` should report about 60 seconds, and the
-web copy should stay under 25 MB (`tests/test_trailer.py` enforces both the size and the 60-second source).
+It rewrites the scenes' inline `style="..."` attributes as `data-css` (the player applies them through CSSOM, as the
+site's content security policy forbids style attributes) and scopes `base.css` to the hero's stage.
+`tests/test_hero_film.py` fails while the bundle is out of date. Reduced motion shows the end card; the pause button
+stops the film and is remembered in the browser.
 
-Replace the files in `film/` with the artifact's current modules whenever the film changes, so the repository keeps
-the source of what is shown.
+`scripts/trailer/transcode.swift` and `poster.swift` still make a 1280×720 MP4 and a poster from the artifact's
+**Export → MP4** if a video copy is ever needed elsewhere; the site no longer serves one.

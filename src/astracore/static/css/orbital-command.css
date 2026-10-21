@@ -32,50 +32,36 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .assurance-row li + li::before { content: "·"; margin: 0 10px; color: var(--ink-muted); }
 .assurance-row a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
 .assurance-row a:hover { color: var(--signal); }
-/* Live hero: fictional space drawn in code (js/hero-space.js) replaces the still scene once it runs, edge to edge. */
-.hero-space { position: absolute; inset: 0; z-index: -2; display: block; width: 100%; height: 100%; }
-.platform-hero.is-live { margin-right: 0; }   /* width and left edge come from hero-space.js: edge to edge */
-@media (min-width: 761px) {
-  .platform-hero.is-live .platform-copy { padding-left: calc(var(--column-left, 0px) + 24px);
-    width: calc(var(--column-left, 0px) + 24px + min(780px, 50vw)); max-width: none; }
-  .platform-hero.is-live .hero-caption { left: calc(var(--column-left, 0px) + 24px); }
-}
-.platform-hero.is-live .platform-scene { display: none; }
-.hero-space-toggle { position: absolute; right: max(32px, calc((100% - 1312px) / 2)); top: 20px; display: inline-flex; align-items: center; gap: 8px;
-  min-height: 36px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--void); color: var(--ink-muted);
+/* Film hero: the trailer plays live on a 16:9 stage (js/hero-film.js), edge to edge, with the copy below it. */
+.film-hero { display: block; min-height: 0; margin-right: 0; }
+.film-hero::before, .film-hero::after { display: none; }
+.hero-film { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: min(68vh, 860px); overflow: hidden; background: #0b0c0d; }
+.hero-film .platform-scene { inset: 0; }
+.film-hero.is-live .hero-film .platform-scene { display: none; }
+.hero-film-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0;
+  --display: var(--font-display); --sans: var(--font-sans); --mono: var(--font-mono);   /* the film's fonts are the site's */
+  /* The film is always night: pin the dark theme's tokens so the light theme's ink can't reach into it. */
+  --void: #0b0c0d; --hull: #131517; --hull-raised: #1b1e21; --line: #2a2e33; --line-strong: #646a72;
+  --ink: #ece8df; --ink-muted: #a19d94; --ink-faint: #6f6c66; --signal: #ff6a1a; --signal-strong: #ff8a47; --signal-tint: #3a1c0c; --on-signal: #1a0a00; }
+.hero-film-stage :is(h1, h2, h3, h4, h5, h6, p) { color: inherit; }
+.film-scene { position: absolute; inset: 0; }
+.film-cursor { position: absolute; left: 0; top: 0; z-index: 60; pointer-events: none; }
+.film-click { position: absolute; left: 6px; top: 4px; width: 56px; height: 56px; border: 3px solid #ff6a1a; border-radius: 50%; opacity: 0; }
+.hero-film-toggle { position: absolute; right: max(24px, calc(var(--column-left, 0px) + 24px)); top: 20px; z-index: 2; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 36px; padding: 0 12px; border: 1px solid #2a2e33; background: rgba(11, 12, 13, .72); color: #ece8df;
   font: 400 11px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
-.hero-space-toggle:hover, .hero-space-toggle:focus-visible { color: var(--ink); border-color: var(--signal); }
-.hero-space-toggle[aria-pressed="true"] .ic { opacity: .6; }
-@media (max-width: 760px) {
-  .hero-space-toggle { top: 12px; right: 12px; width: 40px; min-height: 40px; padding: 0; justify-content: center; }
-  .hero-space-toggle [data-hero-space-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
+.hero-film-toggle:hover, .hero-film-toggle:focus-visible { border-color: var(--signal); }
+.hero-film-toggle[aria-pressed="true"] .ic { opacity: .6; }
+.hero-film-note { margin: 0; padding: 10px calc(var(--column-left, 0px) + 24px) 0; color: var(--ink-muted); font: 400 11px/16px var(--font-mono); letter-spacing: .04em; }
+.film-hero .platform-copy { width: auto; max-width: none; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); column-gap: 64px; align-items: end;
+  padding: 36px calc(var(--column-left, 0px) + 24px) 56px; }
+.film-hero .platform-copy > * { grid-column: 2; }
+.film-hero .platform-copy > .eyebrow { grid-column: 1 / -1; margin-bottom: 16px; }
+.film-hero .platform-copy > h1 { grid-column: 1; grid-row: 2 / span 4; align-self: start; font-size: clamp(56px, 6vw, 104px); margin: 0; }
+.film-hero .platform-copy .hero-actions { margin-top: 20px; }
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .hero-caption > :first-child { color: var(--ink); border-left: 2px solid var(--signal); padding-left: 12px; }
 .hero-caption > :last-child { background: var(--void); padding: 2px 8px; }
-/* The trailer card sits on the scene like a ship's monitor; the film itself opens in a dialog (#216). */
-.hero-trailer { position: absolute; right: max(32px, calc((100% - 1312px) / 2)); bottom: 64px; width: clamp(300px, 26vw, 420px); display: grid; gap: 0;
-  padding: 0; border: 0; background: var(--void); color: var(--ink); text-align: left; text-transform: none; letter-spacing: normal; font: inherit; min-height: 0; cursor: pointer; box-shadow: var(--shadow-lift);
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px)); }
-.hero-trailer-poster { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; }
-.hero-trailer-poster img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease-out; }
-.hero-trailer-play { position: absolute; left: 16px; bottom: 16px; display: grid; place-items: center; width: 56px; height: 56px;
-  background: var(--signal); color: var(--on-signal); transition: transform .2s ease-out; }
-.hero-trailer-play .ic { width: 26px; height: 26px; margin-left: 3px; fill: currentColor; }
-.hero-trailer-text { display: grid; gap: 2px; padding: 12px 16px 14px; border-top: 2px solid var(--signal); font-size: 14px; line-height: 20px; color: var(--ink-muted); }
-.hero-trailer-label { font: 600 18px/24px var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); }
-.hero-trailer:hover .hero-trailer-poster img, .hero-trailer:focus-visible .hero-trailer-poster img { transform: scale(1.04); }
-.hero-trailer:hover .hero-trailer-play, .hero-trailer:focus-visible .hero-trailer-play { transform: scale(1.08); }
-.hero-trailer:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
-.trailer-dialog { width: min(1280px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 0; background: transparent; color: var(--ink); overflow: visible; }
-.trailer-dialog::backdrop { background: rgba(0, 0, 0, .86); }
-.trailer-frame { background: #0b0c0d; box-shadow: inset 0 0 0 1px #2a2e33; clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px)); }
-.trailer-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px 10px 20px; }
-.trailer-head h2 { margin: 0; font: 600 18px/24px var(--font-display); text-transform: uppercase; letter-spacing: .06em; color: #ece8df; }
-.trailer-close { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: #ece8df; font: 600 15px var(--font-display); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
-.trailer-close:hover, .trailer-close:focus-visible { color: #ff6a1a; }
-.trailer-dialog video { display: block; width: 100%; height: auto; max-height: calc(100dvh - 160px); aspect-ratio: 16 / 9; background: #000; }
-.trailer-note { margin: 0; padding: 12px 20px 16px; font-size: 13px; line-height: 20px; color: #a19d94; }
 .page-home .capability-strip { margin: 0; padding-block: 24px; border-bottom: 1px solid var(--line); }
 .page-home .landing-section { margin-block: 80px; }
 .page-home .section-heading h2 { font-size: clamp(36px, 4.4vw, 60px); line-height: 1.04; letter-spacing: -.01em; }
@@ -199,7 +185,12 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   .platform-copy .primary-link { width: auto; }
   .hero-caption { inset-inline: 24px; font-size: 8px; letter-spacing: .02em; }
   .hero-caption > :last-child { display: none; }
-  .hero-trailer { position: relative; right: auto; bottom: auto; width: auto; margin: 0 24px 64px; }
+  .hero-film { max-height: none; }
+  .hero-film-toggle { top: 10px; right: 10px; width: 36px; padding: 0; justify-content: center; }
+  .hero-film-toggle [data-hero-film-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hero-film-note { padding-inline: 24px; }
+  .film-hero .platform-copy { display: block; padding: 28px 24px 40px; }
+  .film-hero .platform-copy > h1 { font-size: clamp(48px, 12vw, 72px); margin-bottom: 20px; }
   .page-home .landing-section { margin-block: 48px; }
   .page-home .capability-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 11px; gap: 16px; }
   .pi-story { grid-template-columns: minmax(0, 1fr); gap: 24px; }
@@ -241,7 +232,6 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .platform-scene img, .art-viewport > img { transform: none; }
-  .hero-trailer-poster img, .hero-trailer-play { transition: none; }
 }
 @media (max-width: 390px) {
   .platform-copy { padding-inline: 20px; }

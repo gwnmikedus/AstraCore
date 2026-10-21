@@ -183,10 +183,12 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     solve_s = copy.deepcopy(sell_s)
     solve_s.hub_system = dropoff  # values below are computed for this drop-off
     values = selling.best_values(pi, sell_s, books, dropoff, local, origin)
+    buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     hist = prices.history_cached()
+    buy_cap = demand.buy_limits(pi, sell_s, books, hist["markets"], local, optimizer.capital_days(s)) if buy else {}
     return dict(profile_id=profile_id, s=sell_s, solve_s=solve_s, chars=chars, pi=pi, tpl=tpl, area=area,
                 systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
-                history_at=hist["at"], values=values, dropoff=dropoff, local=local, overrides=overrides,
+                history_at=hist["at"], values=values, buy=buy, buy_cap=buy_cap, dropoff=dropoff, local=local, overrides=overrides,
                 manual_overrides=manual, origin=origin, origin_jumps=origin_jumps, seller=seller,
                 measured=measured, head_yield=head_yield, calibrated=cal, outage=outage)
 
@@ -298,7 +300,7 @@ def run_plan(ctx, s=None) -> dict:
 
     def solve_with(values):
         r = optimizer.plan(ctx["pi"], s, ctx["area"], ctx["systems"], ctx["chars"], values,
-                           ctx["tpl"], ctx["overrides"], ctx["head_yield"])
+                           ctx["tpl"], ctx["overrides"], ctx["head_yield"], ctx.get("buy"), ctx.get("buy_cap"))
         if "error" not in r:
             _sell_side(ctx, r)
         return r

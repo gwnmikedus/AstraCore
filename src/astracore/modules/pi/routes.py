@@ -575,7 +575,7 @@ async def api_alternatives(request: Request):
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "alternatives")
             alts = await GATE.cached(key, optimizer.alternatives, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
-                                     ctx["head_yield"])
+                                     ctx["head_yield"], ctx.get("buy"), ctx.get("buy_cap"))
     except Busy:
         return busy_response()
     except Superseded:
@@ -595,7 +595,7 @@ async def api_sensitivity(request: Request):
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "sensitivity")
             rows = await GATE.cached(key, optimizer.yield_sensitivity, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
-                                     ctx["head_yield"])
+                                     ctx["head_yield"], ctx.get("buy"), ctx.get("buy_cap"))
     except Busy:
         return busy_response()
     except Superseded:

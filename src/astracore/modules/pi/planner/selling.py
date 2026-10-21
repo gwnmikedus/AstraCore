@@ -173,6 +173,76 @@ def best_values(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
     return vals
 
 
+BUY_LABELS = {
+    "jita": "Buy in Jita, courier to your drop-off",
+    "amarr": "Buy in Amarr, courier to your drop-off",
+    "jita_self": "Buy in Jita, haul it in yourself",
+    "amarr_self": "Buy in Amarr, haul it in yourself",
+    "jita_order": "Buy order in Jita, courier to your drop-off",
+    "amarr_order": "Buy order in Amarr, courier to your drop-off",
+    "jita_order_self": "Buy order in Jita, haul it in yourself",
+    "amarr_order_self": "Buy order in Amarr, haul it in yourself",
+    "local": "Buy in Delve",
+    "local_order": "Buy order in Delve",
+}
+
+
+def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, dropoff: str,
+                 routes: Optional[List[dict]] = None, local: bool = True,
+                 origin: Optional[str] = None) -> Dict[str, float]:
+    """ISK per unit to get an input to the drop-off, for every market the pilot uses (the same Jita,
+    Amarr and Delve choices as for selling). Instant buys pay the cheapest sell order; pilots who list
+    sell orders may also place buy orders at the best bid plus broker fee (cheaper, slower).
+    Couriers need a VOC route from the hub to your pickup; hauling yourself prices only the goods."""
+    origin = origin or dropoff
+    b = books.get(type_id, {})
+    vol = pi.volume(type_id)
+    broker = s.broker_fee_pct / 100.0
+    out: Dict[str, float] = {}
+
+    def prices(market: str) -> Dict[str, float]:
+        p = {}
+        if b.get(f"{market}_sell"):
+            p[""] = b[f"{market}_sell"]
+        if s.use_sell_orders and b.get(f"{market}_buy"):
+            p["_order"] = b[f"{market}_buy"] * (1 + broker)
+        return p
+
+    for hub_key, src in (("jita", voc.JITA), ("amarr", voc.AMARR)):
+        if not getattr(s, f"use_{hub_key}"):
+            continue
+        for suffix, price in prices(hub_key).items():
+            if dropoff == HUB_SYSTEMS[hub_key]:
+                out[f"{hub_key}{suffix}"] = price
+            elif s.use_self_haul:
+                out[f"{hub_key}{suffix}_self"] = price
+            else:
+                r = voc.route(src, origin, routes)
+                if r:
+                    out[f"{hub_key}{suffix}"] = price + voc.courier_variable_per_unit(r, vol, price)
+    if s.use_local and local:
+        for suffix, price in prices("delve").items():
+            out[f"local{suffix}"] = price
+    return {k: v for k, v in out.items() if v > 0}
+
+
+def buy_costs(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
+              local: bool = True, origin: Optional[str] = None) -> Dict[int, float]:
+    """What the planner pays per unit for a bought P1-P3 input at the drop-off (cheapest market).
+    Empty when the pilot only wants their own production."""
+    if not s.buy_inputs:
+        return {}
+    routes = voc.routes_cached()
+    costs = {}
+    for t in pi.items:
+        if not 1 <= pi.tier(t) <= 3:
+            continue
+        ch = buy_channels(pi, s, books, t, dropoff, routes, local, origin)
+        if ch:
+            costs[t] = min(ch.values())
+    return costs
+
+
 def compare_table(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str, type_ids: List[int],
                   local: bool = True, origin: Optional[str] = None) -> List[dict]:
     routes = voc.routes_cached()

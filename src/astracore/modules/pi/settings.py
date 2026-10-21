@@ -50,6 +50,12 @@ class Settings:
     use_sell_orders: bool = False    # list sell orders in Jita/Amarr (more ISK, more effort)
     ship_every_days: int = 7         # how often you ship / sell a batch
 
+    # --- Buying inputs (live) -----------------------------------------------------
+    # Factories may run on P1-P3 bought at Jita, Amarr or in Delve. Off until the plan and Operate show what
+    # to buy (#225); then on by default.
+    buy_inputs: bool = False
+    input_budget_isk: float = 0.0    # ISK you want tied up in bought inputs; 0 = no limit
+
     # --- Wizard state (was browser localStorage) ----------------------------------
     hour_isk: float = -1.0          # what an hour of your time is worth (drives the planner); -1 = the goal's default
     guide_step: int = 0             # where the plan wizard was left
@@ -109,7 +115,7 @@ class Settings:
         "cycle_days": (1, 30), "per_planet": (1, 3), "ship_every_days": (1, 90), "hour_isk": (-1, 1e12),
         "buyback_pct": (0, 100), "buyback_pct_p1": (0, 100), "poco_tax_pct": (0, 100), "sales_tax_pct": (0, 100),
         "broker_fee_pct": (0, 100), "stack_yield_pct": (0, 100), "head_yield_per_hour": (1, 100000),
-        "solver_time_limit": (1, 600),
+        "solver_time_limit": (1, 600), "input_budget_isk": (0, 1e13),
     }
     def _set(self, name: str, cur, val) -> None:
         self._set_raw(name, cur, val)          # text and lists are cut to TEXT_LIMITS / LIST_MAX there

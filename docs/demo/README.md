@@ -4,6 +4,11 @@ This tour uses **fictional pilots, locations and illustrative numbers**. The scr
 
 AstraCore helps you plan and operate planetary industry in EVE Online. It reads permitted character data; you still build colonies, restart extractors, move cargo, create contracts and sell products in EVE yourself.
 
+## Trailer
+
+A 60-second cinematic trailer plays from the home page hero. Its story, source and rebuild steps are in
+[trailer/README.md](trailer/README.md).
+
 ## Narrated walkthrough
 
 [Open the video player](walkthrough.html), [download the MP4](walkthrough.mp4), or read the

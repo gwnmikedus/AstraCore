@@ -1,0 +1,121 @@
+{
+  "v": 1,
+  "stage": "final",
+  "look": "Ship's HUD trailer: one continuous camera flight through deep space with parallax stars and soft nebula; real AstraCore UI floats as chamfered HUD panels that unfold from orange signal squares; kinetic Barlow Condensed chapter lines; letterboxed, film grain. Story: PI setup is a chore everyone hates, AstraCore makes setting up fun, then keeps watch.",
+  "palettes": [
+    [
+      "#0b0c0d",
+      "#ff6a1a",
+      "#ece8df",
+      "#4f9dff"
+    ]
+  ],
+  "theirs": 1,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "background": "#0b0c0d",
+  "fonts": {
+    "display": {
+      "family": "Barlow Condensed",
+      "or": "instrument-sans",
+      "weights": [
+        500,
+        600,
+        700
+      ]
+    },
+    "sans": {
+      "family": "Barlow",
+      "or": "instrument-sans"
+    },
+    "mono": {
+      "family": "IBM Plex Mono",
+      "or": "dm-mono",
+      "weights": [
+        400,
+        500
+      ]
+    }
+  },
+  "scenes": [
+    {
+      "id": "signal",
+      "name": "Cold open",
+      "dur": 3.5,
+      "desc": "Dark space; a terminal types the name of a dreaded PI setup spreadsheet and its tabs of questions."
+    },
+    {
+      "id": "chaos",
+      "name": "The spreadsheet",
+      "dur": 4,
+      "desc": "Setup questions and spreadsheet cells fly past in depth; everybody hates setting up PI; it all implodes to one orange point."
+    },
+    {
+      "id": "promise",
+      "name": "The promise",
+      "dur": 3.5,
+      "desc": "The point becomes an underline: what if setup was the fun part?"
+    },
+    {
+      "id": "meet",
+      "name": "Meet AstraCore",
+      "dur": 3,
+      "desc": "The mark grows from a point: meet AstraCore PI, a guided setup."
+    },
+    {
+      "id": "pilots",
+      "name": "Your pilots",
+      "dur": 5,
+      "desc": "Character cards fly in from depth with skills and colony slots read for you."
+    },
+    {
+      "id": "goal",
+      "name": "Your goal",
+      "dur": 6,
+      "desc": "The guided setup panel: what do you want from PI; Balanced is picked."
+    },
+    {
+      "id": "questions",
+      "name": "A few questions",
+      "dur": 6,
+      "desc": "The stepper runs through logins, area, products and selling, one answer each."
+    },
+    {
+      "id": "area",
+      "name": "Your space",
+      "dur": 5,
+      "desc": "A star map: the area you already fly and its drop-off light up."
+    },
+    {
+      "id": "plan",
+      "name": "Your plan",
+      "dur": 6,
+      "desc": "The plan unfolds from the drop-off: income, hauling, slots and restarts, sized to your time."
+    },
+    {
+      "id": "build",
+      "name": "Build it",
+      "dur": 5,
+      "desc": "DalShooth templates matched to the plan fan out; a build checklist ticks off."
+    },
+    {
+      "id": "planet",
+      "name": "It keeps watch",
+      "dur": 4,
+      "desc": "A planet approaches and its extractor links light up: then it keeps watch."
+    },
+    {
+      "id": "screen",
+      "name": "Next action",
+      "dur": 4,
+      "desc": "The Operate Next up panel unfolds from a node; a callout locks onto the next action."
+    },
+    {
+      "id": "title",
+      "name": "AstraCore PI",
+      "dur": 5,
+      "desc": "Mark and wordmark land on a signal line; PI setup without the spreadsheet; address and credits."
+    }
+  ]
+}

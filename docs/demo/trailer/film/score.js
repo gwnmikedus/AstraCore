@@ -1,0 +1,85 @@
+kit.score(function (S, T) {
+  S.tempo(96, { t0: T.pilots });
+  S.program('pad', 'pad', { rev: 0.7, gain: -2 });
+  S.program('low', 'bass', { gain: 0 });
+  S.program('bell', 'vibes', { rev: 0.6, pan: 0.2 });
+  S.program('keys', 'ep', { rev: 0.35 });
+  S.program('mallet', 'marimba', { pan: -0.15, gain: -3 });
+  S.program('bass', 'bass', { gain: -2 });
+  // cold open + chaos: tension
+  S.chord('pad', ['D2', 'A2', 'D#3'], { t: 0, dur: 7.2, vel: 40 });
+  for (let i = 0; i < 10; i++) S.fx('tick', 0.02 + i * 0.045, { vel: 26 });
+  [0.75, 1.15, 1.55].forEach((t) => S.fx('click', t, { vel: 32 }));
+  S.fx('pop', 1.95, { vel: 50, pitch: -5 });
+  S.fx('whoosh', T.chaos - 0.55, { dur: 1.0 });
+  S.note('low', 'D1', { t: T.chaos, dur: 3.4, vel: 90 });
+  let k = 0;
+  for (let t = T.chaos; t < T.promise - 0.6; t += 0.5 - k * 0.012) { S.drum('kick', { t, vel: 62 + k * 4 }); k++; }
+  S.fx('revswell', T.chaos + 3.0, { dur: 1.4 });
+  S.fx('thud', T.chaos + 3.05, { vel: 80 });
+  // promise: relief
+  S.chord('pad', ['F2', 'C3', 'A3'], { t: T.promise, dur: 3.6, vel: 46 });
+  S.note('bell', 'A5', { t: T.promise + 0.15, dur: 1.2, vel: 40 });
+  S.note('bell', 'C6', { t: T.promise + 1.0, dur: 1.4, vel: 34 });
+  S.fx('whoosh', T.meet - 0.55, { dur: 0.9 });
+  // meet: first hit
+  S.drum('kick', { t: T.meet + 0.4, vel: 115 });
+  S.fx('thud', T.meet + 0.4, { vel: 100 });
+  S.note('low', 'D1', { t: T.meet + 0.4, dur: 2.4, vel: 100 });
+  S.chord('pad', ['D2', 'A2', 'F#3', 'A3'], { t: T.meet + 0.4, dur: 2.6, vel: 60 });
+  S.run('bell', ['D5', 'F#5', 'A5', 'D6'], { t: T.meet + 0.8, step: 0.12, vel: 40, cresc: 6 });
+  S.fx('whoosh', T.pilots - 0.5, { dur: 0.8 });
+  // groove A: pilots, goal, questions (beats 0..24)
+  const prog = [['D3', 'F#3', 'A3'], ['B2', 'D3', 'F#3'], ['G2', 'B2', 'D3'], ['A2', 'C#3', 'E3']];
+  const roots = ['D2', 'B1', 'G1', 'A1'];
+  for (let b = 0; b < 6; b++) { S.chord('keys', prog[b % 4], { beat: b * 4, beats: 3.8, vel: 46 }); S.note('bass', roots[b % 4], { beat: b * 4, beats: 1.5, vel: 76 }); S.note('bass', roots[b % 4], { beat: b * 4 + 2.5, beats: 1, vel: 60 }); }
+  S.pattern('mallet', 'x.x.X.x.', { from: 4, repeat: 5, pitch: ['A4', 'D5', 'F#5', 'D5'], vel: 50 });
+  S.drums({ kick: 'x...x...', hat: 'oxoxoxox' }, { from: 4, repeat: 5 });
+  S.drums({ sidestick: '..x...x.' }, { from: 12, repeat: 3 });
+  S.fx('click', T.goal + 3.15, { vel: 60 });
+  S.fx('pop', T.goal + 4.5, { vel: 40 });
+  for (let i = 0; i < 4; i++) S.fx('pop', T.questions + i * 1.15 + 0.5, { vel: 46, pitch: i * 2 });
+  S.fx('chime', T.questions + 4.85, { vel: 50 });
+  // area: open space
+  S.fx('whoosh', T.area - 0.55, { dur: 1.0 });
+  S.chord('pad', ['D2', 'A2', 'E3', 'F#3'], { t: T.area - 0.2, dur: 5.2, vel: 52 });
+  S.note('low', 'D1', { t: T.area, dur: 3, vel: 80 });
+  S.fx('ding', T.area + 1.5, { vel: 40 });
+  S.fx('pop', T.area + 1.75, { vel: 36 });
+  S.fx('pop', T.area + 2.0, { vel: 36 });
+  S.pattern('mallet', 'x...x...', { from: S.toBeat(T.area + 1.5), repeat: 2, pitch: ['F#5', 'A5'], vel: 36 });
+  S.fx('revswell', T.plan, { dur: 1.0 });
+  // groove B: plan + build
+  const b0 = Math.ceil(S.toBeat(T.plan));
+  for (let b = 0; b < 4; b++) { S.chord('keys', prog[b % 4], { beat: b0 + b * 4, beats: 3.8, vel: 50 }); S.note('bass', roots[b % 4], { beat: b0 + b * 4, beats: 1.5, vel: 80 }); S.note('bass', roots[b % 4], { beat: b0 + b * 4 + 2.5, beats: 1, vel: 62 }); }
+  S.pattern('mallet', 'x.x.X.xx', { from: b0, repeat: 4, pitch: ['D5', 'A4', 'F#5', 'A4'], vel: 54 });
+  S.drums({ kick: 'x...x...', sidestick: '..x...x.', hat: 'oxoxoxox' }, { from: b0, repeat: 4 });
+  S.fx('roll', T.plan + 0.9, { dur: 1.7 });
+  S.fx('click', T.plan + 5.15, { vel: 60 });
+  for (let i = 0; i < 4; i++) S.fx('pop', T.build + 0.3 + i * 0.12, { vel: 48, pitch: i * 3 });
+  for (let i = 0; i < 3; i++) S.fx('tick', T.build + 2.4 + i * 0.45, { vel: 60 });
+  S.fx('chime', T.build + 3.4, { vel: 46 });
+  // planet + screen: drop back to space
+  S.fx('whoosh', T.planet - 0.6, { dur: 1.1 });
+  S.chord('pad', ['D2', 'A2', 'D3', 'F#3'], { t: T.planet - 0.1, dur: 8, vel: 50 });
+  S.note('low', 'D1', { t: T.planet + 0.2, dur: 3.5, vel: 84 });
+  for (let i = 0; i < 6; i++) S.note('bell', ['A4', 'D5', 'F#5', 'A5', 'B5', 'D6'][i], { t: T.planet + 0.8 + i * 0.14, dur: 0.6, vel: 30 + i * 4 });
+  k = 0;
+  for (let t = T.planet + 0.5; t < T.title - 0.7; t += 0.625) { S.drum('kick', { t, vel: 60 + k * 4 }); k++; }
+  S.fx('whoosh', T.screen - 0.55, { dur: 0.95 });
+  S.fx('click', T.screen + 0.95, { vel: 60 });
+  S.fx('ding', T.screen + 1.1, { vel: 40 });
+  // title: the big hit
+  S.fx('whoosh', T.title - 0.45, { dur: 0.8 });
+  for (let i = 0; i < 8; i++) S.drum('tom', { t: T.title - 0.6 + i * 0.07, vel: 50 + i * 8 });
+  S.fx('revswell', T.title, { dur: 1.6 });
+  S.drum('kick', { t: T.title, vel: 127 });
+  S.drum('crash', { t: T.title, vel: 96 });
+  S.fx('thud', T.title, { vel: 120 });
+  S.note('low', 'D1', { t: T.title, dur: 5, vel: 110 });
+  S.chord('pad', ['D2', 'A2', 'D3', 'F#3', 'A3'], { t: T.title, dur: 5, vel: 72 });
+  S.chord('keys', ['D4', 'F#4', 'A4', 'E5'], { t: T.title + 0.3, dur: 4.2, vel: 50 });
+  S.note('bell', 'A5', { t: T.title + 1.35, dur: 1.6, vel: 44 });
+  S.note('bell', 'D6', { t: T.title + 2.0, dur: 2.0, vel: 38 });
+  S.master({ gain: -5, fadeOut: 2.0 });
+});

@@ -4,21 +4,11 @@
 {% from '_artwork.html' import artwork %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/hero-film.css') }}">{% endblock %}
 {% block content %}
-<section class="platform-hero film-hero" aria-labelledby="hero-title">
-  <div class="hero-film" data-hero-film aria-hidden="true" data-audio="{{ asset('js/hero-film-audio.js') }}" data-score="{{ asset('js/hero-film-score.js') }}">
-  <picture class="platform-scene">
+<section class="platform-hero" aria-labelledby="hero-title">
+  <picture class="platform-scene" data-parallax="hero">
     <source media="(max-width: 760px)" srcset="{{ asset('img/brand/orbital-command/hero-platform-mobile-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-mobile-768.webp') }} 768w, {{ asset('img/brand/orbital-command/hero-platform-mobile-1024.webp') }} 1024w" sizes="(max-width: 390px) 600px, (max-width: 600px) 580px, 100vw" width="1024" height="1536">
     <img src="{{ asset('img/brand/orbital-command/hero-platform-1440.webp') }}" srcset="{{ asset('img/brand/orbital-command/hero-platform-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-960.webp') }} 960w, {{ asset('img/brand/orbital-command/hero-platform-1440.webp') }} 1440w, {{ asset('img/brand/orbital-command/hero-platform-1672.webp') }} 1672w" sizes="(min-width: 1672px) 1672px, 100vw" width="1672" height="941" alt="" fetchpriority="high">
   </picture>
-    <div class="hero-film-stage"></div>
-  </div>
-  <div class="hero-film-bar">
-    <p class="hero-film-note">The film shows fictional example pilots and figures; real plans use your characters, prices and taxes.</p>
-    <div class="hero-film-controls">
-      <button type="button" class="hero-film-button" data-hero-film-sound aria-pressed="false" hidden><span data-hero-film-icon>{{ icon('volume-x') }}</span><span data-hero-film-label>Sound on</span></button>
-      <button type="button" class="hero-film-button" data-hero-film-toggle aria-pressed="false" hidden><span data-hero-film-icon>{{ icon('pause') }}</span><span data-hero-film-label>Pause film</span></button>
-    </div>
-  </div>
   <div class="platform-copy">
     <div class="eyebrow">AstraCore / Your entire operation</div>
     <h1 id="hero-title">All your alts.<br>One operation<span class="core-stop">.</span></h1>
@@ -31,6 +21,17 @@
       <li><a href="/what-we-read">{{ icon('shield-check') }} Read-only EVE login</a></li>
       <li><a href="#creator">{{ icon('user') }} Run by {{ project.creator }}</a></li>
     </ul>
+  </div>
+  <div class="hero-caption" aria-hidden="true"><span>PI available today</span><span>Orbital Command / AstraCore</span></div>
+  <button type="button" class="hero-replay" data-hero-film-replay hidden>{{ icon('play') }}<span class="hero-replay-text"><span class="hero-replay-label">Play the film</span><span>PI setup, without the spreadsheet</span></span></button>
+  <div class="hero-film" data-hero-film aria-hidden="true" data-audio="{{ asset('js/hero-film-audio.js') }}" data-score="{{ asset('js/hero-film-score.js') }}"><div class="hero-film-stage"></div></div>
+  <div class="hero-film-bar" data-hero-film-bar hidden>
+    <p class="hero-film-note">Fictional example pilots and figures. Real plans use your characters, prices and taxes.</p>
+    <div class="hero-film-controls">
+      <button type="button" class="hero-film-button" data-hero-film-sound aria-pressed="false"><span data-hero-film-icon>{{ icon('volume-x') }}</span><span data-hero-film-label>Sound on</span></button>
+      <button type="button" class="hero-film-button" data-hero-film-toggle aria-pressed="false"><span data-hero-film-icon>{{ icon('pause') }}</span><span data-hero-film-label>Pause film</span></button>
+      <button type="button" class="hero-film-button" data-hero-film-skip><span data-hero-film-icon>{{ icon('arrow-right') }}</span><span data-hero-film-label>Skip film</span></button>
+    </div>
   </div>
 </section>
 <div class="capability-strip" aria-label="What your plan includes"><span>{{ icon('users') }} Every alt, planned together</span><span>{{ icon('clock') }} Your time counts</span><span>{{ icon('download') }} DalShooth colony templates, ready to place</span><span>{{ icon('route') }} From extraction to selling</span></div>

@@ -68,7 +68,8 @@
     return conv;
   }
 
-  function Player(score, T, total) {
+  // toReal(f): real seconds from the film's start to film time f (scenes play at their own speeds).
+  function Player(score, T, total, toReal = f => f) {
     const ctx = new AudioCtx();
     const {events, programs, master} = compile(score, T);
     const noise = noiseBuffer(ctx);
@@ -82,7 +83,7 @@
     let scheduled = 0;
     const live = new Set();
     // Film time keeps counting across loops here (laps), so scheduling never has to think about the wrap.
-    let rate = 1, from = null, prev = null, laps = 0;
+    let from = null, prev = null, laps = 0;
 
     function bus(p) {
       const pr = programs[p] || {}, g = ctx.createGain(); g.gain.value = db(pr.gain);
@@ -190,8 +191,8 @@
 
     function schedule(e, filmNow, nowCtx) {
       const late = Math.max(0, filmNow - e.t);
-      const at = nowCtx + Math.max(0, e.t - filmNow) / rate;
-      const dur = Math.max(0.05, (e.d - late) / rate);
+      const at = nowCtx + Math.max(0, toReal(e.t) - toReal(filmNow));
+      const dur = Math.max(0.05, toReal(e.t + e.d) - toReal(Math.max(e.t, filmNow)));
       scheduled++;
       if (e.kind === 'note') note(e, at, late, dur);
       else if (late > 0.05) return;               // a hit that already happened stays in the past
@@ -204,15 +205,14 @@
     }
 
     return {
-      // Called from the film's clock: f = film seconds, r = playback rate.
-      sync(f, r) {
-        rate = r;
+      // Called from the film's clock: f = film seconds.
+      sync(f) {
         const now = ctx.currentTime;
         if (prev != null && f < prev - total / 2) laps++;
         prev = f;
         const F = f + laps * total;
         if (from == null) { catchUp(f, now); from = F; this.level(1); }
-        const to = F + LOOKAHEAD * rate;
+        const to = F + LOOKAHEAD * 0.8;   // about LOOKAHEAD real seconds at the film's usual speed
         for (let k = Math.floor(from / total); k <= Math.floor(to / total); k++)   // this pass, and the next one's opening
           for (const e of events) {
             const abs = e.t + k * total;
@@ -225,9 +225,10 @@
       },
       level(on) { out.gain.cancelScheduledValues(ctx.currentTime); out.gain.setTargetAtTime(on ? masterGain(master.gain) : 0.0001, ctx.currentTime, on ? 0.25 : 0.08); },
       // Film paused or hidden: fade out and drop what's scheduled; the next sync picks up where the film is.
-      hush() {
-        this.level(0);
-        const at = ctx.currentTime + 0.4;
+      hush(release = 0.4) {
+        out.gain.cancelScheduledValues(ctx.currentTime);
+        out.gain.setTargetAtTime(0.0001, ctx.currentTime, release / 4);
+        const at = ctx.currentTime + release;
         for (const n of live) { try { n.stop(at); } catch (e) { /* already stopped */ } }
         live.clear();
         from = null;

@@ -3,7 +3,7 @@ kit.scene('planet', {
   init(kit) {
     kit.stage.append(kit.h('<div class="ground bars">' +
       '<canvas class="sky planet-sky" width="1920" height="1080"></canvas>' +
-      '<div class="words planet-words" style="left:180px;top:420px;width:820px">' +
+      '<div class="words planet-words" style="left:210px;top:420px;width:820px">' +
       '<h2 class="line" style="font-size:110px">Then it keeps watch</h2>' +
       '<p class="mono muted planet-sub" style="font-size:22px">Restarts · pickups · sales, in order</p></div>' +
       '<div class="vignette"></div><div class="grain planet-grain"></div></div>'));

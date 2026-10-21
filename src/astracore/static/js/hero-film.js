@@ -1,15 +1,19 @@
 // The home hero plays the PI trailer live: its scenes (docs/demo/trailer/film) are drawn in code on a 1920x1080
 // stage scaled to the hero, so there is no video to download. This is the small player they need; the scenes
 // themselves are bundled into js/hero-film-scenes.js by scripts/trailer/build_hero_film.py.
-// Only the scene on screen is in the page. Reduced motion shows the end card; a hidden tab, a hero out of view
-// or the pause button stop the clock (the pause choice is remembered in this browser).
+// It plays once over the header and then dissolves into it; Play the film replays it. Only the scene on screen is in
+// the page. Reduced motion, a phone-sized hero or a browser that has seen it start on the header; a hidden tab, a hero
+// out of view or the pause button stop the clock.
 (function () {
   const W = 1920, H = 1080, FPS = 30;
   const BAR = 120;                   // the film's letterbox bars: the hero shows the picture between them
-  const RATE = 0.8;                  // a little slower than the cut: room to read
+  // Film seconds per real second, per scene: the busy ones (pilots, the wizard, the plan) play slower than the cut so
+  // there's time to read them; the openers keep their pace. The groove scenes share one speed so the score holds tempo.
+  const SPEED = {signal: 0.85, chaos: 0.85, promise: 0.8, meet: 0.8, pilots: 0.62, goal: 0.62, questions: 0.62,
+                 area: 0.72, plan: 0.6, build: 0.6, planet: 0.78, screen: 0.66, title: 0.75};
+  const SMALL = 760;                 // narrower heroes (phones) start on the header: the film plays on request
   const FADE = 0.5;                  // seconds of film for a cut: the old scene dips to dark, then the new one rises
-  const KEY = 'astracore.heroFilm';
-  const STILL = ['title', 4];        // what reduced motion shows: the end card, settled
+  const KEY = 'astracore.heroFilm';   // 'seen' once the film has played or been skipped in this browser
 
   // ---- timing helpers the scenes use --------------------------------------------------------------------
   const clamp = x => Math.min(1, Math.max(0, x));
@@ -133,30 +137,48 @@
   kit.boot = function (scenes) {
     const root = document.querySelector('[data-hero-film]');
     const hero = root && root.closest('.platform-hero');
-    if (!root) return;
-    let at = 0;
-    order = scenes.filter(s => defs[s.id]).map(s => { const o = {...s, start: at}; at += s.dur; return o; });
+    if (!root || !hero) return;
+    let at = 0, real = 0;
+    order = scenes.filter(s => defs[s.id]).map(s => {
+      const speed = SPEED[s.id] || 1;
+      const o = {...s, start: at, speed, realStart: real};
+      at += s.dur; real += s.dur / speed;
+      return o;
+    });
     total = at;
+    const realTotal = real;
     if (!order.length) return;
     const holder = root.querySelector('.hero-film-stage');
-    const toggle = document.querySelector('[data-hero-film-toggle]');
-    const sound = document.querySelector('[data-hero-film-sound]');
+    const bar = hero.querySelector('[data-hero-film-bar]');
+    const toggle = hero.querySelector('[data-hero-film-toggle]');
+    const sound = hero.querySelector('[data-hero-film-sound]');
+    const skip = hero.querySelector('[data-hero-film-skip]');
+    const replay = hero.querySelector('[data-hero-film-replay]');
     const lives = new Map();   // scene index -> {scene, stage, canvases}: the one on screen, and one fading out
+    const sceneAt = T => { const i = order.findIndex(s => T < s.start + s.dur); return i < 0 ? order.length - 1 : i; };
+    // Real seconds from the start to film time T (the score is written in film time; this keeps it in step).
+    const toReal = T => {
+      const laps = Math.floor(T / total), f = T - laps * total, s = order[sceneAt(f)];
+      return laps * realTotal + s.realStart + (f - s.start) / s.speed;
+    };
 
     // Edge to edge: the hero's column isn't centred in the window, so measure rather than use 100vw. The copy
-    // below the film keeps to the page column through --column-left.
+    // keeps to the page column through --column-left.
     function bleed() {
-      if (!hero) return;
       const margin = parseFloat(getComputedStyle(hero).marginLeft) || 0;
       const column = Math.round(hero.getBoundingClientRect().left - margin);
       hero.style.width = document.documentElement.clientWidth + 'px';
       hero.style.marginLeft = -column + 'px';
       hero.style.setProperty('--column-left', column + 'px');
     }
+    // The picture between the film's letterbox bars, as large as fits above the control bar; the starfield fills
+    // the rest.
     function fit() {
       const box = root.getBoundingClientRect(), band = H - 2 * BAR;
-      const scale = Math.max(box.width / W, box.height / band);   // the picture between the bars covers the hero
-      holder.style.transform = 'translate(' + (box.width - W * scale) / 2 + 'px,' + ((box.height - band * scale) / 2 - BAR * scale) + 'px) scale(' + scale + ')';
+      const over = !bar.hidden && getComputedStyle(bar).position === 'absolute';   // phones put it below the film
+      const room = box.height - (over ? bar.offsetHeight + 8 : 0);
+      const scale = Math.min(box.width / W, room / band);
+      holder.style.transform = 'translate(' + (box.width - W * scale) / 2 + 'px,' + ((room - band * scale) / 2 - BAR * scale) + 'px) scale(' + scale + ')';
       // Canvases draw in 1920x1080 units but only need as many pixels as the hero shows.
       lives.forEach(l => l.canvases.forEach(sharpen));
     }
@@ -189,41 +211,39 @@
       lives.set(index, live);
       return live;
     }
+    function clear() { for (const l of lives.values()) l.stage.remove(); lives.clear(); }
     // The scene on screen. For FADE seconds after a cut the previous one plays on and dips to dark first, then the
-    // new one rises: two scenes' words never share the screen.
+    // new one rises: two scenes' words never share the screen. The opening rises from dark too.
     function frame(T) {
-      T = ((T % total) + total) % total;
-      let i = order.findIndex(s => T < s.start + s.dur);
-      if (i < 0) i = order.length - 1;
-      const into = T - order[i].start;
-      const prev = (i - 1 + order.length) % order.length;
-      const keep = into < FADE ? [i, prev] : [i];
+      T = Math.min(Math.max(T, 0), total - 1e-6);
+      const i = sceneAt(T), into = T - order[i].start, half = FADE / 2;
+      const keep = into < FADE && i > 0 ? [i, i - 1] : [i];
       for (const [k, l] of lives) if (!keep.includes(k)) { l.stage.remove(); lives.delete(k); }
-      const half = FADE / 2;
       const cur = show(i);
       cur.stage.style.zIndex = 1;
-      cur.stage.style.opacity = keep.length > 1 ? eio(seg(into, half, FADE)) : 1;
+      cur.stage.style.opacity = into < FADE ? eio(seg(into, i > 0 ? half : 0, FADE)) : 1;
       cur.scene.render(into);
       if (keep.length > 1) {
-        const old = show(prev);
+        const old = show(i - 1);
         old.stage.style.zIndex = 2;
         old.stage.style.opacity = 1 - eio(seg(into, 0, half));
-        old.scene.render(order[prev].dur + into);
+        old.scene.render(order[i - 1].dur + into);
       }
     }
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let paused = false;
-    try { paused = localStorage.getItem(KEY) === 'paused'; } catch (e) { /* storage blocked: play */ }
-    let inView = true, raf = 0, last = 0, clock = 0;
-    let audio = null, soundOn = false, loading = null;
-    const running = () => !paused && !reduced.matches && inView && !document.hidden;
+    let seen = false;
+    try { seen = localStorage.getItem(KEY) === 'seen'; } catch (e) { /* storage blocked: play it */ }
+    let playing = false, paused = false, inView = true, raf = 0, last = 0, clock = 0;
+    let audio = null, soundOn = false, loading = null, ending = false;
+    const running = () => playing && !paused && inView && !document.hidden;
     function tick(now) {
       raf = 0;
       if (!running()) return;
-      if (last) clock = (clock + Math.min(0.1, (now - last) / 1000) * RATE) % total;
+      if (last) clock += Math.min(0.1, (now - last) / 1000) * order[sceneAt(clock)].speed;
+      if (clock >= total) { finish(); return; }
       if (!last || now - last >= 1000 / FPS - 1) { frame(clock); last = now; }
-      if (soundOn && audio) audio.sync(clock, RATE);
+      if (soundOn && audio) audio.sync(clock);
       raf = requestAnimationFrame(tick);
     }
     // Sound is off until the pilot turns it on; the synth and score load then, never before.
@@ -239,66 +259,75 @@
         await script(root.dataset.audio);
         await script(root.dataset.score);
         const T = Object.fromEntries(order.map(s => [s.id, s.start]));
-        audio = window.AC.heroFilmAudio.Player(scoreFn, T, total);
+        audio = window.AC.heroFilmAudio.Player(scoreFn, T, total, toReal);
       })();
       await loading;
       await audio.resume();
     }
-    function still() {
-      const s = order.find(o => o.id === STILL[0]);
-      return s ? s.start + STILL[1] : clock;
+    function label(button, text, icon) {
+      button.querySelector('[data-hero-film-label]').textContent = text;
+      const slot = button.querySelector('[data-hero-film-icon]');
+      if (slot && window.AC && AC.icon) slot.innerHTML = AC.icon(icon);
     }
     function update() {
-      if (toggle) {
-        toggle.setAttribute('aria-pressed', String(paused));
-        toggle.querySelector('[data-hero-film-label]').textContent = paused ? 'Play film' : 'Pause film';
-        toggle.querySelector('[data-hero-film-icon]').innerHTML = AC.icon ? AC.icon(paused ? 'play' : 'pause') : '';
-        toggle.hidden = reduced.matches;
-      }
-      if (sound) {
-        sound.setAttribute('aria-pressed', String(soundOn));
-        sound.querySelector('[data-hero-film-label]').textContent = soundOn ? 'Sound off' : 'Sound on';
-        sound.querySelector('[data-hero-film-icon]').innerHTML = AC.icon ? AC.icon(soundOn ? 'volume-2' : 'volume-x') : '';
-        sound.hidden = reduced.matches || !(window.AudioContext || window.webkitAudioContext);
-      }
-      if (audio && !(soundOn && running())) audio.hush();
+      hero.classList.toggle('film-done', !playing);
+      bar.hidden = !playing;
+      replay.hidden = playing;
+      toggle.setAttribute('aria-pressed', String(paused));
+      label(toggle, paused ? 'Play film' : 'Pause film', paused ? 'play' : 'pause');
+      sound.setAttribute('aria-pressed', String(soundOn));
+      label(sound, soundOn ? 'Sound off' : 'Sound on', soundOn ? 'volume-2' : 'volume-x');
+      sound.hidden = !(window.AudioContext || window.webkitAudioContext);
+      if (audio && !(soundOn && running()) && !ending) audio.hush();
       if (running() && !raf) { last = 0; raf = requestAnimationFrame(tick); }
-      if (!running()) frame(reduced.matches ? still() : clock);   // a still frame, never an empty box
     }
-    hero && hero.classList.add('is-live');
+    // The film ends (or is skipped): it dissolves into the header, which rises in; Play the film brings it back.
+    function finish() {
+      playing = false;
+      ending = true;
+      if (audio) audio.hush(1.6);   // the end card's hit rings out with the dissolve
+      seen = true;
+      try { localStorage.setItem(KEY, 'seen'); } catch (e) { /* plays again next visit */ }
+      update();
+      ending = false;
+      setTimeout(() => { if (!playing) clear(); }, 1600);   // after the dissolve: nothing left running
+    }
+    function play() {
+      playing = true; paused = false; clock = 0; last = 0;
+      hero.classList.remove('film-done');
+      bar.hidden = false;
+      clear();
+      fit();
+      frame(0);
+      update();
+    }
+
+    hero.classList.add('is-live');
     bleed();
-    fit();
-    hero && new ResizeObserver(bleed).observe(hero.parentElement);
+    new ResizeObserver(bleed).observe(hero.parentElement);
     window.addEventListener('resize', bleed);
     document.fonts?.ready.then(bleed);
-    frame(clock);
     new ResizeObserver(fit).observe(root);
-    new IntersectionObserver(entries => { inView = entries[0].isIntersecting; update(); }).observe(root);
+    new IntersectionObserver(entries => { inView = entries[0].isIntersecting; update(); }).observe(hero);
     document.addEventListener('visibilitychange', update);
-    reduced.addEventListener?.('change', update);
-    toggle?.addEventListener('click', () => {
-      paused = !paused;
-      try { localStorage.setItem(KEY, paused ? 'paused' : 'playing'); } catch (e) { /* remembered for this visit only */ }
-      update();
-    });
+    toggle.addEventListener('click', () => { paused = !paused; update(); });
+    skip.addEventListener('click', finish);
+    replay.addEventListener('click', () => { play(); toggle.focus({preventScroll: true}); });
     // Sound isn't remembered: browsers only start audio after a click, so every visit begins quiet.
-    sound?.addEventListener('click', async () => {
+    sound.addEventListener('click', async () => {
       soundOn = !soundOn;
       if (soundOn) {
         sound.disabled = true;
-        try {
-          await enableSound();
-          if (paused) { paused = false; try { localStorage.setItem(KEY, 'playing'); } catch (e) { /* this visit only */ } }
-        } catch (e) {
-          soundOn = false;     // the synth didn't load: stay quiet, the film plays on
-        }
+        try { await enableSound(); paused = false; } catch (e) { soundOn = false; /* the synth didn't load: stay quiet */ }
         sound.disabled = false;
       }
       update();
     });
-    update();
-    // Drawing any moment by hand (tests, screenshots); playback keeps its own clock.
-    window.AC = Object.assign(window.AC || {}, {heroFilm: {total, frame, rate: RATE, scenes: order.map(s => ({id: s.id, start: s.start, dur: s.dur})),
-                                                     get audio() { return audio; }}});
+    if (seen || reduced.matches || hero.getBoundingClientRect().width < SMALL) { playing = false; update(); }
+    else play();
+    // Drawing any moment by hand (tests, screenshots) and the playback state.
+    window.AC = Object.assign(window.AC || {}, {heroFilm: {total, realTotal, frame, play, finish, toReal,
+      scenes: order.map(s => ({id: s.id, start: s.start, dur: s.dur, speed: s.speed})),
+      get playing() { return playing; }, get audio() { return audio; }}});
   };
 })();

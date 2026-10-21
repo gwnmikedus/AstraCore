@@ -5,7 +5,7 @@ kit.scene('signal', {
     kit.stage.append(kit.h('<div class="ground bars">' +
       '<canvas class="sky signal-sky" width="1920" height="1080"></canvas>' +
       '<div class="layer signal-cam">' +
-      '<div class="words" style="left:220px;top:360px;width:1500px;gap:26px">' +
+      '<div class="words" style="left:210px;top:360px;width:1500px;gap:26px">' +
       '<p class="mono muted signal-eyebrow" style="font-size:22px"><span class="sq" style="margin-right:16px"></span>Planetary Industry · setup</p>' +
       '<p class="mono hot signal-typed" style="font-size:46px;letter-spacing:.08em;text-transform:none"></p>' +
       '<div style="display:flex;flex-direction:column;gap:12px;margin-top:22px">' +

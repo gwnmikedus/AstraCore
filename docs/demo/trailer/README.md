@@ -54,13 +54,17 @@ site's content security policy forbids style attributes) and scopes `base.css` t
 `tests/test_hero_film.py` fails while the bundle is out of date. Reduced motion shows the end card; the pause button
 stops the film and is remembered in the browser.
 
-In the hero the film plays at 0.8× speed (75 seconds a loop), shows the picture between the letterbox bars and dips
-to dark for half a second at each cut. Sound is off until a pilot presses **Sound on**: then
+In the hero the film plays once, over the header, and then dissolves into it; **Play the film** replays it and
+**Skip film** ends it early. A browser that has seen it, reduced motion and phone-sized heroes start on the header.
+The busy scenes play slower than the cut (each scene's speed is in `SPEED` in `hero-film.js`, about 88 seconds in
+all); the hero shows the picture between the letterbox bars above its control bar and dips to dark at each cut. Sound is off until a pilot presses **Sound on**: then
 `src/astracore/static/js/hero-film-audio.js` loads and synthesises `score.js` (bundled as `js/hero-film-score.js`)
 with Web Audio, in step with the film; it fades in and out with pause, the loop and a hidden tab.
 
-The scenes here carry a few polish edits made for the hero (October 2026): one question at a time in *A few questions*,
-the headline clear of the flying questions in *The spreadsheet*, and *Next action* above the panel in *Next action*.
+The scenes here carry polish edits made for the hero (October 2026): one grid for every scene (a 210 px margin and a
+1500 px content width, chapter lines at 160 px; pilot, template and plan cards on it, the plan button in one place
+across *Your plan* and *Build it*), one question at a time in *A few questions*, the headline clear of the flying
+questions in *The spreadsheet*, and *Next action* above the panel in *Next action*.
 Port them into the Motion artifact before copying its modules back over these files.
 
 `scripts/trailer/transcode.swift` and `poster.swift` still make a 1280×720 MP4 and a poster from the artifact's

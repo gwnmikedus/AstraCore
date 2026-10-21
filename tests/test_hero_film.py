@@ -18,11 +18,16 @@ def _home():
         return c.get("/").text
 
 
-def test_home_hero_plays_the_film_live_without_a_video():
+def test_home_hero_plays_the_film_once_over_the_header_without_a_video():
     home = _home()
-    hero = home[home.index('class="platform-hero film-hero"'):home.index("</section>", home.index('class="platform-hero'))]
-    assert "data-hero-film" in hero and 'aria-hidden="true"' in hero and "data-hero-film-toggle" in hero
-    assert "fictional example pilots and figures" in hero
+    hero = home[home.index('class="platform-hero"'):home.index("</section>", home.index('class="platform-hero'))]
+    # the header is all there underneath: picture, copy and caption; the film is a layer over it
+    assert 'class="platform-scene"' in hero and 'id="hero-title"' in hero and 'class="hero-caption"' in hero
+    assert "data-hero-film" in hero and "data-hero-film-toggle" in hero and "data-hero-film-skip" in hero
+    assert re.search(r'<div class="hero-film" data-hero-film aria-hidden="true"', hero)   # decorative: the copy carries it
+    assert re.search(r'data-hero-film-replay hidden>', hero) and "Play the film" in hero
+    assert re.search(r'data-hero-film-bar hidden>', hero)                                 # no JS: the plain header
+    assert "Fictional example pilots and figures" in hero
     assert "<video" not in home and "trailer-dialog" not in home and "astracore-trailer.mp4" not in home
     for path in ("js/hero-film.js", "js/hero-film-scenes.js", "css/hero-film.css"):
         assert assets.asset(path) in home, path

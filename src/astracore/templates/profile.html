@@ -123,7 +123,7 @@
       <div class="unassigned-characters">{% for c in unassigned %}{{ character(c) }}{% else %}<p class="empty">Every character is in an account.</p>{% endfor %}</div>
     </div>
   </div>
-  <form method="post" action="/profile/accounts" class="grid" style="max-width:34rem">{{ csrf() }}
+  <form method="post" action="/profile/accounts" class="grid account-form">{{ csrf() }}
     <input name="name" placeholder="New EVE account, e.g. Alt account 2" required maxlength="60" aria-label="New EVE account name">
     <button class="outline">{{ icon('plus') }} Add EVE account</button>
   </form>
@@ -132,7 +132,7 @@
 <section class="section ac-section" aria-labelledby="mod-h">
   <h3 id="mod-h">Modules</h3>
   {% for m in modules %}
-  <p><img src="{{ asset(m.icon) }}" alt="" width="20" height="20" style="vertical-align:-4px"> <strong>{{ m.name }}</strong>: enabled.
+  <p><img src="{{ asset(m.icon) }}" alt="" width="20" height="20" class="module-icon-small"> <strong>{{ m.name }}</strong>: enabled.
     Which characters are included in plans is set inside <a href="{{ m.route_prefix }}/plan">{{ m.name }}</a>.</p>
   {% endfor %}
 </section>

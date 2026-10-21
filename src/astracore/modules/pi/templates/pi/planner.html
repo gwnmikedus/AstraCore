@@ -55,26 +55,32 @@
       <div class="hint">More than 1 = your characters share planets. A 2nd/3rd colony on the same resource is counted at {{ s.stack_yield_pct|round|int }}% / {{ (s.stack_yield_pct ** 2 / 100)|round|int }}% yield (shared deposit: <a href="/pi/settings?expert=1#expert-sharing">Expert</a>).</div>
     </div>
     <div class="ctl">
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="cross_character"> Characters supply each other</span></label>
-      <div class="hint">Lets one character's miners feed another's factory (needs contracts).</div>
+      <label class="strong-label"><span><input type="checkbox" role="switch" id="cross_character"> Characters supply each other</span></label>
+      <div class="hint" id="cross-hint">Lets one character's miners feed another's factory (needs contracts).{% if not s.cross_character_set %} Until you set this, it turns on by itself for Up to P3 and P4 with several characters.{% endif %}</div>
     </div>
-    <h6 style="margin:.6rem 0 .6rem">Turning it into ISK</h6>
+    <div class="ctl">
+      <label class="strong-label"><span><input type="checkbox" role="switch" id="buy_inputs"> Buy factory inputs</span></label>
+      <label for="input_budget_b">ISK tied up in inputs at most (billion, 0 = no limit)</label>
+      <input type="number" id="input_budget_b" min="0" step="0.5" inputmode="decimal">
+      <div class="hint">Factories may run on P1-P3 bought in Jita, Amarr or Delve, at most 10% of what a market trades a day.</div>
+    </div>
+    <h6 class="selling-label">Turning it into ISK</h6>
     <div class="ctl">
       <label>Drop-off (where you bring products)</label>
-      <select id="hub_system" style="margin:0">
+      <select id="hub_system" class="no-margin">
         <option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         {% for n in systems %}<option>{{ n }}</option>{% endfor %}
       </select>
       <div class="hint">VOC picks up couriers at {{ voc_hubs|join(', ') }}.</div>
     </div>
     <div class="ctl">
-      <label data-local-channel style="font-weight:600" {% if not selling_coverage.local %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.local %}disabled{% endif %}> VOC buyback</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_jita"> Sell at Jita</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_amarr"> Sell at Amarr</span></label>
-      <label data-local-channel style="font-weight:600" {% if not selling_coverage.local %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Delve buy orders</span></label>
-      <label style="font-weight:600"><span><input type="checkbox" role="switch" id="use_self_haul"> Haul to the trade hub myself</span></label>
+      <label data-local-channel {% if not selling_coverage.local %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.local %}disabled{% endif %}> VOC buyback</span></label>
+      <label class="strong-label"><span><input type="checkbox" role="switch" id="use_jita"> Sell at Jita</span></label>
+      <label class="strong-label"><span><input type="checkbox" role="switch" id="use_amarr"> Sell at Amarr</span></label>
+      <label data-local-channel {% if not selling_coverage.local %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Delve buy orders</span></label>
+      <label class="strong-label"><span><input type="checkbox" role="switch" id="use_self_haul"> Haul to the trade hub myself</span></label>
       <p class="hint">Your journey time, fuel and loss risk are not priced. {% if not selling_coverage.courier and not selling_coverage.trade_hub %}VOC has no route from this drop-off; enable your own trip to use Jita or Amarr.{% endif %}</p>
-      <label data-order-channel style="font-weight:600" {% if not selling_coverage.trade_hub and (s.use_self_haul or not selling_coverage.courier) %}hidden{% endif %}><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
+      <label data-order-channel {% if not selling_coverage.trade_hub and (s.use_self_haul or not selling_coverage.courier) %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
       <div class="hint">Each product goes to whichever enabled option pays most after fees. Sell orders pay more but you have to list and update them.</div>
     </div>
     <div class="ctl">
@@ -82,7 +88,7 @@
       <input type="range" id="ship_every_days" min="1" max="28" step="1">
       <div class="hint" id="batch-transport-note">{% if s.use_self_haul %}Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.{% else %}Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).{% endif %}</div>
     </div>
-    <div class="hint" style="margin-bottom:1rem">Prices updated {{ prices_at|ago }} · <a href="#" id="refresh-prices">refresh now</a></div>
+    <div class="hint space-after">Prices updated {{ prices_at|ago }} · <a href="#" id="refresh-prices">refresh now</a></div>
     <div class="ctl">
       <details class="never-list" id="never-list">
         <summary>Never produce <output id="o-never"></output></summary>
@@ -99,8 +105,8 @@
   </aside>
 
   <section>
-    <h4 style="margin-bottom:.5rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap"><span>Suggestions <span class="muted" id="alts-note"></span></span>
-      <a href="/pi/plan" style="font-size:.85rem;font-weight:400">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
+    <h4 class="suggestions-heading"><span>Suggestions <span class="muted" id="alts-note"></span></span>
+      <a href="/pi/plan" class="guided-link">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
     <div class="toolbar"><button type="button" id="apply-preview" disabled>Apply these settings</button>
       <span id="preview-status" role="status">Preview only. Your guided answers stay unchanged until you apply.</span></div>
     <div class="alts" id="alts"></div>
@@ -118,6 +124,7 @@ const WAYPOINT_CHARS = {{ waypoints|tojson }};
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_self_haul', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, esc} = AC;
+let crossSet = !!S.cross_character_set;   // the pilot chose Teamwork: it no longer follows the tier
 
 // ---- controls <-> state -------------------------------------------------------
 const labels = {
@@ -146,6 +153,9 @@ function init() {
   for (const k of CHANNELS) $(k).checked = !!S[k];
   $('max_systems').value = S.max_systems === 0 ? 11 : S.max_systems;
   $('cross_character').checked = !!S.cross_character;
+  $('buy_inputs').checked = !!S.buy_inputs;
+  $('input_budget_b').value = (+S.input_budget_isk || 0) / 1e9;
+  $('input_budget_b').disabled = !S.buy_inputs;
   // A drop-off saved on the Area page may not be in this list: show it rather than a blank select,
   // which would save an empty drop-off on the next change.
   if (S.hub_system && ![...$('hub_system').options].some(o => o.value === S.hub_system)) {
@@ -173,7 +183,8 @@ function state() {
   return {
     effort: S.effort, hour_isk: +S.hour_isk, max_tier: S.max_tier, max_systems: ms >= 11 ? 0 : ms,
     max_jumps: +$('max_jumps').value, cycle_days: +$('cycle_days').value, per_planet: +$('per_planet').value,
-    cross_character: $('cross_character').checked, hub_system: $('hub_system').value,
+    cross_character: $('cross_character').checked, cross_character_set: crossSet, hub_system: $('hub_system').value,
+    buy_inputs: $('buy_inputs').checked, input_budget_isk: Math.max(0, +$('input_budget_b').value || 0) * 1e9,
     product_blacklist: neverNames(), ship_every_days: +$('ship_every_days').value,
     ...Object.fromEntries(CHANNELS.map(k => [k, $(k).checked])),
   };
@@ -229,7 +240,7 @@ async function loadAlts(st) {
   if (alts.superseded) { $('alts-note').textContent = ''; return; }
   if (!Array.isArray(alts)) { $('alts-note').textContent = '- comparison unavailable, change a setting to retry'; return; }
   $('alts').innerHTML = alts.map(a => a.error ? `<div class="alt"><div class="t">${a.name}</div><div class="bad muted">${esc(a.error)}</div></div>` : `
-    <div class="alt" data-effort="${a.effort}" ${a.dominated ? 'style="opacity:.55"' : ''}>
+    <div class="alt ${a.dominated ? 'dimmed-option' : ''}" data-effort="${a.effort}">
       <div class="t">${a.name}${a.dominated ? ` <span class="muted">· no gain for the extra effort${a.same_as ? ' - same as ' + esc(a.same_as) : ''}</span>` : ''}</div>
       <div class="v">${isk(a.totals.isk_per_day)}<span class="muted"> /day</span></div>
       <div class="muted">${m3(a.totals.m3_per_week)}/wk · ${a.totals.systems} systems · ${a.totals.colonies}/${a.totals.slots_total} slots</div>
@@ -281,6 +292,9 @@ init();
 for (const k of ['max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
 document.querySelectorAll('#goal button').forEach(b => b.onclick = () => { setGoal(b.dataset.v); schedule(0); });
 for (const k of ['cross_character', 'hub_system', ...CHANNELS]) $(k).addEventListener('change', () => schedule(0));
+$('cross_character').addEventListener('change', () => { crossSet = true; });
+$('buy_inputs').addEventListener('change', () => { $('input_budget_b').disabled = !$('buy_inputs').checked; schedule(0); });
+$('input_budget_b').addEventListener('change', () => schedule(0));
 neverBoxes().forEach(b => b.addEventListener('change', () => { showNever(); schedule(0); }));
 // The same choices from the plan result: a preview like every other control here, until Apply.
 function onNeverProduce(names) { setNever(names); schedule(0); }

@@ -8,7 +8,7 @@
     You see EVE's own list of permissions every time you log in.</p>
   <p><strong>We never write to your account, except: setting waypoints if you enable "Send routes to your EVE client".</strong></p>
   {% for m in modules %}
-  <h3><img src="{{ asset(m.icon) }}" alt="" width="24" height="24" style="vertical-align:-5px"> {{ m.name }}</h3>
+  <h3><img src="{{ asset(m.icon) }}" alt="" width="24" height="24" class="module-icon-heading"> {{ m.name }}</h3>
   {% for b in m.bundles %}
   <h4>{{ b.title }} <span class="pill">{{ 'required' if b is sameas m.required_bundle else 'optional, off by default' }}</span>
     {% if b.writes %}<span class="pill warn">writes</span>{% endif %}</h4>

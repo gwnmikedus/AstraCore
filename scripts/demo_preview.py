@@ -159,11 +159,11 @@ def create_demo():
         response = await call_next(request)
         if "text/html" in response.headers.get("content-type", ""):
             body = b"".join([chunk async for chunk in response.body_iterator])
-            banner = ('<aside style="position:sticky;top:0;z-index:100;padding:16px 16px 16px 96px;background:#ff7619;color:#111;font-weight:bold">'
+            banner = ('<aside class="fictional-banner">'
                       'FICTIONAL DEMO · Screenshot-only · No EVE login or live pilot data. Fixed illustrative numbers; own-trip example, not an executable plan. '
-                      '<a style="color:#111;text-decoration:underline" href="/demo/characters">Characters</a> · <a style="color:#111;text-decoration:underline" href="/demo/area">Area</a> · '
-                      '<a style="color:#111;text-decoration:underline" href="/demo/question">Question</a> · <a style="color:#111;text-decoration:underline" href="/demo/result">Summary</a> · '
-                      '<a style="color:#111;text-decoration:underline" href="/demo/operate">Operate</a></aside>')
+                      '<a href="/demo/characters">Characters</a> · <a href="/demo/area">Area</a> · '
+                      '<a href="/demo/question">Question</a> · <a href="/demo/result">Summary</a> · '
+                      '<a href="/demo/operate">Operate</a></aside>')
             body = re.sub(rb'https://images\.evetech\.net/characters/[^"\s]+',
                           b'/static/img/mark.svg', body)
             start = body.find(b'>', body.find(b'<body')) + 1

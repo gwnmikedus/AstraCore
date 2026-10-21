@@ -25,6 +25,15 @@ import astracore.modules.pi.module  # noqa: E402,F401  (registers AstracorePI)
 
 
 @pytest.fixture(autouse=True)
+def isolated_request_limits():
+    from astracore.core.ratelimit import LIMITER
+
+    LIMITER.clear()
+    yield
+    LIMITER.clear()
+
+
+@pytest.fixture(autouse=True)
 def isolated_community_worker(monkeypatch):
     from astracore.core import community
 

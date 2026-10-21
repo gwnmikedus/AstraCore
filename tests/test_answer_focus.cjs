@@ -13,6 +13,7 @@ function fixture() {
   };
   const details = {open: false, addEventListener(type, callback) { this[type] = callback; }};
   const summary = {focus(options) { this.focused = options.preventScroll; }};
+  const bar = {style: {}};
   details.querySelector = () => summary;
   const res = {
     get innerHTML() { return this.html; },
@@ -23,7 +24,7 @@ function fixture() {
   };
   const card = {dataset: {id: '1'}, classList: {toggle() {}, add() {}}, setAttribute() {},
     querySelector: selector => selector === '.res' ? res : selector === '.answer-details' ? details
-      : selector === '.answer-details > summary' ? summary : {}};
+      : selector === '.answer-details > summary' ? summary : selector === '.bar i' ? bar : {}};
   const result = {totals: {m3_per_week: 120, restarts_per_week: 3, systems: 2, factories: 1, transfers: 4},
     mix: 'Fictional production', holds: 2, channels: ['Example channel'], sell_net_per_cycle: 700};
   const option = {id: 1, label: 'Example answer', patch: {cycle_days: 7}};
@@ -40,7 +41,7 @@ function fixture() {
   };
   vm.createContext(context);
   vm.runInContext(code, context);
-  return {context, details, res, summary};
+  return {context, details, res, summary, bar};
 }
 
 test('key figures stay visible while all remaining quantities and production remain in details', () => {
@@ -84,4 +85,18 @@ test('stream repaint restores keyboard focus to a focused details summary withou
   context.document.activeElement = summary;
   context.paint({id: 'area', options: [{id: 1}]});
   assert.equal(summary.focused, true);
+});
+
+test('comparison widths use trusted individual style properties without HTML style attributes', () => {
+  const {context, res, bar} = fixture();
+  const step = {id: 'area', options: [{id: 1}]};
+  context.paint(step);
+  assert.equal(bar.style.width, '100%');
+  assert.doesNotMatch(res.innerHTML, /style=/);
+  context.value = () => 0;
+  context.paint(step);
+  assert.equal(bar.style.width, '3%');
+  context.value = () => NaN;
+  context.paint(step);
+  assert.equal(bar.style.width, '3%');
 });

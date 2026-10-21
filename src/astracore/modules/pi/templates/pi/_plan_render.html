@@ -59,20 +59,35 @@ document.addEventListener('change', async e => {
   const r = await AC.post(API + '/richness', {planet_id: +pick.dataset.richnessPlanet, richness: pick.value === '' ? null : +pick.value});
   if (r && r.ok) { if (typeof onRichnessSaved === 'function') onRichnessSaved(); return; }
   picks.forEach(p => { p.disabled = false; });
-  pick.insertAdjacentHTML('afterend', `<span class="bad" style="font-size:.8rem">${esc((r && r.error) || 'Could not save.')}</span>`);
+  pick.insertAdjacentHTML('afterend', `<span class="bad text-xs">${esc((r && r.error) || 'Could not save.')}</span>`);
 });
 // A colony's value cell: its ISK/day, and which factories it supplies. A feeder whose own market value
 // is 0 or meaningless says its value is counted at the factory, never a bare 0.
 function colonyValueHTML(c) {
   const feeds = (c.feeds || []).map(f =>
-    `<br><span class="muted" style="font-size:.8rem" title="${esc(num(f.units))} ${esc(f.item)}/day">→ feeds ${esc(f.character)}’s ${esc(f.product)} factory</span>`).join('');
+    `<br><span class="muted text-xs" title="${esc(num(f.units))} ${esc(f.item)}/day">→ feeds ${esc(f.character)}’s ${esc(f.product)} factory</span>`).join('');
   return (c.value_at_factory && feeds ? `<span class="muted">value counted at the factory</span>` : isk(c.value_per_day)) + feeds;
 }
 function colonyNotesHTML(c) {
   const notes = [...(c.upkeep && c.upkeep.issues || []), ...(c.notes || [])];
   if (!notes.length) return '';
   return `<details><summary class="warn">${AC.icon('triangle-alert')} Colony notes (${notes.length})</summary>` +
-    `<ul style="white-space:normal">${notes.map(n => `<li class="warn">${esc(n)}</li>`).join('')}</ul></details>`;
+    `<ul class="wrap-text">${notes.map(n => `<li class="warn">${esc(n)}</li>`).join('')}</ul></details>`;
+}
+// Inputs the plan buys: what, where, how much per restock round and what it costs.
+function boughtHTML(res) {
+  const rows = res.bought || [];
+  if (!rows.length) return '';
+  const b = res.buying || {}, t = res.totals;
+  const days = b.restock_days ? ` · ${num(b.restock_days, 1)} days per restock` : '';
+  return `<h5>Inputs you buy <span class="muted">· ${isk(t.buy_isk_per_day)}/day${days}</span>${AC.helpFor(HELP.buy, {glossary: GLOSSARY})}</h5>
+    <p class="muted text-small">Your factories run partly on inputs from the market, priced with the courier to ${esc(res.hub)}.
+      About <b>${isk(t.capital_isk)}</b> stays tied up until the products are sold${b.budget_isk ? ` (your budget: ${isk(b.budget_isk)})` : ''};
+      the plan buys at most ${Math.round((b.share || 0.1) * 100)}% of what a market trades a day. Operate lists what to buy for each restock.</p>
+    <div class="scroll"><table><thead><tr><th>Input</th><th>Per day</th><th>Per restock</th><th>Where</th><th>ISK / unit</th><th>ISK / day</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${AC.eveImg(r.item, 16)}${esc(r.item)} <span class="muted">P${r.tier}</span></td><td>${num(r.units_per_day)}</td>
+      <td>${r.per_restock != null ? num(r.per_restock) : '–'}</td><td>${esc(r.where || '–')}</td><td>${num(r.isk_per_unit, 2)}</td><td>${isk(r.isk_per_day)}</td></tr>`).join('') +
+    `</tbody></table></div>`;
 }
 // Transfers between characters, one line per receiving character.
 function transfersHTML(rows) {
@@ -109,7 +124,7 @@ function neverProduceHTML(res) {
   const item = (n, on) => `<label><input type="checkbox" data-never="${esc(n)}"${on ? ' checked' : ''}> ${AC.eveImg(n, 16)}${esc(n)}</label>`;
   const names = [...made].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([n]) => n);
   return `<fieldset class="never-produce"><legend>Never produce</legend>
-    <p class="muted" style="margin:0;font-size:13px">Tick a product to plan without it${never.length ? '; untick one to allow it again' : ''}.</p>
+    <p class="muted compact-hint">Tick a product to plan without it${never.length ? '; untick one to allow it again' : ''}.</p>
     <div class="never-items">${names.map(n => item(n, false)).join('')}${never.map(n => item(n, true)).join('')}</div></fieldset>`;
 }
 // The names left out after ticking or unticking one product on the result.
@@ -131,6 +146,8 @@ function planHTML(res, opts = {}) {
     <div class="card"><div class="v">${t.colonies}/${t.slots_total}</div><div class="l">slots used</div></div>
     <div class="card"><div class="v">${count(t.restarts_per_week)}</div><div class="l">extractor restarts / week</div></div>
     <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
+    ${t.buy_isk_per_day ? `<div class="card"><div class="v">${isk(t.buy_isk_per_day)}</div><div class="l">inputs bought / day (already subtracted)</div></div>
+    <div class="card"><div class="v">${isk(t.capital_isk)}</div><div class="l">ISK tied up in inputs${AC.helpFor(HELP.buy, {glossary: GLOSSARY})}</div></div>` : ''}
   </div>`;
   const tier = AC.tierHelp(res.tier_need);
   if (tier) h += `<p class="help-line">${AC.helpHTML({text: tier.text, label: tier.question, showLabel: true, more: GLOSSARY + '#higher-tiers'})}</p>`;
@@ -159,7 +176,9 @@ function planHTML(res, opts = {}) {
     h += `${upkeepHelp.answer}<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place${upkeepHelp.button}</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
     for (const c of mine) {
       const outs = Object.entries(c.out_per_day).map(([k, v]) => `<span>${AC.eveImg(k)}${num(v)} ${esc(k)}</span>`).join(', ');
-      const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join('<br>');
+      const bought = c.bought_per_day || {};
+      const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}${bought[k]
+        ? ` <span class="muted">(${bought[k] >= v - 0.5 ? 'bought' : num(bought[k]) + ' bought'})</span>` : ''}</span>`).join('<br>');
       h += `<tr>
         <td><div class="cellimg">${AC.planetImg(c.planet_type, 28)}<div>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span>${richnessHTML(c)}</div></div></td>
         <td><div class="cellimg">${AC.structureImg(c.kind === 'miner' ? 'miner' : (c.tier === 4 ? 'factory_p4' : 'factory'), 24)}<div>${AC.externalLink(c.template_url, c.template, {cls: `kind-${c.kind}`})}
@@ -176,6 +195,7 @@ function planHTML(res, opts = {}) {
     h += `</tbody></table></div></div>`;
   }
   h += neverProduceHTML(res);
+  h += boughtHTML(res);
   h += transfersHTML(res.transfers);
   if (res.removals.length) {
     h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>
@@ -189,25 +209,25 @@ function planHTML(res, opts = {}) {
 function renderSelling(res) {
   const sp = res.selling; if (!sp) return '';
   const L = res.channel_labels || {};
-  let h = `<h5 style="margin-top:1.4rem">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.voc, {glossary: GLOSSARY})}</h5>`;
+  let h = `<h5 class="selling-heading">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.voc, {glossary: GLOSSARY})}</h5>`;
   const tx = res.taxes || {};
-  h += `<p class="muted" style="font-size:.85rem">` + (res.seller
+  h += `<p class="muted text-small">` + (res.seller
     ? `Sell with <b>${esc(res.seller.name)}</b>: Accounting ${res.seller.accounting} → ${tx.sales_tax_pct}% sales tax, Broker Relations ${res.seller.broker_relations} → ${tx.broker_fee_pct}% broker fee.
        Other characters hand their products to ${esc(res.seller.name)} at the drop-off with a 0 ISK item exchange contract.`
     : `Sales tax ${tx.sales_tax_pct}%, broker fee ${tx.broker_fee_pct}% (set in <a href="${SETTINGS_URL}">Settings</a>).`) + `</p>`;
   for (const b of sp.batches) {
     const items = Object.entries(b.items).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join(' ');
-    h += `<div class="who" ${b.hold ? 'style="opacity:.6"' : ''}><div class="h"><strong>${esc(b.label)}</strong>
+    h += `<div class="who ${b.hold ? 'held-batch' : ''}"><div class="h"><strong>${esc(b.label)}</strong>
       <span class="muted">${b.speed} · ${m3(b.m3)} · ${b.hold ? 'hold' : '≈ ' + isk(b.net) + ' net'}${!b.hold && b.quoted_net !== undefined ? ` (${isk(b.quoted_net)} at quoted prices)` : ''}</span></div>
       <div class="muted itemlist">${items}</div>`;
     if (b.note) h += `<div class="warnbox">${esc(b.note)}</div>`;
     if (b.contract && b.contract.type === 'Courier')
-      h += `<div class="muted" style="margin-top:.3rem">Contract: Courier · Private to <b>${esc(b.contract.assign_to)}</b> · ${esc(b.contract.from)} → ${esc(b.contract.to)} ·
+      h += `<div class="muted contract-note">Contract: Courier · Private to <b>${esc(b.contract.assign_to)}</b> · ${esc(b.contract.from)} → ${esc(b.contract.to)} ·
             reward <b>${num(b.contract.reward)}</b> · collateral <b>${num(b.contract.collateral)}</b> · ${b.contract.expiration} / ${b.contract.completion}
             ${b.contract.contracts_needed > 1 ? ` · split into ${b.contract.contracts_needed} contracts (max m³)` : ''}</div>`
           + (b.contract.move_first ? `<div class="warnbox">${esc(b.contract.move_first)}</div>` : '');
     if (b.contract && b.contract.type === 'Item Exchange')
-      h += `<div class="muted" style="margin-top:.3rem">${esc(b.contract.how)}</div>`;
+      h += `<div class="muted contract-note">${esc(b.contract.how)}</div>`;
     h += `</div>`;
   }
   if (sp.unsellable && sp.unsellable.length) h += `<div class="warnbox">No enabled way to sell: ${sp.unsellable.map(esc).join(', ')}</div>`;
@@ -226,15 +246,15 @@ const DEMAND_STATUS = {ok: ['ok', 'Enough buyers'], thin: ['warn', 'Thin market'
 function renderDemand(d) {
   if (!d || !d.rows || !d.rows.length) return '';
   const lo = Math.round(d.capture[0] * 100), hi = Math.round(d.capture[1] * 100);
-  let h = `<h5 style="margin-top:1.2rem">Market demand <span class="muted">· can each batch actually be sold there?</span></h5>
-    <p class="muted" style="font-size:.85rem">Order books refreshed ${esc(AC.ago(d.books_at))} ·
+  let h = `<h5 class="demand-heading">Market demand <span class="muted">· can each batch actually be sold there?</span></h5>
+    <p class="muted text-small">Order books refreshed ${esc(AC.ago(d.books_at))} ·
     trade history ${d.history_at ? esc(AC.ago(d.history_at)) + (d.history_window ? ` (last ${d.history_window} days)` : '') : 'not loaded yet: it refreshes in the background, check back shortly'}.
     Immediate sales walk the visible buy orders after sales tax and the same hauling cost as above.
     Sell-order times are <b>estimates</b>, assuming you capture ${lo}–${hi}% of the units the region trades per day.</p>`;
   const adjusted = d.replanned || [], dropped = d.dropped || [];
   if (adjusted.length || dropped.length) {
     const n = adjusted.length + dropped.length;
-    h += `<details style="font-size:.85rem"><summary class="muted">We adjusted ${n} product${n === 1 ? '' : 's'} to what the market can really take. Details</summary><ul>` +
+    h += `<details class="text-small"><summary class="muted">We adjusted ${n} product${n === 1 ? '' : 's'} to what the market can really take. Details</summary><ul>` +
          adjusted.map(r => `<li>${esc(r.item)}: counted at ${num(r.realistic, 0)} instead of ${num(r.quoted, 0)} ISK per unit${r.reason ? ` (${esc(r.reason)})` : ''}.</li>`).join('') +
          dropped.map(r => `<li>Dropped ${esc(r.item)}${r.reason ? `: ${esc(r.reason)}` : ''}.</li>`).join('') +
          `</ul><p class="muted">"Counted at" is what one batch really earns per shipping cycle: what the visible buyers pay, or the share of slow sell orders that sells in time. The batch totals above use these values.</p></details>`;
@@ -264,7 +284,7 @@ function renderDemand(d) {
       <td>${num(r.per_day)}</td><td>${num(r.qty)}</td>
       <td>${r.side === 'sell' ? '<span class="muted">n/a (sell orders)</span>' : r.book_missing ? '<span class="muted">not loaded</span>' : `${num(r.visible_units)}<br><span class="muted">${r.visible_levels} price level${r.visible_levels === 1 ? '' : 's'}</span>`}</td>
       <td>${traded}</td><td>${sale}</td>
-      <td><span class="${cls}">${esc(label)}</span>${r.advice ? `<br><span class="muted" style="font-size:.8rem">${esc(r.advice)}</span>` : ''}</td></tr>`;
+      <td><span class="${cls}">${esc(label)}</span>${r.advice ? `<br><span class="muted text-xs">${esc(r.advice)}</span>` : ''}</td></tr>`;
   }
   return h + `</tbody></table></div>`;
 }

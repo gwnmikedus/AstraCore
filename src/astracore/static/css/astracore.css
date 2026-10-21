@@ -657,8 +657,10 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 .page-area .con .top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
 .page-area .con .title { display: flex; align-items: center; gap: var(--space-1); font-family: var(--font-display); font-size: 19px; font-weight: 600; }
 .page-area .bar { height: var(--stroke-bar); background: var(--line); margin: var(--space-2) 0; }
-.page-area .bar span { display: block; height: 100%; background: var(--ink-muted); }
-.page-area .con:has(input:checked) .bar span { background: var(--signal); }
+.page-area .bar::-webkit-progress-value { background: var(--ink-muted); }
+.page-area .bar::-moz-progress-bar { background: var(--ink-muted); }
+.page-area .con:has(input:checked) .bar::-webkit-progress-value { background: var(--signal); }
+.page-area .con:has(input:checked) .bar::-moz-progress-bar { background: var(--signal); }
 .page-area .sys { display: flex; justify-content: space-between; gap: var(--space-2); padding: 3px 0; font-size: 13px; border-top: var(--stroke-hair) solid var(--line); }
 .page-area .sys .pill { height: 18px; font-size: 11px; padding: 0 4px; gap: 3px; }
 .page-area .sys .pill img.eve { margin: 0; }
@@ -1457,3 +1459,38 @@ button.help-btn:hover .help-mark, button.help-btn[aria-expanded="true"] .help-ma
 .glossary dt { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin-top: var(--space-6); scroll-margin-top: 80px; }
 .glossary dt:target { color: var(--scan); }
 .glossary dd { margin: var(--space-1) 0 0; color: var(--ink-muted); line-height: 1.55; }
+
+/* Shared presentation classes: templates never need inline style attributes. */
+.account-form { max-width:34rem; }
+.module-icon-small { vertical-align:-4px; }
+.module-icon-heading { vertical-align:-5px; }
+.character-icon { vertical-align:-6px; }
+.text-xs { font-size:.8rem; }
+.answer-error { font-size:.82rem; }
+.text-small { font-size:.85rem; }
+.wrap-text { white-space:normal; }
+.compact-hint { margin:0;font-size:13px; }
+.selling-heading { margin-top:1.4rem; }
+.demand-heading { margin-top:1.2rem; }
+.contract-note { margin-top:.3rem; }
+.no-margin { margin:0; }
+.compact-copy { margin:.2rem 0; }
+.schedule-note { margin:.4rem 0 0; }
+.haul-group { margin:.8rem 0 1rem; }
+.indented { margin-left:1rem; }
+.haul-detail { margin-left:1rem;margin-bottom:.6rem; }
+.title-tight { margin-bottom:.2rem; }
+.space-after-xs { margin-bottom:.3rem; }
+.space-after { margin-bottom:1rem; }
+.strong-label { font-weight:600; }
+.selling-label { margin:.6rem 0 .6rem; }
+.suggestions-heading { margin-bottom:.5rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap; }
+.guided-link { font-size:.85rem;font-weight:400; }
+.align-end { align-items:end; }
+.skel-medium { width:60%; }
+.skel-wide { width:70%; }
+.skel-tall { height:6rem; }
+.dimmed-option { opacity: .55; }
+.held-batch { opacity: .6; }
+.fictional-banner { position: sticky; top: 0; z-index: 100; padding: 16px 16px 16px 96px; background: #ff7619; color: #111; font-weight: bold; }
+.fictional-banner a { color: #111; text-decoration: underline; }

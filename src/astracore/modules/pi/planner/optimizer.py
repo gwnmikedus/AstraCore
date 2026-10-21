@@ -4,11 +4,12 @@ Two stages so the live sliders stay fast:
 
 1. Pooled integer program over (planet, template) pairs. n[j] = how many of your
    characters place template j on that planet. Factories get a utilisation
-   z[j] in [0, n[j]]. Item flows must balance; leftovers are sold. A factory runs no faster
+   z[j] in [0, n[j]]. Item flows must balance: inputs come from your own colonies or are
+   bought (P1-P3, at Jita, Amarr or Delve), leftovers are sold. A factory runs no faster
    than its launchpad/storage can buffer for one extractor cycle, so it needs one restock per
    cycle at most.
 
-       maximise  sold value - customs tax
+       maximise  sold value - customs tax - bought inputs
                  - w_m3 * m3/day moved - w_sys * systems used - w_fac * factories
 
 2. Assign the colonies to characters: keep colonies that already exist, keep
@@ -42,6 +43,20 @@ BUFFER_HEADROOM = 0.99  # factories are planned to fill at most 99% of their spa
 # Search steps per solve (see _solve); the time limit only guards against a stuck solver.
 SOLVER_MAX_NODES = 1000
 SOLVER_SAFETY_SECONDS = 30
+MARKET = -1  # producer index of inputs bought on the market, in the feeder links
+BuyCosts = Dict[int, Dict[str, float]]   # item -> {buy channel (selling.buy_channels): ISK per unit at the drop-off}
+BuyCaps = Dict[int, Dict[str, float]]    # item -> {market (jita, amarr, delve): units/day it can supply}
+
+
+def market_of(channel: str) -> str:
+    """The market a buy channel buys in: jita, amarr or delve."""
+    return "delve" if channel.startswith("local") else channel.split("_")[0]
+
+
+def capital_days(s: Settings) -> float:
+    """How long ISK spent on inputs stays tied up: bought for one extractor cycle, paid back when the
+    products are sold with the next batch."""
+    return max(1.0, float(s.cycle_days)) + max(1.0, float(s.ship_every_days))
 
 def _factory_planets(sys: dict, max_tier: int = 2) -> set:
     """Higher-tier chains need several distinct factories; offer every usable site.
@@ -101,7 +116,8 @@ def resolve_hub(area: dict, s: Settings, systems: Dict[int, dict], overrides: di
 def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area: dict,
            n_chars: int, total_slots: int, max_slots: int, slots_by_ccu: Dict[int, int],
            prices: Dict[int, float],
-           templates: List[dict], overrides: dict, head_yield: float, characters: List[dict]):
+           templates: List[dict], overrides: dict, head_yield: float, characters: List[dict],
+           buy: BuyCosts, buy_cap: BuyCaps):
     dist = area_mod.jumps_from(area, hub_id)
     scope = {sid: sys for sid, sys in systems.items() if dist.get(sid, 999) <= s.max_jumps}
     black = {b.lower() for b in s.product_blacklist}
@@ -133,7 +149,7 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
                 cache[key] = opts
             cands += [(p["planet_id"], st, k) for st, k in cache[key]]
     if not cands:
-        return None, planets, scope, NO_FIT
+        return None, planets, scope, {}, NO_FIT
 
     w = time_weights(s)
     per_planet = per_planet_cap
@@ -181,14 +197,35 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
         by_planet[pid].append(n[j])
         by_system[planets[pid]["system_id"]].append(n[j])
 
+    # Inputs bought on the market, delivered to the drop-off. Never more than the factories use: the
+    # planner doesn't trade, it only fills what your own colonies don't make.
+    # One variable per market channel: each market has its own price and its own limit.
+    via = {(t, ch): pulp.LpVariable(f"b{t}_{ch}", lowBound=0)
+           for t in consumed for ch, cost in (buy.get(t) or {}).items() if cost > 0}
+    bought = {}
+    for (t, ch), v in via.items():
+        bought.setdefault(t, []).append(v)
+    bought = {t: pulp.lpSum(vs) for t, vs in bought.items()}
+    for t, v in bought.items():
+        prob += v <= pulp.lpSum(consumed[t])
+    for (t, ch), v in via.items():
+        cap = (buy_cap.get(t) or {}).get(market_of(ch))
+        if cap is not None:
+            same = [w for (u, c), w in via.items() if u == t and market_of(c) == market_of(ch)]
+            if same[0] is v:    # one limit per market, shared by its instant buys and buy orders
+                prob += pulp.lpSum(same) <= cap
     sold = {}
     for t in set(produced) | set(consumed):
         v = pulp.LpVariable(f"s{t}", lowBound=0)
-        prob += v == pulp.lpSum(produced.get(t, [])) - pulp.lpSum(consumed.get(t, []))
+        prob += v == pulp.lpSum(produced.get(t, [])) + (bought[t] if t in bought else 0) \
+            - pulp.lpSum(consumed.get(t, []))
         sold[t] = v
+    spend = pulp.lpSum(buy[t][ch] * v for (t, ch), v in via.items())
+    if bought and s.input_budget_isk > 0:
+        prob += spend * capital_days(s) <= float(s.input_budget_isk)
     keep = 1.0  # values are already net of taxes, courier and buyback cuts
     prob += (pulp.lpSum(prices.get(t, 0.0) * keep * v for t, v in sold.items())
-             - pulp.lpSum(tax) - w["isk_per_m3"] * pulp.lpSum(m3)
+             - spend - pulp.lpSum(tax) - w["isk_per_m3"] * pulp.lpSum(m3)
              - w["isk_per_system"] * pulp.lpSum(y.values())
              - w["isk_per_factory"] * pulp.lpSum(fac)
              - 1.0 * pulp.lpSum(n.values()))  # tie-breaker: never place a colony that adds nothing
@@ -213,7 +250,9 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
             st = cands[j][1]
             need = sum(q / avg_out[t] for t, q in st.inputs.items() if avg_out.get(t))
             feeders.append(need * z[j])
-        prob += pulp.lpSum(feeders) <= (max_slots - 1) * pulp.lpSum(n[j] for j in z)
+        # bought inputs need no feeder colony
+        supplied = pulp.lpSum(v / avg_out[t] for t, v in bought.items() if avg_out.get(t))
+        prob += pulp.lpSum(feeders) - supplied <= (max_slots - 1) * pulp.lpSum(n[j] for j in z)
     if s.max_systems > 0:
         prob += pulp.lpSum(y.values()) <= s.max_systems
 
@@ -223,7 +262,7 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
     status = prob.solve(pulp.PULP_CBC_CMD(msg=False, maxNodes=SOLVER_MAX_NODES, threads=1, gapRel=0.01,
                                           timeLimit=max(SOLVER_SAFETY_SECONDS, int(s.solver_time_limit))))
     if prob.objective is None or pulp.value(prob.objective) is None:
-        return None, planets, scope, f"Solver: {pulp.LpStatus[status]}"
+        return None, planets, scope, {}, f"Solver: {pulp.LpStatus[status]}"
     instances = []
     for j, (pid, st, share) in enumerate(cands):
         k = int(round(n[j].value() or 0))
@@ -234,7 +273,11 @@ def _solve(pi: PIData, s: Settings, systems: Dict[int, dict], hub_id: int, area:
             continue
         for _ in range(k):
             instances.append({"planet_id": pid, "setup": st, "util": util, "share": share})
-    return instances, planets, scope, None
+    sources: Dict[int, Dict[str, float]] = defaultdict(dict)
+    for (t, ch), v in via.items():
+        if (v.value() or 0.0) > 1e-6:
+            sources[t][ch] = v.value()
+    return instances, planets, scope, dict(sources), None
 
 
 # ----------------------------------------------------------------------------- stage 2
@@ -262,6 +305,28 @@ def _links(pi: PIData, instances: List[dict]) -> List[Tuple[int, int, int, float
                     remaining[(p, t)] -= give
                     need -= give
     return links
+
+
+def _buy_links(pi: PIData, instances: List[dict], links: List, pool: Dict[int, float]) -> None:
+    """What each factory still lacks after its feeders comes from the bought inputs (in place):
+    links (MARKET, factory idx, item, units/day), highest tier first. `pool` is used up."""
+    got = defaultdict(float)
+    for lk in links:
+        got[(lk[1], lk[2])] += lk[3]
+    for c in sorted((i for i, x in enumerate(instances) if x["setup"].inputs),
+                    key=lambda i: -pi.tier(instances[i]["setup"].product)):
+        _draw(c, {t: q * instances[c]["util"] - got[(c, t)] for t, q in instances[c]["setup"].inputs.items()},
+              links, pool)
+
+
+def _draw(c: int, need: Dict[int, float], links: List, pool: Dict[int, float]) -> None:
+    """Fill factory `c`'s open `need` (units/day per item) from the bought pool (both in place)."""
+    for t, q in need.items():
+        give = min(q, pool.get(t, 0.0))
+        if give > 1e-6:
+            links.append([MARKET, c, t, give])
+            pool[t] -= give
+            need[t] = q - give
 
 
 class _Slots:
@@ -387,9 +452,12 @@ def _assign(pi: PIData, instances: List[dict], characters: List[dict], planets: 
 
 
 def _assign_self_contained(pi: PIData, instances: List[dict], characters: List[dict],
-                           planets: Dict[int, dict]) -> Tuple[Dict[int, int], List[Tuple[int, int, int, float]]]:
-    """No transfers between characters: every factory gets its feeders on the same character.
-    Factory utilisation is reduced to what those feeders can actually supply."""
+                           planets: Dict[int, dict], pool: Optional[Dict[int, float]] = None
+                           ) -> Tuple[Dict[int, int], List[Tuple[int, int, int, float]]]:
+    """No transfers between characters: every factory gets its feeders on the same character, and
+    bought inputs (`pool`, units/day) for whatever they don't make. Factory utilisation is reduced
+    to what that can actually supply."""
+    pool = dict(pool or {})
     sl = _Slots(instances, characters, planets)
     sl.keep_existing(pi, characters)
     links: List[List] = []
@@ -435,6 +503,7 @@ def _assign_self_contained(pi: PIData, instances: List[dict], characters: List[d
                 if instances[p]["setup"].inputs:
                     in_chain.add(p)
                     queue.append(p)
+            _draw(c, need, links, pool)
 
     # utilisation: bottom-up, a factory runs only as fast as its inputs arrive
     for tier in (2, 3, 4):
@@ -488,7 +557,11 @@ def add_feeds(pi: PIData, colonies: List[dict], links: List[tuple], prices: Dict
 # ----------------------------------------------------------------------------- public API
 def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characters: List[dict],
          prices: Dict[int, float], templates: List[dict], overrides: Optional[dict] = None,
-         head_yield: Optional[float] = None) -> dict:
+         head_yield: Optional[float] = None, buy: Optional[BuyCosts] = None,
+         buy_cap: Optional[BuyCaps] = None) -> dict:
+    """`prices` = net ISK per unit sold at the drop-off; `buy` = ISK per unit for an input bought and
+    delivered there, per channel (selling.buy_costs; empty or None = own production only); `buy_cap` =
+    units/day each market can supply (demand.buy_limits; a market not listed has no limit)."""
     t0 = time.time()
     overrides = overrides or {}
     head_yield = head_yield or s.head_yield_per_hour
@@ -512,11 +585,12 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
     slots_by_ccu: Dict[int, int] = defaultdict(int)
     for c in eligible:
         slots_by_ccu[int(c["ccu_level"])] += int(c["slots"])
-    instances, planets, scope, err = _solve(pi, s, systems, hub["system_id"], area, len(eligible),
-                                            total_slots, max_slots, slots_by_ccu, prices, templates,
-                                            overrides, head_yield, eligible)
+    instances, planets, scope, sources, err = _solve(pi, s, systems, hub["system_id"], area, len(eligible),
+                                                  total_slots, max_slots, slots_by_ccu, prices, templates,
+                                                  overrides, head_yield, eligible, buy or {}, buy_cap or {})
     if err:
         return {"error": err, "warnings": warnings, **({"error_steps": ["area"]} if err == NO_FIT else {})}
+    pool = {t: sum(chs.values()) for t, chs in sources.items()}
     known = {pi.name(t).lower(): pi.name(t) for t in pi.items}
     unknown = sorted(b for b in s.product_blacklist if b.strip() and b.strip().lower() not in known)
     never = sorted({known[b.strip().lower()] for b in s.product_blacklist if b.strip().lower() in known})
@@ -534,10 +608,12 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
                    f"drop-off {hub['name']} for your answer and not used.", steps=["area"], level="info"))
 
     if s.cross_character:
-        links = _links(pi, instances)
-        owner = _assign(pi, instances, eligible, planets, links)
+        links = [list(lk) for lk in _links(pi, instances)]
+        _buy_links(pi, instances, links, dict(pool))
+        links = [tuple(lk) for lk in links]
+        owner = _assign(pi, instances, eligible, planets, [lk for lk in links if lk[0] != MARKET])
     else:
-        owner, links = _assign_self_contained(pi, instances, eligible, planets)
+        owner, links = _assign_self_contained(pi, instances, eligible, planets, pool)
     by_id = {c["character_id"]: c for c in eligible}
     poco = skills.customs_rates(eligible)
     keep = 1.0  # values are already net of taxes, courier and buyback cuts
@@ -589,6 +665,12 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         })
     colonies.sort(key=lambda c: (c["character"], c["system"], c["planet"]))
     add_feeds(pi, colonies, links, prices)
+    from_market: Dict[int, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for p, c, t, q in links:
+        if p == MARKET and q > 0:
+            from_market[c][pi.name(t)] += q
+    for col in colonies:   # the part of a factory's inputs that is bought, per item
+        col["bought_per_day"] = {k: round(q, 1) for k, q in sorted(from_market.get(col["idx"], {}).items())}
     for c in colonies:
         c["upkeep"] = upkeep.plan_buffer(pi, c, s.cycle_days)
     tight = [c for c in colonies if c["upkeep"]["issues"]]
@@ -636,10 +718,32 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
             produced[t] += q * inst["util"]
         for t, q in inst["setup"].inputs.items():
             consumed[t] += q * inst["util"]
+    bought_units = defaultdict(float)
+    for p, c, t, q in links:
+        if p == MARKET and c in owner and q > 0:
+            bought_units[t] += q
+    for t, q in bought_units.items():
+        produced[t] += q
     sold = sorted(({"type_id": t, "item": pi.name(t), "tier": pi.tier(t), "units_per_day": round(produced[t] - consumed[t], 1),
                     "isk_per_day": round(prices.get(t, 0.0) * keep * (produced[t] - consumed[t])),
                     "m3_per_week": round((produced[t] - consumed[t]) * pi.volume(t) * 7, 1)}
                    for t in produced if produced[t] - consumed[t] > 0.5), key=lambda r: -r["isk_per_day"])
+    # Stage 2 may use less than stage 1 bought (a factory runs slower): scale each market's share alike.
+    bought, buy_day = [], 0.0
+    for t, q in bought_units.items():
+        chs = sources.get(t) or {}
+        scale = q / (sum(chs.values()) or 1.0)
+        split = {ch: v * scale for ch, v in chs.items()}
+        isk_day = sum((buy or {})[t][ch] * v for ch, v in split.items())
+        buy_day += isk_day
+        if q > 0.05:
+            bought.append({"type_id": t, "item": pi.name(t), "tier": pi.tier(t), "units_per_day": round(q, 1),
+                           "isk_per_unit": round(isk_day / q, 2), "isk_per_day": round(isk_day),
+                           "m3_per_week": round(q * pi.volume(t) * 7, 1),
+                           "sources": [{"channel": ch, "units_per_day": round(v, 1),
+                                        "isk_per_unit": round((buy or {})[t][ch], 2)}
+                                       for ch, v in sorted(split.items(), key=lambda kv: -kv[1])]})
+    bought.sort(key=lambda r: -r["isk_per_day"])
 
     # per-character summary + routes
     chars_out = []
@@ -655,7 +759,7 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
             "route": route,
         })
 
-    revenue = sum(r["isk_per_day"] for r in sold)
+    revenue = sum(r["isk_per_day"] for r in sold) - buy_day
     tax_day = sum(x["tax_per_day"] for x in colonies)
     used_sys = sorted({x["system_id"] for x in colonies})
     miners = sum(1 for x in colonies if x["kind"] == "miner")
@@ -672,6 +776,8 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         "restarts_per_week": round(miners * 7 / max(0.5, s.cycle_days), 1),
         "transfers": len(transfer_rows),
         "max_tier_used": max((x["tier"] for x in colonies), default=0),
+        "buy_isk_per_day": round(buy_day),
+        "capital_isk": round(buy_day * capital_days(s)),
     }
     free = total_slots - len(colonies)
     if free > 0:
@@ -682,23 +788,55 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         "hub": hub["name"], "hub_id": hub["system_id"], "systems_in_scope": len(scope),
         "solve_seconds": round(time.time() - t0, 2), "head_yield": head_yield,
         "colonies": colonies, "characters": chars_out, "removals": removals,
-        "transfers": transfer_rows, "sold": sold, "totals": totals, "warnings": warnings,
+        "transfers": transfer_rows, "sold": sold, "bought": bought, "totals": totals, "warnings": warnings,
         "templates_needed": sorted({x["template_file"] for x in colonies}),
-        "tier_need": tier_need(pi, s, templates, colonies),
+        "tier_need": tier_need(pi, s, templates, colonies, prices, buy),
         "never_produce": never,     # "Never produce", as PI product names (the plan result's checkboxes)
     }
 
 
-def tier_need(pi: PIData, s: Settings, templates: List[dict], colonies: List[dict]) -> dict:
-    """Why a plan stops below the tier it may use: what one factory of each higher tier eats, in miners.
+def step_margins(pi: PIData, s: Settings, prices: Dict[int, float],
+                 buy: Optional[BuyCosts] = None) -> Dict[str, dict]:
+    """Per tier, the product whose factory step pays best: its value over what its inputs cost, after
+    customs. Each input counts at the cheaper of buying it (when the pilot buys) and what it would sell
+    for (the ISK your own input could have made instead). {tier: {product, pct, buying}}."""
+    def unit(t: int) -> float:
+        own = prices.get(t, 0.0)
+        bought = min((buy or {}).get(t, {}).values(), default=0.0)
+        return min(own, bought) if own > 0 and bought > 0 else (own or bought)
+    out: Dict[str, dict] = {}
+    for tier in (2, 3, 4):
+        best = None
+        for t in pi.of_tier(tier):
+            r = pi.recipe(t)
+            if not r or prices.get(t, 0) <= 0:
+                continue
+            cost = sum(q * unit(x) for x, q in r.inputs.items())
+            if cost <= 0 or any(unit(x) <= 0 for x in r.inputs):
+                continue
+            gain = (r.output_qty * prices[t] - cost - eco.export_tax(pi, s, {t: r.output_qty})
+                    - eco.import_tax(pi, s, dict(r.inputs)))
+            if best is None or gain / cost > best[1]:
+                best = (t, gain / cost)
+        if best:
+            out[str(tier)] = {"product": pi.name(best[0]), "pct": round(best[1] * 100), "buying": bool(buy)}
+    return out
+
+
+def tier_need(pi: PIData, s: Settings, templates: List[dict], colonies: List[dict],
+              prices: Optional[Dict[int, float]] = None, buy: Optional[BuyCosts] = None) -> dict:
+    """Why a plan stops below the tier it may use: what one factory of each higher tier eats, in miners,
+    and how much the best factory step of each tier pays over its inputs.
 
     `factory_miners[tier]` is how many of this plan's average miners one typical factory of that tier
-    needs at full speed; `miners` how many miners the plan has. Empty values where it can't be told."""
+    needs at full speed; `miners` how many miners the plan has; `margins[tier]` = step_margins. Empty
+    values where it can't be told."""
     miners = [x for x in colonies if x["kind"] == "miner"]
     p1 = sum(sum(x["out_per_day"].values()) for x in miners)
     per_miner = p1 / len(miners) if miners else 0.0
     out = {"allowed": int(s.max_tier), "used": max((x["tier"] for x in colonies), default=0),
-           "miners": len(miners), "factory_miners": {}}
+           "miners": len(miners), "factory_miners": {}, "buying": bool(buy),
+           "teamwork": bool(s.cross_character), "margins": step_margins(pi, s, prices or {}, buy)}
     if per_miner <= 0:
         return out
     for tier in range(2, 5):
@@ -717,13 +855,14 @@ ALTERNATIVES = [
 
 def alternatives(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characters: List[dict],
                  prices: Dict[int, float], templates: List[dict], overrides: Optional[dict] = None,
-                 head_yield: Optional[float] = None) -> List[dict]:
+                 head_yield: Optional[float] = None, buy: Optional[BuyCosts] = None,
+                 buy_cap: Optional[BuyCaps] = None) -> List[dict]:
     """The same settings planned for each goal, each at its default value of the pilot's time."""
     out = []
     for code, name, effort in ALTERNATIVES:
         ss = copy.deepcopy(s)
         ss.effort, ss.hour_isk = effort, -1.0   # same time limit as the live plan, so the cards match it
-        res = plan(pi, ss, area, systems, characters, prices, templates, overrides, head_yield)
+        res = plan(pi, ss, area, systems, characters, prices, templates, overrides, head_yield, buy, buy_cap)
         out.append({"code": code, "name": name, "effort": effort, "error": res.get("error"),
                     "totals": res.get("totals", {}),
                     "mix": _mix(res.get("colonies", []))})
@@ -746,12 +885,13 @@ def alternatives(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], 
 
 def yield_sensitivity(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characters: List[dict],
                       prices: Dict[int, float], templates: List[dict], overrides: Optional[dict] = None,
-                      head_yield: Optional[float] = None, factors=(0.5, 2.0)) -> List[dict]:
+                      head_yield: Optional[float] = None, buy: Optional[BuyCosts] = None,
+                      buy_cap: Optional[BuyCaps] = None, factors=(0.5, 2.0)) -> List[dict]:
     """The same settings re-planned at other P0 yields: shows how much the estimate matters."""
     base = head_yield or s.head_yield_per_hour
     out = []
     for f in factors:
-        res = plan(pi, s, area, systems, characters, prices, templates, overrides, base * f)
+        res = plan(pi, s, area, systems, characters, prices, templates, overrides, base * f, buy, buy_cap)
         out.append({"factor": f, "head_yield": round(base * f), "error": res.get("error"),
                     "isk_per_day": res.get("totals", {}).get("isk_per_day"),
                     "mix": _mix(res.get("colonies", []))})

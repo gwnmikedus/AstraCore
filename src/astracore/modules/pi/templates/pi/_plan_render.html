@@ -74,6 +74,21 @@ function colonyNotesHTML(c) {
   return `<details><summary class="warn">${AC.icon('triangle-alert')} Colony notes (${notes.length})</summary>` +
     `<ul style="white-space:normal">${notes.map(n => `<li class="warn">${esc(n)}</li>`).join('')}</ul></details>`;
 }
+// Inputs the plan buys: what, where, how much per restock round and what it costs.
+function boughtHTML(res) {
+  const rows = res.bought || [];
+  if (!rows.length) return '';
+  const b = res.buying || {}, t = res.totals;
+  const days = b.restock_days ? ` · ${num(b.restock_days, 1)} days per restock` : '';
+  return `<h5>Inputs you buy <span class="muted">· ${isk(t.buy_isk_per_day)}/day${days}</span>${AC.helpFor(HELP.buy, {glossary: GLOSSARY})}</h5>
+    <p class="muted" style="font-size:.85rem">Your factories run partly on inputs from the market, priced with the courier to ${esc(res.hub)}.
+      About <b>${isk(t.capital_isk)}</b> stays tied up until the products are sold${b.budget_isk ? ` (your budget: ${isk(b.budget_isk)})` : ''};
+      the plan buys at most ${Math.round((b.share || 0.1) * 100)}% of what a market trades a day. Operate lists what to buy for each restock.</p>
+    <div class="scroll"><table><thead><tr><th>Input</th><th>Per day</th><th>Per restock</th><th>Where</th><th>ISK / unit</th><th>ISK / day</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${AC.eveImg(r.item, 16)}${esc(r.item)} <span class="muted">P${r.tier}</span></td><td>${num(r.units_per_day)}</td>
+      <td>${r.per_restock != null ? num(r.per_restock) : '–'}</td><td>${esc(r.where || '–')}</td><td>${num(r.isk_per_unit, 2)}</td><td>${isk(r.isk_per_day)}</td></tr>`).join('') +
+    `</tbody></table></div>`;
+}
 // Transfers between characters, one line per receiving character.
 function transfersHTML(rows) {
   if (!rows || !rows.length) return '';
@@ -131,6 +146,8 @@ function planHTML(res, opts = {}) {
     <div class="card"><div class="v">${t.colonies}/${t.slots_total}</div><div class="l">slots used</div></div>
     <div class="card"><div class="v">${count(t.restarts_per_week)}</div><div class="l">extractor restarts / week</div></div>
     <div class="card"><div class="v">${t.factories}</div><div class="l">factory planets</div></div>
+    ${t.buy_isk_per_day ? `<div class="card"><div class="v">${isk(t.buy_isk_per_day)}</div><div class="l">inputs bought / day (already subtracted)</div></div>
+    <div class="card"><div class="v">${isk(t.capital_isk)}</div><div class="l">ISK tied up in inputs${AC.helpFor(HELP.buy, {glossary: GLOSSARY})}</div></div>` : ''}
   </div>`;
   const tier = AC.tierHelp(res.tier_need);
   if (tier) h += `<p class="help-line">${AC.helpHTML({text: tier.text, label: tier.question, showLabel: true, more: GLOSSARY + '#higher-tiers'})}</p>`;
@@ -159,7 +176,9 @@ function planHTML(res, opts = {}) {
     h += `${upkeepHelp.answer}<div class="scroll"><table><thead><tr><th>Planet</th><th>Template to place${upkeepHelp.button}</th><th>Makes / day</th><th>Needs / day</th><th>Value / day</th><th></th></tr></thead><tbody>`;
     for (const c of mine) {
       const outs = Object.entries(c.out_per_day).map(([k, v]) => `<span>${AC.eveImg(k)}${num(v)} ${esc(k)}</span>`).join(', ');
-      const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}</span>`).join('<br>');
+      const bought = c.bought_per_day || {};
+      const ins = Object.entries(c.in_per_day).map(([k, v]) => `<span>${AC.eveImg(k, 16)}${num(v)} ${esc(k)}${bought[k]
+        ? ` <span class="muted">(${bought[k] >= v - 0.5 ? 'bought' : num(bought[k]) + ' bought'})</span>` : ''}</span>`).join('<br>');
       h += `<tr>
         <td><div class="cellimg">${AC.planetImg(c.planet_type, 28)}<div>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span>${richnessHTML(c)}</div></div></td>
         <td><div class="cellimg">${AC.structureImg(c.kind === 'miner' ? 'miner' : (c.tier === 4 ? 'factory_p4' : 'factory'), 24)}<div>${AC.externalLink(c.template_url, c.template, {cls: `kind-${c.kind}`})}
@@ -176,6 +195,7 @@ function planHTML(res, opts = {}) {
     h += `</tbody></table></div></div>`;
   }
   h += neverProduceHTML(res);
+  h += boughtHTML(res);
   h += transfersHTML(res.transfers);
   if (res.removals.length) {
     h += `<h5>Current colonies to pick up &amp; remove</h5><ul>` + res.removals.map(x =>

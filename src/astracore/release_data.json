@@ -1,6 +1,39 @@
 {
-  "current_version": "0.4.0",
+  "current_version": "0.5.0",
   "releases": [
+    {
+      "version": "0.5.0",
+      "date": "2026-10-21",
+      "title": "A film of how AstraCore sets up PI, right on the home page",
+      "changes": [
+        "The home page opens with a short film of how AstraCore takes the chore out of PI: from your pilots and five guided questions to a plan, matched DalShooth templates and the next action in Operate.",
+        "It plays once, then hands over to the page as you know it. Play the film watches it again, Skip film ends it early, and it waits for you on phones and when your system asks for reduced motion.",
+        "Turn on the sound for a full cinematic score. It's off until you press Sound on, and it's never remembered or started for you.",
+        "The film is drawn live in your browser instead of streamed as a video, so the page stays quick to load."
+      ],
+      "limitations": [
+        "Everything in the film is fictional example data; real plans use your characters, prices and taxes.",
+        "On phones the film's smaller text is more atmosphere than something to read."
+      ],
+      "technical": [
+        "js/hero-film.js plays the trailer's scenes from docs/demo/trailer/film, bundled by scripts/trailer/build_hero_film.py; inline styles are applied through CSSOM so the content security policy keeps forbidding style attributes.",
+        "js/hero-film-audio.js synthesises docs/demo/trailer/hero-score.js with Web Audio, loaded only after Sound on; the 19 MB MP4 and its poster are gone."
+      ],
+      "references": [
+        {
+          "label": "Trailer (#216)",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues/216"
+        },
+        {
+          "label": "Live film in the hero (#236)",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues/236"
+        },
+        {
+          "label": "Issues completed in this release",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues?q=is%3Aissue+label%3Astatus%3Areleased"
+        }
+      ]
+    },
     {
       "version": "0.4.0",
       "date": "2026-10-21",

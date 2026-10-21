@@ -1,6 +1,47 @@
 {
-  "current_version": "0.3.0",
+  "current_version": "0.4.0",
   "releases": [
+    {
+      "version": "0.4.0",
+      "date": "2026-10-21",
+      "title": "Factories on bought inputs, so P3 and P4 can pay",
+      "changes": [
+        "Factories can now run on P1, P2 or P3 you buy in Jita, Amarr or Delve, the way most pilots make P3 and P4. A new Buying question in the guided setup asks how much ISK you're willing to tie up in inputs; the plan counts the price, the VOC courier and customs, and never buys more than a market can supply.",
+        "The plan shows what you buy, what it costs a day and how much ISK stays tied up, and marks which factory inputs are bought. Operate lists what to buy for each restock, with a multibuy list to paste into EVE.",
+        "With Up to P3 or P4 and several characters, they now supply each other automatically, because those chains rarely fit one character. The plan says when this happens; choose Teamwork yourself to turn it off.",
+        "\"Why no P4 factories?\" now shows how much the best factory step earns over its inputs, instead of only counting miners.",
+        "The guided setup is calmer: answer cards show the key figures first, the operating area is chosen once, and optional choices (planets, teamwork, batches) sit apart from the main questions. Glossary terms are explained right beside the questions.",
+        "Operate can copy or download your cached pickups as an item list or CSV, and colony notes fold away until you need them.",
+        "Templates now credit DalShooth on every reference and export, and you can record the richness you scanned in game for planets you don't use yet.",
+        "Security: you'll be asked to sign in once more after this update. Sessions now use a host-bound cookie, sign-ins and planner bursts are rate-limited, and pages no longer allow inline styles."
+      ],
+      "limitations": [
+        "Bought inputs are priced from cached order books; check prices in game before you buy. AstraCore never buys or places orders for you.",
+        "When you buy with buy orders and sell with sell orders, much of the margin comes from the market spread, which can close quickly.",
+        "A wider answer in the guided setup can still show slightly less ISK than a narrower one (#232).",
+        "Plans are still estimates; yield is estimated until your own extractors have run."
+      ],
+      "technical": [
+        "The solver buys per market channel with its own price and a cap of 10% of that market's daily traded volume (visible sell depth without history); ISK tied up = daily purchases x (extractor cycle + sell interval).",
+        "Saved guided-setup positions from before the Buying question move one step on; buying is on by default.",
+        "The session cookie is __Host-ac_session in production; all earlier production sessions were signed out once.",
+        "The content security policy no longer allows unsafe-inline styles (style-src-attr 'none')."
+      ],
+      "references": [
+        {
+          "label": "Buying inputs (#225)",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues/225"
+        },
+        {
+          "label": "Automatic teamwork (#226)",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues/226"
+        },
+        {
+          "label": "Issues completed in this release",
+          "url": "https://github.com/gwnmikedus/AstraCore/issues?q=is%3Aissue+label%3Astatus%3Areleased"
+        }
+      ]
+    },
     {
       "version": "0.3.0",
       "date": "2026-10-12",

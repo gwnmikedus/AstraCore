@@ -35,20 +35,22 @@ function fixture(settings = {}) {
   return {context, calls, visits, run, state, $};
 }
 
-const MAIN_IDS = ['goal', 'cycle', 'area', 'tier', 'sell'];
+const MAIN_IDS = ['goal', 'cycle', 'area', 'tier', 'buy', 'sell'];
+const BEFORE_SELL = ['goal', 'cycle', 'area', 'tier', 'buy'];
 
-test('five main questions retain the original indices and skip the optional stops', () => {
+test('six main questions retain the original indices and skip the optional stops', () => {
   const {run} = fixture();
-  assert.equal(run('QUESTIONS'), 5);
-  assert.deepEqual(JSON.parse(run('JSON.stringify(MAIN)')), [0, 1, 2, 3, 6, 8]);
-  assert.equal(run('nextIndex(3)'), 6);
-  assert.equal(run('cur = 6; backIndex()'), 3);
-  assert.equal(run('nextIndex(6)'), 8);
-  assert.equal(run('cur = 8; backIndex()'), 6);
+  assert.equal(run('QUESTIONS'), 6);
+  assert.deepEqual(JSON.parse(run('JSON.stringify(MAIN)')), [0, 1, 2, 3, 4, 7, 9]);
+  assert.equal(run('nextIndex(3)'), 4);
+  assert.equal(run('nextIndex(4)'), 7);
+  assert.equal(run('cur = 7; backIndex()'), 4);
+  assert.equal(run('nextIndex(7)'), 9);
+  assert.equal(run('cur = 9; backIndex()'), 7);
 });
 
 test('optional questions preserve their originating main progress without changing saved answers', async () => {
-  for (const [origin, optional, expected] of [[3, 4, 55.2], [6, 5, 73.6], [8, 7, 92]]) {
+  for (const [origin, optional, expected] of [[3, 5, 46], [7, 6, 76.667], [9, 8, 92]]) {
     const {context, run, state, $} = fixture({guide_step: origin, answered: [...MAIN_IDS, 'share', 'chain', 'batch']});
     context.go = index => run(`cur = ${index}`);
     const before = state();
@@ -65,11 +67,11 @@ test('optional questions preserve their originating main progress without changi
 });
 
 test('reloading a saved optional question keeps progress at its main return position', () => {
-  for (const index of [4, 5, 7]) {
-    const {run, $, state} = fixture({guide_step: index, answered: ['goal', 'cycle', 'area', 'tier']});
+  for (const index of [5, 6, 8]) {
+    const {run, $, state} = fixture({guide_step: index, answered: BEFORE_SELL});
     const before = state();
     run('drawTrack()');
-    assert.ok(Math.abs(parseFloat($('track').style['--progress']) - 73.6) < 0.001);
+    assert.ok(Math.abs(parseFloat($('track').style['--progress']) - 76.667) < 0.001);
     assert.deepEqual(state(), before);
   }
 });
@@ -82,20 +84,20 @@ test('More options shows saved non-default settings without treating them as ans
   assert.match(html, /Teamwork:<\/b> Yes, they can trade/);
   assert.match(html, /Batches:<\/b> Every 21 days/);
   assert.match(html, /<summary>More options<\/summary>/);
-  assert.match(html, /data-optional-i="4"/);
   assert.match(html, /data-optional-i="5"/);
-  assert.match(html, /data-optional-i="7"/);
+  assert.match(html, /data-optional-i="6"/);
+  assert.match(html, /data-optional-i="8"/);
   assert.deepEqual(state(), before);
 });
 
 test('only the explicit Selling confirmation adds the displayed optional choices to metadata', async () => {
-  const {calls, run, state} = fixture({answered: ['goal', 'cycle', 'area', 'tier']});
-  await run("save(STEPS[6], 8)");
+  const {calls, run, state} = fixture({answered: BEFORE_SELL});
+  await run("save(STEPS[7], 9)");
   assert.deepEqual(calls[0].body.answered, MAIN_IDS);
   assert.equal(calls[0].body.per_planet, undefined);
-  await run("save(STEPS[6], 8, true)");
+  await run("save(STEPS[7], 9, true)");
   assert.deepEqual(calls[1].body.answered, [...MAIN_IDS, 'share', 'chain', 'batch']);
-  assert.equal(calls[1].body.guide_step, 8);
+  assert.equal(calls[1].body.guide_step, 9);
   assert.deepEqual([calls[1].body.per_planet, calls[1].body.cross_character, calls[1].body.ship_every_days], [2, true, 21]);
   assert.deepEqual(state().answered, [...MAIN_IDS, 'share', 'chain', 'batch']);
 });
@@ -104,37 +106,42 @@ test('failed explicit confirmation does not mark defaults as confirmed or overwr
   const {context, run, state} = fixture({answered: MAIN_IDS});
   context.reply = {error: 'Not saved'};
   const before = state();
-  await run('save(STEPS[6], 8, true)');
+  await run('save(STEPS[7], 9, true)');
   assert.deepEqual(state(), before);
 });
 
 test('reload at an original optional index returns to the first unfinished main question', () => {
-  const {run, state} = fixture({guide_step: 4, answered: ['goal', 'cycle', 'area', 'tier']});
-  assert.equal(state().cur, 4);
-  assert.equal(state().optionalReturn, 6);
-  assert.equal(run('nextIndex()'), 6);
-  assert.equal(run('backIndex()'), 6);
-  const result = fixture({guide_step: 7, answered: [...MAIN_IDS, 'share', 'chain', 'batch']});
-  assert.equal(result.state().cur, 7);
-  assert.equal(result.run('nextIndex()'), 8);
+  const {run, state} = fixture({guide_step: 5, answered: BEFORE_SELL});
+  assert.equal(state().cur, 5);
+  assert.equal(state().optionalReturn, 7);
+  assert.equal(run('nextIndex()'), 7);
+  assert.equal(run('backIndex()'), 7);
+  const result = fixture({guide_step: 8, answered: [...MAIN_IDS, 'share', 'chain', 'batch']});
+  assert.equal(result.state().cur, 8);
+  assert.equal(result.run('nextIndex()'), 9);
+});
+
+test('a pilot who answered everything before the Buying question is asked it next', () => {
+  const {state} = fixture({guide_step: 5, answered: ['goal', 'cycle', 'area', 'tier', 'sell', 'share', 'chain', 'batch']});
+  assert.equal(state().optionalReturn, 4);
 });
 
 test('Back from an unconfirmed optional preview restores the saved choice', async () => {
-  const {run, state, visits} = fixture({guide_step: 4, answered: MAIN_IDS});
+  const {run, state, visits} = fixture({guide_step: 5, answered: MAIN_IDS});
   run("picks.share = 3; st.per_planet = 3; results.share = {3: {totals:{}}};");
-  await run('navigate(8)');
+  await run('navigate(9)');
   assert.equal(state().st.per_planet, 2);
   assert.equal(state().answered.includes('share'), false);
-  assert.deepEqual(visits, [6]);    // a visible Selling confirmation is still required
+  assert.deepEqual(visits, [7]);    // a visible Selling confirmation is still required
 });
 
 test('an explicitly adjusted optional answer is saved under its original ID and position', async () => {
-  const {run, state, calls} = fixture({guide_step: 4, answered: ['goal', 'cycle', 'area', 'tier']});
+  const {run, state, calls} = fixture({guide_step: 5, answered: BEFORE_SELL});
   run('picks.share = 3; st.per_planet = 3;');
-  await run('save(STEPS[4], 6)');
+  await run('save(STEPS[5], 7)');
   assert.equal(calls[0].body.per_planet, 3);
-  assert.equal(calls[0].body.guide_step, 6);
-  assert.deepEqual(state().answered, ['goal', 'cycle', 'area', 'tier', 'share']);
+  assert.equal(calls[0].body.guide_step, 7);
+  assert.deepEqual(state().answered, [...BEFORE_SELL, 'share']);
   assert.equal(calls[0].body.ship_every_days, undefined);
   assert.equal(calls[0].body.cross_character, undefined);
 });

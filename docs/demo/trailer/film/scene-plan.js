@@ -5,7 +5,7 @@ kit.scene('plan', {
   init(kit) {
     const tiles = PL_TILES.map((x) => '<div style="flex:1;min-width:0;padding:26px 28px;background:var(--ground);box-shadow:inset 0 0 0 1px #2a2e33">' +
       '<div class="mono muted" style="font-size:17px">' + x[0] + '</div>' +
-      '<div class="plan-num" style="margin-top:14px;font-family:var(--mono, ui-monospace, monospace);font-size:54px;font-variant-numeric:tabular-nums"></div></div>').join('');
+      '<div class="plan-num" style="margin-top:14px;font-family:var(--mono, ui-monospace, monospace);font-size:48px;white-space:nowrap;font-variant-numeric:tabular-nums"></div></div>').join('');
     kit.stage.append(kit.h('<div class="ground bars">' +
       '<canvas class="sky plan-sky" width="1920" height="1080"></canvas>' +
       '<div class="words plan-words" style="left:260px;top:150px;width:1400px"><h2 class="line plan-line" style="font-size:84px">A plan sized to your time</h2></div>' +

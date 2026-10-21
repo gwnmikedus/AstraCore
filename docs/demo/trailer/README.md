@@ -42,16 +42,20 @@ wizard and one big hit on the end card.
 
 ## Rebuilding the web copy
 
-The maintainer edits the film in a private Motion artifact and exports a 1920×1080 MP4 from its Export button.
-Then, on macOS (no FFmpeg needed):
+The maintainer edits the film in a private Motion artifact ("AstraCore PI Teaser") and saves a 1920×1080 MP4 with
+its **Export → MP4** button; the file lands in Downloads as `astracore-pi-teaser.mp4`. Then, on macOS (no FFmpeg
+needed), from the repository root:
 
 ```bash
 swiftc -O scripts/trailer/transcode.swift -o /tmp/trailer-transcode
-/tmp/trailer-transcode ~/Downloads/astracore-pi-trailer.mp4 src/astracore/static/video/astracore-trailer.mp4 1280 720 2500000
+/tmp/trailer-transcode ~/Downloads/astracore-pi-teaser.mp4 src/astracore/static/video/astracore-trailer.mp4 1280 720 2500000
 swiftc -O scripts/trailer/poster.swift -o /tmp/trailer-poster
-/tmp/trailer-poster ~/Downloads/astracore-pi-trailer.mp4 58 /tmp/trailer-poster.png
+/tmp/trailer-poster ~/Downloads/astracore-pi-teaser.mp4 58 /tmp/trailer-poster.png
 sips -s format jpeg -s formatOptions 78 -Z 1280 /tmp/trailer-poster.png --out src/astracore/static/img/trailer/trailer-poster-1280.jpg
 ```
+
+Check the result before committing: `mdls -name kMDItemDurationSeconds` should report about 60 seconds, and the
+web copy should stay under 25 MB (`tests/test_trailer.py` enforces both the size and the 60-second source).
 
 Replace the files in `film/` with the artifact's current modules whenever the film changes, so the repository keeps
 the source of what is shown.

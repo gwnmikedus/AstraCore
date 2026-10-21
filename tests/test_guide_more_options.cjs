@@ -12,7 +12,7 @@ function fixture(settings = {}) {
     return nodes.get(id);
   };
   const context = {S: {guide_step: 0, answered: [], effort: 50, per_planet: 2, cross_character: true,
-    ship_every_days: 21, hour_isk: -1, ...settings}, SELLER: {}, API: '/pi/api',
+    ship_every_days: 21, hour_isk: -1, ...settings}, SELLER: {}, API: '/pi/api', PLANNABLE: 1,
     Promise, window: {}, document: {querySelectorAll: () => []}, $,
     go(index) { visits.push(index); }, setHint() {},
   };
@@ -144,4 +144,17 @@ test('an explicitly adjusted optional answer is saved under its original ID and 
   assert.deepEqual(state().answered, [...BEFORE_SELL, 'share']);
   assert.equal(calls[0].body.ship_every_days, undefined);
   assert.equal(calls[0].body.cross_character, undefined);
+});
+
+test('Teamwork follows Up to P3/P4 until the pilot chooses it, with a visible note', () => {
+  const {run} = fixture({cross_character: false, max_tier: 4});
+  run('PLANNABLE = 3');
+  assert.equal(run("STEPS.find(s => s.id === 'chain').match(st)"), true);
+  assert.match(run('additionalChoicesHTML()'), /Teamwork:<\/b> Yes, they can trade \(on for P3\/P4\)/);
+  run('st.cross_character_set = true');
+  assert.equal(run("STEPS.find(s => s.id === 'chain').match(st)"), false);
+  run('st.cross_character_set = false; st.max_tier = 2');
+  assert.equal(run("STEPS.find(s => s.id === 'chain').match(st)"), false);
+  const answers = JSON.parse(run("JSON.stringify(STEPS.find(s => s.id === 'chain').options.map(o => o.patch))"));
+  assert.ok(answers.every(p => p.cross_character_set === true));   // picking on Teamwork is the pilot's own choice
 });

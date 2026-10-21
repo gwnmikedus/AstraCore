@@ -790,21 +790,53 @@ def plan(pi: PIData, s: Settings, area: dict, systems: Dict[int, dict], characte
         "colonies": colonies, "characters": chars_out, "removals": removals,
         "transfers": transfer_rows, "sold": sold, "bought": bought, "totals": totals, "warnings": warnings,
         "templates_needed": sorted({x["template_file"] for x in colonies}),
-        "tier_need": tier_need(pi, s, templates, colonies),
+        "tier_need": tier_need(pi, s, templates, colonies, prices, buy),
         "never_produce": never,     # "Never produce", as PI product names (the plan result's checkboxes)
     }
 
 
-def tier_need(pi: PIData, s: Settings, templates: List[dict], colonies: List[dict]) -> dict:
-    """Why a plan stops below the tier it may use: what one factory of each higher tier eats, in miners.
+def step_margins(pi: PIData, s: Settings, prices: Dict[int, float],
+                 buy: Optional[BuyCosts] = None) -> Dict[str, dict]:
+    """Per tier, the product whose factory step pays best: its value over what its inputs cost, after
+    customs. Each input counts at the cheaper of buying it (when the pilot buys) and what it would sell
+    for (the ISK your own input could have made instead). {tier: {product, pct, buying}}."""
+    def unit(t: int) -> float:
+        own = prices.get(t, 0.0)
+        bought = min((buy or {}).get(t, {}).values(), default=0.0)
+        return min(own, bought) if own > 0 and bought > 0 else (own or bought)
+    out: Dict[str, dict] = {}
+    for tier in (2, 3, 4):
+        best = None
+        for t in pi.of_tier(tier):
+            r = pi.recipe(t)
+            if not r or prices.get(t, 0) <= 0:
+                continue
+            cost = sum(q * unit(x) for x, q in r.inputs.items())
+            if cost <= 0 or any(unit(x) <= 0 for x in r.inputs):
+                continue
+            gain = (r.output_qty * prices[t] - cost - eco.export_tax(pi, s, {t: r.output_qty})
+                    - eco.import_tax(pi, s, dict(r.inputs)))
+            if best is None or gain / cost > best[1]:
+                best = (t, gain / cost)
+        if best:
+            out[str(tier)] = {"product": pi.name(best[0]), "pct": round(best[1] * 100), "buying": bool(buy)}
+    return out
+
+
+def tier_need(pi: PIData, s: Settings, templates: List[dict], colonies: List[dict],
+              prices: Optional[Dict[int, float]] = None, buy: Optional[BuyCosts] = None) -> dict:
+    """Why a plan stops below the tier it may use: what one factory of each higher tier eats, in miners,
+    and how much the best factory step of each tier pays over its inputs.
 
     `factory_miners[tier]` is how many of this plan's average miners one typical factory of that tier
-    needs at full speed; `miners` how many miners the plan has. Empty values where it can't be told."""
+    needs at full speed; `miners` how many miners the plan has; `margins[tier]` = step_margins. Empty
+    values where it can't be told."""
     miners = [x for x in colonies if x["kind"] == "miner"]
     p1 = sum(sum(x["out_per_day"].values()) for x in miners)
     per_miner = p1 / len(miners) if miners else 0.0
     out = {"allowed": int(s.max_tier), "used": max((x["tier"] for x in colonies), default=0),
-           "miners": len(miners), "factory_miners": {}}
+           "miners": len(miners), "factory_miners": {}, "buying": bool(buy),
+           "teamwork": bool(s.cross_character), "margins": step_margins(pi, s, prices or {}, buy)}
     if per_miner <= 0:
         return out
     for tier in range(2, 5):

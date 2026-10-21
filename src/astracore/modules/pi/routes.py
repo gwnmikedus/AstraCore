@@ -52,7 +52,7 @@ legacy = APIRouter()     # old MVP paths -> 301 (one release)
 PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
-               "cross_character", "hub_system", "product_blacklist", "use_buyback", "use_jita",
+               "cross_character", "cross_character_set", "hub_system", "product_blacklist", "use_buyback", "use_jita",
                "use_amarr", "use_local", "use_self_haul", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
                "buy_inputs", "input_budget_isk",
                "answered", "selected_constellations", "extra_area"}

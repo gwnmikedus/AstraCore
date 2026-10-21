@@ -40,6 +40,7 @@ class Settings:
     cycle_days: float = 3.0     # extractor program length
     per_planet: int = 1         # max of your colonies per planet
     cross_character: bool = False  # characters may supply each other's factories
+    cross_character_set: bool = False  # the pilot chose Teamwork themselves (else it follows the tier: auto_teamwork)
     product_blacklist: List[str] = field(default_factory=list)
 
     # --- Turning products into ISK (live) ------------------------------------------
@@ -148,6 +149,17 @@ class Settings:
 # first question). "Max ISK" values time at 0: only income counts.
 GOAL_EFFORT = {"passive": 0, "balanced": 50, "max": 100}
 HOUR_DEFAULTS = {"passive": 300e6, "balanced": 90e6, "max": 0.0}
+
+
+AUTO_TEAMWORK_TIER = 3   # from this tier up a factory chain rarely fits one character's slots
+
+
+def auto_teamwork(s: "Settings", characters: int) -> bool:
+    """Whether the planner lets characters supply each other although the setting is off: a P3/P4 chain
+    rarely fits one character's slots, so for "Up to P3/P4" it follows the tier until the pilot has
+    chosen Teamwork themselves. Never for one character."""
+    return (not s.cross_character and not s.cross_character_set and int(s.max_tier) >= AUTO_TEAMWORK_TIER
+            and characters > 1)
 
 
 def goal_of(effort: int) -> str:

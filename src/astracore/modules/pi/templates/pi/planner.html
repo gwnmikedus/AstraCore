@@ -56,7 +56,7 @@
     </div>
     <div class="ctl">
       <label style="font-weight:600"><span><input type="checkbox" role="switch" id="cross_character"> Characters supply each other</span></label>
-      <div class="hint">Lets one character's miners feed another's factory (needs contracts).</div>
+      <div class="hint" id="cross-hint">Lets one character's miners feed another's factory (needs contracts).{% if not s.cross_character_set %} Until you set this, it turns on by itself for Up to P3 and P4 with several characters.{% endif %}</div>
     </div>
     <div class="ctl">
       <label style="font-weight:600"><span><input type="checkbox" role="switch" id="buy_inputs"> Buy factory inputs</span></label>
@@ -124,6 +124,7 @@ const WAYPOINT_CHARS = {{ waypoints|tojson }};
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_self_haul', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, esc} = AC;
+let crossSet = !!S.cross_character_set;   // the pilot chose Teamwork: it no longer follows the tier
 
 // ---- controls <-> state -------------------------------------------------------
 const labels = {
@@ -182,7 +183,7 @@ function state() {
   return {
     effort: S.effort, hour_isk: +S.hour_isk, max_tier: S.max_tier, max_systems: ms >= 11 ? 0 : ms,
     max_jumps: +$('max_jumps').value, cycle_days: +$('cycle_days').value, per_planet: +$('per_planet').value,
-    cross_character: $('cross_character').checked, hub_system: $('hub_system').value,
+    cross_character: $('cross_character').checked, cross_character_set: crossSet, hub_system: $('hub_system').value,
     buy_inputs: $('buy_inputs').checked, input_budget_isk: Math.max(0, +$('input_budget_b').value || 0) * 1e9,
     product_blacklist: neverNames(), ship_every_days: +$('ship_every_days').value,
     ...Object.fromEntries(CHANNELS.map(k => [k, $(k).checked])),
@@ -291,6 +292,7 @@ init();
 for (const k of ['max_systems', 'max_jumps', 'cycle_days', 'per_planet', 'ship_every_days']) $(k).addEventListener('input', () => schedule());
 document.querySelectorAll('#goal button').forEach(b => b.onclick = () => { setGoal(b.dataset.v); schedule(0); });
 for (const k of ['cross_character', 'hub_system', ...CHANNELS]) $(k).addEventListener('change', () => schedule(0));
+$('cross_character').addEventListener('change', () => { crossSet = true; });
 $('buy_inputs').addEventListener('change', () => { $('input_budget_b').disabled = !$('buy_inputs').checked; schedule(0); });
 $('input_budget_b').addEventListener('change', () => schedule(0));
 neverBoxes().forEach(b => b.addEventListener('change', () => { showNever(); schedule(0); }));

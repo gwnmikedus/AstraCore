@@ -1,9 +1,15 @@
-"""Server-side sessions (cookie `ac_session`) and CSRF protection.
+"""Server-side sessions and CSRF protection.
 
 The cookie holds a random 32-byte value; the database only stores its HMAC (keyed with
 ASTRACORE_SESSION_SECRET), so a copy of the database can't be used to sign in. Sessions slide:
 30 days after the last visit. A session exists before sign-in too (it binds the SSO `state`), and
 is replaced by a fresh one at sign-in.
+
+Production uses the host-bound `__Host-ac_session` cookie (Secure, Path=/, no Domain), so no other
+host or path can set or shadow it. Its sessions are a separate generation: their HMAC includes the
+cookie name, so a value from the old `ac_session` cookie never signs anyone in there (the switch signed
+everyone out once), and the old cookie is cleared. Local HTTP keeps `ac_session`. A request carrying
+the session cookie more than once is ambiguous and gets no session.
 """
 from __future__ import annotations
 
@@ -12,14 +18,14 @@ import hmac
 import json
 import secrets
 import time
-from http.cookies import SimpleCookie
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, Request
 
 from astracore import config, db
 
-COOKIE = "ac_session"
+COOKIE = "ac_session"             # local HTTP
+HOST_COOKIE = "__Host-ac_session"  # production (HTTPS)
 MAX_AGE = 30 * 86400
 TOUCH_EVERY = 300          # seconds between last_seen/expiry updates
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
@@ -37,7 +43,23 @@ def _secret() -> bytes:
 
 
 def hash_id(raw: str) -> str:
+    if config.PRODUCTION:
+        raw = f"{HOST_COOKIE}:{raw}"   # production sessions are bound to the host cookie generation
     return hmac.new(_secret(), raw.encode(), hashlib.sha256).hexdigest()
+
+
+def cookie_name() -> str:
+    return HOST_COOKIE if config.PRODUCTION else COOKIE
+
+
+def _cookie_values(header: str) -> Dict[str, List[str]]:
+    """Every value per cookie name, in order (a browser can send one name more than once)."""
+    values: Dict[str, List[str]] = {}
+    for part in header.split(";"):
+        name, eq, value = part.strip().partition("=")
+        if eq and name:
+            values.setdefault(name, []).append(value.strip().strip('"'))
+    return values
 
 
 def _ip_hint(scope: dict, headers: Dict[str, str]) -> str:
@@ -81,9 +103,10 @@ def _create(profile_id: Optional[int], scope: dict, headers: Dict[str, str]) -> 
     return raw, s
 
 
-def _cookie_header(value: str, max_age: int) -> bytes:
-    parts = [f"{COOKIE}={value}", "Path=/", f"Max-Age={max_age}", "HttpOnly", "SameSite=Lax"]
-    if config.SECURE_COOKIES:
+def _cookie_header(value: str, max_age: int, name: Optional[str] = None) -> bytes:
+    """Path=/ and never a Domain attribute: the `__Host-` prefix requires both, plus Secure."""
+    parts = [f"{name or cookie_name()}={value}", "Path=/", f"Max-Age={max_age}", "HttpOnly", "SameSite=Lax"]
+    if config.PRODUCTION or config.SECURE_COOKIES:
         parts.append("Secure")
     return "; ".join(parts).encode()
 
@@ -108,12 +131,9 @@ class SessionMiddleware:
         if scope["type"] != "http" or scope["path"].startswith(("/static/", "/healthz")):
             return await self.app(scope, receive, send)
         headers = {k.decode().lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
-        jar = SimpleCookie()
-        try:
-            jar.load(headers.get("cookie", ""))
-        except Exception:  # noqa: BLE001 - malformed cookie header: treat as none
-            pass
-        raw = jar[COOKIE].value if COOKIE in jar else None
+        cookies = _cookie_values(headers.get("cookie", ""))
+        sent = cookies.get(cookie_name(), [])
+        raw = sent[0] if len(sent) == 1 else None   # duplicates: ambiguous, so no session at all
         sess = _load(raw)
         state = scope.setdefault("state", {})
         state["session"] = sess
@@ -127,14 +147,20 @@ class SessionMiddleware:
                 c.execute("UPDATE sessions SET last_seen_at=?, expires_at=? WHERE id_hash=?",
                           (now, now + MAX_AGE, sess["id_hash"]))
             state["_set_cookie"] = (raw, MAX_AGE)   # slide the browser cookie too
-        if raw and not sess:
-            state["_set_cookie"] = ("", 0)          # stale cookie: clear it
+        if sent and not sess:
+            state["_set_cookie"] = ("", 0)          # stale or ambiguous cookie: clear it
+        legacy = config.PRODUCTION and COOKIE in cookies   # pre-__Host- cookie: never read, cleared
 
         async def send_wrapper(message):
-            if message["type"] == "http.response.start" and state.get("_set_cookie") is not None:
-                value, age = state["_set_cookie"]
-                message.setdefault("headers", [])
-                message["headers"] = list(message["headers"]) + [(b"set-cookie", _cookie_header(value, age))]
+            if message["type"] == "http.response.start":
+                extra = []
+                if state.get("_set_cookie") is not None:
+                    value, age = state["_set_cookie"]
+                    extra.append((b"set-cookie", _cookie_header(value, age)))
+                if legacy:
+                    extra.append((b"set-cookie", _cookie_header("", 0, COOKIE)))
+                if extra:
+                    message["headers"] = list(message.get("headers", [])) + extra
             await send(message)
 
         await self.app(scope, receive, send_wrapper)

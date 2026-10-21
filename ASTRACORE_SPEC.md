@@ -170,7 +170,7 @@ personal data; Mike's current five characters, settings and plans survive the mi
 - Callback URL comes from the active mode (§8.0): `http://localhost:8765/auth/callback` in local mode, `https://astracore.hoppyhome.nl/auth/callback` in production mode — each on its own EVE application.
 
 ### 4.2 Sessions
-- Server-side sessions (`sessions` table), cookie `ac_session`: `HttpOnly`, `Secure`, `SameSite=Lax`, 30-day sliding expiry.
+- Server-side sessions (`sessions` table), cookie `__Host-ac_session` in production (`HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain`) and `ac_session` on local HTTP; 30-day sliding expiry.
 - "Sign out" and "Sign out everywhere" (deletes all sessions of the profile).
 - CSRF token on every POST form and `fetch` (the PI wizard posts JSON to `/api/*`).
 

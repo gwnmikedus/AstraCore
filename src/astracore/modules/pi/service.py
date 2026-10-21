@@ -20,9 +20,9 @@ from .intel import area as area_mod
 from .intel import richness as rich
 from .intel import space as space_mod
 from .module import PI_REQUIRED
-from .planner import checklist, compare, demand, nextup, notices, operate, optimizer, prices, selling, upkeep
+from .planner import checklist, compare, demand, nextup, notices, operate, optimizer, prices, selling, setups, upkeep
 from .planner import skills as skills_mod
-from .settings import Settings
+from .settings import Settings, auto_teamwork
 from .static_data import dalshooth, sde_loader, voc
 
 log = logging.getLogger("astracore")
@@ -183,6 +183,9 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     sell_s = skills_mod.apply(s, seller)   # taxes of the character who sells
     solve_s = copy.deepcopy(sell_s)
     solve_s.hub_system = dropoff  # values below are computed for this drop-off
+    teamwork_auto = auto_teamwork(s, sum(1 for c in chars if setups.can_plan(c)))
+    if teamwork_auto:
+        solve_s.cross_character = True
     values = selling.best_values(pi, sell_s, books, dropoff, local, origin)
     buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     hist = prices.history_cached()
@@ -191,7 +194,7 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
                 systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
                 history_at=hist["at"], values=values, buy=buy, buy_cap=buy_cap, dropoff=dropoff, local=local, overrides=overrides,
                 manual_overrides=manual, origin=origin, origin_jumps=origin_jumps, seller=seller,
-                measured=measured, head_yield=head_yield, calibrated=cal, outage=outage)
+                measured=measured, head_yield=head_yield, calibrated=cal, outage=outage, teamwork_auto=teamwork_auto)
 
 
 def outage_banner(ctx: dict) -> Optional[dict]:
@@ -337,6 +340,18 @@ def run_plan(ctx, s=None) -> dict:
                 again["warnings"].append(notices.note("replan", replan_summary(again["demand"], second - first),
                                                       level="info"))
                 res = again
+    if ctx.get("teamwork_auto"):
+        res["teamwork_auto"] = True
+        n = len(res.get("transfers") or [])
+        if n:
+            res["warnings"].append(notices.note(
+                "teamwork_auto", f"Characters supply each other in this plan ({notices.plural(n, 'transfer')}): a P3/P4 "
+                "chain rarely fits one character's slots, so AstraCore turned this on for your product tier. You move "
+                "the goods with 0 ISK contracts between your own characters. Choose Teamwork yourself to turn it off.",
+                guided=f"Your characters supply each other in this plan ({notices.plural(n, 'transfer')}): a P3/P4 "
+                       "chain rarely fits one character's slots, so we turned this on for your product tier. You move "
+                       "the goods with 0 ISK contracts between your own characters. Change Teamwork to turn it off.",
+                steps=("chain", "tier"), level="info"))
     if res.get("self_haul"):
         res["warnings"].append(notices.note(
             "self_haul", "You haul to the trade hub yourself. Income includes sales tax, but excludes the "
@@ -411,7 +426,7 @@ def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
             "holds": sum(1 for b in sp.get("batches", []) if b.get("hold")),
             "channels": sorted({b["label"] for b in sp.get("batches", []) if not b.get("hold")}),
             "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s),
-            "tier_need": res.get("tier_need")}
+            "tier_need": res.get("tier_need"), "teamwork_auto": bool(res.get("teamwork_auto"))}
 
 
 # --------------------------------------------------------------------------- module entry + dashboard

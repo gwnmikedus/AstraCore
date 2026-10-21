@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
-STEPS = ("goal", "cycle", "area", "tier", "share", "chain", "sell", "batch")
+STEPS = ("goal", "cycle", "area", "tier", "buy", "share", "chain", "sell", "batch")
 
 Note = Union[str, dict]
 

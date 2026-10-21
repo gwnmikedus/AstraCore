@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import config, db
 from .core import auth, community, crypto, pages, releases, sessions
 from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
+from .core.ratelimit import RequestLimitMiddleware
 from .core.web import PKG, redirect, render
 from .esi import errors as esi_errors
 from .esi import sso
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
                   dependencies=[Depends(sessions.csrf_protect)],
                   docs_url="/docs" if debug else None, redoc_url=None, lifespan=lifespan,
                   openapi_url="/openapi.json" if debug else None)
+    app.add_middleware(RequestLimitMiddleware)   # inside the session: limits know the profile
     app.add_middleware(sessions.SessionMiddleware)
     app.add_middleware(SecurityHeaders)
     app.add_middleware(CacheHeaders)

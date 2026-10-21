@@ -4,6 +4,7 @@
 {% from '_artwork.html' import artwork %}
 {% block content %}
 <section class="platform-hero" aria-labelledby="hero-title">
+  <canvas class="hero-space" data-hero-space aria-hidden="true"></canvas>
   <picture class="platform-scene" data-parallax="hero">
     <source media="(max-width: 760px)" srcset="{{ asset('img/brand/orbital-command/hero-platform-mobile-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-mobile-768.webp') }} 768w, {{ asset('img/brand/orbital-command/hero-platform-mobile-1024.webp') }} 1024w" sizes="(max-width: 390px) 600px, (max-width: 600px) 580px, 100vw" width="1024" height="1536">
     <img src="{{ asset('img/brand/orbital-command/hero-platform-1440.webp') }}" srcset="{{ asset('img/brand/orbital-command/hero-platform-480.webp') }} 480w, {{ asset('img/brand/orbital-command/hero-platform-960.webp') }} 960w, {{ asset('img/brand/orbital-command/hero-platform-1440.webp') }} 1440w, {{ asset('img/brand/orbital-command/hero-platform-1672.webp') }} 1672w" sizes="(min-width: 1672px) 1672px, 100vw" width="1672" height="941" alt="" fetchpriority="high">
@@ -26,6 +27,7 @@
     <span class="hero-trailer-text"><span class="hero-trailer-label">Watch the trailer · 1:00</span><span>PI setup, without the spreadsheet</span></span>
   </button>
   <div class="hero-caption" aria-hidden="true"><span>PI available today</span><span>Orbital Command / AstraCore</span></div>
+  <button type="button" class="hero-space-toggle" data-hero-space-toggle aria-pressed="false" hidden>{{ icon('pause') }}<span data-hero-space-label>Pause background</span></button>
 </section>
 <dialog id="trailer-dialog" class="trailer-dialog" aria-labelledby="trailer-title" data-trailer-dialog>
   <div class="trailer-frame">
@@ -150,4 +152,4 @@
 {% if members %}<div class="members landing-members"><span class="muted">Built for pilots of</span>{% if members.corporation %}<span class="m">{{ logo_img('corporation', members.corporation.id, 32) }}{{ members.corporation.label }}</span>{% endif %}{% if members.alliance %}<span class="m">{{ logo_img('alliance', members.alliance.id, 32) }}{{ members.alliance.label }}</span>{% endif %}<span class="muted">and invited capsuleers.</span></div>{% endif %}
 {% endblock %}
 
-{% block scripts %}<script src="{{ asset('js/hero-tour.js') }}" defer></script><script src="{{ asset('js/trailer.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ asset('js/hero-tour.js') }}" defer></script><script src="{{ asset('js/trailer.js') }}" defer></script><script src="{{ asset('js/hero-space.js') }}" defer></script>{% endblock %}

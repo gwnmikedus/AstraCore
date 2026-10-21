@@ -32,6 +32,24 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .assurance-row li + li::before { content: "·"; margin: 0 10px; color: var(--ink-muted); }
 .assurance-row a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
 .assurance-row a:hover { color: var(--signal); }
+/* Live hero: fictional space drawn in code (js/hero-space.js) replaces the still scene once it runs, edge to edge. */
+.hero-space { position: absolute; inset: 0; z-index: -2; display: block; width: 100%; height: 100%; }
+.platform-hero.is-live { margin-right: 0; }   /* width and left edge come from hero-space.js: edge to edge */
+@media (min-width: 761px) {
+  .platform-hero.is-live .platform-copy { padding-left: calc(var(--column-left, 0px) + 24px);
+    width: calc(var(--column-left, 0px) + 24px + min(780px, 50vw)); max-width: none; }
+  .platform-hero.is-live .hero-caption { left: calc(var(--column-left, 0px) + 24px); }
+}
+.platform-hero.is-live .platform-scene { display: none; }
+.hero-space-toggle { position: absolute; right: max(32px, calc((100% - 1312px) / 2)); top: 20px; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 36px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--void); color: var(--ink-muted);
+  font: 400 11px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.hero-space-toggle:hover, .hero-space-toggle:focus-visible { color: var(--ink); border-color: var(--signal); }
+.hero-space-toggle[aria-pressed="true"] .ic { opacity: .6; }
+@media (max-width: 760px) {
+  .hero-space-toggle { top: 12px; right: 12px; width: 40px; min-height: 40px; padding: 0; justify-content: center; }
+  .hero-space-toggle [data-hero-space-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .hero-caption > :first-child { color: var(--ink); border-left: 2px solid var(--signal); padding-left: 12px; }
 .hero-caption > :last-child { background: var(--void); padding: 2px 8px; }

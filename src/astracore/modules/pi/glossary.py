@@ -30,8 +30,15 @@ GLOSSARY: List[Dict[str, str]] = [
              "Each step is worth more per m³, so there's less to haul, but every factory needs feeding."},
     {"id": "higher-tiers", "term": "Why higher tiers are rare",
      "text": "A factory only pays if enough input reaches it. One P3 factory eats the output of many miners, every "
-             "factory takes a slot a miner could have used, and only some planets can host one. So with a few "
-             "characters, \"Up to P4\" often gives the same plan as \"Up to P2\". That's normal economics, not a bug."},
+             "factory takes a slot a miner could have used, and only some planets can host one. So on your own "
+             "production alone, \"Up to P4\" often gives the same plan as \"Up to P2\". Buying inputs changes that: "
+             "factories then run on P1-P3 from the market, and P3 or P4 pays when the market prices leave a margin."},
+    {"id": "buying-inputs", "term": "Buying inputs",
+     "text": "Factories can run on P1, P2 or P3 you buy in Jita, Amarr or Delve instead of only on what your own "
+             "miners make. That's how most pilots make P3 and P4: a few factory planets fed from the market. The "
+             "planner counts the price, the VOC courier to your drop-off and customs, buys at most 10% of what those "
+             "markets trade a day, and stays within your budget for ISK tied up in inputs. Operate lists what to buy "
+             "for each restock."},
     {"id": "yield", "term": "Yield estimate and calibration",
      "text": "Yield is how much P0 an extractor head pulls per hour. Until your extractors have run, AstraCore uses an "
              "estimate, scaled by planet richness and how long your extraction program runs. Once your colonies have "
@@ -104,8 +111,9 @@ def time_note() -> str:
             f"{_num(c.MIN_PER_LOGIN)} min per character login, {_num(c.MIN_PER_PICKUP)} min per colony pickup and "
             f"{_num(c.MIN_PER_SYSTEM_VISIT)} min per system on each pickup round, {_num(c.MIN_PER_60K_M3)} min per "
             f"60,000 m³ hauled, {_num(c.MIN_PER_RESTOCK)} min per factory restock, {_num(c.MIN_PER_TRANSFER)} min "
-            f"per transfer and {_num(c.MIN_PER_BATCH)} min of contracts per batch "
-            f"(+{_num(c.MIN_SELL_ORDERS_WEEK)} min a week for sell orders).")
+            f"per transfer, {_num(c.MIN_PER_BATCH)} min of contracts per batch and {_num(c.MIN_PER_PURCHASE)} min "
+            f"to buy and courier bought inputs per restock (+{_num(c.MIN_SELL_ORDERS_WEEK)} min a week for sell "
+            f"orders).")
 
 
 def answers(settings: Any = None, head_yield: float = 0.0, calibrated: bool = False) -> Dict[str, Dict[str, str]]:
@@ -131,9 +139,13 @@ def answers(settings: Any = None, head_yield: float = 0.0, calibrated: bool = Fa
                         "less ISK when it saves time. Differences under about 1% or 0.5M/day are about the same."},
         "time": {"label": "How is your time estimated?", "more": "time-estimate", "text": time_note()},
         "tier": {"label": "Why does a higher tier often give the same plan?", "more": "higher-tiers",
-                 "text": "A factory pays only when enough miners feed it: a P3 factory eats the output of many "
-                         "miners, each factory takes a miner's slot, and few planets can host one. The planner "
-                         "adds a factory only when the ISK justifies it, so a higher limit often changes nothing."},
+                 "text": "A factory pays only when enough input reaches it: a P3 factory eats the output of many "
+                         "miners, each factory takes a miner's slot, and few planets can host one. With bought inputs "
+                         "P3 and P4 can pay; the planner adds a factory only when the ISK justifies it."},
+        "buy": {"label": "How does buying inputs work?", "more": "buying-inputs",
+                "text": "Factories run on P1-P3 bought in Jita, Amarr or Delve, priced with the courier to your "
+                        "drop-off and customs. The planner buys at most 10% of what a market trades a day and keeps "
+                        "the ISK tied up within your budget. Operate lists what to buy each restock."},
         "yield": {"label": "Why is yield an estimate?" if not calibrated else "How is yield measured?",
                   "more": "yield", "text": yield_text},
         "share": {"label": "What do shared colonies yield?", "more": "shared-deposits",

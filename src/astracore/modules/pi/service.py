@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import math
 import time
 from typing import Dict, List, Optional
 
@@ -218,6 +219,20 @@ def _sell_side(ctx, res: dict) -> None:
                                   ctx.get("books_at"), ctx.get("history_at"))
 
 
+def _buy_side(ctx, res: dict) -> None:
+    """Where each bought input comes from and how much to buy per restock round (in place)."""
+    s = ctx["s"]
+    cycle = max(1.0, float(s.cycle_days))
+    for r in res.get("bought") or []:
+        for src in r.get("sources") or []:
+            src["label"] = selling.BUY_LABELS.get(src["channel"], src["channel"])
+        r["where"] = "; ".join(src["label"] for src in r.get("sources") or [])
+        r["per_restock"] = round(r["units_per_day"] * cycle)
+    res["buying"] = {"enabled": bool(s.buy_inputs), "budget_isk": float(s.input_budget_isk or 0),
+                     "capital_days": optimizer.capital_days(s), "restock_days": cycle,
+                     "share": demand.BUY_INPUT_SHARE}
+
+
 def realistic_isk(res: dict, used: Dict[int, float], base: Dict[int, float]) -> float:
     """ISK/day of a solved plan once its batches are really sold: products the demand check flags
     at what the visible buyers pay for the batch, every other product at its quoted best value.
@@ -303,6 +318,7 @@ def run_plan(ctx, s=None) -> dict:
                            ctx["tpl"], ctx["overrides"], ctx["head_yield"], ctx.get("buy"), ctx.get("buy_cap"))
         if "error" not in r:
             _sell_side(ctx, r)
+            _buy_side(ctx, r)
         return r
 
     res = solve_with(base)
@@ -482,6 +498,32 @@ def progress(plan_result: Optional[dict], chars: List[dict], pi=None) -> Optiona
 def plan_drift(plan_result: Optional[dict], chars: List[dict], pi=None) -> Optional[dict]:
     """What changed since the plan was saved that the plan didn't foresee (None: still current)."""
     return operate.plan_drift(pi or sde_loader.cached(), plan_result, chars) if plan_result else None
+
+
+def restock_purchases(ctx: dict, active: Optional[dict]) -> Optional[dict]:
+    """Operate's shopping list for the inputs the active plan buys: one restock round's worth, bought where
+    it lands cheapest at the drop-off (same pricing as the first-build checklist). None: the plan buys none."""
+    res = (active or {}).get("result") or {}
+    bought = [r for r in res.get("bought") or [] if r.get("units_per_day", 0) > 0]
+    if not bought:
+        return None
+    settings = active.get("settings") or {}
+    cycle = max(1.0, float(settings.get("cycle_days") or checklist.DEFAULT_SUPPLY_DAYS))
+    need = {r["item"]: math.ceil(r["units_per_day"] * cycle) for r in bought}
+    hour = float(settings.get("hour_isk", -1) if settings.get("hour_isk") is not None else -1)
+    dropoff = res.get("hub") or ""
+    buy = checklist.purchases(ctx["pi"], {}, need, ctx["books"], selling.in_delve(dropoff, ctx["area"]), dropoff,
+                              ctx["area"], hour_isk=hour if hour >= 0 else checklist.DEFAULT_HOUR_ISK)
+    rows = buy["stock"]
+    for r in rows:
+        r["item"] = r["key"]
+    return {"rows": rows, "cycle_days": cycle, "dropoff": dropoff,
+            "isk": round(sum(r["isk"] for r in rows)), "hauling": round(sum(r["haul_isk"] for r in rows)),
+            "landed": round(sum(r["landed_isk"] for r in rows)),
+            "unpriced": [r["key"] for r in rows if not r["where"]],
+            "multibuy": voc.paste_list(need), "contracts": buy["contracts"],
+            "capital_isk": (res.get("totals") or {}).get("capital_isk"),
+            "budget_isk": float(settings.get("input_budget_isk") or 0)}
 
 
 def first_build(ctx: dict, active: Optional[dict]) -> Optional[dict]:

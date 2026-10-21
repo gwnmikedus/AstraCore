@@ -54,6 +54,7 @@ PRICE_REFRESH_EVERY = 600
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
                "cross_character", "hub_system", "product_blacklist", "use_buyback", "use_jita",
                "use_amarr", "use_local", "use_self_haul", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
+               "buy_inputs", "input_budget_isk",
                "answered", "selected_constellations", "extra_area"}
 
 
@@ -733,7 +734,7 @@ async def operate_page(request: Request):
                   all_clear=ov["all_clear"], has_colonies=ov["has_colonies"],
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,
                   progress=ov["progress"], drift=ov["drift"], plan=plan, active=active, missing=missing,
-                  checklist=service.first_build(ctx, active),
+                  checklist=service.first_build(ctx, active), restock_buy=service.restock_purchases(ctx, active),
                   plans=store.list_plan_runs(pid), freshness=freshness.state(pid),
                   colony_note=freshness.COLONY_NOTE, buyback_site=voc.BUYBACK_SITE,
                   voc_site=voc.SITE, waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))

@@ -18,6 +18,7 @@ UI_FIELDS = ("guide_step", "answered")
 # that a crafted request can't fill the database. Longer values are cut, extra list entries dropped.
 TEXT_LIMITS = {"extra_area": 500, "hub_system": 100}
 TEXT_MAX = 200          # any other text field
+BUY_STEP = 4            # the guided setup's "Buying" question (templates/pi/guide.html STEPS)
 LIST_MAX = 200          # entries in a list setting (constellations, excluded products, answered questions)
 LIST_ITEM_MAX = 100     # characters per text entry
 
@@ -51,9 +52,7 @@ class Settings:
     ship_every_days: int = 7         # how often you ship / sell a batch
 
     # --- Buying inputs (live) -----------------------------------------------------
-    # Factories may run on P1-P3 bought at Jita, Amarr or in Delve. Off until the plan and Operate show what
-    # to buy (#225); then on by default.
-    buy_inputs: bool = False
+    buy_inputs: bool = True          # factories may run on P1-P3 bought at Jita, Amarr or in Delve
     input_budget_isk: float = 0.0    # ISK you want tied up in bought inputs; 0 = no limit
 
     # --- Wizard state (was browser localStorage) ----------------------------------
@@ -81,6 +80,10 @@ class Settings:
             for f in fields(cls):
                 if f.name in data:
                     setattr(s, f.name, data[f.name])
+            if "buy_inputs" not in data and int(s.guide_step or 0) >= BUY_STEP:
+                # Saved before the guided setup asked about buying inputs (#225): that question now sits at
+                # BUY_STEP, so a position at or after it moves one on.
+                s.guide_step = int(s.guide_step) + 1
         return s
 
     def to_json(self) -> str:

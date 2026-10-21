@@ -227,9 +227,9 @@ def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, 
 
 
 def buy_costs(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
-              local: bool = True, origin: Optional[str] = None) -> Dict[int, float]:
-    """What the planner pays per unit for a bought P1-P3 input at the drop-off (cheapest market).
-    Empty when the pilot only wants their own production."""
+              local: bool = True, origin: Optional[str] = None) -> Dict[int, Dict[str, float]]:
+    """What the planner pays per unit for a bought P1-P3 input at the drop-off, per buy channel: each
+    market has its own price and (demand.buy_limits) its own volume. Empty for own production only."""
     if not s.buy_inputs:
         return {}
     routes = voc.routes_cached()
@@ -239,7 +239,7 @@ def buy_costs(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
             continue
         ch = buy_channels(pi, s, books, t, dropoff, routes, local, origin)
         if ch:
-            costs[t] = min(ch.values())
+            costs[t] = ch
     return costs
 
 

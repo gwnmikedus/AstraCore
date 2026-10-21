@@ -95,6 +95,17 @@ const STEPS = [
      {id: 3, icon: 'factory', label: 'Up to P3', patch: {max_tier: 3}, blurb: 'Longer chains: more inputs to move between planets.'},
      {id: 4, icon: 'rocket', label: 'Up to P4', patch: {max_tier: 4}, blurb: 'Allows any factory. The planner only uses one if the ISK justifies it.'}],
    match: st => +st.max_tier},
+  {id: 'buy', title: 'Buying', q: 'May your factories run on inputs you buy?', metric: 'buy',
+   intro: 'Most pilots who make P3 or P4 don’t mine every input: they buy P1, P2 or P3 in Jita, Amarr or Delve and run a few factory planets on it. ' +
+          'The planner counts the price, the VOC courier to your drop-off and customs, never buys more than 10% of what a market trades a day, and keeps the ISK tied up in inputs within your budget. ' +
+          'Bought inputs are paid back when you sell, so they cost ISK up front, not per day.',
+   options: [
+     {id: 'own', icon: 'pickaxe', label: 'Only my own production', patch: {buy_inputs: false, input_budget_isk: 0}, blurb: 'Factories run only on what your miners make. No ISK tied up.'},
+     {id: 'b1', icon: 'wallet', label: 'Buy, up to 1B ISK tied up', patch: {buy_inputs: true, input_budget_isk: 1e9}, blurb: 'A small stake: enough for a factory planet or two.'},
+     {id: 'b5', icon: 'wallet', label: 'Buy, up to 5B ISK tied up', patch: {buy_inputs: true, input_budget_isk: 5e9}, blurb: 'Room for several factory planets on bought inputs.'},
+     {id: 'free', icon: 'coins', label: 'Buy whatever pays', patch: {buy_inputs: true, input_budget_isk: 0}, blurb: 'No budget limit: the market’s volume is the only cap.'}],
+   match: st => !st.buy_inputs ? 'own' : +st.input_budget_isk === 1e9 ? 'b1' : +st.input_budget_isk === 5e9 ? 'b5' : +st.input_budget_isk === 0 ? 'free' : 'custom',
+   custom: st => ({id: 'custom', icon: 'wallet', label: `Buy, up to ${isk(+st.input_budget_isk)} ISK tied up`, patch: {buy_inputs: true, input_budget_isk: +st.input_budget_isk}, blurb: 'Your current setting.'})},
   {id: 'share', title: 'Planets', q: 'May several of your characters use the same planet?',
    intro: 'A character can only have one colony per planet. Putting 2–3 of your characters on one good planet means fewer systems to visit, but colonies on the same resource share its deposits (each extra one counts at a lower yield).',
    options: [
@@ -158,6 +169,7 @@ const STEP_CONTEXT = {
   cycle: 'Pick a restart schedule you can keep. The planner compares the income and effort.',
   area: 'Keep colonies close, or travel further for more choices.',
   tier: 'More processing saves cargo space, but factories need supplies.',
+  buy: 'Buying inputs lets a few factory planets make P3 or P4. It ties up ISK until you sell.',
   share: 'Decide how tightly to group your characters on useful planets.',
   chain: 'Choose whether moving inputs between alts is worth the extra logistics.',
   sell: 'Compare enabled selling channels after fees and your character’s taxes.',
@@ -168,7 +180,7 @@ const STEP_CONTEXT = {
 // [answer key, question shown] per step; no question = the answer's own label.
 const STEP_HELP = {
   area: [['dropoff'], ['isk', 'Why can a wider area show less ISK?']],
-  tier: [['tier']], share: [['share']], chain: [['transfer']],
+  tier: [['tier']], buy: [['buy']], share: [['share']], chain: [['transfer']],
   sell: [['voc']], batch: [['batch']],
 };
 const stepHelp = step => (STEP_HELP[step.id] || []).map(([key, label]) => {
@@ -220,10 +232,18 @@ const byEffort = (step, res) => step.options.filter(o => res[o.id] && !res[o.id]
   .sort((a, b) => minutesPerWeek(a, res[a.id]) - minutesPerWeek(b, res[b.id]));
 const labelOf = step => { const o = optOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : (step.custom ? step.custom(st).label : 'custom'); };
 
+// Buying: ISK tied up isn't a daily cost, so the suggestion is the smallest stake that earns at least
+// BUY_ENOUGH of the best answer, not simply the biggest budget.
+const BUY_ENOUGH = 0.9;
 function recommend(step) {
   const res = results[step.id]; if (!res || step.isGoal) return null;
   const ok = byEffort(step, res);           // least time first: ties go to the easier answer
   if (!ok.length) return null;
+  if (step.id === 'buy') {
+    const tied = o => res[o.id].totals.capital_isk || 0;
+    const best = Math.max(...ok.map(o => net(step, o, res[o.id])));
+    return [...ok].sort((a, b) => tied(a) - tied(b)).find(o => net(step, o, res[o.id]) >= BUY_ENOUGH * best - 1)?.id ?? ok[0].id;
+  }
   return ok.reduce((a, o) => net(step, o, res[o.id]) > net(step, a, res[a.id]) + 1 ? o : a, ok[0]).id;
 }
 
@@ -241,6 +261,9 @@ function diffs(step, a, b) {          // what answer b means compared with answe
   if (Math.abs(dh) >= 0.05 * Math.max(ta.m3_per_week, tb.m3_per_week, 1)) out.parts.push(`${m3(Math.abs(dh))} ${dh > 0 ? 'more' : 'less'} to haul a week`);
   const ds = tb.systems - ta.systems;
   if (ds) out.parts.push(`${Math.abs(ds)} ${ds > 0 ? 'more' : 'fewer'} system${Math.abs(ds) === 1 ? '' : 's'}`);
+  const dc = (tb.capital_isk || 0) - (ta.capital_isk || 0);
+  if (Math.abs(dc) >= 0.05 * Math.max(ta.capital_isk || 0, tb.capital_isk || 0, 1) && Math.abs(dc) >= 50e6)
+    out.parts.push(`${isk(Math.abs(dc))} ${dc > 0 ? 'more' : 'less'} ISK tied up in inputs`);
   const df = tb.factories - ta.factories;
   if (df) out.parts.push(`${Math.abs(df)} ${df > 0 ? 'more' : 'fewer'} factory planet${Math.abs(df) === 1 ? '' : 's'}`);
   out.matters = !!(out.isk || out.parts.length);
@@ -606,8 +629,10 @@ function paint(step) {
     ];
     if (step.logins) primary.push([AC.icon('key-round') + 'Logins / week', count(7 / o.patch.cycle_days)]);
     else if (step.metric === 'sell') primary.push([AC.icon('coins') + 'Per batch', isk(r.sell_net_per_cycle)]);
+    else if (step.metric === 'buy') primary.push([AC.icon('wallet') + 'ISK tied up', t.capital_isk ? isk(t.capital_isk) : 'none']);
     else primary.push(rows.shift());
     if (t.transfers) rows.push([AC.icon('handshake') + 'Transfers', t.transfers]);
+    if (t.buy_isk_per_day) rows.push([AC.icon('wallet') + 'Inputs bought / day', isk(t.buy_isk_per_day)]);
     if (r.holds) rows.push([AC.icon('pause') + 'Batches held back', r.holds]);
     const detailsKey = JSON.stringify([step.id, id]);
     const focusedSummary = el.querySelector('.answer-details > summary');
@@ -665,7 +690,9 @@ function advice(step, rec, pick) {
     if (easier) p.push(`Compared to <b>${esc(easier.label)}</b>, <b>${esc(r.label)}</b> means ${sentence(diffs(step, easier, r))}. Since ${worth}, that's worth it.`);
     if (best.id !== rec) {
       const d = diffs(step, r, best);
-      if (d.matters) p.push(`<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but since ${worth}, the extra effort isn't worth it.`);
+      if (d.matters) p.push(step.id === 'buy'
+        ? `<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but that's within ${Math.round((1 - BUY_ENOUGH) * 100)}% for a smaller stake. Pick it if you're happy to tie up the ISK.`
+        : `<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but since ${worth}, the extra effort isn't worth it.`);
     }
     if (!p.length) return '';
   }

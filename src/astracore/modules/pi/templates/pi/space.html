@@ -29,8 +29,8 @@
         <span class="title"><input type="checkbox" name="con" value="{{ con.id }}" {% if con.id in selected %}checked{% endif %}>{{ con.name }}</span>
         <span class="muted">sec {{ con.sec_min }} to {{ con.sec_max }}</span>
       </div>
-      <div class="bar"><span style="width: {{ (100 * con.score / (maxscore or 1))|round|int }}%"></span></div>
-      <div class="muted" style="margin-bottom:.3rem">
+      <progress class="bar" max="100" value="{{ (100 * con.score / (maxscore or 1))|round|int }}" aria-label="Relative PI score for {{ con.name }}"></progress>
+      <div class="muted space-after-xs">
         {{ con.systems|length }} systems{% if con.yours %} · {{ con.yours }} your sov{% endif %}{% if con.has_colonies %} · <span class="badge col">your colonies</span>{% endif %}
       </div>
       {% for sy in con.systems %}
@@ -54,7 +54,7 @@
     Your own extractors also correct it automatically once 2+ colonies run.</p>
   {% if scan_systems %}
   <p class="muted">Scanned a planet outside your current plan? Choose any planet in the listed area, including constellations you haven't selected.</p>
-  <div class="grid" style="align-items:end">
+  <div class="grid align-end">
     <label>Scanned planet
       <select name="planet_id" form="scan-richness" required>
         <option value="" selected disabled>Choose a planet</option>
@@ -97,7 +97,7 @@
 {% endif %}
 
 <div class="sticky-bar">
-  <div class="grid" style="align-items:end">
+  <div class="grid align-end">
     <label>Drop-off (where you collect products and ship them from)
       <select name="hub_system">
         <option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
@@ -108,7 +108,7 @@
         {% for name in voc_hubs or [] if name not in sel_systems %}<option value="{{ name }}" {% if s.hub_system == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
         </optgroup>
       </select></label>
-    <div class="next-bar" style="margin:0">
+    <div class="next-bar no-margin">
       
       <button name="refresh" value="1" class="outline">{{ icon('refresh-cw') }} Reload from ESI</button>
       <button>Save and plan {{ icon('arrow-right') }}</button>

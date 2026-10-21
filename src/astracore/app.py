@@ -55,7 +55,7 @@ class SecurityHeaders:
         scope.setdefault("state", {})["nonce"] = nonce
         csp = ("default-src 'self'; "
                f"script-src 'self' 'nonce-{nonce}'; "
-               "style-src 'self' 'unsafe-inline'; "
+               f"style-src 'self' 'nonce-{nonce}'; style-src-attr 'none'; "
                "img-src 'self' data: https://images.evetech.net https://avatars.githubusercontent.com; "
                "connect-src 'self'; "
                "form-action 'self' https://login.eveonline.com; "

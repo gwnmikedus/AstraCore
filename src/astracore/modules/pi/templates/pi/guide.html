@@ -451,7 +451,7 @@ function showQuestion(step) {
         <div class="badges"></div>
         <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm" id="answer-name-${index}">${esc(o.label)}</div>
         <div class="bl" id="answer-blurb-${index}">${esc(o.blurb || '')}</div>
-        ${routineOnly(step) ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel" style="width:60%"></div></div>`}
+        ${routineOnly(step) ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel skel-medium"></div></div>`}
       </div>`).join('')}</div>
     ${step.isArea ? areaAdvanced() : ''}
     <div id="advice"></div>
@@ -618,7 +618,7 @@ function paint(step) {
     el.querySelector('.badges').innerHTML = id !== pick ? '' :
       (rec != null && id === rec ? '<span class="badge rec">Suggested</span>' : (step.isGoal ? '' : '<span class="badge mine">Your pick</span>'));
     if (routineOnly(step) || !r) return;
-    if (r.error) { el.classList.add('err'); el.querySelector('.res').innerHTML = `<div class="bad" style="font-size:.82rem">${esc(r.error)}</div>`; return; }
+    if (r.error) { el.classList.add('err'); el.querySelector('.res').innerHTML = `<div class="bad answer-error">${esc(r.error)}</div>`; return; }
     const v = value(step, r), t = r.totals;
     // The card's "?" buttons sit next to their figures; their answers open below the figures, at full card width.
     const iskHelp = AC.helpPartsFor(HELP.isk, {glossary: GLOSSARY}), timeHelp = AC.helpPartsFor(HELP.time, {glossary: GLOSSARY});
@@ -643,7 +643,7 @@ function paint(step) {
     const restoreDetailsFocus = focusedSummary && focusedSummary === document.activeElement;
     el.querySelector('.res').innerHTML = `
       <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small>${iskHelp.button}</div>
-      <div class="bar"><i style="width:${Math.max(3, v / top * 100)}%"></i></div>
+      <div class="bar"><i></i></div>
       <div class="metrics">${primary.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
       <details class="answer-details" ${answerDetailsOpen.has(detailsKey) ? 'open' : ''}>
         <summary>More figures and production <span class="sr-only">for ${esc(o.label)}</span></summary>
@@ -652,6 +652,8 @@ function paint(step) {
       </details>
       ${iskHelp.answer}${timeHelp.answer}
       ${step.id === 'tier' ? samePlanHTML(step, o, r, res) + teamworkNoteHTML(r) : ''}`;
+    const barWidth = Math.max(3, v / top * 100);
+    el.querySelector('.bar i').style.width = `${Number.isFinite(barWidth) ? barWidth : 3}%`;
     const details = el.querySelector('.answer-details');
     details.addEventListener('toggle', () => {
       if (details.open) answerDetailsOpen.add(detailsKey);
@@ -853,12 +855,12 @@ async function showPlan() {
     ${additionalChoicesHTML()}
     <div id="planbar" role="status" aria-live="polite"></div>
     <div id="plan-compare"></div>
-    <div class="todo" id="build-instructions" hidden><h6 style="margin:0">What to do now</h6><ol>
+    <div class="todo" id="build-instructions" hidden><h6 class="no-margin">What to do now</h6><ol>
       <li><a href="#" id="tpl-link">Download the templates</a> and copy them into <code>Documents/EVE/PlanetaryInteractionTemplates</code>.</li>
       <li>For each character below, place a command center on the listed planet and load the template shown.</li>
       <li>Then go to <span id="operate-instruction">Operate</span>: it tracks extractors, pickups and what to sell where, straight from ESI.</li>
     </ol></div>
-    <div id="planres"><div class="skel" style="height:6rem"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+    <div id="planres"><div class="skel skel-tall"></div><div class="skel"></div><div class="skel skel-wide"></div></div>
     <div class="nav">
       <button class="outline secondary" id="back">${AC.icon('arrow-left')} Back</button>
       <span class="hint"><a href="{{ advanced_url }}">Fine-tune with every option →</a></span>

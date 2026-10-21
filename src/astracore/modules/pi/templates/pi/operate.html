@@ -5,8 +5,8 @@
 {% from "pi/_next_up.html" import next_up_list %}
 {% block content %}
 <hgroup class="operation-header context-header">
-  <div><div class="eyebrow">PI / Operations deck</div><h1 class="page-title" style="margin-bottom:.2rem">Your planets, in motion.</h1>
-    <p class="muted" style="margin:0">From planet to liquid ISK.</p>
+  <div><div class="eyebrow">PI / Operations deck</div><h1 class="page-title title-tight">Your planets, in motion.</h1>
+    <p class="muted no-margin">From planet to liquid ISK.</p>
     {{ freshness_line(freshness, '/pi/operate', colony_note) }}</div>
   {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </hgroup>
@@ -62,7 +62,7 @@
 <div class="box plan-status" id="plan-status">
   <h5>{{ icon('layers') }} Your plan</h5>
   {% if active %}
-  <p style="margin:.2rem 0"><strong>{{ active.label }}</strong> <span class="muted">· saved {{ active.created|ago }}
+  <p class="compact-copy"><strong>{{ active.label }}</strong> <span class="muted">· saved {{ active.created|ago }}
     · {{ (plan.totals.isk_per_day if plan and plan.totals else 0)|isk }} ISK/day · drop-off {{ plan.hub if plan else '–' }}</span></p>
   {% if plan.totals.needs_recalculation %}<p class="warn">A character was removed from this plan. <a href="/pi/plan">Recalculate your plan</a> to check production chains and income.</p>
   {% elif drift %}<p class="warn plan-outdated">{{ icon('triangle-alert') }} Your plan is out of date ({{ drift.summary }}).
@@ -228,7 +228,7 @@
 {% set tr = upkeep.tracks %}
 <div class="box" id="schedule">
   <h5>{{ icon('calendar-days') }} Upkeep schedule</h5>
-  <p class="muted" style="margin:.2rem 0">Each colony's visits follow from its own extractors, factory inputs and launchpad/storage space.
+  <p class="muted compact-copy">Each colony's visits follow from its own extractors, factory inputs and launchpad/storage space.
     Market shipments run on their own cycle.</p>
   {% for f in upkeep.freshness if f.colony_stale %}
   <div class="warnbox">{{ icon('triangle-alert') }} <b>{{ f.character }}</b>: colony data dates from {{ f.colony_update|ago }}.
@@ -263,17 +263,17 @@
     <td class="{{ 'warn' if u.stale else 'muted' }}">{{ u.last_update|ago if u.last_update else 'unknown' }}
       {% if not u.routes_known %}<br><span class="muted" title="Refresh from ESI to check that factories and extractors are routed.">routes not checked yet</span>{% endif %}</td></tr>
   {% if u.issues %}<tr><td colspan="6"><details><summary class="warn">{{ icon('triangle-alert') }} Colony notes ({{ u.issues|length }})</summary>
-    <ul style="white-space:normal">{% for i in u.issues %}<li class="warn">{{ i }}</li>{% endfor %}</ul>
+    <ul class="wrap-text">{% for i in u.issues %}<li class="warn">{{ i }}</li>{% endfor %}</ul>
   </details></td></tr>{% endif %}
   {% endfor %}</tbody></table></div>
   {% endif %}
   {% if upkeep.plan_checks %}
   <details{{ ' open' if not upkeep.colonies }}><summary>Storage check for the active plan ({{ upkeep.plan_checks|length }})</summary>
-    {% for c in upkeep.plan_checks %}<p style="margin:.2rem 0"><b>{{ c.character }}</b> · {{ c.planet }} · {{ c.product }}:
+    {% for c in upkeep.plan_checks %}<p class="compact-copy"><b>{{ c.character }}</b> · {{ c.planet }} · {{ c.product }}:
       <span class="muted">{{ c.issues|join(' ') }}</span></p>{% endfor %}
   </details>
   {% endif %}
-  <p class="muted" style="margin:.4rem 0 0">Output is measured from the synced structures and extractors. AstraCore doesn't send reminders;
+  <p class="muted schedule-note">Output is measured from the synced structures and extractors. AstraCore doesn't send reminders;
     it reads ESI again when you open this page and the data is over 15 minutes old.</p>
 </div>
 {% endif %}
@@ -282,7 +282,7 @@
 {% set rb = restock_buy %}
 <div class="box" id="input-purchases">
   <h5>{{ icon('wallet') }} Inputs to buy for each restock</h5>
-  <p class="muted" style="margin:.2rem 0">Your plan runs factories on bought inputs. Every {{ rb.cycle_days|num(1) }} days, buy this
+  <p class="muted compact-copy">Your plan runs factories on bought inputs. Every {{ rb.cycle_days|num(1) }} days, buy this
     and bring it to {{ rb.dropoff }}: ≈ {{ rb.landed|isk }} per round{% if rb.hauling %}, {{ rb.hauling|isk }} of it courier{% endif %}.
     {% if rb.capital_isk %}About {{ rb.capital_isk|isk }} stays tied up in inputs until the products are sold{% if rb.budget_isk %} (your budget: {{ rb.budget_isk|isk }}){% endif %}.{% endif %}</p>
   <div class="scroll"><table><caption>Inputs to buy per restock round</caption><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
@@ -332,14 +332,14 @@
     </details>
     {% endif %}
     {% for p in status.pickups %}
-      <p style="margin:.2rem 0"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
+      <p class="compact-copy"><b>{{ p.character }}</b> · {{ p.planet }} <span class="muted">{{ p.system }} · {{ p.m3|m3 }}</span><br>
       <span class="muted itemlist">{% for k, v in p['items'].items() %}<span>{{ eve_img(k, 16) }}{{ v|num }} {{ k }}</span>{% endfor %}</span></p>
     {% else %}<p class="empty">Nothing waiting on launchpads or storage.</p>{% endfor %}
   </div>
   <div class="box" id="factories">
     <h5>{{ icon('factory') }} Factories that need inputs</h5>
     {% for r in upkeep.shortages %}
-      <p style="margin:.2rem 0"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {% if r.have %}about {{ r.have|num }} left
+      <p class="compact-copy"><b>{{ r.character }}</b> · {{ r.planet }}: {{ eve_img(r.item, 16) }}{{ r.item }} - {% if r.have %}about {{ r.have|num }} left
       (<span class="{{ 'bad' if r.days_left < 1 else 'warn' }}">{{ r.days_left }} days</span>, uses {{ r.need_per_day|num }}/day){% else %}<span class="bad">run out, factory idle</span>
       (uses {{ r.need_per_day|num }}/day){% endif %}</p>
     {% else %}<p class="empty">No factories need inputs within the next 2 days.</p>{% endfor %}
@@ -389,12 +389,12 @@
   <details>
     <summary>Per location: paste lists and contract values</summary>
     {% for g in stock %}
-    <div style="margin:.8rem 0 1rem">
-      <p style="margin:.2rem 0"><b>{{ g.character }}</b> · {{ g.location }}{% if g.system %} <span class="muted">{{ g.system }}</span>{% endif %}
+    <div class="haul-group">
+      <p class="compact-copy"><b>{{ g.character }}</b> · {{ g.location }}{% if g.system %} <span class="muted">{{ g.system }}</span>{% endif %}
         <span class="muted">· {{ g.m3|m3 }} · Jita buy value {{ g.jita_value|isk }}</span></p>
-      {% if g.plan.no_access %}<div class="muted warn" style="margin-left:1rem">{{ g.plan.note }}</div>{% endif %}
+      {% if g.plan.no_access %}<div class="muted warn indented">{{ g.plan.note }}</div>{% endif %}
       {% for b in g.plan.batches %}
-      <div style="margin-left:1rem;margin-bottom:.6rem">
+      <div class="haul-detail">
         <b>{{ b.label }}</b> <span class="muted">{{ b.m3|m3 }} · {% if b.hold %}hold{% else %}≈ {{ b.net|isk }} net{% endif %}</span>
         {% if b.channel == 'buyback' %}
           <div class="muted">1. Copy this list, paste it at {{ external_link(buyback_site, 'VOC buyback') }} (location {{ g.system }}), Appraise.
@@ -427,14 +427,14 @@
     <div>
       <b>VOC courier contracts</b>
       {% for c in pipe.courier %}
-      <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.from }} → {{ c.to }}
+      <p class="muted compact-copy"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.from }} → {{ c.to }}
         · {{ c.volume|m3 }} · collateral {{ c.collateral|isk }} · reward {{ c.reward|isk }}</p>
       {% else %}<p class="empty">None open.</p>{% endfor %}
     </div>
     <div>
       <b>VOC buyback contracts</b>
       {% for c in pipe.buyback %}
-      <p style="margin:.2rem 0" class="muted"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.price|isk }}
+      <p class="muted compact-copy"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.price|isk }}
         · {% for k, v in c['items'].items() %}{{ eve_img(k, 16) }}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if c.other_items %} <span class="muted">+ {{ c.other_items }} other item{{ 's' if c.other_items != 1 }}</span>{% endif %}</p>
       {% else %}<p class="empty">None open.</p>{% endfor %}
     </div>
@@ -442,7 +442,7 @@
   {% if pipe.done %}
   <details><summary class="muted">Completed in the last 7 days ({{ pipe.done|length }})</summary>
     {% for c in pipe.done %}
-    <p style="margin:.2rem 0" class="muted"><span class="st-finished">{{ c.status.replace('_', ' ') }}</span> · {{ c.kind }} · {{ c.character }}
+    <p class="muted compact-copy"><span class="st-finished">{{ c.status.replace('_', ' ') }}</span> · {{ c.kind }} · {{ c.character }}
       {% if c.kind == 'VOC courier' %}· {{ c.from }} → {{ c.to }} · {{ c.volume|m3 }} · reward {{ c.reward|isk }}{% else %}· {{ c.price|isk }}
       · {% for k, v in c['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>
     {% endfor %}

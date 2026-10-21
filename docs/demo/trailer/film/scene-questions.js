@@ -33,8 +33,9 @@ kit.scene('questions', {
     const W = 1.15;
     this.blocks.forEach((b, i) => {
       const a = i * W - 0.15, e = (i + 1) * W - 0.15;
-      const pin = i === 0 ? 1 : eo(seg(t, a, a + 0.35));
-      const pout = i === 3 ? 0 : ei(seg(t, e - 0.05, e + 0.25));
+      // one question at a time: the next only comes in once this one has gone
+      const pin = i === 0 ? 1 : eo(seg(t, a + 0.02, a + 0.36));
+      const pout = i === 3 ? 0 : ei(seg(t, e - 0.3, e - 0.02));
       b.style.opacity = (pin * (1 - pout)).toFixed(3);
       b.style.transform = 'translateY(' + (lerp(40, 0, pin) - 40 * pout) + 'px)';
       const pick = t >= a + 0.65;

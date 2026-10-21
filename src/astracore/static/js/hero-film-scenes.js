@@ -157,7 +157,7 @@ kit.scene('chaos', {
     kit.stage.append(kit.h('<div class="ground bars">' +
       '<canvas class="sky chaos-sky" width="1920" height="1080"></canvas>' +
       '<div class="layer chaos-field">' + html + '</div>' +
-      '<div class="words chaos-words" data-css="left:0;right:0;top:470px;align-items:center;text-align:center"><h2 class="line" data-css="font-size:120px">Everybody hates setting up PI</h2></div>' +
+      '<div class="words chaos-words" data-css="left:0;right:0;top:470px;align-items:center;text-align:center"><h2 class="line" data-css="font-size:120px;text-shadow:0 0 18px #0b0c0d, 0 0 48px #0b0c0d">Everybody hates setting up PI</h2></div>' +
       '<div class="chaos-seed" data-css="position:absolute;left:940px;top:520px;width:40px;height:40px;background:var(--main)"></div>' +
       '<div class="vignette"></div><div class="grain chaos-grain"></div></div>'));
     const q = (s) => kit.stage.querySelector(s);
@@ -172,6 +172,7 @@ kit.scene('chaos', {
   render(t) {
     window.SPACE.draw(this.ctx, this.T0 + t);
     const imp = ei(seg(t, 3.0, 3.75));
+    const calm = 1 - 0.7 * eo(seg(t, 1.0, 1.6));   // the questions step back while the line is up
     this.items.forEach((it, i) => {
       const zz = it.z - 760 * t;
       const st = this.els[i];
@@ -179,7 +180,7 @@ kit.scene('chaos', {
       const s = 700 / zz;
       const x = 960 + it.x * s * (1 - imp), y = 540 + it.y * s * (1 - imp);
       const fadeNear = Math.min(1, (zz - 60) / 220), fadeFar = Math.min(1, Math.max(0, (2600 - zz) / 900));
-      st.opacity = (fadeNear * fadeFar * (1 - imp)).toFixed(3);
+      st.opacity = (fadeNear * fadeFar * (1 - imp) * calm).toFixed(3);
       st.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (s * lerp(1, 0.2, imp)).toFixed(3) + ') rotate(' + (it.rot + t * 4) + 'deg)';
     });
     TextFx.fadeFromRight(this.line, t, 1.1, { stagger: 0.1, dur: 0.5, dx: 30 });
@@ -413,8 +414,9 @@ kit.scene('questions', {
     const W = 1.15;
     this.blocks.forEach((b, i) => {
       const a = i * W - 0.15, e = (i + 1) * W - 0.15;
-      const pin = i === 0 ? 1 : eo(seg(t, a, a + 0.35));
-      const pout = i === 3 ? 0 : ei(seg(t, e - 0.05, e + 0.25));
+      // one question at a time: the next only comes in once this one has gone
+      const pin = i === 0 ? 1 : eo(seg(t, a + 0.02, a + 0.36));
+      const pout = i === 3 ? 0 : ei(seg(t, e - 0.3, e - 0.02));
       b.style.opacity = (pin * (1 - pout)).toFixed(3);
       b.style.transform = 'translateY(' + (lerp(40, 0, pin) - 40 * pout) + 'px)';
       const pick = t >= a + 0.65;
@@ -679,7 +681,7 @@ kit.scene('screen', {
       '<span class="mono muted" data-css="font-size:18px">Example data</span></div>' +
       '<ul data-css="list-style:none;margin:22px 0 0;padding:0">' + rows + '</ul></div>' +
       '<div class="screen-mark" data-css="position:absolute;left:30px;top:108px;width:1080px;height:84px;border:3px solid var(--main)"></div>' +
-      '<p class="mono hot screen-tag" data-css="position:absolute;right:30px;top:66px;margin:0;font-size:20px">▸ Next action</p></div>' +
+      '<p class="mono hot screen-tag" data-css="position:absolute;right:30px;top:-46px;margin:0;font-size:20px">▸ Next action</p></div>' +
       '<div class="screen-frame" data-css="position:absolute;border:3px solid var(--main);box-sizing:border-box"></div>' +
       '<div class="screen-seed" data-css="position:absolute;background:var(--main)"></div>' +
       '<div class="vignette"></div><div class="grain screen-grain"></div></div>'));

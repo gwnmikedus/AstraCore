@@ -35,7 +35,7 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 /* Film hero: the trailer plays live on a 16:9 stage (js/hero-film.js), edge to edge, with the copy below it. */
 .film-hero { display: block; min-height: 0; margin-right: 0; }
 .film-hero::before, .film-hero::after { display: none; }
-.hero-film { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: min(68vh, 860px); overflow: hidden; background: #0b0c0d; }
+.hero-film { position: relative; width: 100%; aspect-ratio: 16 / 7; max-height: min(72vh, 880px); overflow: hidden; background: #0b0c0d; }
 .hero-film .platform-scene { inset: 0; }
 .film-hero.is-live .hero-film .platform-scene { display: none; }
 .hero-film-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0;
@@ -44,15 +44,18 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   --void: #0b0c0d; --hull: #131517; --hull-raised: #1b1e21; --line: #2a2e33; --line-strong: #646a72;
   --ink: #ece8df; --ink-muted: #a19d94; --ink-faint: #6f6c66; --signal: #ff6a1a; --signal-strong: #ff8a47; --signal-tint: #3a1c0c; --on-signal: #1a0a00; }
 .hero-film-stage :is(h1, h2, h3, h4, h5, h6, p) { color: inherit; }
+.hero-film-stage .words { text-shadow: 0 0 14px #0b0c0d, 0 0 36px #0b0c0d; }   /* lines over the star map stay clear */
 .film-scene { position: absolute; inset: 0; }
 .film-cursor { position: absolute; left: 0; top: 0; z-index: 60; pointer-events: none; }
 .film-click { position: absolute; left: 6px; top: 4px; width: 56px; height: 56px; border: 3px solid #ff6a1a; border-radius: 50%; opacity: 0; }
-.hero-film-toggle { position: absolute; right: max(24px, calc(var(--column-left, 0px) + 24px)); top: 20px; z-index: 2; display: inline-flex; align-items: center; gap: 8px;
-  min-height: 36px; padding: 0 12px; border: 1px solid #2a2e33; background: rgba(11, 12, 13, .72); color: #ece8df;
+.hero-film-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px calc(var(--column-left, 0px) + 24px) 0; }
+.hero-film-note { margin: 0; color: var(--ink-muted); font: 400 11px/16px var(--font-mono); letter-spacing: .04em; }
+.hero-film-controls { display: flex; gap: 8px; flex: none; }
+.hero-film-button { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line-strong); background: transparent; color: var(--ink);
   font: 400 11px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
-.hero-film-toggle:hover, .hero-film-toggle:focus-visible { border-color: var(--signal); }
-.hero-film-toggle[aria-pressed="true"] .ic { opacity: .6; }
-.hero-film-note { margin: 0; padding: 10px calc(var(--column-left, 0px) + 24px) 0; color: var(--ink-muted); font: 400 11px/16px var(--font-mono); letter-spacing: .04em; }
+.hero-film-button:hover, .hero-film-button:focus-visible { border-color: var(--signal); }
+.hero-film-button [data-hero-film-icon] { display: inline-flex; }
+.hero-film-button[data-hero-film-sound][aria-pressed="true"] { border-color: var(--signal); color: var(--signal); }
 .film-hero .platform-copy { width: auto; max-width: none; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); column-gap: 64px; align-items: end;
   padding: 36px calc(var(--column-left, 0px) + 24px) 56px; }
 .film-hero .platform-copy > * { grid-column: 2; }
@@ -186,9 +189,9 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   .hero-caption { inset-inline: 24px; font-size: 8px; letter-spacing: .02em; }
   .hero-caption > :last-child { display: none; }
   .hero-film { max-height: none; }
-  .hero-film-toggle { top: 10px; right: 10px; width: 36px; padding: 0; justify-content: center; }
-  .hero-film-toggle [data-hero-film-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .hero-film-note { padding-inline: 24px; }
+  .hero-film-bar { padding-inline: 24px; align-items: start; }
+  .hero-film-button { width: 36px; padding: 0; justify-content: center; }
+  .hero-film-button [data-hero-film-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .film-hero .platform-copy { display: block; padding: 28px 24px 40px; }
   .film-hero .platform-copy > h1 { font-size: clamp(48px, 12vw, 72px); margin-bottom: 20px; }
   .page-home .landing-section { margin-block: 48px; }

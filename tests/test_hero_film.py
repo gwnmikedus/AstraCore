@@ -27,6 +27,11 @@ def test_home_hero_plays_the_film_live_without_a_video():
     for path in ("js/hero-film.js", "js/hero-film-scenes.js", "css/hero-film.css"):
         assert assets.asset(path) in home, path
     assert not (STATIC / "video" / "astracore-trailer.mp4").exists()
+    # sound is opt-in: the synth and score load only after a click, so the page never ships or starts them
+    for path in ("js/hero-film-audio.js", "js/hero-film-score.js"):
+        assert f'src="{assets.asset(path)}"' not in home
+        assert assets.asset(path) in hero, path            # the player finds them on the hero's data attributes
+    assert "data-hero-film-sound" in hero and "Sound on" in hero
 
 
 def test_bundled_scenes_are_current_and_respect_the_style_policy():
@@ -38,7 +43,8 @@ def test_bundled_scenes_are_current_and_respect_the_style_policy():
     bundle = (STATIC / "js" / "hero-film-scenes.js").read_text()
     assert not re.search(r'\bstyle\s*=\s*\\?["\']', bundle)          # inline styles became data-css
     assert "data-css=" in bundle and "kit.boot(" in bundle
-    assert "kit.score(" not in bundle                                # the hero plays without sound
+    assert "kit.score(" not in bundle                                # the score loads apart, with the sound
+    assert "kit.score(" in (STATIC / "js" / "hero-film-score.js").read_text()
     css = (STATIC / "css" / "hero-film.css").read_text()
     for rule in css.splitlines()[1:]:
         assert rule.startswith(".hero-film-stage"), rule               # scoped: can't touch the page

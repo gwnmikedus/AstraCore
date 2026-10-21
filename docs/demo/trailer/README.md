@@ -54,5 +54,14 @@ site's content security policy forbids style attributes) and scopes `base.css` t
 `tests/test_hero_film.py` fails while the bundle is out of date. Reduced motion shows the end card; the pause button
 stops the film and is remembered in the browser.
 
+In the hero the film plays at 0.8× speed (75 seconds a loop), shows the picture between the letterbox bars and dips
+to dark for half a second at each cut. Sound is off until a pilot presses **Sound on**: then
+`src/astracore/static/js/hero-film-audio.js` loads and synthesises `score.js` (bundled as `js/hero-film-score.js`)
+with Web Audio, in step with the film; it fades in and out with pause, the loop and a hidden tab.
+
+The scenes here carry a few polish edits made for the hero (October 2026): one question at a time in *A few questions*,
+the headline clear of the flying questions in *The spreadsheet*, and *Next action* above the panel in *Next action*.
+Port them into the Motion artifact before copying its modules back over these files.
+
 `scripts/trailer/transcode.swift` and `poster.swift` still make a 1280×720 MP4 and a poster from the artifact's
 **Export → MP4** if a video copy is ever needed elsewhere; the site no longer serves one.

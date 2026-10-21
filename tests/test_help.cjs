@@ -134,11 +134,25 @@ test('a plan below its allowed tier says how many miners a factory needs', () =>
   assert.match(t.text, /^At full speed, a typical P3 factory uses about 14 miners’ output; this plan has 9\. /);
   assert.match(t.text, /not a minimum colony count/);
   assert.match(t.text, /factories can run partially/);
-  assert.match(t.text, /buying inputs is not modelled/);
+  assert.doesNotMatch(t.text, /Buying inputs is off/);   // older plans don't say whether they bought
+  const off = AC.tierHelp({...need, buying: false, teamwork: false});
+  assert.match(off.text, /Buying inputs is off, so every input must come from your own colonies\./);
+  assert.match(off.text, /chain must fit one character’s slots/);
   assert.equal(AC.tierHelp(need).short, 'Builds up to P2 only');
   const p1 = AC.tierHelp({allowed: 2, used: 1, miners: 4, factory_miners: {2: 1}}, {same: false});
   assert.equal(p1.short, 'Uses no factories');
   assert.match(p1.text, /about 1 miner’s output/);
+});
+
+test('a buying plan explains the tier with the best step margin, not miners', () => {
+  const {AC} = page();
+  const need = {allowed: 4, used: 2, miners: 9, factory_miners: {3: 14}, buying: true, teamwork: true,
+                margins: {3: {product: 'Robotics', pct: -4, buying: true}, 4: {product: 'Nano-Factory', pct: 6, buying: true}}};
+  const t = AC.tierHelp(need);
+  assert.match(t.text, /^The best P3 step, Robotics, earns nothing \(-4%\) over its inputs after customs, each input at the cheaper of buying it or selling your own\./);
+  assert.doesNotMatch(t.text, /miners’ output|Buying inputs is off|one character’s slots/);
+  const p3 = AC.tierHelp({...need, used: 3});
+  assert.match(p3.text, /Nano-Factory, earns 6%/);
 });
 
 test('no tier note when the plan uses every tier it may, or without numbers', () => {

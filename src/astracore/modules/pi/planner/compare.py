@@ -18,6 +18,7 @@ MIN_PER_60K_M3 = 20
 MIN_PER_RESTOCK = 3
 MIN_PER_TRANSFER = 2
 MIN_PER_BATCH = 5
+MIN_PER_PURCHASE = 5         # multibuy and a courier contract for bought inputs, once per restock round
 MIN_SELL_ORDERS_WEEK = 20
 
 # Uncertainty score, 0-100: how much of the income rests on things that can move after you plan.
@@ -64,6 +65,7 @@ def effort_minutes(totals: dict, settings: Any, characters: int) -> Optional[flo
                + int(totals.get("factories") or 0) * cycles * MIN_PER_RESTOCK
                + int(totals.get("transfers") or 0) * rounds * MIN_PER_TRANSFER
                + rounds * MIN_PER_BATCH
+               + (cycles * MIN_PER_PURCHASE if float(totals.get("buy_isk_per_day") or 0) > 0 else 0)
                + (MIN_SELL_ORDERS_WEEK if _get(settings, "use_sell_orders", False) else 0))
     return round(minutes, 1)
 

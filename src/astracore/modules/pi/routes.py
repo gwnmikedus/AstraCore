@@ -52,8 +52,9 @@ legacy = APIRouter()     # old MVP paths -> 301 (one release)
 PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
-               "cross_character", "hub_system", "product_blacklist", "use_buyback", "use_jita",
+               "cross_character", "cross_character_set", "hub_system", "product_blacklist", "use_buyback", "use_jita",
                "use_amarr", "use_local", "use_self_haul", "use_sell_orders", "ship_every_days", "hour_isk", "guide_step",
+               "buy_inputs", "input_budget_isk",
                "answered", "selected_constellations", "extra_area"}
 
 
@@ -575,7 +576,7 @@ async def api_alternatives(request: Request):
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "alternatives")
             alts = await GATE.cached(key, optimizer.alternatives, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
-                                     ctx["head_yield"])
+                                     ctx["head_yield"], ctx.get("buy"), ctx.get("buy_cap"))
     except Busy:
         return busy_response()
     except Superseded:
@@ -595,7 +596,7 @@ async def api_sensitivity(request: Request):
             key = cache_key(service.data_stamp(pid), ctx["solve_s"].solve_json(), "sensitivity")
             rows = await GATE.cached(key, optimizer.yield_sensitivity, ctx["pi"], ctx["solve_s"], ctx["area"],
                                      ctx["systems"], ctx["chars"], ctx["values"], ctx["tpl"], ctx["overrides"],
-                                     ctx["head_yield"])
+                                     ctx["head_yield"], ctx.get("buy"), ctx.get("buy_cap"))
     except Busy:
         return busy_response()
     except Superseded:
@@ -733,7 +734,7 @@ async def operate_page(request: Request):
                   all_clear=ov["all_clear"], has_colonies=ov["has_colonies"],
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,
                   progress=ov["progress"], drift=ov["drift"], plan=plan, active=active, missing=missing,
-                  checklist=service.first_build(ctx, active),
+                  checklist=service.first_build(ctx, active), restock_buy=service.restock_purchases(ctx, active),
                   plans=store.list_plan_runs(pid), freshness=freshness.state(pid),
                   colony_note=freshness.COLONY_NOTE, buyback_site=voc.BUYBACK_SITE,
                   voc_site=voc.SITE, waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))

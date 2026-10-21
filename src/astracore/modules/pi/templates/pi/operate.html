@@ -164,7 +164,8 @@
       {% endfor %}</tbody></table></div>
       <textarea class="paste" readonly aria-label="Multibuy list: factory starter stock">{{ k.supplies_multibuy }}</textarea>
       <button class="copy outline" data-copy="{{ k.supplies_multibuy }}">{{ icon('copy') }} Copy starter stock</button>
-      <p class="muted">Your miners in this plan make these inputs. Buy a starter stock only to run the factories
+      <p class="muted">{% if restock_buy %}Your plan buys some of these inputs anyway (see Inputs to buy under Upkeep); the
+        rest your own miners make.{% else %}Your miners in this plan make these inputs.{% endif %} Buy a starter stock only to run the factories
         from day one instead of after the first pickup.{% if k.unpriced %} No seller cached for {{ k.unpriced|join(', ') }}.{% endif %}</p>
     </div>
     {% endif %}
@@ -274,6 +275,26 @@
   {% endif %}
   <p class="muted" style="margin:.4rem 0 0">Output is measured from the synced structures and extractors. AstraCore doesn't send reminders;
     it reads ESI again when you open this page and the data is over 15 minutes old.</p>
+</div>
+{% endif %}
+
+{% if restock_buy %}
+{% set rb = restock_buy %}
+<div class="box" id="input-purchases">
+  <h5>{{ icon('wallet') }} Inputs to buy for each restock</h5>
+  <p class="muted" style="margin:.2rem 0">Your plan runs factories on bought inputs. Every {{ rb.cycle_days|num(1) }} days, buy this
+    and bring it to {{ rb.dropoff }}: ≈ {{ rb.landed|isk }} per round{% if rb.hauling %}, {{ rb.hauling|isk }} of it courier{% endif %}.
+    {% if rb.capital_isk %}About {{ rb.capital_isk|isk }} stays tied up in inputs until the products are sold{% if rb.budget_isk %} (your budget: {{ rb.budget_isk|isk }}){% endif %}.{% endif %}</p>
+  <div class="scroll"><table><caption>Inputs to buy per restock round</caption><thead><tr><th>Item</th><th>Qty</th><th>Where</th><th>Goods</th><th>Hauling</th><th>Landed</th></tr></thead><tbody>
+  {% for s in rb.rows %}
+  <tr><td>{{ eve_img(s.item, 16) }}{{ s.item }}</td><td>{{ s.qty|num }}</td>
+    <td>{{ buy_where(s) if s.where else '–' }}</td><td>{{ s.isk|isk if s.where else '–' }}</td>
+    <td>{{ haul_cell(s) if s.where else '–' }}</td><td>{{ s.landed_isk|isk if s.where else '–' }}</td></tr>
+  {% endfor %}</tbody></table></div>
+  <textarea class="paste" readonly aria-label="Multibuy list: inputs per restock round">{{ rb.multibuy }}</textarea>
+  <button class="copy outline" data-copy="{{ rb.multibuy }}">{{ icon('copy') }} Copy multibuy list</button>
+  <p class="muted">Prices are the cached order books; AstraCore never buys or places orders for you. Check the price in
+    game before you buy.{% if rb.unpriced %} No seller cached for {{ rb.unpriced|join(', ') }}.{% endif %}</p>
 </div>
 {% endif %}
 

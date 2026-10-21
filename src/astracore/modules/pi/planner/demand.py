@@ -28,6 +28,9 @@ REPLAN_MIN_DROP = 0.01     # re-plan only when a batch really fetches at least 1
 # For re-planning, buyers are assumed to absorb up to half of what the region trades per day; output beyond
 # that is valued at the alternative channel. (A quarter already earns the "Thin market" warning.)
 BUY_VOLUME_CAPTURE = 0.50
+# Inputs a plan buys: at most this share of what the pilot's markets trade per day, so a plan never counts on
+# buying up a market (the low end of SELL_CAPTURE, the same modest share a new trader can expect).
+BUY_INPUT_SHARE = 0.10
 
 
 def market_of(channel: str) -> str:
@@ -75,6 +78,26 @@ def _alternative(row: dict, channels: Dict[str, float], books: dict, history: di
                 continue
         return {"channel": c, "label": selling.LABELS[c], "value": round(channels[c], 2)}
     return None
+
+
+def buy_limits(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, Dict[int, dict]],
+               local: bool, days: float) -> Dict[int, Dict[str, float]]:
+    """Units/day of each P1-P3 input a plan may buy per market the pilot uses (jita, amarr, delve):
+    BUY_INPUT_SHARE of what that market trades a day. Without trade history there, the sell orders
+    visible now, spread over `days` (how long one purchase has to last)."""
+    markets = [m for m, on in (("jita", s.use_jita), ("amarr", s.use_amarr), ("delve", s.use_local and local)) if on]
+    out: Dict[int, Dict[str, float]] = {}
+    for t in pi.items:
+        if not 1 <= pi.tier(t) <= 3:
+            continue
+        book = books.get(t) or {}
+        caps = {}
+        for m in markets:
+            vol = ((history.get(m) or {}).get(t) or {}).get("avg_volume") or 0
+            caps[m] = BUY_INPUT_SHARE * vol if vol > 0 else \
+                sum(u for _, u in (book.get(f"{m}_sell_depth") or [])) / max(1.0, days)
+        out[t] = caps
+    return out
 
 
 def realistic_values(assessment: dict, values: Dict[int, float]) -> Dict[int, float]:

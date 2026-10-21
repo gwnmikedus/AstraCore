@@ -42,7 +42,8 @@ def scenes_js() -> str:
 
 
 def score_js() -> str:
-    return f"// {HEADER}\n{{\n{(FILM / 'score.js').read_text().rstrip()}\n}}\n"
+    # the hero has its own cue (docs/demo/trailer/hero-score.js); film/score.js stays the video's soundtrack
+    return f"// {HEADER}\n{{\n{(FILM.parent / 'hero-score.js').read_text().rstrip()}\n}}\n"
 
 
 def _scope(selectors: str) -> str:

@@ -56,6 +56,7 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
   --ink: #ece8df; --ink-muted: #a19d94; --ink-faint: #6f6c66; --signal: #ff6a1a; --signal-strong: #ff8a47; --signal-tint: #3a1c0c; --on-signal: #1a0a00; }
 .hero-film-stage :is(h1, h2, h3, h4, h5, h6, p) { color: inherit; max-width: none; }
 .hero-film-stage :is(h1, h2, h3, h4, h5, h6) { line-height: 1.15; letter-spacing: normal; }   /* the site's heading rhythm stays outside */
+.hero-film-stage .grain { transform: none !important; opacity: .05; }   /* still grain: moving grain shimmers on thin lines */
 .hero-film-stage .words { text-shadow: 0 0 14px #0b0c0d, 0 0 36px #0b0c0d; }   /* lines over the star map stay clear */
 .hero-film-stage .bars::before, .hero-film-stage .bars::after { display: none; }   /* the hero frames it, not letterbox bars */
 .film-scene { position: absolute; inset: 0; }

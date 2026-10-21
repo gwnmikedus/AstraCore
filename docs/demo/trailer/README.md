@@ -58,8 +58,11 @@ In the hero the film plays once, over the header, and then dissolves into it; **
 **Skip film** ends it early. A browser that has seen it, reduced motion and phone-sized heroes start on the header.
 The busy scenes play slower than the cut (each scene's speed is in `SPEED` in `hero-film.js`, about 88 seconds in
 all); the hero shows the picture between the letterbox bars above its control bar and dips to dark at each cut. Sound is off until a pilot presses **Sound on**: then
-`src/astracore/static/js/hero-film-audio.js` loads and synthesises `score.js` (bundled as `js/hero-film-score.js`)
-with Web Audio, in step with the film; it fades in and out with pause, the loop and a hidden tab.
+`src/astracore/static/js/hero-film-audio.js` loads and synthesises the hero's own cue, `hero-score.js` (bundled as
+`js/hero-film-score.js`), with Web Audio, in step with the film; it fades with pause and a hidden tab and rings out
+into the header. The cue is a cinematic trailer score in D minor (strings, sub, a driving ostinato, taiko, horns,
+braams, risers and impacts on the cuts, resolving to D major on the end card): there's no voice-over, so the music
+carries the film. `film/score.js` stays the soundtrack of the video export.
 
 The scenes here carry polish edits made for the hero (October 2026): one grid for every scene (a 210 px margin and a
 1500 px content width, chapter lines at 160 px; pilot, template and plan cards on it, the plan button in one place

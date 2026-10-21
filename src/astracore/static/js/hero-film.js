@@ -5,7 +5,7 @@
 // the page. Reduced motion, a phone-sized hero or a browser that has seen it start on the header; a hidden tab, a hero
 // out of view or the pause button stop the clock.
 (function () {
-  const W = 1920, H = 1080, FPS = 30;
+  const W = 1920, H = 1080;   // drawn on every display frame: a capped rate judders against 60/120 Hz screens
   const BAR = 120;                   // the film's letterbox bars: the hero shows the picture between them
   // Film seconds per real second, per scene: the busy ones (pilots, the wizard, the plan) play slower than the cut so
   // there's time to read them; the openers keep their pace. The groove scenes share one speed so the score holds tempo.
@@ -242,7 +242,8 @@
       if (!running()) return;
       if (last) clock += Math.min(0.1, (now - last) / 1000) * order[sceneAt(clock)].speed;
       if (clock >= total) { finish(); return; }
-      if (!last || now - last >= 1000 / FPS - 1) { frame(clock); last = now; }
+      frame(clock);
+      last = now;
       if (soundOn && audio) audio.sync(clock);
       raf = requestAnimationFrame(tick);
     }

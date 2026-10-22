@@ -55,6 +55,7 @@ test('no refresh (too soon, or an error) keeps the page and never loops', async 
     assert.equal(r, 'kept');
     assert.equal(reloaded, 0);
     assert.ok(el.classes.has('is-stale'));
+    assert.equal(el.dataset.autoRefresh, undefined, 'the icon stops spinning');
     assert.notEqual(el.busy.textContent, 'refreshing…');
   }
 });

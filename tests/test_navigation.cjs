@@ -100,11 +100,35 @@ test('Escape closes, restores disclosure focus, and keeps scroll locked through 
   assert.equal(ui.toggle.attributes.get('aria-expanded'), 'false');
   assert.equal(ui.menu.hasAttribute('data-closing'), true);
   assert.equal(ui.document.documentElement.hasAttribute('data-menu-open'), true);
-  assert.equal([...ui.timers.values()][0].delay, 180);
+  assert.ok([...ui.timers.values()][0].delay > 180, 'the timer is only a fallback, longer than the .18s exit');
   ui.finishClose();
   assert.equal(ui.menu.open, false);
   assert.equal(ui.document.documentElement.hasAttribute('data-menu-open'), false);
   assert.equal(ui.label.textContent, 'Menu');
+});
+
+test('the close ends when the panel’s exit animation does, not on a timer racing it', () => {
+  const ui = navigation();
+  ui.clickToggle();
+  ui.clickToggle();
+  ui.panel.dispatch('animationend', {target: element(ui.panel), animationName: 'menu-item-in'});
+  ui.panel.dispatch('animationend', {target: ui.panel, animationName: 'menu-panel-in'});
+  assert.equal(ui.menu.open, true, 'other animations ending do not close the menu');
+  ui.panel.dispatch('animationend', {target: ui.panel, animationName: 'menu-panel-out'});
+  assert.equal(ui.menu.open, false);
+  assert.equal(ui.menu.hasAttribute('data-closing'), false);
+  assert.equal(ui.timers.size, 0, 'the fallback timer is cleared');
+  assert.equal(ui.document.documentElement.hasAttribute('data-menu-open'), false);
+});
+
+test('a stale exit animation end cannot close a reopened menu', () => {
+  const ui = navigation();
+  ui.clickToggle();
+  ui.clickToggle();
+  ui.clickToggle();
+  ui.panel.dispatch('animationend', {target: ui.panel, animationName: 'menu-panel-out'});
+  assert.equal(ui.menu.open, true);
+  assert.equal(ui.panel.inert, false);
 });
 
 test('outside clicks and keyboard focus leaving dismiss without stealing the new focus', () => {

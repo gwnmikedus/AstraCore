@@ -261,3 +261,15 @@ def test_output_far_above_daily_trades_is_only_partly_valued(pi):  # noqa: F811
     assert real[BIOCELLS] == pytest.approx(demand.BUY_VOLUME_CAPTURE * 10000 * tax, rel=1e-4)   # no alternative
     calm = assess(pi, s, bk, history(avg_volume=3000), "Jita", {BIOCELLS: 1000}, local=False)  # 33%: warned only
     assert calm["rows"][0]["status"] == "thin" and demand.realistic_values(calm, {BIOCELLS: 10000 * tax}) == {}
+
+
+def _reconciled(res):
+    c = res["income_check"]
+    assert c["paid"] == res["selling"]["net_per_day"] and c["plan"] == res["totals"]["isk_per_day"]
+    assert c["paid"] == c["plan"] + c["customs"] + c["inputs"] - c["held"] + c["other"]
+
+
+def test_result_reconciles_paid_out_with_the_plan_figure_whether_or_not_the_replan_is_kept(pi, monkeypatch):  # noqa: F811
+    _counting(monkeypatch)
+    _reconciled(service.run_plan(_ctx(pi, [[2000.0, 500]])))                         # re-plan kept
+    _reconciled(service.run_plan(_ctx(pi, [[2000.0, 500], [1700.0, 10_000_000]])))   # re-plan not kept

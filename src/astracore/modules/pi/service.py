@@ -326,6 +326,25 @@ def richness_sources(colonies: List[dict], manual: dict, measured: dict) -> None
         c["richness_source"] = "scan" if pid in manual else "extractors" if pid in measured else "estimate"
 
 
+def income_check(res: dict) -> Optional[dict]:
+    """How the plan's ISK/day (`totals.isk_per_day`, the headline) and what its batches pay out per day
+    (`selling.net_per_day`, the Selling and Batches cards) add up, so the result can show both:
+    paid = plan + customs + inputs - held + other. The plan figure is after customs and bought inputs,
+    which you pay apart from the batches; batches held back count in the plan but pay out with a later
+    batch; `other` is courier minimum fees, the channel each batch really uses and rounding.
+    None without a selling plan."""
+    sp, totals = res.get("selling") or {}, res.get("totals") or {}
+    if sp.get("net_per_day") is None or totals.get("isk_per_day") is None:
+        return None
+    held_items = {item for b in sp.get("batches") or [] if b.get("hold") for item in b.get("items") or {}}
+    held = sum(x.get("isk_per_day") or 0 for x in res.get("sold") or [] if x.get("item") in held_items)
+    out = {"paid": round(sp["net_per_day"]), "plan": round(totals["isk_per_day"]),
+           "customs": round(sum(c.get("tax_per_day") or 0 for c in res.get("colonies") or [])),
+           "inputs": round(totals.get("buy_isk_per_day") or 0), "held": round(held)}
+    out["other"] = out["paid"] - (out["plan"] + out["customs"] + out["inputs"] - out["held"])
+    return out
+
+
 def run_plan(ctx, s=None) -> dict:
     """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
     whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
@@ -398,6 +417,7 @@ def run_plan(ctx, s=None) -> dict:
         res["warnings"].append(notices.note(
             "voc_origin", f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the goods to "
             f"{ctx['origin']} ({notices.plural(ctx['origin_jumps'], 'jump')}) first.", steps=("area",), level="info"))
+    res["income_check"] = income_check(res)
     richness_sources(res["colonies"], ctx["manual_overrides"], ctx["measured"])
     n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
     if n_measured:
@@ -444,6 +464,51 @@ def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
             "channels": sorted({b["label"] for b in sp.get("batches", []) if not b.get("hold")}),
             "warnings": len(res.get("warnings", [])), "facts": compare.plan_facts(res, s),
             "tier_need": res.get("tier_need"), "teamwork_auto": bool(res.get("teamwork_auto"))}
+
+
+def _no_limit_ge(wide, narrow) -> bool:
+    """`wide` allows at least as much as `narrow`, where 0 means no limit (systems, input budget)."""
+    wide, narrow = float(wide or 0), float(narrow or 0)
+    return wide == 0 or (narrow != 0 and wide >= narrow)
+
+
+# Answer fields that only widen what a plan may use: a plan for the narrower value also fits the wider one.
+NESTED_FIELDS = {
+    "max_tier": lambda w, n, wp, np: float(w) >= float(n),
+    "max_jumps": lambda w, n, wp, np: float(w) >= float(n),
+    "max_systems": lambda w, n, wp, np: _no_limit_ge(w, n),
+    "buy_inputs": lambda w, n, wp, np: bool(w) or not bool(n),
+    "input_budget_isk": lambda w, n, wp, np: not np.get("buy_inputs", True) or _no_limit_ge(w, n),
+}
+
+
+def answer_contains(wide: dict, narrow: dict) -> bool:
+    """Whether answer patch `wide` allows everything `narrow` does (Up to P4 contains Up to P3, a wider area
+    a smaller one, a bigger input budget a smaller one). Patches that touch anything else never nest."""
+    if wide == narrow or not wide or set(wide) != set(narrow) or not set(wide) <= set(NESTED_FIELDS):
+        return False
+    return all(NESTED_FIELDS[k](wide[k], narrow[k], wide, narrow) for k in wide)
+
+
+def same_plan_cards(options: List[dict], cards: List[dict]) -> List[dict]:
+    """A wider answer never shows less ISK than an answer it contains (like `optimizer.alternatives` for
+    goals): each solve has a node limit and a small optimality gap, and it weighs ISK against effort, so
+    the wider one can come out lower. Such a card shows the best contained answer's plan instead, with
+    `same_as` = that answer's id; the page saves that answer when it is picked, so the plan stays the one
+    shown. Returns only the cards that changed. `cards` = whatif cards with their option's id."""
+    by_id = {c.get("id"): c for c in cards if "error" not in c and (c.get("totals") or {}).get("isk_per_day") is not None}
+    patches = [(o.get("id"), o.get("patch") or {}) for o in options if o.get("id") in by_id]
+    out = []
+    for oid, patch in patches:
+        isk = by_id[oid]["totals"]["isk_per_day"]
+        best = None
+        for cid, cpatch in patches:
+            if answer_contains(patch, cpatch) and \
+                    (best is None or by_id[cid]["totals"]["isk_per_day"] > by_id[best]["totals"]["isk_per_day"]):
+                best = cid
+        if best is not None and by_id[best]["totals"]["isk_per_day"] > isk:
+            out.append({**copy.deepcopy(by_id[best]), "id": oid, "same_as": best})
+    return out
 
 
 # --------------------------------------------------------------------------- module entry + dashboard

@@ -164,6 +164,9 @@ def test_footer_carries_the_data_credit_line(browser):
     assert 'href="/credits"' in credit
 
 
-def test_mvp_paths_are_gone(browser):
-    for old in ("/space", "/planner", "/operate", "/settings", "/characters", "/export/plan.md"):
-        assert browser().get(old, follow_redirects=False).status_code == 404
+def test_old_paths_redirect_permanently(browser):
+    c = browser()
+    for old, new in (("/space", "/pi/area"), ("/planner?view=advanced", "/pi/plan?view=advanced"),
+                     ("/operate", "/pi/operate"), ("/characters", "/profile"), ("/export/plan.md", "/pi/export/plan.md")):
+        r = c.get(old, follow_redirects=False)
+        assert r.status_code == 301 and r.headers["location"] == new

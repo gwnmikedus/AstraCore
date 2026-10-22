@@ -48,6 +48,7 @@ from .static_data import dalshooth, sde_loader, voc
 
 log = logging.getLogger("astracore")
 router = APIRouter(prefix="/pi", dependencies=[Depends(require_user)])
+legacy = APIRouter()     # old MVP paths -> 301, so old bookmarks keep working
 PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
@@ -1120,3 +1121,19 @@ async def reset_pi(request: Request):
     return redirect("/profile", "AstraCore PI was reset: settings, plans and planet overrides are gone. "
                                 "Your characters are still linked.")
 
+
+# ----------------------------------------------------------------------------- old MVP paths (301: bookmarks keep working)
+_OLD = {"/space": "/pi/area", "/planner": "/pi/plan", "/operate": "/pi/operate", "/settings": "/pi/settings",
+        "/characters": "/profile", "/export/templates.zip": "/pi/export/templates.zip",
+        "/export/plan.md": "/pi/export/plan.md", "/export/plan.csv": "/pi/export/plan.csv"}
+
+
+def _legacy(to: str):
+    async def handler(request: Request):
+        q = request.url.query
+        return RedirectResponse(to + (f"?{q}" if q else ""), status_code=301)
+    return handler
+
+
+for _old, _new in _OLD.items():
+    legacy.add_api_route(_old, _legacy(_new), methods=["GET"], include_in_schema=False)

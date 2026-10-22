@@ -23,6 +23,7 @@ from .esi import sso
 from .esi.client import ESIError
 from .modules.pi import module as _pi_module  # noqa: F401  (registers AstracorePI)
 from .modules.pi import service as pi_service
+from .modules.pi.routes import legacy as pi_legacy
 from .modules.pi.routes import router as pi_router
 
 log = logging.getLogger("astracore")
@@ -178,6 +179,7 @@ def create_app() -> FastAPI:
     app.include_router(pages.router)
     app.include_router(community.router)
     app.include_router(pi_router)
+    app.include_router(pi_legacy)
     return app
 
 

@@ -182,7 +182,7 @@ const STEP_CONTEXT = {
 // A "?" under a question's explanation, for the outcomes that surprise pilots (glossary.answers()).
 // [answer key, question shown] per step; no question = the answer's own label.
 const STEP_HELP = {
-  area: [['dropoff'], ['isk', 'Why can a wider area show less ISK?']],
+  area: [['dropoff'], ['isk', 'Why doesn’t a wider area always earn more?']],
   tier: [['tier']], buy: [['buy']], share: [['share']], chain: [['transfer']],
   sell: [['voc']], batch: [['batch']],
 };
@@ -193,6 +193,9 @@ const stepHelp = step => (STEP_HELP[step.id] || []).map(([key, label]) => {
 
 const value = (step, r) => r && !r.error ? (step.metric === 'sell' ? r.sell_net_per_day : r.totals.isk_per_day) : null;
 const optOf = (step, id) => (step.options || []).find(o => o.id === id);
+// The answer a card saves: a wider answer whose card shows the plan of an answer it contains ("Same plan as
+// Up to P3", see service.same_plan_cards) saves that answer, so the plan stays the one shown.
+const answerOf = (step, id) => { const r = (results[step.id] || {})[id]; return (r && r.same_as != null && optOf(step, r.same_as)) || optOf(step, id); };
 
 // Estimated minutes of your time per week for an answer (worked out with the plan, see
 // planner/compare.py). Rough, but the same yardstick for every question, so ISK can be weighed against time.
@@ -233,7 +236,7 @@ function wireHour(step) {
 const net = (step, o, r) => value(step, r) - minutesPerWeek(o, r) / 7 / 60 * iskPerHour();   // ISK/day minus time cost
 const byEffort = (step, res) => step.options.filter(o => res[o.id] && !res[o.id].error)
   .sort((a, b) => minutesPerWeek(a, res[a.id]) - minutesPerWeek(b, res[b.id]));
-const labelOf = step => { const o = optOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : (step.custom ? step.custom(st).label : 'custom'); };
+const labelOf = step => { const o = answerOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : (step.custom ? step.custom(st).label : 'custom'); };
 
 // Buying: ISK tied up isn't a daily cost, so the suggestion is the smallest stake that earns at least
 // BUY_ENOUGH of the best answer, not simply the biggest budget.
@@ -340,7 +343,7 @@ async function navigate(target) {
   if (OPTIONAL_IDS.has(STEPS[target].id) && !OPTIONAL_IDS.has(STEPS[cur].id)) optionalReturn = cur;
   const step = STEPS[cur];
   if (!step.options) { go(target); return; }
-  const pick = picks[step.id], o = optOf(step, pick), res = results[step.id] || {};
+  const pick = picks[step.id], o = answerOf(step, pick), res = results[step.id] || {};
   const valid = !!o && (step.isGoal || !!(res[pick] && !res[pick].error));
   const changed = !!o && Object.entries(o.patch).some(([k, v]) => JSON.stringify(saved[k]) !== JSON.stringify(v));
   const action = AC.tourLeave({forward: target > cur && !OPTIONAL_IDS.has(step.id) && !OPTIONAL_IDS.has(STEPS[target].id), valid, wasAnswered: answered.has(step.id), changed});
@@ -560,7 +563,12 @@ async function load(step) {
   }
   results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
   complete[step.id] = true;
-  if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st)); else paint(step);
+  if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st));
+  else {   // a pick made while cards streamed in may have become "Same plan as …": plan on with that answer
+    const answer = answerOf(step, picks[step.id]);
+    if (answer) Object.assign(st, answer.patch);
+    paint(step);
+  }
   const kept = results[step.id][picks[step.id]];
   setHint(kept && kept.error
     ? 'Your earlier answer no longer works with your other choices. Pick another to continue.'
@@ -574,7 +582,9 @@ function compareHTML(step, rec, pick) {
   const sell = step.metric === 'sell';
   const rows = step.options.filter(o => res[o.id] && !res[o.id].error).map(o => ({
     label: o.label, totals: res[o.id].totals, facts: res[o.id].facts, current: o.id === pick,
-    note: o.id === pick ? (o.id === rec ? 'Your pick · suggested' : 'Your pick') : (o.id === rec ? 'Suggested' : ''),
+    note: [o.id === pick ? (o.id === rec ? 'Your pick · suggested' : 'Your pick') : (o.id === rec ? 'Suggested' : ''),
+           res[o.id].same_as != null && optOf(step, res[o.id].same_as) ? `same plan as ${optOf(step, res[o.id].same_as).label}` : '']
+      .filter(Boolean).join(' · '),
     income: value(step, res[o.id]), incomeUnit: sell ? 'ISK/day paid out' : 'ISK/day',
   }));
   if (rows.length < 2) return '';
@@ -591,7 +601,7 @@ function compareHTML(step, rec, pick) {
 function choose(step, id) {
   if (id === null || id === undefined || !optOf(step, id)) return;
   picks[step.id] = id;
-  Object.assign(st, optOf(step, id).patch);
+  Object.assign(st, answerOf(step, id).patch);
   paint(step);
   prefetchNext(step);
 }
@@ -651,7 +661,7 @@ function paint(step) {
         <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>
       </details>
       ${iskHelp.answer}${timeHelp.answer}
-      ${step.id === 'tier' ? samePlanHTML(step, o, r, res) + teamworkNoteHTML(r) : ''}`;
+      ${r.same_as != null ? sameAsHTML(step, r) : step.id === 'tier' ? samePlanHTML(step, o, r, res) : ''}${step.id === 'tier' ? teamworkNoteHTML(r) : ''}`;
     const barWidth = Math.max(3, v / top * 100);
     el.querySelector('.bar i').style.width = `${Number.isFinite(barWidth) ? barWidth : 3}%`;
     const details = el.querySelector('.answer-details');
@@ -672,6 +682,11 @@ function paint(step) {
 function teamworkNoteHTML(r) {
   if (!r.teamwork_auto || !r.totals.transfers) return '';
   return `<div class="same-plan">Your characters supply each other here (${r.totals.transfers} transfer${r.totals.transfers === 1 ? '' : 's'}): turned on for P3/P4. Change it under Teamwork.</div>`;
+}
+// A wider answer that planned out lower than an answer it contains shows that answer's plan, and saves that answer.
+function sameAsHTML(step, r) {
+  const same = optOf(step, r.same_as);
+  return same ? `<div class="same-plan">Same plan as ${esc(same.label)}, which earns more here. Choosing this keeps ${esc(same.label)}.</div>` : '';
 }
 // Products step: a card whose plan stops below the tier it allows says so, and why ("Same plan as Up to P2").
 function samePlanHTML(step, o, r, res) {
@@ -821,7 +836,7 @@ async function commit(step, target, confirmOptions = false) {
 async function save(step, target, confirmOptions = false) {
   await hourSave;
   const id = picks[step.id];
-  const o = optOf(step, id);
+  const o = answerOf(step, id);
   const body = {answered: [...new Set([...answered, step.id])], guide_step: target, hour_isk: st.hour_isk ?? -1};
   if (o) Object.assign(body, o.patch);
   if (confirmOptions) {

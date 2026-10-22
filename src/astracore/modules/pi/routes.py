@@ -471,6 +471,8 @@ async def api_whatif(request: Request):
       while waiting for a solve slot, {"card": {...}} per answer as soon as it is planned, and one final
       {"done": true} | {"superseded": true} | {"busy": true, "retry_after": s} | {"error": "..."}.
       Same gate semantics as the list: one comparison per profile, a newer one supersedes it.
+      Once every card is in, a wider answer that came out below an answer it contains is sent again
+      showing that answer's plan, with "same_as" (see `service.same_plan_cards`).
     * "prefetch": true -> 202 at once; the cards are planned into the cache in the background, only while
       the planner has a free slot nobody is waiting for (see `_prefetch`)."""
     pid = _pid(request)
@@ -486,12 +488,13 @@ async def api_whatif(request: Request):
                                  headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache, no-transform"})  # proxies (Cloudflare) mustn't buffer or compress the stream
     try:
         async with GATE.request(pid, "whatif"):
-            rows = await asyncio.gather(*[_whatif_card(pid, base, o) for o in options])
+            rows = list(await asyncio.gather(*[_whatif_card(pid, base, o) for o in options]))
     except Busy:
         return busy_response()
     except Superseded:
         return superseded_response()
-    return JSONResponse(list(rows))
+    fixed = {c["id"]: c for c in service.same_plan_cards(options, rows)}
+    return JSONResponse([fixed.get(r.get("id"), r) for r in rows])
 
 
 async def _whatif_stream(pid: int, base: Settings, options: list):
@@ -500,12 +503,16 @@ async def _whatif_stream(pid: int, base: Settings, options: list):
     events: asyncio.Queue = asyncio.Queue()
 
     async def card(opt):
-        await events.put({"card": await _whatif_card(pid, base, opt)})
+        row = await _whatif_card(pid, base, opt)
+        await events.put({"card": row})
+        return row
 
     async def work():
         try:
             async with GATE.request(pid, "whatif"):
-                await asyncio.gather(*[card(o) for o in options])
+                rows = await asyncio.gather(*[card(o) for o in options])
+            for row in service.same_plan_cards(options, list(rows)):
+                await events.put({"card": row})      # corrections once every card is in
             final = {"done": True}
         except Busy:
             final = {"busy": True, "retry_after": 3}

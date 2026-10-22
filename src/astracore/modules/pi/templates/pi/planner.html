@@ -14,7 +14,7 @@
 {{ artwork('pi-orbit', '(max-width: 760px) 120px, 320px', 'context-art') }}
 </header>
 {% include "pi/_characters_panel.html" %}
-<div id="busy" role="status">updating…</div>
+<div id="busy" role="status" hidden>updating…</div>
 <div class="layout">
   <aside class="controls">
     <div class="ctl">
@@ -206,7 +206,7 @@ async function update(apply = false) {
   $('apply-preview').disabled = true;
   if (ctrl) ctrl.abort();
   ctrl = new AbortController();
-  $('busy').style.display = 'block'; $('result').classList.add('loading');
+  $('busy').hidden = false; $('result').classList.add('loading');
   const st = state();
   try {
     const res = await AC.post(API + (apply ? '/apply' : '/preview'), {settings: st, baseline}, {signal: ctrl.signal,
@@ -221,7 +221,7 @@ async function update(apply = false) {
     const key = JSON.stringify({...st, effort: null, hour_isk: null});
     if (key !== altKey) { altKey = key; loadAlts(st); } else markAlt();
   } catch (e) { if (my === updateSeq && e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
-  finally { if (apply) applying = false; if (my === updateSeq) { $('busy').style.display = 'none'; $('result').classList.remove('loading'); } }
+  finally { if (apply) applying = false; if (my === updateSeq) { $('busy').hidden = true; $('result').classList.remove('loading'); } }
 }
 let altSeq = 0;
 let altsWanted = false;           // the three goals cost three extra solves: compared once the pilot asks
@@ -300,7 +300,7 @@ neverBoxes().forEach(b => b.addEventListener('change', () => { showNever(); sche
 function onNeverProduce(names) { setNever(names); schedule(0); }
 function onRichnessSaved() { schedule(0); }
 document.querySelectorAll('#max_tier button').forEach(b => b.onclick = () => { setTier(b.dataset.v); schedule(0); });
-$('refresh-prices').onclick = async e => { e.preventDefault(); $('busy').style.display = 'block';
+$('refresh-prices').onclick = async e => { e.preventDefault(); $('busy').hidden = false;
   await AC.post(API + '/prices/refresh', {}); altKey = null; schedule(0); };
 update();
 </script>

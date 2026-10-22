@@ -373,6 +373,7 @@ function go(i, focus = true) {
   drawTrack();
   STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
   if (focus) {
+    AC.enterPanel($('q'));   // the one step transition: a fade, so the smooth scroll below lands where it aims
     const title = $('question-title');
     if (title) title.focus({preventScroll: true});
     if (AC.tourScroll({top: $('q').getBoundingClientRect().top, viewport: window.innerHeight}))

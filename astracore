@@ -7,6 +7,7 @@
 #   ./astracore deploy [ref]   pin production to a commit on origin/main (default: its tip) and restart it
 #   ./astracore rollback       pin production back to the previously deployed commit and restart it
 #   ./astracore mark-released <from> [to]   sync status:released for the PRs between two commits (deploy does this)
+#   ./astracore mark-released               label issues closed by hand whose pull requests are all live (deploy does this too)
 #   ./astracore stop           stops the tunnel first (visitors get the offline page), then the app
 #   ./astracore restart [--prod]
 #   ./astracore status [--json]   (--json: machine-readable, for AstraCore Control.app)
@@ -273,7 +274,36 @@ mark_released() {   # mark_released <from> <to>
       fi
     done
   done
+  [[ $add == 1 ]] && sweep_released "$to" "$gh"
   return 0
+}
+
+# An issue that pull requests only mention (no "Closes #n") and that is closed by hand never shows up above. Every
+# deploy therefore also looks at the issues closed as completed without status:released: one whose merged pull
+# requests are all in production gets the label; one without any merged pull request is named for a check by hand.
+sweep_released() {   # sweep_released <production commit> <gh>
+  local to=$1 gh=$2 issues issue shas sha live
+  if ! issues=$(cd "$ROOT" && "$gh" issue list --state closed --limit 500 --json number,stateReason,labels \
+      --jq '.[] | select(.stateReason == "COMPLETED") | select([.labels[].name] | index("status:released") | not) | .number' 2>/dev/null); then
+    say "Note: couldn't list closed issues on GitHub; run ./astracore mark-released later to catch up."; return 0
+  fi
+  for issue in $issues; do
+    if ! shas=$(cd "$ROOT" && "$gh" api graphql -F owner='{owner}' -F name='{repo}' -F number="$issue" -f query='
+        query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) {
+          timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) { nodes {
+            ... on CrossReferencedEvent { source { ... on PullRequest { merged mergeCommit { oid } } } }
+            ... on ConnectedEvent { subject { ... on PullRequest { merged mergeCommit { oid } } } } } } } } }' \
+        --jq '.data.repository.issue.timelineItems.nodes[] | (.source // .subject) | select(.merged == true) | .mergeCommit.oid' 2>/dev/null); then
+      say "Note: couldn't read #$issue on GitHub; status:released not updated for it."; continue
+    fi
+    if [[ -z "$shas" ]]; then say "Check by hand: #$issue is closed as completed without a merged pull request."; continue; fi
+    live=1
+    for sha in $shas; do
+      git -C "$ROOT" merge-base --is-ancestor "$sha" "$to" 2>/dev/null || { live=0; break; }
+    done
+    [[ $live == 1 ]] || continue
+    (cd "$ROOT" && "$gh" issue edit "$issue" --add-label status:released >/dev/null 2>&1) && say "Released: #$issue (closed by hand; its pull requests are live)"
+  done
 }
 
 cmd_rollback() {
@@ -301,7 +331,11 @@ case "${1:-}" in
   restart) shift; cmd_stop; cmd_start "$@" ;;
   deploy)  shift; cmd_deploy "${1:-origin/main}" ;;
   rollback) cmd_rollback ;;
-  mark-released) shift; [[ -n "${1:-}" ]] || die "Usage: ./astracore mark-released <from> [to]"; mark_released "$1" "${2:-origin/main}" ;;
+  mark-released) shift
+    if [[ -z "${1:-}" ]]; then   # no range: only the sweep, against what production runs now
+      [[ -n "$(prod_commit)" ]] || die "No production checkout yet (./astracore deploy)."
+      sweep_released "$(prod_commit)" "$(command -v gh 2>/dev/null || echo "$HOME/.local/bin/gh")"
+    else mark_released "$1" "${2:-origin/main}"; fi ;;
   status)  if [[ "${2:-}" == "--json" ]]; then cmd_status_json; else cmd_status; fi ;;
   logs)    cmd_logs ;;
   *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;

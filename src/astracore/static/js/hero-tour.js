@@ -27,6 +27,7 @@
   let focused = false;
   let visible = true;
   let transitionTimer;
+  let transition = 0;
   let drawFrame;
 
   function updatePause() {
@@ -136,13 +137,26 @@
       tab.tabIndex = i === active ? 0 : -1;
     });
     root.style.setProperty('--tour-progress', '0');
-    transitionTimer = setTimeout(() => {
+    // The old scene stays until the entering and leaving animations have finished (not a timer guessing their
+    // length). A newer show() bumps the count, so an older transition can't hide the scene now showing.
+    const run = ++transition;
+    const settle = () => {
+      if (run !== transition) return;
+      clearTimeout(transitionTimer);
       [...copies, ...scenes].forEach(node => {
         const index = Number(node.dataset.heroCopy ?? node.dataset.heroScene);
         node.hidden = index !== active;
         node.classList.remove('is-entering', 'is-leaving');
       });
-    }, reducedMotion.matches ? 0 : 550);
+    };
+    if (reducedMotion.matches) settle();
+    else {
+      const moving = [...copies, ...scenes].filter(node => !node.hidden)
+        .flatMap(node => node.getAnimations ? node.getAnimations() : [])
+        .filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity);
+      Promise.all(moving.map(animation => animation.finished)).then(settle, () => {});
+      transitionTimer = setTimeout(settle, 1000);   // only if the animations never report their end
+    }
     updatePause();
     scheduleDraw();
   }

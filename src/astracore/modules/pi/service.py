@@ -83,6 +83,23 @@ async def load_space(chars, s: Settings, force: bool = False, outage: Optional[e
     return area
 
 
+def cached_space(chars, s: Settings) -> Optional[dict]:
+    """The area these characters last resolved (what Operate last used), without ESI: Home reads it."""
+    query = db.kv_get(_area_owner(chars, s)) if chars else None
+    return area_mod.cached(query) if query else None
+
+
+def plan_systems(plan_result: Optional[dict]) -> Dict[str, int]:
+    """{lower-case system name: system id} for the systems a saved plan uses (its drop-off and colonies),
+    so its routes resolve even after the area changed."""
+    res = plan_result or {}
+    out = {str(c["system"]).lower(): int(c["system_id"]) for c in res.get("colonies") or []
+           if c.get("system") and c.get("system_id")}
+    if res.get("hub") and res.get("hub_id"):
+        out[str(res["hub"]).lower()] = int(res["hub_id"])
+    return out
+
+
 def calibrated_yield(chars, area) -> Optional[float]:
     sec = {}
     if area:
@@ -510,10 +527,20 @@ def entry_state(profile_id: int) -> str:
     return "operate"
 
 
+def operate_settings(s: Settings, chars: List[dict], active: Optional[dict]) -> Settings:
+    """The settings Operate advises with: the active plan's wizard answers (see settings.LIVE_FIELDS) and the
+    seller's taxes. `s` = the profile's saved settings; without an active plan Operate follows those."""
+    s = s.for_plan((active or {}).get("settings"))
+    return skills_mod.apply(s, skills_mod.best_seller(chars))
+
+
 def operate_overview(pi, s: Settings, books: Dict[int, dict], chars: List[dict], area: Optional[dict],
-                     plan_result: Optional[dict]) -> dict:
-    """What Operate works out from synced data and the active plan, and the Next up list from it.
-    Operate and Home both use this, so Home's top three are Operate's top three."""
+                     active: Optional[dict]) -> dict:
+    """What Operate works out from synced data and the active plan (`active`: store.active_plan), and the
+    Next up list from it. Operate and Home both use this with the same area, so Home's top three are
+    Operate's top three. `s` = the profile's saved settings (see operate_settings)."""
+    s = operate_settings(s, chars, active)
+    plan_result = active["result"] if active else None
     stock = operate.hangar_stock(pi, s, books, chars, area)
     consolidated = operate.consolidate(stock, area)
     pipe = operate.pipeline(pi, books, chars)
@@ -552,8 +579,8 @@ async def dashboard_tile(profile: dict) -> dict:
         tile["static_missing"] = True     # game data isn't cached yet: Operate loads it on first visit
     if pi and chars and state == "operate":
         try:
-            ov = operate_overview(pi, store.load_settings(pid), prices.cached()["books"], chars, None,
-                                  plan["result"] if plan else None)
+            s = store.load_settings(pid)
+            ov = operate_overview(pi, s, prices.cached()["books"], chars, cached_space(chars, s), plan)
             tile["next_up"] = ov["next_up"][:nextup.HOME_SHOWN]
             tile["next_up_more"] = max(0, len(ov["next_up"]) - nextup.HOME_SHOWN)
             tile["all_clear"] = ov["all_clear"]

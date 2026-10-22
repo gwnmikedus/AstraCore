@@ -58,13 +58,13 @@
     {% else %}
     <div class="command-next">
       <div><div class="eyebrow">Next action</div>
-      <h3>{% if t.state == 'connect' %}Bring your characters aboard.{% elif t.state == 'excluded' %}Include a character in your plan.{% elif t.state == 'area' %}Choose your operating area.{% elif t.state == 'plan' %}Find a routine that fits.{% else %}Open {{ t.module.name }}.{% endif %}</h3>
-      <p>{% if t.state == 'connect' %}Connect the characters you do PI on. AstraCore reads their colonies, skills and hangars.{% elif t.state == 'excluded' %}Every connected character is excluded from planning. Include one to continue.{% elif t.state == 'area' %}Choose the constellations your characters can use and where you drop products off.{% elif t.state == 'plan' %}Compare income, hauling and effort across all your characters.{% else %}{{ t.module.tagline }}{% endif %}</p></div>
+      <h3>{% if t.state == 'connect' %}Bring your characters aboard.{% elif t.state == 'excluded' %}Include a character in your plan.{% elif t.state == 'plan' %}Find a routine that fits.{% else %}Open {{ t.module.name }}.{% endif %}</h3>
+      <p>{% if t.state == 'connect' %}Connect the characters you do PI on. AstraCore reads their colonies, skills and hangars.{% elif t.state == 'excluded' %}Every connected character is excluded from planning. Include one to continue.{% elif t.state == 'plan' %}Compare income, hauling and effort across all your characters.{% else %}{{ t.module.tagline }}{% endif %}</p></div>
       <a class="primary-link" href="{{ t.href or t.module.route_prefix }}">{{ t.cta or 'Open' }} {{ icon('arrow-right') }}</a>
     </div>
-    {% if t.module.id == 'pi' and t.state in ('connect', 'area', 'plan') %}
+    {% if t.module.id == 'pi' and t.state in ('connect', 'plan') %}
     <div class="setup-path" aria-label="Setup progress">
-      {% for key, label in [('connect', 'Connect characters'), ('area', 'Choose an area'), ('plan', 'Build your plan'), ('operate', 'Run the operation')] %}
+      {% for key, label in [('connect', 'Connect characters'), ('plan', 'Build your plan'), ('operate', 'Run the operation')] %}
       <span class="{{ 'current' if t.state == key else '' }}" {% if t.state == key %}aria-current="step"{% endif %}><b>{{ loop.index }}</b>{{ label }}</span>
       {% endfor %}
     </div>

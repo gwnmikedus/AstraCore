@@ -27,10 +27,13 @@
               <h2 id="menu-operation-title">Your operation</h2>
               <ul>{% for label, href, symbol, description in primary_nav %}{{ menu_link(label, href, symbol, description, section=true) }}{% endfor %}</ul>
             </section>
-            <section class="menu-group" aria-labelledby="menu-plan-title">
-              <h2 id="menu-plan-title">Plan setup</h2>
-              <ul>{{ menu_link('Area', '/pi/area', 'map', 'Choose the systems available to your plan') }}{{ menu_link('Settings', '/pi/settings', 'settings', 'Fine-tune your planning assumptions') }}</ul>
+            {% set primary_hrefs = primary_nav|map(attribute=1)|list %}
+            {% for m in modules if m.nav %}
+            <section class="menu-group" aria-labelledby="menu-{{ m.id }}-setup-title">
+              <h2 id="menu-{{ m.id }}-setup-title">{{ 'Plan setup' if m.id == 'pi' else m.name }}</h2>
+              <ul>{% for label, href, symbol, description in m.nav if href not in primary_hrefs %}{{ menu_link(label, href, symbol, description) }}{% endfor %}</ul>
             </section>
+            {% endfor %}
             {% else %}
             <section class="menu-group" aria-labelledby="menu-start-title">
               <h2 id="menu-start-title">Start here</h2>

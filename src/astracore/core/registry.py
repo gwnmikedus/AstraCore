@@ -46,7 +46,7 @@ class Module:
     tagline: str
     required_bundle: Bundle
     optional_bundles: List[Bundle] = field(default_factory=list)
-    nav: List[Tuple[str, str, str]] = field(default_factory=list)      # (label, href, icon name)
+    nav: List[Tuple[str, str, str, str]] = field(default_factory=list)  # (label, href, icon name, menu description)
     dashboard_tile: Optional[Callable] = None        # async (profile) -> dict for templates/dashboard.html
     on_character_removed: Optional[Callable] = None  # (profile_id, character_id) -> None
     on_profile_reset: Optional[Callable] = None      # (profile_id) -> None (module data only)
@@ -81,10 +81,6 @@ def bundle(bundle_id: str) -> Optional[Bundle]:
     return all_bundles().get(bundle_id)
 
 
-def module_of(bundle_id: str) -> Optional[Module]:
-    return next((m for m in MODULES if any(b.id == bundle_id for b in m.bundles)), None)
-
-
 def signin_scopes(enabled_modules: Optional[List[str]] = None) -> List[str]:
     """Core (no scopes) + the required bundle of each enabled module. v1: just pi.required."""
     mods = [m for m in MODULES if enabled_modules is None or m.id in enabled_modules]
@@ -95,7 +91,3 @@ def signin_scopes(enabled_modules: Optional[List[str]] = None) -> List[str]:
                 out.append(s)
     return out
 
-
-def granted_bundles(scopes: List[str]) -> List[str]:
-    have = set(scopes)
-    return [b.id for b in all_bundles().values() if set(b.scopes) <= have]

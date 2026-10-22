@@ -55,11 +55,6 @@ async def type_info(esi: ESIClient, type_id: int) -> dict:
     return await esi.get(f"/universe/types/{type_id}/", ttl=STATIC_TTL, stale_ok=True)
 
 
-async def market_prices(esi: ESIClient, force: bool = False) -> Dict[int, dict]:
-    rows = await esi.get("/markets/prices/", ttl=3600, force=force)
-    return {r["type_id"]: r for r in rows}
-
-
 async def region_orders(esi: ESIClient, region_id: int, type_id: int,
                         force: bool = False) -> Optional[List[dict]]:
     """All orders of one type in a region, or None when ESI didn't answer: a failed fetch must not

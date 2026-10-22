@@ -18,7 +18,7 @@ from . import fmt, registry
 from . import eveimg
 from .assets import asset
 from .icons import icon
-from .navigation import PLAN_NAV, PRIMARY_NAV, section_for
+from .navigation import PRIMARY_NAV, section_for
 from .project import PROJECT
 from .releases import current as current_release
 
@@ -46,9 +46,9 @@ def render(request: Request, name: str, *, module_id: Optional[str] = None, stat
     user = current_user(request)
     sess = getattr(request.state, "session", None)
     section = section_for(request.url.path)
-    subnav = module.nav if module and user else None
-    if module and module.id == "pi" and user:
-        subnav = PLAN_NAV if section == "/pi/plan" else None
+    # A module's sub-nav shows only inside the section its own pages belong to (PI: Plan, Area, Settings).
+    subnav = module.nav if module and user and section and any(
+        section_for(href) == section for _, href, *_ in module.nav) else None
     ctx.setdefault("subnav", subnav)
     ctx.setdefault("active_nav", request.url.path)
     ctx.update(

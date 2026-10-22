@@ -131,4 +131,39 @@ def test_menu_feedback_links_and_single_footer_community_destination(navigator):
         ("Report a bug", "/feedback?kind=bug"), ("Suggest an idea", "/feedback?kind=idea")]
     footer = _links(html, '<footer class="site-footer">', '</footer>')
     assert [link["attrs"]["href"] for link in footer if link["attrs"]["href"] in ("/community", "/roadmap")] == ["/community"]
-    assert '<h2 id="menu-plan-title">Plan setup</h2>' in html
+    assert '<h2 id="menu-pi-setup-title">Plan setup</h2>' in html
+
+
+def test_plan_setup_comes_from_the_module_nav(navigator):
+    """One source: the PI module's `nav` drives both the plan sub-nav and the menu's Plan setup group (#244)."""
+    nav = registry.get("pi").nav
+    html = navigator.get("/pi/area").text
+    assert [link["attrs"]["href"] for link in _links(html, 'aria-label="Plan setup"')] == [n[1] for n in nav]
+    menu = _links(html, '<h2 id="menu-pi-setup-title">', "</section>")
+    # Plan is already a main destination; the setup group adds the rest with the module's descriptions
+    assert [(link["attrs"]["href"], link["text"].strip()) for link in menu] == [
+        (href, f"{label}{description}") for label, href, _, description in nav if href != "/pi/plan"]
+
+
+@pytest.mark.parametrize("path,selected", [("/pi/reset", "/profile"), ("/pi/glossary", None)])
+def test_reset_and_glossary_do_not_show_the_plan_sub_nav(navigator, path, selected):
+    response = navigator.get(path)
+    assert response.status_code == 200
+    assert 'aria-label="Plan setup"' not in response.text
+    shortcuts = _links(response.text, '<nav class="header-shortcuts"')
+    assert [link["attrs"]["href"] for link in shortcuts if "aria-current" in link["attrs"]] == (
+        [selected] if selected else [])
+
+
+def test_footer_carries_the_data_credit_line(browser):
+    html = browser().get("/about").text
+    footer = html.split('<footer class="site-footer">', 1)[1].split("</footer>", 1)[0]
+    credit = footer.split('class="legal data-credit">', 1)[1].split("</p>", 1)[0]
+    for source in ("ESI (Fenris Creations)", "SDE", "DalShooth", "VOC"):
+        assert source in credit
+    assert 'href="/credits"' in credit
+
+
+def test_mvp_paths_are_gone(browser):
+    for old in ("/space", "/planner", "/operate", "/settings", "/characters", "/export/plan.md"):
+        assert browser().get(old, follow_redirects=False).status_code == 404

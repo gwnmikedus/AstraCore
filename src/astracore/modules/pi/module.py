@@ -52,8 +52,10 @@ MODULE = register(Module(
     tagline="Plan Planetary Interaction across all your characters and systems, and run it day to day.",
     required_bundle=PI_REQUIRED,
     optional_bundles=[PI_CUSTOMS, PI_WAYPOINTS],
-    nav=[("Operate", "/pi/operate", "timer"), ("Plan", "/pi/plan", "layers"),
-         ("Area", "/pi/area", "map"), ("Settings", "/pi/settings", "settings")],
+    # Plan setup sub-nav and menu group; Plan and Operate are also primary destinations (core/navigation.py).
+    nav=[("Plan", "/pi/plan", "layers", "Build a plan around your playtime"),
+         ("Area", "/pi/area", "map", "Choose the systems available to your plan"),
+         ("Settings", "/pi/settings", "settings", "Fine-tune your planning assumptions")],
     dashboard_tile=_tile,
     on_character_removed=_character_removed,
     on_profile_reset=_reset,

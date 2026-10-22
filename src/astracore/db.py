@@ -168,10 +168,6 @@ def _cols(c: sqlite3.Connection, table: str) -> set:
     return {r["name"] for r in c.execute(f"PRAGMA table_info({table})")}
 
 
-def _has_table(c: sqlite3.Connection, table: str) -> bool:
-    return bool(c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
-
-
 def _migrate_v1(c: sqlite3.Connection) -> None:
     c.executescript(SCHEMA_V1)
     have = _cols(c, "characters")
@@ -600,11 +596,6 @@ def save_token(character_id: int, refresh_token: str, access_token: Optional[str
              time.time() + expires_in - 30, scopes if scopes is not None else (old["scopes"] if old else ""),
              time.time()),
         )
-
-
-def delete_token(character_id: int) -> None:
-    with session() as c:
-        c.execute("DELETE FROM tokens WHERE character_id=?", (character_id,))
 
 
 def reencrypt_tokens() -> int:

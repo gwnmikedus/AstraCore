@@ -100,7 +100,7 @@
     <div class="hint">
       {% if calibrated %}<span class="ok">Yield calibrated from your extractors: {{ head_yield|num }} P0/h per head</span>{% else %}Yield estimate: {{ head_yield|num }} P0/h per head{% endif %}
       (<a href="{{ expert_url }}">Expert</a>)
-      · <a href="/pi/area">change area</a> · when built: <a href="/pi/operate">Operate {{ icon('arrow-right') }}</a>
+      · <a href="/pi/area">change area</a> · Operate tracks your saved active plan: <a href="{{ operate_url }}">Operate {{ icon('arrow-right') }}</a>
     </div>
   </aside>
 
@@ -109,6 +109,7 @@
       <a href="/pi/plan" class="guided-link">{{ icon('arrow-left') }} Guided setup, one question at a time</a></h4>
     <div class="toolbar"><button type="button" id="apply-preview" disabled>Apply these settings</button>
       <span id="preview-status" role="status">Preview only. Your guided answers stay unchanged until you apply.</span></div>
+    <div id="planbar" role="status" aria-live="polite"></div>
     <div class="alts" id="alts"></div>
     <div class="result" id="result"><p class="muted">Working out the first suggestion…</p></div>
   </section>
@@ -121,6 +122,7 @@ const S = JSON.parse({{ settings_json|tojson }});   // tojson: free-text setting
 const API = '{{ api }}', EXPORT = '{{ export }}', SETTINGS_URL = '{{ settings_url }}';
 let EXPORT_Q = '';
 const WAYPOINT_CHARS = {{ waypoints|tojson }};
+const PLANS = {{ plans|tojson }};
 const CHANNELS = ['use_buyback', 'use_jita', 'use_amarr', 'use_local', 'use_self_haul', 'use_sell_orders'];
 const $ = id => document.getElementById(id);
 const {isk, num, m3, count, esc} = AC;
@@ -197,6 +199,7 @@ function invalidatePreview() {
   ++updateSeq; ++altSeq; altKey = null;
   $('apply-preview').disabled = true;
   $('preview-status').textContent = 'Preview only. Your guided answers stay unchanged until you apply.';
+  $('planbar').innerHTML = '';
   document.querySelectorAll('#result [data-export]').forEach(a => { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); });
 }
 function schedule(delay = 300) { invalidatePreview(); showLabels(); clearTimeout(timer); timer = setTimeout(update, delay); }
@@ -216,8 +219,9 @@ async function update(apply = false) {
     if (res.superseded) return;
     baseline = res.baseline || baseline;
     $('apply-preview').disabled = !!res.error || apply;
-    $('preview-status').textContent = res.error ? 'Preview unavailable. Your settings were not applied.' : apply ? 'Settings applied. Downloads now match this plan; your guided answers and place are retained.' : 'Preview only. Apply these settings before downloading this plan.';
+    $('preview-status').textContent = res.error ? 'Preview unavailable. Your settings were not applied.' : apply ? 'Settings applied and downloads match this plan. Operate keeps tracking your active plan until you save this one.' : 'Preview only. Apply these settings before downloading or saving this plan.';
     render(res, st);
+    if (apply && !res.error && res.result_id) planBar(res.result_id);
     const key = JSON.stringify({...st, effort: null, hour_isk: null});
     if (key !== altKey) { altKey = key; loadAlts(st); } else markAlt();
   } catch (e) { if (my === updateSeq && e.name !== 'AbortError') $('result').innerHTML = '<p class="bad">' + esc(e) + '</p>'; }
@@ -284,6 +288,44 @@ function render(res, st) {
     document.querySelectorAll('#result [data-export]').forEach(a => { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); });
   }
   fillYieldBand(st);
+}
+
+// ---- saving the applied plan ----------------------------------------------------------------
+// The same save as the guided result: the server keeps the applied snapshot, so the plan saved is the plan shown.
+function planBar(resultId) {
+  const my = updateSeq;
+  const active = PLANS.find(p => p.active);
+  $('planbar').innerHTML = `<div class="planbar">
+      <span class="muted">${active ? `Your active plan is <b>${esc(active.label)}</b> (${isk(active.totals.isk_per_day)}/day).`
+        : 'No active plan yet. Save this one and Operate compares what you build against it.'}</span>
+      <input id="plan-label" placeholder="Name, e.g. Max ISK with P4" maxlength="80" aria-label="Plan name">
+      ${active ? '<button class="outline" id="plan-save">Save as new plan</button>' : ''}
+      <button id="plan-active">Save and set as active plan</button></div>`;
+  const buttons = () => $('planbar').querySelectorAll('button');
+  const doSave = async activate => {
+    buttons().forEach(b => { b.disabled = true; });
+    const r = await AC.post(API + '/plans', {result_id: resultId, label: $('plan-label').value, active: activate});
+    if (my !== updateSeq) return;
+    if (r.ok) {
+      setSaved(r);
+      $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b>${r.active
+        ? ' and set as your active plan. <a href="{{ operate_url }}">Operate</a> now tracks it.' : '.'}</div>`;
+    } else if (r.stale) {
+      schedule(0);   // a fresh preview; Apply again to save it
+      $('planbar').innerHTML = `<p class="bad">${esc(r.error)} Apply these settings again to save this plan.</p>`;
+    } else {
+      buttons().forEach(b => { b.disabled = false; });
+      $('planbar').querySelector('.plan-save-error')?.remove();
+      $('planbar').insertAdjacentHTML('beforeend', `<p class="bad plan-save-error">${esc(r.error || 'Could not save.')}</p>`);
+    }
+  };
+  if (active) $('plan-save').onclick = () => doSave(false);
+  $('plan-active').onclick = () => doSave(true);
+}
+function setSaved(r) {
+  if (Array.isArray(r.plans)) PLANS.splice(0, PLANS.length, ...r.plans);
+  EXPORT_Q = '?plan=' + r.id;
+  document.querySelectorAll('#result a[data-export]').forEach(a => { a.href = EXPORT + '/' + a.dataset.export + EXPORT_Q; });
 }
 
 // ---- wire up -------------------------------------------------------------------------------

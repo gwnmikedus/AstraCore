@@ -188,7 +188,7 @@ def test_saved_plan_table_has_units_labels_and_one_activate_form_per_inactive_pl
         db.delete_profile(pid)
     assert "Active &lt;b&gt;plan&lt;/b&gt;" in html and "<b>plan</b>" not in html
     assert html.count('aria-current="true"') == 1
-    assert html.count('action="/pi/plans/') == 2 and 'value="csrf-test"' in html
+    assert html.count('/activate"') == 2 and html.count('/delete"') == 2 and 'value="csrf-test"' in html
     for unit in ("46.2M ISK/day", "323.4M ISK/week", "120,000 m³ / week", "12 / week", "6 of 8 slots",
                  "2 transfers between characters", "/ week"):
         assert unit in html, unit

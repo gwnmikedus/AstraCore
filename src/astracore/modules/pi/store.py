@@ -170,8 +170,10 @@ def get_plan_result(profile_id: int, result_id: str, stamp: Callable[[], str]) -
 
 
 def _trim_plans(c, profile_id: int) -> None:
+    """Keep the newest MAX_PLANS saved plans in all; the active one is always kept."""
+    active = c.execute("SELECT COUNT(*) FROM plan_runs WHERE profile_id=? AND active=1", (profile_id,)).fetchone()[0]
     old = [r[0] for r in c.execute("SELECT id FROM plan_runs WHERE profile_id=? AND active=0 ORDER BY id DESC "
-                                   "LIMIT -1 OFFSET ?", (profile_id, MAX_PLANS))]
+                                   "LIMIT -1 OFFSET ?", (profile_id, max(0, MAX_PLANS - active)))]
     c.executemany("DELETE FROM plan_runs WHERE id=?", [(x,) for x in old])
 
 
@@ -183,7 +185,6 @@ def save_plan_run(profile_id: int, label: str, settings: Settings, result: dict,
                         "VALUES(?,?,?,?,?,?)", (profile_id, time.time(), label.strip()[:80], int(active),
                                                 settings.to_json(), json.dumps(result)))
         rid = int(cur.lastrowid)
-        # keep the newest MAX_PLANS (never drop the active one)
         _trim_plans(c, profile_id)
     return rid
 
@@ -258,8 +259,10 @@ def set_active_plan(profile_id: int, run_id: int) -> bool:
 
 
 def delete_plan_run(profile_id: int, run_id: int) -> bool:
+    """Delete a saved plan. Never the active one: Operate tracks it."""
     with db.session() as c:
-        return c.execute("DELETE FROM plan_runs WHERE id=? AND profile_id=?", (run_id, profile_id)).rowcount > 0
+        return c.execute("DELETE FROM plan_runs WHERE id=? AND profile_id=? AND active=0",
+                         (run_id, profile_id)).rowcount > 0
 
 
 # --------------------------------------------------------------------------- hooks (registry)

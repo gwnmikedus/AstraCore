@@ -22,6 +22,7 @@
       return 'reloaded';
     }
     if (el.classList) el.classList.add('is-stale');
+    delete el.dataset.autoRefresh;   // the icon stops spinning: nothing is refreshing any more
     say(r && r.error ? 'couldn’t refresh, try Refresh now on your profile' : 'refreshed recently, try again in a few minutes');
     return 'kept';
   }

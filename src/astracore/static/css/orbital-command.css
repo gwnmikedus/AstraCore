@@ -25,13 +25,13 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .platform-copy .lead { max-width: 36ch; font-size: 22px; line-height: 30px; margin: 0 0 12px; }
 .platform-copy .hero-description { color: var(--ink-muted); font-size: 17px; line-height: 26px; margin-bottom: 0; }
 .platform-copy .text-action { color: var(--ink); }
-.platform-copy .text-action:hover { color: var(--signal); }
+@media (hover: hover) { .platform-copy .text-action:hover { color: var(--signal); } }
 .platform-copy .primary-link { min-height: 48px; padding-inline: 24px; }
 .assurance-row { display: flex; flex-wrap: wrap; gap: 4px 0; list-style: none; padding: 0; margin: 24px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 20px; }
 .assurance-row li { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0; }
 .assurance-row li + li::before { content: "·"; margin: 0 10px; color: var(--ink-muted); }
 .assurance-row a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
-.assurance-row a:hover { color: var(--signal); }
+@media (hover: hover) { .assurance-row a:hover { color: var(--signal); } }
 /* Film hero: the trailer plays once over the header (js/hero-film.js), then dissolves into it; Play the film replays it.
    The hero spans the window (the script measures it); the copy keeps to the page column through --column-left. */
 .platform-hero.is-live { margin-right: 0; }
@@ -85,7 +85,8 @@ html[data-film-intro="play"] .platform-hero:not(.is-live) :is(.platform-copy, .h
 .hero-replay > .ic { width: 40px; height: 40px; padding: 10px; box-sizing: border-box; background: var(--signal); color: var(--on-signal); fill: currentColor; }
 .hero-replay-text { display: grid; gap: 2px; font-size: 13px; line-height: 18px; color: var(--ink-muted); }
 .hero-replay-label { font: 600 16px/20px var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); }
-.hero-replay:hover .hero-replay-label, .hero-replay:focus-visible .hero-replay-label { color: var(--signal); }
+.hero-replay:focus-visible .hero-replay-label { color: var(--signal); }
+@media (hover: hover) { .hero-replay:hover .hero-replay-label { color: var(--signal); } }
 .hero-replay:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
 .platform-hero.film-ended .hero-replay { animation: hero-rise .9s .5s cubic-bezier(.2, .7, .2, 1) both; }
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }

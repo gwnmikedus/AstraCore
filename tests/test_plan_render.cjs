@@ -139,3 +139,34 @@ test('ticking and unticking keeps the stored list of names', () => {
   assert.deepEqual([...toggledNever(['Water'], 'Water', true)], ['Water']);
   assert.deepEqual([...toggledNever(undefined, 'Water', true)], ['Water']);
 });
+
+test('a sell-order batch states its price, fees, instant alternative and slower turnaround', () => {
+  const {sellOrdersHTML} = load();
+  const so = {market: 'Jita 4-4', sales_tax_pct: 3.6, broker_fee_pct: 1.5, days: [2.5, 7.4],
+              items: [{item: 'Robotics', list_price: 80000, net: 75920, instant: 70000},
+                      {item: '<b>x</b>', list_price: 10, net: 9, instant: null}]};
+  const html = sellOrdersHTML({channel: 'jita_sell', sell_orders: so, contract: {type: 'Courier'}});
+  assert.match(html, /<b>Sell-order price<\/b> in Jita 4-4/);
+  assert.match(html, /3\.6% sales tax and 1\.5% broker fee/);
+  assert.match(html, /Robotics: list at 80000 → 75920 net <span class="muted">\(instant sale 70000\)<\/span>/);
+  assert.match(html, /once the courier arrives \(about 3 days\), the orders take est\. 2\.5–7\.4 days to sell/);
+  assert.match(html, /&lt;b>x/);
+  assert.doesNotMatch(html, /instant sale null/);
+  // listed at the hub itself: no courier wait, and no estimate without trade history
+  const here = sellOrdersHTML({channel: 'jita_sell', sell_orders: {...so, days: null}});
+  assert.doesNotMatch(here, /courier/);
+  assert.match(here, /the orders take an unknown time to sell/);
+  assert.equal(sellOrdersHTML({channel: 'jita_buy'}), '');
+});
+
+test('the result reconciles what the batches pay out with the plan figure (#246)', () => {
+  const {incomeCheckHTML} = load();
+  assert.equal(incomeCheckHTML({}), '');
+  const html = incomeCheckHTML({income_check: {paid: 94e6, plan: 80e6, customs: 5e6, inputs: 10e6, held: 5e6, other: -4e6}});
+  assert.match(html, /^<p class="muted text-small income-check">Paid out ≈ 94000000 ISK ISK\/day from the batches below, against the 80000000 ISK ISK\/day above: /);
+  assert.match(html, /after customs \(5000000 ISK\) and bought inputs \(10000000 ISK\), which you pay apart from the batches/);
+  assert.match(html, /5000000 ISK ISK\/day sits in held-back batches/);
+  assert.match(html, /courier minimum fees, batch routing and rounding −4000000 ISK\.<\/p>$/);
+  const same = incomeCheckHTML({income_check: {paid: 80.1e6, plan: 80e6, customs: 0, inputs: 0, held: 0, other: 0.1e6}});
+  assert.match(same, /about the same as the 80000000 ISK ISK\/day above\.<\/p>$/);
+});

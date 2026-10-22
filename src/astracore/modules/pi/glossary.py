@@ -18,8 +18,10 @@ GLOSSARY: List[Dict[str, str]] = [
     {"id": "isk-vs-time", "term": "ISK versus your time",
      "text": "AstraCore doesn't just chase the biggest ISK number. It subtracts the value of your time: hauling, extra "
              "systems on your pickup round and factory restocks all cost minutes, priced at what an hour is worth to "
-             "you. That's why a wider area or more processing can show a little less ISK: it's the one that saves you "
-             "time. Differences under about 1% or 0.5M ISK a day count as about the same."},
+             "you. That's why a plan can leave a little ISK on the table: it's the one that saves you time. A wider "
+             "area or more processing never shows less ISK than a narrower answer it includes: when its own plan "
+             "comes out lower, it shows that answer's plan. Differences under about 1% or 0.5M ISK a day count as "
+             "about the same."},
     {"id": "time-estimate", "term": "Your time per week",
      "text": "A rough yardstick, the same for every plan, so answers can be compared fairly. It adds up extractor "
              "restarts, logins, pickups, systems visited, the volume hauled, factory restocks, transfers and "
@@ -135,8 +137,10 @@ def answers(settings: Any = None, head_yield: float = 0.0, calibrated: bool = Fa
         "batch": _term_answer("batch", "What is a batch?"),
         "isk": {"label": "Why this ISK figure?", "more": "isk-vs-time",
                 "text": "The plan weighs ISK against your time: hauling, extra systems and factory restocks cost "
-                        "time, valued at what an hour is worth to you. So a wider or deeper option can show a bit "
-                        "less ISK when it saves time. Differences under about 1% or 0.5M/day are about the same."},
+                        "time, valued at what an hour is worth to you, so a plan can leave a bit of ISK on the table "
+                        "to save time. A wider or deeper answer never shows less than a narrower one it "
+                        "includes: then it shows that answer's plan. Differences under about 1% or 0.5M/day are "
+                        "about the same."},
         "time": {"label": "How is your time estimated?", "more": "time-estimate", "text": time_note()},
         "tier": {"label": "Why does a higher tier often give the same plan?", "more": "higher-tiers",
                  "text": "A factory pays only when enough input reaches it: a P3 factory eats the output of many "

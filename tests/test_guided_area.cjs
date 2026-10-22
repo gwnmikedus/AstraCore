@@ -66,7 +66,7 @@ test('Continue saves the chosen area together with its travel answer once', asyn
   const calls = [];
   const ctx = {
     hourSave: Promise.resolve(), picks: {area: 'near'},
-    optOf: () => ({patch: {max_systems: 3, max_jumps: 3}}),
+    answerOf: () => ({patch: {max_systems: 3, max_jumps: 3}}),
     answered: new Set(['goal', 'cycle']),
     st: {selected_constellations: [1, 2], extra_area: 'The Forge', hub_system: 'HUB'},
     saved: {}, API: '/pi/api',

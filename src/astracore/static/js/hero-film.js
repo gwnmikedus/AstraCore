@@ -289,13 +289,14 @@
       if (audio) audio.hush(1.6);   // the end card's hit rings out with the dissolve
       seen = true;
       try { localStorage.setItem(KEY, 'seen'); } catch (e) { /* plays again next visit */ }
+      hero.classList.add('film-ended');   // the header rises in as the film dissolves
       update();
       ending = false;
       setTimeout(() => { if (!playing) clear(); }, 1600);   // after the dissolve: nothing left running
     }
     function play() {
       playing = true; paused = false; clock = 0; last = 0;
-      hero.classList.remove('film-done');
+      hero.classList.remove('film-done', 'film-ended');
       bar.hidden = false;
       clear();
       fit();

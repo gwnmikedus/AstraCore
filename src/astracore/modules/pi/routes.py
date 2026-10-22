@@ -472,6 +472,8 @@ async def api_whatif(request: Request):
       while waiting for a solve slot, {"card": {...}} per answer as soon as it is planned, and one final
       {"done": true} | {"superseded": true} | {"busy": true, "retry_after": s} | {"error": "..."}.
       Same gate semantics as the list: one comparison per profile, a newer one supersedes it.
+      Once every card is in, a wider answer that came out below an answer it contains is sent again
+      showing that answer's plan, with "same_as" (see `service.same_plan_cards`).
     * "prefetch": true -> 202 at once; the cards are planned into the cache in the background, only while
       the planner has a free slot nobody is waiting for (see `_prefetch`)."""
     pid = _pid(request)
@@ -487,12 +489,13 @@ async def api_whatif(request: Request):
                                  headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache, no-transform"})  # proxies (Cloudflare) mustn't buffer or compress the stream
     try:
         async with GATE.request(pid, "whatif"):
-            rows = await asyncio.gather(*[_whatif_card(pid, base, o) for o in options])
+            rows = list(await asyncio.gather(*[_whatif_card(pid, base, o) for o in options]))
     except Busy:
         return busy_response()
     except Superseded:
         return superseded_response()
-    return JSONResponse(list(rows))
+    fixed = {c["id"]: c for c in service.same_plan_cards(options, rows)}
+    return JSONResponse([fixed.get(r.get("id"), r) for r in rows])
 
 
 async def _whatif_stream(pid: int, base: Settings, options: list):
@@ -501,12 +504,16 @@ async def _whatif_stream(pid: int, base: Settings, options: list):
     events: asyncio.Queue = asyncio.Queue()
 
     async def card(opt):
-        await events.put({"card": await _whatif_card(pid, base, opt)})
+        row = await _whatif_card(pid, base, opt)
+        await events.put({"card": row})
+        return row
 
     async def work():
         try:
             async with GATE.request(pid, "whatif"):
-                await asyncio.gather(*[card(o) for o in options])
+                rows = await asyncio.gather(*[card(o) for o in options])
+            for row in service.same_plan_cards(options, list(rows)):
+                await events.put({"card": row})      # corrections once every card is in
             final = {"done": True}
         except Busy:
             final = {"busy": True, "retry_after": 3}
@@ -661,9 +668,13 @@ async def plan_activate(request: Request, run_id: int):
 
 @router.post("/plans/{run_id}/delete")
 async def plan_delete(request: Request, run_id: int):
-    ok = store.delete_plan_run(_pid(request), run_id)
-    form = await request.form()
-    return redirect(form.get("back") or "/pi/plan", "Plan deleted." if ok else "Unknown plan.")
+    pid = _pid(request)
+    run = store.get_plan_run(pid, run_id)
+    back = (await request.form()).get("back") or "/pi/operate#plan-status"
+    if run and run["active"]:
+        return redirect(back, "The active plan can't be deleted. Set another plan as active first.", "warn")
+    ok = store.delete_plan_run(pid, run_id)
+    return redirect(back, f"Deleted {run['label']}." if ok else "Unknown plan.")
 
 
 # ----------------------------------------------------------------------------- waypoints (opt-in bundle)
@@ -677,13 +688,20 @@ async def api_waypoints(request: Request):
         return JSONResponse({"error": "Turn on \"Send routes to your EVE client\" for this character on your profile."},
                             status_code=403)
     names = [str(x) for x in body.get("systems", [])][:30]
-    s = store.load_settings(pid)
-    area = await service.load_space(service.planning_characters(pid), s)
+    # The active plan's own systems first: its routes still resolve after the area changed (#242).
+    # Anything else (a plan result not saved yet) resolves against the current area.
+    known = service.plan_systems((store.active_plan(pid) or {}).get("result"))
+    area = None
+    if any(n.strip().lower() not in known for n in names):
+        area = await service.load_space(service.planning_characters(pid), store.load_settings(pid))
     ids = []
     for n in names:
-        sysrow = space_mod.area_mod.system_by_name(area, n) if area else None
-        if sysrow:
-            ids.append(sysrow["system_id"])
+        sid = known.get(n.strip().lower())
+        if sid is None:
+            sysrow = space_mod.area_mod.system_by_name(area, n) if area else None
+            sid = sysrow["system_id"] if sysrow else None
+        if sid is not None:
+            ids.append(sid)
     if not ids:
         return JSONResponse({"error": "No known systems in that route."}, status_code=400)
     try:
@@ -713,7 +731,7 @@ async def operate_page(request: Request):
     plan = active["result"] if active else None
     days = 30 if request.query_params.get("days") == "30" else 7
     missing = [c["name"] for c in chars if not service.pi_ready(c)]
-    ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], plan)
+    ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], active)
     pickup_text, pickup_error = "", ""
     try:
         pickup_text = _pickup_item_list(ctx["pi"], chars)
@@ -728,7 +746,7 @@ async def operate_page(request: Request):
                   earned=operate.earnings(ctx["pi"], chars, days), days=days,
                   progress=ov["progress"], drift=ov["drift"], plan=plan, active=active, missing=missing,
                   checklist=service.first_build(ctx, active), restock_buy=service.restock_purchases(ctx, active),
-                  plans=store.list_plan_runs(pid), freshness=freshness.state(pid),
+                  plans=store.list_plan_runs(pid), max_plans=store.MAX_PLANS, freshness=freshness.state(pid),
                   colony_note=freshness.COLONY_NOTE, buyback_site=voc.BUYBACK_SITE,
                   voc_site=voc.SITE, waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))
 

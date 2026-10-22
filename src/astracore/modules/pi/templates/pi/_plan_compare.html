@@ -20,6 +20,11 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="outline">Set as active plan</button>
       </form>
+      <form method="post" action="/pi/plans/{{ p.id }}/delete" data-confirm="Delete the saved plan {{ p.label }}? This can't be undone.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="back" value="/pi/operate#plan-status">
+        <button class="outline secondary" aria-label="Delete {{ p.label }}">Delete</button>
+      </form>
       {% endif %}</th>
     <td data-label="Income">{{ t.isk_per_day|isk }} ISK/day<small>{{ t.isk_per_week|isk }} ISK/week</small>{% if t.needs_recalculation %}<small>Character removed · recalculate income</small>{% endif %}</td>
     <td data-label="Your time">{% if f.minutes_per_week is number %}≈ {{ f.minutes_per_week|duration }} / week{% else %}–{% endif %}</td>

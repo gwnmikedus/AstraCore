@@ -83,6 +83,23 @@ async def load_space(chars, s: Settings, force: bool = False, outage: Optional[e
     return area
 
 
+def cached_space(chars, s: Settings) -> Optional[dict]:
+    """The area these characters last resolved (what Operate last used), without ESI: Home reads it."""
+    query = db.kv_get(_area_owner(chars, s)) if chars else None
+    return area_mod.cached(query) if query else None
+
+
+def plan_systems(plan_result: Optional[dict]) -> Dict[str, int]:
+    """{lower-case system name: system id} for the systems a saved plan uses (its drop-off and colonies),
+    so its routes resolve even after the area changed."""
+    res = plan_result or {}
+    out = {str(c["system"]).lower(): int(c["system_id"]) for c in res.get("colonies") or []
+           if c.get("system") and c.get("system_id")}
+    if res.get("hub") and res.get("hub_id"):
+        out[str(res["hub"]).lower()] = int(res["hub_id"])
+    return out
+
+
 def calibrated_yield(chars, area) -> Optional[float]:
     sec = {}
     if area:
@@ -186,9 +203,10 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     teamwork_auto = auto_teamwork(s, sum(1 for c in chars if setups.can_plan(c)))
     if teamwork_auto:
         solve_s.cross_character = True
-    values = selling.best_values(pi, sell_s, books, dropoff, local, origin)
-    buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     hist = prices.history_cached()
+    # sell orders are only valued where recent trades show they sell (no history yet: instant-sale prices)
+    values = selling.best_values(pi, sell_s, books, dropoff, local, origin, hist["markets"])
+    buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     buy_cap = demand.buy_limits(pi, sell_s, books, hist["markets"], local, optimizer.capital_days(s)) if buy else {}
     return dict(profile_id=profile_id, s=sell_s, solve_s=solve_s, chars=chars, pi=pi, tpl=tpl, area=area,
                 systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
@@ -208,18 +226,20 @@ def outage_banner(ctx: dict) -> Optional[dict]:
 def _sell_side(ctx, res: dict) -> None:
     """Selling plan, channel table and market-demand check for a solved plan (in place)."""
     units = {x["type_id"]: x["units_per_day"] for x in res["sold"]}
+    history = ctx.get("history")
     res["selling"] = selling.sell_plan(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"], units,
                                        local=ctx["local"], origin=ctx["origin"],
-                                       origin_jumps=ctx["origin_jumps"])
+                                       origin_jumps=ctx["origin_jumps"], history=history)
     res["channels"] = selling.compare_table(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"],
-                                            list(units), ctx["local"], ctx["origin"])
+                                            list(units), ctx["local"], ctx["origin"], history)
     available = {k for row in res["channels"] for k in row["channels"]}
     res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS if k in available}
     res["selling_coverage"] = selling.coverage(ctx["dropoff"], ctx["area"])
     res["self_haul"] = any(b["channel"].endswith("_self") for b in res["selling"]["batches"])
-    res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], ctx.get("history") or {},
+    res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], history or {},
                                   res["selling"], res["channels"], units,
                                   ctx.get("books_at"), ctx.get("history_at"))
+    demand.sell_order_days(res["selling"], res["demand"])
 
 
 def _buy_side(ctx, res: dict) -> None:
@@ -309,6 +329,36 @@ def richness_sources(colonies: List[dict], manual: dict, measured: dict) -> None
         c["richness_source"] = "scan" if pid in manual else "extractors" if pid in measured else "estimate"
 
 
+def sell_order_fallback_note(rows: List[dict]) -> dict:
+    """Products a sell order would pay best for, valued at the instant-sale price instead because nothing
+    shows that the listing sells (selling.sell_order_gap)."""
+    reasons = sorted({r["reason"] for r in rows})
+    names = notices.names([r["item"] for r in rows])
+    return notices.note(
+        "sell_order_fallback", f"{names} {'is' if len(rows) == 1 else 'are'} valued at the instant-sale price, "
+        f"not a sell order: {'; '.join(reasons)}, so there's no basis yet to say a listing sells. "
+        "Refresh prices, or check back once the trade history has loaded.", steps=("sell",), level="info")
+
+
+def income_check(res: dict) -> Optional[dict]:
+    """How the plan's ISK/day (`totals.isk_per_day`, the headline) and what its batches pay out per day
+    (`selling.net_per_day`, the Selling and Batches cards) add up, so the result can show both:
+    paid = plan + customs + inputs - held + other. The plan figure is after customs and bought inputs,
+    which you pay apart from the batches; batches held back count in the plan but pay out with a later
+    batch; `other` is courier minimum fees, the channel each batch really uses and rounding.
+    None without a selling plan."""
+    sp, totals = res.get("selling") or {}, res.get("totals") or {}
+    if sp.get("net_per_day") is None or totals.get("isk_per_day") is None:
+        return None
+    held_items = {item for b in sp.get("batches") or [] if b.get("hold") for item in b.get("items") or {}}
+    held = sum(x.get("isk_per_day") or 0 for x in res.get("sold") or [] if x.get("item") in held_items)
+    out = {"paid": round(sp["net_per_day"]), "plan": round(totals["isk_per_day"]),
+           "customs": round(sum(c.get("tax_per_day") or 0 for c in res.get("colonies") or [])),
+           "inputs": round(totals.get("buy_isk_per_day") or 0), "held": round(held)}
+    out["other"] = out["paid"] - (out["plan"] + out["customs"] + out["inputs"] - out["held"])
+    return out
+
+
 def run_plan(ctx, s=None) -> dict:
     """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
     whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
@@ -362,6 +412,9 @@ def run_plan(ctx, s=None) -> dict:
         res["warnings"].append(notices.note(
             "demand", f"{_plural(n_risky, 'product', 'products')} may not sell as planned at the chosen market: "
             f"see Market demand under How you get paid.", steps=("sell", "batch")))
+    fallback = res["selling"].get("sell_order_fallback") or []
+    if fallback:
+        res["warnings"].append(sell_order_fallback_note(fallback))
     missing = res["demand"].get("books_missing") or []
     if missing:
         res["warnings"].append(notices.note(
@@ -381,6 +434,7 @@ def run_plan(ctx, s=None) -> dict:
         res["warnings"].append(notices.note(
             "voc_origin", f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the goods to "
             f"{ctx['origin']} ({notices.plural(ctx['origin_jumps'], 'jump')}) first.", steps=("area",), level="info"))
+    res["income_check"] = income_check(res)
     richness_sources(res["colonies"], ctx["manual_overrides"], ctx["measured"])
     n_measured = len([p for p in ctx["measured"] if p not in ctx["manual_overrides"]])
     if n_measured:
@@ -429,6 +483,51 @@ def whatif_summary(res: dict, s: Optional[Settings] = None) -> dict:
             "tier_need": res.get("tier_need"), "teamwork_auto": bool(res.get("teamwork_auto"))}
 
 
+def _no_limit_ge(wide, narrow) -> bool:
+    """`wide` allows at least as much as `narrow`, where 0 means no limit (systems, input budget)."""
+    wide, narrow = float(wide or 0), float(narrow or 0)
+    return wide == 0 or (narrow != 0 and wide >= narrow)
+
+
+# Answer fields that only widen what a plan may use: a plan for the narrower value also fits the wider one.
+NESTED_FIELDS = {
+    "max_tier": lambda w, n, wp, np: float(w) >= float(n),
+    "max_jumps": lambda w, n, wp, np: float(w) >= float(n),
+    "max_systems": lambda w, n, wp, np: _no_limit_ge(w, n),
+    "buy_inputs": lambda w, n, wp, np: bool(w) or not bool(n),
+    "input_budget_isk": lambda w, n, wp, np: not np.get("buy_inputs", True) or _no_limit_ge(w, n),
+}
+
+
+def answer_contains(wide: dict, narrow: dict) -> bool:
+    """Whether answer patch `wide` allows everything `narrow` does (Up to P4 contains Up to P3, a wider area
+    a smaller one, a bigger input budget a smaller one). Patches that touch anything else never nest."""
+    if wide == narrow or not wide or set(wide) != set(narrow) or not set(wide) <= set(NESTED_FIELDS):
+        return False
+    return all(NESTED_FIELDS[k](wide[k], narrow[k], wide, narrow) for k in wide)
+
+
+def same_plan_cards(options: List[dict], cards: List[dict]) -> List[dict]:
+    """A wider answer never shows less ISK than an answer it contains (like `optimizer.alternatives` for
+    goals): each solve has a node limit and a small optimality gap, and it weighs ISK against effort, so
+    the wider one can come out lower. Such a card shows the best contained answer's plan instead, with
+    `same_as` = that answer's id; the page saves that answer when it is picked, so the plan stays the one
+    shown. Returns only the cards that changed. `cards` = whatif cards with their option's id."""
+    by_id = {c.get("id"): c for c in cards if "error" not in c and (c.get("totals") or {}).get("isk_per_day") is not None}
+    patches = [(o.get("id"), o.get("patch") or {}) for o in options if o.get("id") in by_id]
+    out = []
+    for oid, patch in patches:
+        isk = by_id[oid]["totals"]["isk_per_day"]
+        best = None
+        for cid, cpatch in patches:
+            if answer_contains(patch, cpatch) and \
+                    (best is None or by_id[cid]["totals"]["isk_per_day"] > by_id[best]["totals"]["isk_per_day"]):
+                best = cid
+        if best is not None and by_id[best]["totals"]["isk_per_day"] > isk:
+            out.append({**copy.deepcopy(by_id[best]), "id": oid, "same_as": best})
+    return out
+
+
 # --------------------------------------------------------------------------- module entry + dashboard
 def entry_state(profile_id: int) -> str:
     """Where /pi lands: connect | excluded | plan | operate.
@@ -445,10 +544,20 @@ def entry_state(profile_id: int) -> str:
     return "operate"
 
 
+def operate_settings(s: Settings, chars: List[dict], active: Optional[dict]) -> Settings:
+    """The settings Operate advises with: the active plan's wizard answers (see settings.LIVE_FIELDS) and the
+    seller's taxes. `s` = the profile's saved settings; without an active plan Operate follows those."""
+    s = s.for_plan((active or {}).get("settings"))
+    return skills_mod.apply(s, skills_mod.best_seller(chars))
+
+
 def operate_overview(pi, s: Settings, books: Dict[int, dict], chars: List[dict], area: Optional[dict],
-                     plan_result: Optional[dict]) -> dict:
-    """What Operate works out from synced data and the active plan, and the Next up list from it.
-    Operate and Home both use this, so Home's top three are Operate's top three."""
+                     active: Optional[dict]) -> dict:
+    """What Operate works out from synced data and the active plan (`active`: store.active_plan), and the
+    Next up list from it. Operate and Home both use this with the same area, so Home's top three are
+    Operate's top three. `s` = the profile's saved settings (see operate_settings)."""
+    s = operate_settings(s, chars, active)
+    plan_result = active["result"] if active else None
     stock = operate.hangar_stock(pi, s, books, chars, area)
     consolidated = operate.consolidate(stock, area)
     pipe = operate.pipeline(pi, books, chars)
@@ -487,8 +596,8 @@ async def dashboard_tile(profile: dict) -> dict:
         tile["static_missing"] = True     # game data isn't cached yet: Operate loads it on first visit
     if pi and chars and state == "operate":
         try:
-            ov = operate_overview(pi, store.load_settings(pid), prices.cached()["books"], chars, None,
-                                  plan["result"] if plan else None)
+            s = store.load_settings(pid)
+            ov = operate_overview(pi, s, prices.cached()["books"], chars, cached_space(chars, s), plan)
             tile["next_up"] = ov["next_up"][:nextup.HOME_SHOWN]
             tile["next_up_more"] = max(0, len(ov["next_up"]) - nextup.HOME_SHOWN)
             tile["all_clear"] = ov["all_clear"]

@@ -33,13 +33,18 @@
     if (returnFocus) toggle.focus({preventScroll: true});
     menu.setAttribute('data-closing', '');
     sync();
-    function finishClose() {
-      menu.open = false;
-      menu.removeAttribute('data-closing');
-      sync();
-    }
     if (reducedMotion.matches) finishClose();
-    else closeTimer = setTimeout(finishClose, 180);
+    else closeTimer = setTimeout(finishClose, 400);   // only if the panel never reports its exit animation's end
+  }
+
+  // The panel's exit animation (menu-panel-out) ends the close, so the menu never vanishes before it has faded.
+  // A reopen replaces that animation and drops data-closing, so a stale end can't close the reopened menu.
+  function finishClose() {
+    if (!menu.hasAttribute('data-closing')) return;
+    clearTimeout(closeTimer);
+    menu.open = false;
+    menu.removeAttribute('data-closing');
+    sync();
   }
 
   function activate() {
@@ -80,6 +85,9 @@
   });
   menu.addEventListener('toggle', sync);
   backdrop.addEventListener('click', () => closeMenu());
+  panel.addEventListener('animationend', event => {
+    if (event.target === panel && event.animationName === 'menu-panel-out') finishClose();
+  });
   panel.addEventListener('click', event => {
     if (event.target.closest('a')) closeMenu(false);
   });

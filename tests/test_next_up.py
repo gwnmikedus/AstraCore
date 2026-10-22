@@ -148,8 +148,7 @@ def test_home_shows_operates_top_three_and_one_plan_line(browser, eve, monkeypat
     _plan(pid, cid)
     tile = asyncio.run(service.dashboard_tile({"id": pid}))
     chars = service.planning_characters(pid)
-    plan = store.active_plan(pid)["result"]
-    full = service.operate_overview(pi, store.load_settings(pid), {}, chars, None, plan)["next_up"]
+    full = service.operate_overview(pi, store.load_settings(pid), {}, chars, None, store.active_plan(pid))["next_up"]
     assert tile["state"] == "operate" and len(full) > 3
     assert tile["next_up"] == full[:3] and tile["next_up_more"] == len(full) - 3
     assert tile["has_colonies"] and (tile["built"], tile["planned"]) == (1, 2)

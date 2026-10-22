@@ -10,9 +10,7 @@
   const scenes = main.querySelectorAll('[data-parallax]');
   const visibleScenes = new Set();
   const offsets = new WeakMap();
-  const question = main.querySelector('#q');
   let arrivals;
-  let questions;
   let scenery;
   let frame = 0;
 
@@ -59,7 +57,6 @@
 
   function stop() {
     arrivals?.disconnect();
-    questions?.disconnect();
     for (const animation of active) animation.cancel();
     active.clear();
     if (scenery) {
@@ -80,27 +77,24 @@
   function start() {
     stop();
     if (reducedMotion.matches) return;
+    // The first report for a section says where it stood when the page was drawn: one already on screen stays
+    // put (animating it would dim and drop content the pilot can already see). Later ones arrive as their top
+    // edge enters the screen, before there is anything to see move.
+    const reported = new WeakSet();
     arrivals = new IntersectionObserver(entries => {
       if (reducedMotion.matches) return;
       for (const entry of entries) {
+        const first = !reported.has(entry.target);
+        reported.add(entry.target);
         if (!entry.isIntersecting) continue;
         arrivals.unobserve(entry.target);
         if (seen.has(entry.target)) continue;
         seen.add(entry.target);
-        arrive(entry.target);
+        if (!first) arrive(entry.target);
       }
-    }, {rootMargin: marketing ? '0px 0px -12% 0px' : '0px 0px -48px 0px'});
+    });
     for (const section of sections) {
       if (!seen.has(section)) arrivals.observe(section);
-    }
-    if (question && window.MutationObserver) {
-      questions = new MutationObserver(() => {
-        const bounds = question.getBoundingClientRect();
-        if (bounds.bottom <= 0 || bounds.top >= window.innerHeight) return;
-        seen.add(question);
-        arrive(question);
-      });
-      questions.observe(question, {childList: true});
     }
     if (scenes.length && window.requestAnimationFrame && window.cancelAnimationFrame) {
       scenery = new IntersectionObserver(entries => {

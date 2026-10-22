@@ -684,13 +684,20 @@ async def api_waypoints(request: Request):
         return JSONResponse({"error": "Turn on \"Send routes to your EVE client\" for this character on your profile."},
                             status_code=403)
     names = [str(x) for x in body.get("systems", [])][:30]
-    s = store.load_settings(pid)
-    area = await service.load_space(service.planning_characters(pid), s)
+    # The active plan's own systems first: its routes still resolve after the area changed (#242).
+    # Anything else (a plan result not saved yet) resolves against the current area.
+    known = service.plan_systems((store.active_plan(pid) or {}).get("result"))
+    area = None
+    if any(n.strip().lower() not in known for n in names):
+        area = await service.load_space(service.planning_characters(pid), store.load_settings(pid))
     ids = []
     for n in names:
-        sysrow = space_mod.area_mod.system_by_name(area, n) if area else None
-        if sysrow:
-            ids.append(sysrow["system_id"])
+        sid = known.get(n.strip().lower())
+        if sid is None:
+            sysrow = space_mod.area_mod.system_by_name(area, n) if area else None
+            sid = sysrow["system_id"] if sysrow else None
+        if sid is not None:
+            ids.append(sid)
     if not ids:
         return JSONResponse({"error": "No known systems in that route."}, status_code=400)
     try:
@@ -720,7 +727,7 @@ async def operate_page(request: Request):
     plan = active["result"] if active else None
     days = 30 if request.query_params.get("days") == "30" else 7
     missing = [c["name"] for c in chars if not service.pi_ready(c)]
-    ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], plan)
+    ov = service.operate_overview(ctx["pi"], ctx["s"], ctx["books"], chars, ctx["area"], active)
     pickup_text, pickup_error = "", ""
     try:
         pickup_text = _pickup_item_list(ctx["pi"], chars)

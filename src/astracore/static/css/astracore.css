@@ -670,9 +670,10 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 #main-content { min-width: 0; }
 #main-content:focus { outline: none; }
-/* Keep feedback tied to navigation, disclosure, and the controls in use. */
+/* Keep feedback tied to navigation, disclosure, and the controls in use. Only a section the pilot opens fades in
+   (data-opening, set by astracore.js): sections drawn open, or redrawn while open, stay still. */
 @media (prefers-reduced-motion: no-preference) {
-  #main-content details[open] > :not(summary) { animation: content-arrive .2s ease-out; }
+  #main-content details[open][data-opening] > :not(summary) { animation: content-arrive .2s ease-out; }
 }
 @keyframes content-arrive { from { opacity: .72; } to { opacity: 1; } }
 #main-content tbody tr { transition: background-color .12s linear; }
@@ -959,8 +960,6 @@ html { scroll-behavior: smooth; scroll-padding-top: 24px; }
 .launch-panel p { color: var(--ink-muted); margin-bottom: 0; }
 .landing-members { border: 0; margin: 24px 0 0; }
 .page-home .site-footer { margin-top: 40px; }
-@keyframes panel-in { from { opacity: .3; } to { opacity: 1; } }
-.page-guide .q { animation: panel-in .2s ease-out; }
 @media (max-width: 1000px) {
   .landing-hero { gap: 24px; }
   .preview-console { grid-template-columns: 280px 1fr; }
@@ -1221,10 +1220,11 @@ html[data-menu-open] { overflow: hidden; }
 :root[data-theme="light"] .theme-tip strong { color: var(--status-ok); }
 .theme-toggle:focus-visible:not(.tip-quiet) .theme-tip { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
 @media (hover: hover) { .theme-toggle:hover:not(.tip-quiet) .theme-tip { opacity: 1; visibility: visible; transform: none; transition-delay: .25s; } }
-:where(html[data-theme-changing]) body,
-:where(html[data-theme-changing]) body *,
-:where(html[data-theme-changing]) body *::before,
-:where(html[data-theme-changing]) body *::after { transition-property: background-color, color, border-color, fill, stroke, box-shadow; transition-duration: .35s; transition-timing-function: ease-out; }
+html[data-theme-changing] body,
+html[data-theme-changing] body *,
+html[data-theme-changing] body *::before,
+html[data-theme-changing] body *::after { transition: none !important; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease-out; }
 .page-title { font-size: clamp(34px, 4vw, 48px); line-height: 1.08; max-width: 1000px; margin-bottom: 20px; }
 #main-content > .eyebrow, .prose > .eyebrow, hgroup > .eyebrow { color: var(--ink-muted); margin-bottom: 16px; }
 .footer-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
@@ -1490,6 +1490,9 @@ button.help-btn:hover .help-mark, button.help-btn[aria-expanded="true"] .help-ma
 .skel-medium { width:60%; }
 .skel-wide { width:70%; }
 .skel-tall { height:6rem; }
+/* An answer card waiting for its figures keeps about the room they take, so the question doesn't grow as they stream in. */
+.page-guide .res:has(> .skel) { min-height:14rem; }
+@media (max-width: 760px) { .page-guide .res:has(> .skel) { min-height:10rem; } }
 .dimmed-option { opacity: .55; }
 .held-batch { opacity: .6; }
 .fictional-banner { position: sticky; top: 0; z-index: 100; padding: 16px 16px 16px 96px; background: #ff7619; color: #111; font-weight: bold; }

@@ -81,47 +81,41 @@ test('sections animate once when entering view, without altering unseen content'
   assert.ok(ui.animations[0].frames[0].opacity > 0);
 });
 
+test('sections already on screen when the page is drawn stay still; later ones arrive at the screen edge', () => {
+  const ui = experience();
+  const observer = ui.observers[0];
+  assert.equal(observer.options, undefined);
+  observer.intersect(ui.sections[0]);
+  observer.intersect(ui.sections[1], false);
+  assert.equal(ui.animations.length, 0);
+  assert.equal(observer.observed.has(ui.sections[0]), false);
+  observer.intersect(ui.sections[1]);
+  assert.equal(ui.animations.length, 1);
+  assert.equal(ui.animations[0].element, ui.sections[1]);
+});
+
 test('reduced motion starts without observers and enabling motion watches unseen sections', () => {
   const ui = experience({reducedMotion: true, guided: true});
   assert.equal(ui.observers.length, 0);
-  assert.equal(ui.mutations.length, 0);
   assert.equal(ui.animations.length, 0);
   ui.changeMotion(false);
   assert.equal(ui.observers.length, 1);
-  assert.equal(ui.mutations.length, 1);
+  assert.equal(ui.mutations.length, 0);
   assert.equal(ui.observers[0].observed.size, 3);
 });
 
 test('changing to reduced motion disconnects observation and cancels active arrivals', () => {
   const ui = experience({guided: true});
+  ui.observers[0].intersect(ui.sections[0], false);
   ui.observers[0].intersect(ui.sections[0]);
   ui.changeMotion(true);
   assert.equal(ui.observers[0].disconnected, true);
-  assert.equal(ui.mutations[0].disconnected, true);
   assert.equal(ui.animations[0].cancelled, true);
   ui.observers[0].intersect(ui.sections[1]);
-  ui.mutations[0].callback();
   assert.equal(ui.animations.length, 1);
   ui.changeMotion(false);
   assert.equal(ui.observers[1].observed.has(ui.sections[0]), false);
   assert.equal(ui.observers[1].observed.has(ui.sections[1]), true);
-});
-
-test('replaced guided questions arrive when visible but do not animate offscreen updates', () => {
-  const ui = experience({guided: true});
-  const mutation = ui.mutations[0];
-  assert.equal(mutation.target, ui.question);
-  assert.equal(mutation.options.childList, true);
-  assert.equal(mutation.options.subtree, undefined);
-  mutation.callback();
-  assert.equal(ui.animations.length, 1);
-  ui.observers[0].intersect(ui.question);
-  assert.equal(ui.animations.length, 1);
-  mutation.callback();
-  assert.equal(ui.animations.length, 2);
-  ui.question.getBoundingClientRect = () => ({top: 900, bottom: 1400});
-  mutation.callback();
-  assert.equal(ui.animations.length, 2);
 });
 
 test('unsupported arrival APIs leave the page untouched', () => {
@@ -133,8 +127,10 @@ test('unsupported arrival APIs leave the page untouched', () => {
 test('marketing reveals stay visible longer while focused controls remain stationary', () => {
   const marketing = experience({marketing: true});
   const operational = experience();
-  marketing.observers[0].intersect(marketing.sections[0]);
-  operational.observers[0].intersect(operational.sections[0]);
+  for (const ui of [marketing, operational]) {
+    for (const section of ui.sections) ui.observers[0].intersect(section, false);
+    ui.observers[0].intersect(ui.sections[0]);
+  }
   assert.ok(marketing.animations[0].options.duration > operational.animations[0].options.duration);
   marketing.sections[1].contains = () => true;
   marketing.observers[0].intersect(marketing.sections[1]);

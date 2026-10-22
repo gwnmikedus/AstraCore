@@ -13,6 +13,8 @@ FAKE_GH = """#!/bin/sh
 echo "$*" >> "$GH_LOG"
 case "$1 $2" in
   "pr view") case "$3" in 11) echo 21 ;; 12) printf '22\\n23\\n' ;; *) ;; esac ;;
+  "issue list") printf '%s' "$SWEEP_ISSUES" ;;
+  "api graphql") for a; do case "$a" in number=*) n=${a#number=} ;; esac; done; eval "v=\\$SHAS_$n"; printf '%s\\n' "$v" ;;
 esac
 """
 
@@ -42,9 +44,9 @@ def repo(tmp_path):
     return root, shas, bin_dir, tmp_path / "gh.log"
 
 
-def _run(root, bin_dir, log, *args, path=None):
+def _run(root, bin_dir, log, *args, path=None, extra=None):
     env = {k: v for k, v in os.environ.items() if not k.startswith("ASTRACORE_")}
-    env.update(PATH=path or f"{bin_dir}:/usr/bin:/bin", GH_LOG=str(log), HOME=str(root.parent))
+    env.update(PATH=path or f"{bin_dir}:/usr/bin:/bin", GH_LOG=str(log), HOME=str(root.parent), **(extra or {}))
     return subprocess.run(["bash", str(root / "astracore"), "mark-released", *args], cwd=root, env=env,
                           capture_output=True, text=True, timeout=60, check=True)
 
@@ -84,3 +86,33 @@ def test_missing_gh_is_a_note_not_a_failure(repo, tmp_path):
     root, shas, _, log = repo
     out = _run(root, tmp_path, log, shas[0], shas[-1], path="/usr/bin:/bin")   # HOME has no .local/bin/gh either
     assert "gh not found" in out.stdout
+
+
+def test_deploy_also_marks_issues_closed_by_hand_once_all_their_prs_are_live(repo):
+    root, shas, bin_dir, log = repo
+    _git(root, "commit", "-q", "--allow-empty", "-m", "feat: later, not deployed (#14)")
+    later = _git(root, "rev-parse", "HEAD")
+    sweep = {"SWEEP_ISSUES": "31\n32\n33\n", "SHAS_31": f"{shas[1]}\n{shas[3]}\n", "SHAS_32": f"{shas[1]}\n{later}\n",
+             "SHAS_33": ""}
+    out = _run(root, bin_dir, log, shas[2], shas[-1], extra=sweep)
+    assert "issue edit 31 --add-label status:released" in _edits(log)     # both its PRs are in production
+    assert not any(e.startswith("issue edit 32 ") for e in _edits(log))   # one PR merged but not deployed yet
+    assert "Check by hand: #33" in out.stdout                             # closed without a merged pull request
+    assert "Released: #31 (closed by hand; its pull requests are live)" in out.stdout
+
+
+def test_rolling_back_does_not_sweep(repo):
+    root, shas, bin_dir, log = repo
+    _run(root, bin_dir, log, shas[-1], shas[2], extra={"SWEEP_ISSUES": "31\n", "SHAS_31": shas[1]})
+    assert not any(e.startswith("issue edit 31 ") for e in _edits(log))
+    assert "issue list" not in log.read_text()
+
+
+def test_mark_released_without_a_range_sweeps_against_production(repo, tmp_path):
+    root, shas, bin_dir, log = repo
+    prod = tmp_path / "prod"
+    _git(root, "worktree", "add", "-q", "--detach", str(prod), shas[3])
+    out = _run(root, bin_dir, log, extra={"ASTRACORE_PROD_CHECKOUT": str(prod), "SWEEP_ISSUES": "31\n32\n",
+                                          "SHAS_31": shas[1], "SHAS_32": shas[4]})
+    assert _edits(log) == ["issue edit 31 --add-label status:released"]   # #13's commit isn't in production
+    assert "Released: #31" in out.stdout

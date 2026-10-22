@@ -144,6 +144,20 @@ function sellOrdersHTML(b) {
     Slower than an instant sale: ${b.contract ? 'once the courier arrives (about 3 days), ' : ''}the orders take ${days};
     update them when you're undercut.</div>`;
 }
+// What the batches pay out per day (the Selling and Batches cards) next to the plan's ISK/day, and why they
+// differ: res.income_check from service.income_check. Plans saved before it have none: no line.
+function incomeCheckHTML(res) {
+  const c = res.income_check; if (!c) return '';
+  const small = x => Math.abs(x) < Math.max(5e5, 0.01 * Math.max(Math.abs(c.plan), Math.abs(c.paid)));
+  const day = x => `${isk(x)} ISK/day`;
+  const costs = [!small(c.customs) && `customs (${isk(c.customs)})`, !small(c.inputs) && `bought inputs (${isk(c.inputs)})`].filter(Boolean);
+  const parts = [];
+  if (costs.length) parts.push(`that figure is after ${costs.join(' and ')}, which you pay apart from the batches`);
+  if (!small(c.held)) parts.push(`${day(c.held)} sits in held-back batches and pays out with a later one`);
+  if (!small(c.other)) parts.push(`courier minimum fees, batch routing and rounding ${c.other > 0 ? '+' : '−'}${isk(Math.abs(c.other))}`);
+  const same = !parts.length && small(c.paid - c.plan);
+  return `<p class="muted text-small income-check">Paid out ≈ ${day(c.paid)} from the batches below, ${same ? 'about the same as' : 'against'} the ${day(c.plan)} above${parts.length ? ': ' + parts.join('; ') : ''}.</p>`;
+}
 // opts.steps (guided setup): step id -> answer name, for "Change <answer>" links on warnings.
 function planHTML(res, opts = {}) {
   if (res.error) return `<p class="bad">${esc(res.error)}</p>` + AC.planWarningsHTML(res.warnings, opts);
@@ -222,6 +236,7 @@ function renderSelling(res) {
   const sp = res.selling; if (!sp) return '';
   const L = res.channel_labels || {};
   let h = `<h5 class="selling-heading">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.voc, {glossary: GLOSSARY})}</h5>`;
+  h += incomeCheckHTML(res);
   const tx = res.taxes || {};
   h += `<p class="muted text-small">` + (res.seller
     ? `Sell with <b>${esc(res.seller.name)}</b>: Accounting ${res.seller.accounting} → ${tx.sales_tax_pct}% sales tax, Broker Relations ${res.seller.broker_relations} → ${tx.broker_fee_pct}% broker fee.

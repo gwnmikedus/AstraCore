@@ -158,3 +158,15 @@ test('a sell-order batch states its price, fees, instant alternative and slower 
   assert.match(here, /the orders take an unknown time to sell/);
   assert.equal(sellOrdersHTML({channel: 'jita_buy'}), '');
 });
+
+test('the result reconciles what the batches pay out with the plan figure (#246)', () => {
+  const {incomeCheckHTML} = load();
+  assert.equal(incomeCheckHTML({}), '');
+  const html = incomeCheckHTML({income_check: {paid: 94e6, plan: 80e6, customs: 5e6, inputs: 10e6, held: 5e6, other: -4e6}});
+  assert.match(html, /^<p class="muted text-small income-check">Paid out ≈ 94000000 ISK ISK\/day from the batches below, against the 80000000 ISK ISK\/day above: /);
+  assert.match(html, /after customs \(5000000 ISK\) and bought inputs \(10000000 ISK\), which you pay apart from the batches/);
+  assert.match(html, /5000000 ISK ISK\/day sits in held-back batches/);
+  assert.match(html, /courier minimum fees, batch routing and rounding −4000000 ISK\.<\/p>$/);
+  const same = incomeCheckHTML({income_check: {paid: 80.1e6, plan: 80e6, customs: 0, inputs: 0, held: 0, other: 0.1e6}});
+  assert.match(same, /about the same as the 80000000 ISK ISK\/day above\.<\/p>$/);
+});

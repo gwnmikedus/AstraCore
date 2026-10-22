@@ -25,7 +25,8 @@ function fixture(settings = {}) {
   context.AC.icon = () => '';
   vm.runInContext(guide.slice(guide.indexOf('const SELL ='), guide.indexOf('// ---- state')), context);
   vm.runInContext(guide.slice(guide.indexOf('const st ='), guide.indexOf('const STEP_CONTEXT')), context);
-  vm.runInContext(guide.match(/^const optOf = .*$/m)[0] + guide.match(/^const labelOf = .*$/m)[0], context);
+  vm.runInContext(guide.match(/^const optOf = .*$/m)[0] + guide.match(/^const answerOf = .*$/m)[0] +
+    guide.match(/^const labelOf = .*$/m)[0], context);
   vm.runInContext(guide.slice(guide.indexOf('// ---- question route'), guide.indexOf('// ---- tracker')), context);
   vm.runInContext(guide.slice(guide.indexOf('function drawTrack()'), guide.indexOf('// Leave the current question')), context);
   vm.runInContext(guide.slice(guide.indexOf('async function navigate('), guide.indexOf('// ---- a question')), context);

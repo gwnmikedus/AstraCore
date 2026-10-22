@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('src/astracore/modules/pi/templates/pi/planner.html', 'utf8');
 function setup() {
-  const nodes = Object.fromEntries(['apply-preview', 'preview-status', 'busy', 'result', 'h-effort'].map(k => [k, {disabled: false, textContent: '', style: {}, classList: {add(){}, remove(){}}, innerHTML: ''}]));
+  const nodes = Object.fromEntries(['apply-preview', 'preview-status', 'planbar', 'busy', 'result', 'h-effort'].map(k => [k, {disabled: false, textContent: '', style: {}, classList: {add(){}, remove(){}}, innerHTML: ''}]));
   const requests = [], draws = [], links = [{href: '/pi/export/plan.md?current=1', removeAttribute(k){ delete this[k]; }, setAttribute(k,v){this[k]=v;}}];
   const c = {API:"/pi/api", AbortController, setTimeout, clearTimeout, JSON, String, document: {querySelectorAll:()=>links},
     $: id=>nodes[id], state: ()=>({effort:100}), showLabels(){}, esc:String,
@@ -39,7 +39,9 @@ test('older responses cannot draw or reenable Apply after a newer preview', asyn
 });
 test('editing invalidates Apply and exports immediately before debounce', ()=>{
   const {c,nodes,links}=setup();
+  nodes.planbar.innerHTML='Save and set as active plan';
   vm.runInContext('invalidatePreview()',c);
+  assert.equal(nodes.planbar.innerHTML,'');
   assert.equal(nodes['apply-preview'].disabled,true);
   assert.equal(links[0].href,undefined);
   assert.equal(links[0]['aria-disabled'],'true');

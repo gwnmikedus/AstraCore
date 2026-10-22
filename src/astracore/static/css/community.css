@@ -50,10 +50,6 @@
 .horizon-review { margin: 0; color: var(--ink-muted); }
 .horizon-archive > summary { min-height: var(--control-h); color: var(--scan); }
 .horizon-archive > p:last-child { margin-bottom: 0; }
-@media (prefers-reduced-motion: no-preference) {
-  .horizon-now:has(.horizon-cards) .horizon-station { animation: horizon-pulse 2.4s ease-out infinite; }
-  @keyframes horizon-pulse { 0% { box-shadow: 0 0 0 4px var(--void), 0 0 0 4px var(--lane); } 100% { box-shadow: 0 0 0 4px var(--void), 0 0 0 14px transparent; } }
-}
 @media (max-width: 900px) {
   .horizon-board { grid-template-columns: 1fr; gap: var(--space-8); }
 }

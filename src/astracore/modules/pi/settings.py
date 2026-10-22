@@ -14,6 +14,12 @@ from typing import List, Optional
 ADMIN_FIELDS = ("buyback_pct", "buyback_pct_p1", "solver_time_limit")
 # Wizard bookkeeping: saved with the settings, but no plan depends on it.
 UI_FIELDS = ("guide_step", "answered")
+# What stays live when Operate follows the active plan (issue #242): the settings page's economics (taxes,
+# customs, yields) describe the game and your skills today, not a choice the plan made. Everything else
+# (area, sliders, selling channels, shipping rhythm, buying, the hour value) is a wizard answer: Operate
+# uses the one saved with the active plan, so exploring the wizard doesn't change advice for that plan.
+LIVE_FIELDS = ADMIN_FIELDS + UI_FIELDS + ("poco_tax_pct", "taxes_from_skills", "sales_tax_pct", "broker_fee_pct",
+                                          "stack_yield_pct", "head_yield_per_hour", "auto_calibrate")
 # Server-side limits for free text a profile can store (issue #92): generous for real use, small enough
 # that a crafted request can't fill the database. Longer values are cut, extra list entries dropped.
 TEXT_LIMITS = {"extra_area": 500, "hub_system": 100}
@@ -89,6 +95,16 @@ class Settings:
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
+
+    def for_plan(self, plan_settings: Optional[dict]) -> "Settings":
+        """These settings as a saved plan made them: its wizard answers, with today's LIVE_FIELDS.
+        No stored settings (no plan): these settings unchanged."""
+        if not plan_settings:
+            return self
+        out = Settings.from_json(json.dumps(plan_settings))
+        for name in LIVE_FIELDS:
+            setattr(out, name, getattr(self, name))
+        return out
 
     def solve_json(self) -> str:
         """The settings a plan depends on, for cache keys: without where the guided setup was left."""

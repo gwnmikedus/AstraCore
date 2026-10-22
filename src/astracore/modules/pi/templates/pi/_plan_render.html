@@ -132,6 +132,18 @@ function toggledNever(current, name, on) {
   const rest = (current || []).filter(n => n.toLowerCase() !== String(name).toLowerCase());
   return on ? [...rest, name] : rest;
 }
+// A batch valued at sell-order prices: what you list at, what that nets, what an instant sale would pay,
+// and how much slower it is.
+function sellOrdersHTML(b) {
+  const so = b.sell_orders; if (!so) return '';
+  const items = so.items.map(r => `${esc(r.item)}: list at ${num(r.list_price, 2)} → ${num(r.net, 2)} net` +
+    (r.instant ? ` <span class="muted">(instant sale ${num(r.instant, 2)})</span>` : '')).join(' · ');
+  const days = so.days ? `est. ${num(so.days[0], 1)}–${num(so.days[1], 1)} days to sell` : 'an unknown time to sell';
+  return `<div class="muted text-small sell-orders"><b>Sell-order price</b> in ${esc(so.market)}: the lowest sell order there,
+    after ${so.sales_tax_pct}% sales tax and ${so.broker_fee_pct}% broker fee. ${items}.<br>
+    Slower than an instant sale: ${b.contract ? 'once the courier arrives (about 3 days), ' : ''}the orders take ${days};
+    update them when you're undercut.</div>`;
+}
 // What the batches pay out per day (the Selling and Batches cards) next to the plan's ISK/day, and why they
 // differ: res.income_check from service.income_check. Plans saved before it have none: no line.
 function incomeCheckHTML(res) {
@@ -236,6 +248,7 @@ function renderSelling(res) {
       <span class="muted">${b.speed} · ${m3(b.m3)} · ${b.hold ? 'hold' : '≈ ' + isk(b.net) + ' net'}${!b.hold && b.quoted_net !== undefined ? ` (${isk(b.quoted_net)} at quoted prices)` : ''}</span></div>
       <div class="muted itemlist">${items}</div>`;
     if (b.note) h += `<div class="warnbox">${esc(b.note)}</div>`;
+    h += sellOrdersHTML(b);
     if (b.contract && b.contract.type === 'Courier')
       h += `<div class="muted contract-note">Contract: Courier · Private to <b>${esc(b.contract.assign_to)}</b> · ${esc(b.contract.from)} → ${esc(b.contract.to)} ·
             reward <b>${num(b.contract.reward)}</b> · collateral <b>${num(b.contract.collateral)}</b> · ${b.contract.expiration} / ${b.contract.completion}

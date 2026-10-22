@@ -140,6 +140,25 @@ test('ticking and unticking keeps the stored list of names', () => {
   assert.deepEqual([...toggledNever(undefined, 'Water', true)], ['Water']);
 });
 
+test('a sell-order batch states its price, fees, instant alternative and slower turnaround', () => {
+  const {sellOrdersHTML} = load();
+  const so = {market: 'Jita 4-4', sales_tax_pct: 3.6, broker_fee_pct: 1.5, days: [2.5, 7.4],
+              items: [{item: 'Robotics', list_price: 80000, net: 75920, instant: 70000},
+                      {item: '<b>x</b>', list_price: 10, net: 9, instant: null}]};
+  const html = sellOrdersHTML({channel: 'jita_sell', sell_orders: so, contract: {type: 'Courier'}});
+  assert.match(html, /<b>Sell-order price<\/b> in Jita 4-4/);
+  assert.match(html, /3\.6% sales tax and 1\.5% broker fee/);
+  assert.match(html, /Robotics: list at 80000 → 75920 net <span class="muted">\(instant sale 70000\)<\/span>/);
+  assert.match(html, /once the courier arrives \(about 3 days\), the orders take est\. 2\.5–7\.4 days to sell/);
+  assert.match(html, /&lt;b>x/);
+  assert.doesNotMatch(html, /instant sale null/);
+  // listed at the hub itself: no courier wait, and no estimate without trade history
+  const here = sellOrdersHTML({channel: 'jita_sell', sell_orders: {...so, days: null}});
+  assert.doesNotMatch(here, /courier/);
+  assert.match(here, /the orders take an unknown time to sell/);
+  assert.equal(sellOrdersHTML({channel: 'jita_buy'}), '');
+});
+
 test('the result reconciles what the batches pay out with the plan figure (#246)', () => {
   const {incomeCheckHTML} = load();
   assert.equal(incomeCheckHTML({}), '');

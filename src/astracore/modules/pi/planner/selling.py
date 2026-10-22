@@ -3,7 +3,9 @@
 Channels (value per unit, at your drop-off station, after all costs):
   buyback     VOC alliance buyback: % of Jita buy, sold where you are (no hauling).
   jita_buy    VOC courier to Jita, sell into buy orders (instant).
-  jita_sell   VOC courier to Jita, list sell orders (more ISK, slower, needs relisting).
+  jita_sell   VOC courier to Jita, list sell orders (more ISK, slower, needs relisting). Only valued
+              when there is evidence it sells: the hub's sell book loaded and recent trades in its region
+              (see `sell_order_gap`); otherwise the product keeps its instant-sale value.
   amarr_buy / amarr_sell   same via Amarr.
   local_buy   sell into Delve buy orders.
 
@@ -42,6 +44,26 @@ def buyback_fraction(s: Settings, tier: int) -> float:
 
 
 HUB_SYSTEMS = {"jita": "Jita", "amarr": "Amarr"}
+HUB_MARKETS = {"jita": "Jita 4-4", "amarr": "Amarr VIII"}
+
+History = Dict[str, Dict[int, dict]]   # market (jita, amarr, delve) -> item -> prices.summarise_history
+
+
+def sell_order_gap(book: dict, history: Optional[History], type_id: int, hub: str) -> Optional[str]:
+    """Why a sell order at `hub` can't be valued for this item (None: it can). A listed price is only worth
+    planning on when it sells: the hub's sell book must be loaded and its region must have traded the item
+    recently (demand.assess then estimates how fast, and the re-plan counts only what sells in time).
+    `history` None = not checked (stock already sitting in a hangar)."""
+    if history is None:
+        return None
+    if f"{hub}_sell_depth" not in (book or {}):
+        return "its sell orders didn't load"
+    if not history.get(hub):
+        return "trade history hasn't loaded yet"
+    h = history[hub].get(type_id) or {}
+    if not h.get("days") or not h.get("avg_volume"):
+        return f"nobody traded it in {HUB_MARKETS[hub]}'s region recently"
+    return None
 
 # Hauling one hangar to a second hub yourself is a second trip. Splitting is only worth it when the
 # better prices there beat that trip, valued at the pilot's hour (never less than a floor, so "max ISK"
@@ -118,11 +140,15 @@ def coverage(dropoff: str, area: Optional[dict]) -> dict:
 
 def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, dropoff: str,
                    routes: Optional[List[dict]] = None, local: bool = True,
-                   origin: Optional[str] = None, self_haul: bool = False) -> Dict[str, float]:
+                   origin: Optional[str] = None, self_haul: bool = False,
+                   history: Optional[History] = None) -> Dict[str, float]:
     """Net ISK per unit at the drop-off for every enabled channel.
     `local` = the drop-off is in Delve (buyback and Delve market are reachable).
     `origin` = VOC pickup the courier starts from (defaults to the drop-off).
-    `self_haul` = when VOC can't take it from here, value it as hauled to Jita/Amarr yourself."""
+    `self_haul` = when VOC can't take it from here, value it as hauled to Jita/Amarr yourself.
+    `history` = recent trades per market: sell orders are only valued where they show it sells
+    (None = not checked). A sell order is priced at the lowest sell order there (you list at or just
+    under it), after sales tax and broker fee."""
     origin = origin or dropoff
     b = books.get(type_id, {})
     tier, vol = pi.tier(type_id), pi.volume(type_id)
@@ -153,7 +179,7 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
             cost = voc.courier_variable_per_unit(r, vol, coll)
         if b.get(f"{hub_key}_buy"):
             out[f"{hub_key}_buy"] = b[f"{hub_key}_buy"] * (1 - tax) - cost
-        if s.use_sell_orders and b.get(f"{hub_key}_sell"):
+        if s.use_sell_orders and b.get(f"{hub_key}_sell") and not sell_order_gap(b, history, type_id, hub_key):
             out[f"{hub_key}_sell"] = b[f"{hub_key}_sell"] * (1 - tax - broker) - cost
     if s.use_local and local and b.get("delve_buy"):
         out["local_buy"] = b["delve_buy"] * (1 - tax)
@@ -161,14 +187,15 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
 
 
 def best_values(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
-                local: bool = True, origin: Optional[str] = None) -> Dict[int, float]:
+                local: bool = True, origin: Optional[str] = None,
+                history: Optional[History] = None) -> Dict[int, float]:
     """What the planner should value each product at (best channel per unit)."""
     routes = voc.routes_cached()
     vals = {}
     for t in pi.items:
         if pi.tier(t) < 1:
             continue
-        ch = channel_values(pi, s, books, t, dropoff, routes, local, origin)
+        ch = channel_values(pi, s, books, t, dropoff, routes, local, origin, history=history)
         vals[t] = max(ch.values()) if ch else 0.0
     return vals
 
@@ -244,11 +271,12 @@ def buy_costs(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
 
 
 def compare_table(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str, type_ids: List[int],
-                  local: bool = True, origin: Optional[str] = None) -> List[dict]:
+                  local: bool = True, origin: Optional[str] = None,
+                  history: Optional[History] = None) -> List[dict]:
     routes = voc.routes_cached()
     rows = []
     for t in type_ids:
-        ch = channel_values(pi, s, books, t, dropoff, routes, local, origin)
+        ch = channel_values(pi, s, books, t, dropoff, routes, local, origin, history=history)
         best = max(ch, key=ch.get) if ch else None
         rows.append({"type_id": t, "item": pi.name(t), "tier": pi.tier(t), "volume": pi.volume(t),
                      "jita_buy": books.get(t, {}).get("jita_buy", 0.0),
@@ -258,20 +286,30 @@ def compare_table(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
 
 def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
               units_per_day: Dict[int, float], per_day: bool = True, local: bool = True,
-              origin: Optional[str] = None, origin_jumps: int = 0, self_haul: bool = False) -> dict:
+              origin: Optional[str] = None, origin_jumps: int = 0, self_haul: bool = False,
+              history: Optional[History] = None) -> dict:
     """Per shipment cycle (every `ship_every_days`): which products go where, with exact
     VOC contract values. If a courier batch is too small to beat the minimum fee, those
-    products fall back to their next-best channel."""
+    products fall back to their next-best channel. `history` as in channel_values: products whose
+    sell order would pay best but has no evidence it sells are listed in `sell_order_fallback`."""
     routes = voc.routes_cached()
     origin = origin or dropoff
     days = max(1.0, float(s.ship_every_days)) if per_day else 1.0
     per_item = {}
+    fallback = []
     for t, q in units_per_day.items():
         if q <= 0:
             continue
-        ch = channel_values(pi, s, books, t, dropoff, routes, local, origin, self_haul)
+        ch = channel_values(pi, s, books, t, dropoff, routes, local, origin, self_haul, history)
         if ch:
             per_item[t] = {"qty": q * days, "channels": ch}
+        if s.use_sell_orders and history is not None:
+            unchecked = channel_values(pi, s, books, t, dropoff, routes, local, origin, self_haul)
+            best = max(unchecked, key=unchecked.get) if unchecked else None
+            if best and best.endswith("_sell") and best not in ch:
+                hub = best.split("_")[0]
+                fallback.append({"item": pi.name(t), "market": HUB_MARKETS[hub],
+                                 "reason": sell_order_gap(books.get(t, {}), history, t, hub)})
 
     choice = {t: max(v["channels"], key=v["channels"].get) for t, v in per_item.items()}
     if self_haul or s.use_self_haul:
@@ -316,6 +354,17 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
         net = sum(per_item[t]["qty"] * per_item[t]["channels"][c] for t in members)
         batch = {"channel": c, "label": LABELS[c], "speed": SPEED[c], "items": qty,
                  "m3": round(m3, 1), "jita_value": round(jita_value), "paste": voc.paste_list(qty)}
+        if c.endswith("_sell"):
+            hub = c.split("_")[0]
+            rows = []
+            for t in members:
+                others = [v for k, v in per_item[t]["channels"].items() if not k.endswith("_sell")]
+                rows.append({"item": pi.name(t), "list_price": round(books.get(t, {}).get(f"{hub}_sell", 0.0), 2),
+                             "net": round(per_item[t]["channels"][c], 2),
+                             "instant": round(max(others), 2) if others else None})
+            # `days` (how long the listed orders take to sell) comes from the demand check
+            batch["sell_orders"] = {"market": HUB_MARKETS[hub], "sales_tax_pct": s.sales_tax_pct,
+                                    "broker_fee_pct": s.broker_fee_pct, "items": rows, "days": None}
         if c.endswith("_self"):
             # Only point at a VOC pickup that courier_origin actually found within reach of this hangar.
             via = (f" (or move it to the VOC pickup in {origin}, {origin_jumps} jumps, and courier it from there)"
@@ -361,4 +410,5 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
     unsellable = [pi.name(t) for t in units_per_day if t not in per_item and units_per_day[t] > 0]
     return {"every_days": days, "batches": batches, "net_per_cycle": round(total),
             "net_per_day": round(total / days), "dropoff": dropoff, "origin": origin,
-            "origin_jumps": origin_jumps, "unsellable": unsellable}
+            "origin_jumps": origin_jumps, "unsellable": unsellable,
+            "sell_order_fallback": sorted(fallback, key=lambda r: r["item"])}

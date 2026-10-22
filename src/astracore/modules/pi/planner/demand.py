@@ -142,6 +142,18 @@ def realistic_values(assessment: dict, values: Dict[int, float]) -> Dict[int, fl
     return out
 
 
+def sell_order_days(sell_plan: dict, assessment: dict) -> None:
+    """Give each sell-order batch the demand check's estimate of how long its listings take to sell, after
+    the courier arrives (in place): [fastest, slowest] over its products, None without an estimate."""
+    for b in sell_plan.get("batches", []):
+        so = b.get("sell_orders")
+        if not so:
+            continue
+        spans = [r["horizon_days"] for r in assessment.get("rows", [])
+                 if r["channel"] == b["channel"] and r["item"] in b["items"] and r.get("horizon_days")]
+        so["days"] = [max(lo for lo, _ in spans), max(hi for _, hi in spans)] if spans else None
+
+
 def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, Dict[int, dict]],
            sell_plan: dict, channels: List[dict], units_per_day: Dict[int, float],
            books_at: Optional[float] = None, history_at: Optional[float] = None) -> dict:

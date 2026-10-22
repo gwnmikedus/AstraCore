@@ -186,9 +186,10 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     teamwork_auto = auto_teamwork(s, sum(1 for c in chars if setups.can_plan(c)))
     if teamwork_auto:
         solve_s.cross_character = True
-    values = selling.best_values(pi, sell_s, books, dropoff, local, origin)
-    buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     hist = prices.history_cached()
+    # sell orders are only valued where recent trades show they sell (no history yet: instant-sale prices)
+    values = selling.best_values(pi, sell_s, books, dropoff, local, origin, hist["markets"])
+    buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     buy_cap = demand.buy_limits(pi, sell_s, books, hist["markets"], local, optimizer.capital_days(s)) if buy else {}
     return dict(profile_id=profile_id, s=sell_s, solve_s=solve_s, chars=chars, pi=pi, tpl=tpl, area=area,
                 systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
@@ -208,18 +209,20 @@ def outage_banner(ctx: dict) -> Optional[dict]:
 def _sell_side(ctx, res: dict) -> None:
     """Selling plan, channel table and market-demand check for a solved plan (in place)."""
     units = {x["type_id"]: x["units_per_day"] for x in res["sold"]}
+    history = ctx.get("history")
     res["selling"] = selling.sell_plan(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"], units,
                                        local=ctx["local"], origin=ctx["origin"],
-                                       origin_jumps=ctx["origin_jumps"])
+                                       origin_jumps=ctx["origin_jumps"], history=history)
     res["channels"] = selling.compare_table(ctx["pi"], ctx["s"], ctx["books"], ctx["dropoff"],
-                                            list(units), ctx["local"], ctx["origin"])
+                                            list(units), ctx["local"], ctx["origin"], history)
     available = {k for row in res["channels"] for k in row["channels"]}
     res["channel_labels"] = {k: selling.LABELS[k] for k in selling.PLANNER_CHANNELS if k in available}
     res["selling_coverage"] = selling.coverage(ctx["dropoff"], ctx["area"])
     res["self_haul"] = any(b["channel"].endswith("_self") for b in res["selling"]["batches"])
-    res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], ctx.get("history") or {},
+    res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], history or {},
                                   res["selling"], res["channels"], units,
                                   ctx.get("books_at"), ctx.get("history_at"))
+    demand.sell_order_days(res["selling"], res["demand"])
 
 
 def _buy_side(ctx, res: dict) -> None:
@@ -309,6 +312,17 @@ def richness_sources(colonies: List[dict], manual: dict, measured: dict) -> None
         c["richness_source"] = "scan" if pid in manual else "extractors" if pid in measured else "estimate"
 
 
+def sell_order_fallback_note(rows: List[dict]) -> dict:
+    """Products a sell order would pay best for, valued at the instant-sale price instead because nothing
+    shows that the listing sells (selling.sell_order_gap)."""
+    reasons = sorted({r["reason"] for r in rows})
+    names = notices.names([r["item"] for r in rows])
+    return notices.note(
+        "sell_order_fallback", f"{names} {'is' if len(rows) == 1 else 'are'} valued at the instant-sale price, "
+        f"not a sell order: {'; '.join(reasons)}, so there's no basis yet to say a listing sells. "
+        "Refresh prices, or check back once the trade history has loaded.", steps=("sell",), level="info")
+
+
 def run_plan(ctx, s=None) -> dict:
     """The optimiser solve (blocking; call through GATE). If the market-demand check finds products
     whose batch the visible buyers can't absorb at the quoted price, it solves once more with those
@@ -362,6 +376,9 @@ def run_plan(ctx, s=None) -> dict:
         res["warnings"].append(notices.note(
             "demand", f"{_plural(n_risky, 'product', 'products')} may not sell as planned at the chosen market: "
             f"see Market demand under How you get paid.", steps=("sell", "batch")))
+    fallback = res["selling"].get("sell_order_fallback") or []
+    if fallback:
+        res["warnings"].append(sell_order_fallback_note(fallback))
     missing = res["demand"].get("books_missing") or []
     if missing:
         res["warnings"].append(notices.note(

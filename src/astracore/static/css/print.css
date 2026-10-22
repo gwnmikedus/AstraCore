@@ -21,7 +21,7 @@ main.container, .site-shell { max-width: none; width: auto; padding: 0; margin: 
 /* App chrome and controls. */
 .skip-link, .navigation-edge, .site-header, .section-navigation, .site-footer, .flash,
 .characters-panel, .guide-progress, .page-guide .track, .page-guide .chips, .page-guide .chips-note,
-.page-guide .nav, .page-guide #planbar, .page-guide #plan-compare, .page-guide .question-explainer,
+.page-guide .nav, .page-guide #planbar, .page-planner #planbar, .page-guide #plan-compare, .page-guide .question-explainer,
 .money-slider, .toolbar, button, [role="button"], .primary-link, .text-action, .context-art, .context-header .adv,
 .page-guide .todo, .page-planner .controls, details:not([open]) { display: none !important; }
 .context-header, .command-header { padding: 0 0 8pt; margin: 0 0 8pt; border: 0; border-bottom: 1px solid var(--line); background: none; }

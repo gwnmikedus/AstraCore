@@ -2,7 +2,16 @@
 {% block title %}AstraCore · All your alts. One operation.{% endblock %}
 {% block description %}A command center for your EVE characters. Start with planetary operations. Help shape what comes next.{% endblock %}
 {% from '_artwork.html' import artwork %}
-{% block head %}<link rel="stylesheet" href="{{ asset('css/hero-film.css') }}">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ asset('css/hero-film.css') }}">
+<script nonce="{{ nonce }}">
+  /* Will the film play? The same test as hero-film.js, decided before the first paint so the copy isn't drawn and then covered. */
+  (() => {
+    let seen = false;
+    try { seen = localStorage.getItem('astracore.heroFilm') === 'seen'; } catch (e) {}
+    if (!seen && !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.clientWidth >= 760)
+      document.documentElement.dataset.filmIntro = 'play';
+  })();
+</script>{% endblock %}
 {% block content %}
 <section class="platform-hero" aria-labelledby="hero-title">
   <picture class="platform-scene" data-parallax="hero">

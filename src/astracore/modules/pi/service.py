@@ -576,9 +576,9 @@ async def dashboard_tile(profile: dict) -> dict:
     ESI: it reads the active plan, synced character data and cached prices."""
     pid = profile["id"]
     state = entry_state(pid)
-    tile = {"state": state, "href": {"connect": "/pi", "excluded": "/pi", "area": "/pi/area", "plan": "/pi/plan",
+    tile = {"state": state, "href": {"connect": "/pi", "excluded": "/pi", "plan": "/pi/plan",
                                      "operate": "/pi/operate"}[state],
-            "cta": {"connect": "Connect characters", "excluded": "Include a character", "area": "Choose your area",
+            "cta": {"connect": "Connect characters", "excluded": "Include a character",
                     "plan": "Make a plan", "operate": "Open Operate"}[state]}
     plan = store.active_plan(pid)
     chars = planning_characters(pid)

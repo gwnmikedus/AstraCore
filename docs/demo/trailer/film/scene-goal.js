@@ -10,7 +10,7 @@ kit.scene('goal', {
       '<div class="layer goal-cam">' +
       '<div class="panel goal-panel" style="left:210px;top:160px;width:1500px;height:760px;padding:46px 60px;box-sizing:border-box">' +
       window.UI.stepper('goal') +
-      '<p class="mono hot" style="margin:46px 0 0;font-size:18px">Step 1 of 5</p>' +
+      '<p class="mono hot" style="margin:46px 0 0;font-size:18px">Step 1 of 6</p>' +
       '<h3 style="margin:12px 0 0;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:72px">What do you want from PI?</h3>' +
       '<p style="margin:14px 0 0;font-size:26px;color:#a19d94">Choose the balance between income and upkeep. You can change this later.</p>' +
       '<div style="display:flex;gap:30px;margin-top:40px">' + cards + '</div></div></div>' +

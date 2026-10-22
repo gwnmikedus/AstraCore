@@ -1,9 +1,9 @@
 const { seg, eo, ei, eio, lerp, TextFx } = kit;
 const QS = [
-  ['Step 2 of 5', 'How often can you log in to restart extractors?', ['Every day', 'Every 2 days', 'Every 3 days', 'Once a week'], 2],
-  ['Step 3 of 5', 'How far are you willing to fly?', ['One system', 'A few nearby systems', 'Wherever pays most'], 1],
-  ['Step 4 of 5', 'How far should your planets process?', ['Only P1 (miners)', 'Up to P2', 'Up to P3', 'Up to P4'], 1],
-  ['Step 5 of 5', 'How do you want to turn products into ISK?', ['Sell in Delve only', 'Also courier to Jita / Amarr', 'Haul to Jita / Amarr myself'], 1],
+  ['Step 2 of 6', 'How often can you log in to restart extractors?', ['Every day', 'Every 2 days', 'Every 3 days', 'Once a week'], 2],
+  ['Step 3 of 6', 'How far are you willing to fly?', ['One system', 'A few nearby systems', 'Wherever pays most'], 1],
+  ['Step 4 of 6', 'How far should your planets process?', ['Only P1 (miners)', 'Up to P2', 'Up to P3', 'Up to P4'], 1],
+  ['Step 6 of 6', 'How do you want to turn products into ISK?', ['Sell in Delve only', 'Also courier to Jita / Amarr', 'Haul to Jita / Amarr myself'], 1],
 ];
 kit.scene('questions', {
   init(kit) {
@@ -16,7 +16,7 @@ kit.scene('questions', {
       '<div class="layer questions-cam" style="transform-origin:700px 420px">' +
       '<div class="panel questions-panel" style="left:210px;top:160px;width:1500px;height:760px;padding:46px 60px;box-sizing:border-box;transform-origin:50% 0">' +
       window.UI.stepper('questions') + blocks + '</div></div>' +
-      '<div class="words" style="left:0;right:0;top:760px;align-items:center;text-align:center"><h2 class="line questions-line" style="font-size:104px">Five questions. No spreadsheet.</h2></div>' +
+      '<div class="words" style="left:0;right:0;top:760px;align-items:center;text-align:center"><h2 class="line questions-line" style="font-size:104px">Six questions. No spreadsheet.</h2></div>' +
       '<div class="vignette"></div><div class="grain questions-grain"></div></div>'));
     const q = (s) => kit.stage.querySelector(s);
     this.kit = kit;
@@ -46,8 +46,9 @@ kit.scene('questions', {
         o.style.transform = on ? 'scale(' + lerp(0.96, 1, eo(seg(t, a + 0.65, a + 0.85))) + ')' : 'none';
       });
     });
+    // Logins, Area, Products, then Selling: the stepper sweeps past Buying on the way, within the same beat
     let k = 1;
-    for (let i = 1; i < 4; i++) k += eio(seg(t, i * W - 0.25, i * W + 0.05));
+    for (let i = 1; i < 4; i++) k += (i === 3 ? 2 : 1) * eio(seg(t, i * W - 0.25, i * W + 0.05));
     k += eio(seg(t, 4 * W - 0.25, 4 * W + 0.05));
     window.UI.setStep(this.kit, 'questions', k);
     const back = eio(seg(t, 4.75, 5.9));

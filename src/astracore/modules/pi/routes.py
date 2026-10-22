@@ -1,6 +1,6 @@
 """AstracorePI pages and API, all under /pi and all scoped to the signed-in profile.
 
-/pi            -> lands on the right page (connect characters / Area / Plan / Operate)
+/pi            -> lands on the right page (connect characters / Plan / Operate)
 /pi/operate    -> the daily screen
 /pi/plan       -> the guided wizard (?view=advanced: every option on one screen)
 /pi/area       -> constellations and drop-off
@@ -48,7 +48,7 @@ from .static_data import dalshooth, sde_loader, voc
 
 log = logging.getLogger("astracore")
 router = APIRouter(prefix="/pi", dependencies=[Depends(require_user)])
-legacy = APIRouter()     # old MVP paths -> 301 (one release)
+legacy = APIRouter()     # old MVP paths -> 301, so old bookmarks keep working
 PRICE_REFRESH_EVERY = 600
 
 LIVE_FIELDS = {"effort", "max_tier", "max_systems", "max_jumps", "cycle_days", "per_planet",
@@ -81,7 +81,8 @@ def superseded_response() -> JSONResponse:
 async def entry(request: Request, rhythm: str = ""):
     pid = _pid(request)
     store.apply_preview_goal(pid, rhythm)
-    db.update_profile(pid, onboarded=1)
+    if not request.state.user.get("onboarded"):   # a plain visit reads only: write just the first time
+        db.update_profile(pid, onboarded=1)
     state = service.entry_state(pid)
     if state == "connect":
         chars = service.characters(pid)
@@ -90,7 +91,7 @@ async def entry(request: Request, rhythm: str = ""):
     if state == "excluded":   # Area/Plan/Operate need an included character: never bounce back to them
         return render(request, "excluded.html", "connect", "Characters in this plan", panel=character_panel(pid),
                       open_panel=True)
-    return RedirectResponse({"area": "/pi/area", "plan": "/pi/plan", "operate": "/pi/operate"}[state], status_code=303)
+    return RedirectResponse({"plan": "/pi/plan", "operate": "/pi/operate"}[state], status_code=303)
 
 
 # ----------------------------------------------------------------------------- characters in PI
@@ -659,14 +660,6 @@ async def api_plan_save(request: Request):
                          "plans": store.list_plan_runs(pid)})
 
 
-@router.post("/api/plans/{run_id}/activate")
-async def api_plan_activate(request: Request, run_id: int):
-    pid = _pid(request)
-    if not store.set_active_plan(pid, run_id):
-        return JSONResponse({"error": "Unknown plan."}, status_code=404)
-    return JSONResponse({"ok": True, "plans": store.list_plan_runs(pid)})
-
-
 @router.post("/plans/{run_id}/activate")
 async def plan_activate(request: Request, run_id: int):
     ok = store.set_active_plan(_pid(request), run_id)
@@ -1147,7 +1140,7 @@ async def reset_pi(request: Request):
                                 "Your characters are still linked.")
 
 
-# ----------------------------------------------------------------------------- old MVP paths (301, one release)
+# ----------------------------------------------------------------------------- old MVP paths (301: bookmarks keep working)
 _OLD = {"/space": "/pi/area", "/planner": "/pi/plan", "/operate": "/pi/operate", "/settings": "/pi/settings",
         "/characters": "/profile", "/export/templates.zip": "/pi/export/templates.zip",
         "/export/plan.md": "/pi/export/plan.md", "/export/plan.csv": "/pi/export/plan.csv"}

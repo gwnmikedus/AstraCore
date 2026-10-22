@@ -6,7 +6,8 @@
   const neb = [[-0.9, -0.4, 900, '255,106,26', 0.10], [0.8, 0.5, 1100, '79,157,255', 0.08], [0.2, -0.9, 700, '255,138,71', 0.06], [-0.4, 0.9, 1000, '79,157,255', 0.05], [1.2, -0.6, 800, '255,106,26', 0.05]];
   const WARPS = [[3.5, 950], [11, 800], [14, 450], [31, 950], [47, 1000], [51, 850], [55, 650]];
   const Z = (T) => { let z = 70 * T; for (const [c, w] of WARPS) z += w * eio(seg(T, c - 0.55, c + 0.4)); return z; };
-  const STEPS = ['Goal', 'Logins', 'Area', 'Products', 'Selling', 'Your plan'];
+  const STEPS = ['Goal', 'Logins', 'Area', 'Products', 'Buying', 'Selling', 'Your plan'];   // the wizard's six main questions
+  const LAST = STEPS.length - 1;
   window.UI = {
     grain(st, t) { const f = Math.floor(t * 24); st.transform = 'translate(' + ((f * 37) % 60) + 'px,' + ((f * 53) % 60) + 'px)'; },
     stepper(prefix) {
@@ -14,7 +15,7 @@
         '<div style=\"position:absolute;left:60px;right:60px;top:21px;height:2px;background:#2a2e33\"></div>' +
         '<div class=\"' + prefix + '-fill\" style=\"position:absolute;left:60px;top:21px;height:2px;width:0;background:var(--main)\"></div>' +
         STEPS.map((s, i) => '<div style=\"position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;width:120px\">' +
-          '<span class=\"' + prefix + '-dot\" style=\"width:44px;height:44px;display:grid;place-items:center;font-family:var(--mono, ui-monospace, monospace);font-size:20px;background:var(--ground);box-shadow:inset 0 0 0 2px #646a72;color:var(--second)\">' + (i < 5 ? i + 1 : '◆') + '</span>' +
+          '<span class=\"' + prefix + '-dot\" style=\"width:44px;height:44px;display:grid;place-items:center;font-family:var(--mono, ui-monospace, monospace);font-size:20px;background:var(--ground);box-shadow:inset 0 0 0 2px #646a72;color:var(--second)\">' + (i < LAST ? i + 1 : '◆') + '</span>' +
           '<span class=\"mono ' + prefix + '-lab\" style=\"font-size:15px;color:#a19d94\">' + s + '</span></div>').join('') + '</div>';
     },
     setStep(kit, prefix, k) {
@@ -22,7 +23,7 @@
       const i = Math.floor(k);
       dots.forEach((d, j) => { const on = j === i, done = j < i; d.style.background = on ? 'var(--main)' : 'var(--ground)'; d.style.color = on ? 'var(--ground)' : (done ? 'var(--main)' : 'var(--second)'); d.style.boxShadow = 'inset 0 0 0 2px ' + (on || done ? 'var(--main)' : '#646a72'); });
       labs.forEach((l, j) => { l.style.color = j === i ? 'var(--second)' : '#a19d94'; });
-      kit.stage.querySelector('.' + prefix + '-fill').style.width = 'calc((100% - 120px) * ' + (Math.min(k, 5) / 5).toFixed(4) + ')';
+      kit.stage.querySelector('.' + prefix + '-fill').style.width = 'calc((100% - 120px) * ' + (Math.min(k, LAST) / LAST).toFixed(4) + ')';
     },
   };
   const sway = (T) => [Math.sin(T * 0.35) * 60, Math.cos(T * 0.27) * 30];

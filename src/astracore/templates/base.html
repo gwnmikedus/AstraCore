@@ -55,7 +55,7 @@
   <nav class="section-navigation{{ ' plan-navigation' if module and module.id == 'pi' else '' }}" aria-label="{{ 'Plan setup' if module and module.id == 'pi' else (module.name if module else 'Section') }}">
     <ul class="subnav">
       {% if module %}<li class="code"><span class="pill code">{{ module.short }}</span></li>{% endif %}
-      {% for label, href, ic in subnav %}
+      {% for label, href, ic, _ in subnav %}
       <li><a href="{{ href }}" class="{{ 'active' if active_nav == href else '' }}" {% if active_nav == href %}aria-current="page"{% endif %}>{{ icon(ic) }} {{ label }}</a></li>
       {% endfor %}
     </ul>
@@ -86,6 +86,7 @@
       <button type="button" class="outline secondary" data-next-tip hidden aria-label="Show another capsuleer tip">One more tip {{ icon('refresh-cw') }}</button>
     </div>
     <p><strong>AstraCore</strong> © 2026 · An independent, fan-made tool for EVE Online capsuleers.{% if app_release is defined %} <a href="/releases#release-{{ app_release.base }}">v{{ app_release.version }}</a>{% endif %}</p>
+    <p class="legal data-credit">Data: ESI (Fenris Creations) · SDE via Fuzzwork · PI templates by DalShooth · VOC Hauling courier rates · <a href="/credits">Credits</a></p>
     <p class="legal">EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
       "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>
     <p class="legal">Original marketing artwork was generated for AstraCore. Official EVE item imagery remains credited to CCP.</p>

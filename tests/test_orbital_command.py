@@ -10,7 +10,6 @@ from test_core import browser, eve, me, new_id, sso_login  # noqa: F401
 
 @pytest.mark.parametrize("state,planned,built,href", [
     ("connect", 0, 0, "/pi"),
-    ("area", 0, 0, "/pi/area"),
     ("plan", 0, 0, "/pi/plan"),
     ("operate", 12, 4, "/pi/operate#plan-status"),
     ("operate", 12, 12, "/pi/operate"),
@@ -21,7 +20,7 @@ def test_dashboard_action_follows_setup_and_colony_progress(browser, eve, monkey
     db.update_profile(me(client), onboarded=1)
 
     async def tile(profile):
-        result = {"state": state, "href": {"connect": "/pi", "area": "/pi/area",
+        result = {"state": state, "href": {"connect": "/pi",
                   "plan": "/pi/plan", "operate": "/pi/operate"}[state], "cta": "Continue"}
         if planned:
             result.update(planned=planned, built=built, plan_isk_per_day=7_300_000,

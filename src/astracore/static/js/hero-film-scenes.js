@@ -10,7 +10,8 @@
   const neb = [[-0.9, -0.4, 900, '255,106,26', 0.10], [0.8, 0.5, 1100, '79,157,255', 0.08], [0.2, -0.9, 700, '255,138,71', 0.06], [-0.4, 0.9, 1000, '79,157,255', 0.05], [1.2, -0.6, 800, '255,106,26', 0.05]];
   const WARPS = [[3.5, 950], [11, 800], [14, 450], [31, 950], [47, 1000], [51, 850], [55, 650]];
   const Z = (T) => { let z = 70 * T; for (const [c, w] of WARPS) z += w * eio(seg(T, c - 0.55, c + 0.4)); return z; };
-  const STEPS = ['Goal', 'Logins', 'Area', 'Products', 'Selling', 'Your plan'];
+  const STEPS = ['Goal', 'Logins', 'Area', 'Products', 'Buying', 'Selling', 'Your plan'];   // the wizard's six main questions
+  const LAST = STEPS.length - 1;
   window.UI = {
     grain(st, t) { const f = Math.floor(t * 24); st.transform = 'translate(' + ((f * 37) % 60) + 'px,' + ((f * 53) % 60) + 'px)'; },
     stepper(prefix) {
@@ -18,7 +19,7 @@
         '<div data-css=\"position:absolute;left:60px;right:60px;top:21px;height:2px;background:#2a2e33\"></div>' +
         '<div class=\"' + prefix + '-fill\" data-css=\"position:absolute;left:60px;top:21px;height:2px;width:0;background:var(--main)\"></div>' +
         STEPS.map((s, i) => '<div data-css=\"position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;width:120px\">' +
-          '<span class=\"' + prefix + '-dot\" data-css=\"width:44px;height:44px;display:grid;place-items:center;font-family:var(--mono, ui-monospace, monospace);font-size:20px;background:var(--ground);box-shadow:inset 0 0 0 2px #646a72;color:var(--second)\">' + (i < 5 ? i + 1 : '◆') + '</span>' +
+          '<span class=\"' + prefix + '-dot\" data-css=\"width:44px;height:44px;display:grid;place-items:center;font-family:var(--mono, ui-monospace, monospace);font-size:20px;background:var(--ground);box-shadow:inset 0 0 0 2px #646a72;color:var(--second)\">' + (i < LAST ? i + 1 : '◆') + '</span>' +
           '<span class=\"mono ' + prefix + '-lab\" data-css=\"font-size:15px;color:#a19d94\">' + s + '</span></div>').join('') + '</div>';
     },
     setStep(kit, prefix, k) {
@@ -26,7 +27,7 @@
       const i = Math.floor(k);
       dots.forEach((d, j) => { const on = j === i, done = j < i; d.style.background = on ? 'var(--main)' : 'var(--ground)'; d.style.color = on ? 'var(--ground)' : (done ? 'var(--main)' : 'var(--second)'); d.style.boxShadow = 'inset 0 0 0 2px ' + (on || done ? 'var(--main)' : '#646a72'); });
       labs.forEach((l, j) => { l.style.color = j === i ? 'var(--second)' : '#a19d94'; });
-      kit.stage.querySelector('.' + prefix + '-fill').style.width = 'calc((100% - 120px) * ' + (Math.min(k, 5) / 5).toFixed(4) + ')';
+      kit.stage.querySelector('.' + prefix + '-fill').style.width = 'calc((100% - 120px) * ' + (Math.min(k, LAST) / LAST).toFixed(4) + ')';
     },
   };
   const sway = (T) => [Math.sin(T * 0.35) * 60, Math.cos(T * 0.27) * 30];
@@ -334,7 +335,7 @@ kit.scene('goal', {
       '<div class="layer goal-cam">' +
       '<div class="panel goal-panel" data-css="left:210px;top:160px;width:1500px;height:760px;padding:46px 60px;box-sizing:border-box">' +
       window.UI.stepper('goal') +
-      '<p class="mono hot" data-css="margin:46px 0 0;font-size:18px">Step 1 of 5</p>' +
+      '<p class="mono hot" data-css="margin:46px 0 0;font-size:18px">Step 1 of 6</p>' +
       '<h3 data-css="margin:12px 0 0;font-family:var(--display, var(--sans, system-ui, sans-serif));font-weight:600;font-size:72px">What do you want from PI?</h3>' +
       '<p data-css="margin:14px 0 0;font-size:26px;color:#a19d94">Choose the balance between income and upkeep. You can change this later.</p>' +
       '<div data-css="display:flex;gap:30px;margin-top:40px">' + cards + '</div></div></div>' +
@@ -381,10 +382,10 @@ kit.scene('goal', {
 {
 const { seg, eo, ei, eio, lerp, TextFx } = kit;
 const QS = [
-  ['Step 2 of 5', 'How often can you log in to restart extractors?', ['Every day', 'Every 2 days', 'Every 3 days', 'Once a week'], 2],
-  ['Step 3 of 5', 'How far are you willing to fly?', ['One system', 'A few nearby systems', 'Wherever pays most'], 1],
-  ['Step 4 of 5', 'How far should your planets process?', ['Only P1 (miners)', 'Up to P2', 'Up to P3', 'Up to P4'], 1],
-  ['Step 5 of 5', 'How do you want to turn products into ISK?', ['Sell in Delve only', 'Also courier to Jita / Amarr', 'Haul to Jita / Amarr myself'], 1],
+  ['Step 2 of 6', 'How often can you log in to restart extractors?', ['Every day', 'Every 2 days', 'Every 3 days', 'Once a week'], 2],
+  ['Step 3 of 6', 'How far are you willing to fly?', ['One system', 'A few nearby systems', 'Wherever pays most'], 1],
+  ['Step 4 of 6', 'How far should your planets process?', ['Only P1 (miners)', 'Up to P2', 'Up to P3', 'Up to P4'], 1],
+  ['Step 6 of 6', 'How do you want to turn products into ISK?', ['Sell in Delve only', 'Also courier to Jita / Amarr', 'Haul to Jita / Amarr myself'], 1],
 ];
 kit.scene('questions', {
   init(kit) {
@@ -397,7 +398,7 @@ kit.scene('questions', {
       '<div class="layer questions-cam" data-css="transform-origin:700px 420px">' +
       '<div class="panel questions-panel" data-css="left:210px;top:160px;width:1500px;height:760px;padding:46px 60px;box-sizing:border-box;transform-origin:50% 0">' +
       window.UI.stepper('questions') + blocks + '</div></div>' +
-      '<div class="words" data-css="left:0;right:0;top:760px;align-items:center;text-align:center"><h2 class="line questions-line" data-css="font-size:104px">Five questions. No spreadsheet.</h2></div>' +
+      '<div class="words" data-css="left:0;right:0;top:760px;align-items:center;text-align:center"><h2 class="line questions-line" data-css="font-size:104px">Six questions. No spreadsheet.</h2></div>' +
       '<div class="vignette"></div><div class="grain questions-grain"></div></div>'));
     const q = (s) => kit.stage.querySelector(s);
     this.kit = kit;
@@ -427,8 +428,9 @@ kit.scene('questions', {
         o.style.transform = on ? 'scale(' + lerp(0.96, 1, eo(seg(t, a + 0.65, a + 0.85))) + ')' : 'none';
       });
     });
+    // Logins, Area, Products, then Selling: the stepper sweeps past Buying on the way, within the same beat
     let k = 1;
-    for (let i = 1; i < 4; i++) k += eio(seg(t, i * W - 0.25, i * W + 0.05));
+    for (let i = 1; i < 4; i++) k += (i === 3 ? 2 : 1) * eio(seg(t, i * W - 0.25, i * W + 0.05));
     k += eio(seg(t, 4 * W - 0.25, 4 * W + 0.05));
     window.UI.setStep(this.kit, 'questions', k);
     const back = eio(seg(t, 4.75, 5.9));

@@ -64,3 +64,15 @@ def test_film_source_is_sixty_seconds_and_self_contained():
     assert not re.search(r"https?://", code), "the film draws everything itself and loads nothing"
     player = (STATIC / "js" / "hero-film.js").read_text()
     assert not re.search(r"https?://", player)
+
+
+def test_film_counts_the_wizards_six_main_questions():
+    """The film's stepper and "Step N of M" copy follow the wizard's main questions (#244)."""
+    guide = (ROOT / "src" / "astracore" / "modules" / "pi" / "templates" / "pi" / "guide.html").read_text()
+    titles = re.findall(r"\{id: '(\w+)', title: '([^']+)'", guide)
+    optional = set(re.findall(r"'(\w+)'", re.search(r"OPTIONAL_IDS = new Set\(\[([^\]]*)\]", guide).group(1)))
+    main = [title for step, title in titles if step not in optional]   # the main questions, then the result
+    code = "\n".join(p.read_text() for p in FILM.glob("*.js"))
+    steps = re.search(r"const STEPS = \[([^\]]*)\]", (FILM / "shared.js").read_text()).group(1)
+    assert re.findall(r"'([^']+)'", steps) == main
+    assert set(re.findall(r"Step \d of (\d)", code)) == {str(len(main) - 1)}

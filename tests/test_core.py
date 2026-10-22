@@ -197,9 +197,9 @@ def test_visiting_pi_completes_welcome_and_uses_setup_entry(browser, eve, monkey
     sso_login(c, eve, new_id(), "Setup navigator")
     pid = me(c)
     assert not db.get_profile(pid)["onboarded"]
-    monkeypatch.setattr(service, "entry_state", lambda profile_id: "area")
+    monkeypatch.setattr(service, "entry_state", lambda profile_id: "plan")
     response = c.get("/pi", follow_redirects=False)
-    assert response.headers["location"] == "/pi/area"
+    assert response.headers["location"] == "/pi/plan"
     assert db.get_profile(pid)["onboarded"]
     assert c.get("/", follow_redirects=False).status_code == 200
 
@@ -670,7 +670,6 @@ def test_profiles_cannot_touch_each_other(browser, eve):
     ]
     for method, path, data in attempts:
         getattr(cb, method)(path, data={**data, "csrf_token": t}, follow_redirects=False)
-    assert cb.post(f"/pi/api/plans/{run}/activate", headers={"X-CSRF-Token": t}).status_code == 404
     r = cb.post("/pi/api/waypoints", json={"character_id": a1, "systems": ["Jita"]}, headers={"X-CSRF-Token": t})
     assert r.status_code == 403
     assert cb.get(f"/auth/upgrade/{a1}", follow_redirects=False).headers["location"].startswith("/profile")

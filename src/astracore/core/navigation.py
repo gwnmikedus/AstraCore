@@ -1,16 +1,13 @@
-"""Canonical destinations for the operation and its supporting pages."""
+"""Canonical destinations for the operation and its supporting pages.
+
+Module sub-navigation (PI: Plan · Area · Settings) comes from `Module.nav` in the module registry.
+"""
 
 PRIMARY_NAV = [
     ("Home", "/", "house", "Your operation at a glance"),
     ("Plan", "/pi/plan", "layers", "Build a plan around your playtime"),
     ("Operate", "/pi/operate", "timer", "Run your current operation"),
     ("Characters", "/profile", "users", "Manage your connected alts"),
-]
-
-PLAN_NAV = [
-    ("Plan", "/pi/plan", "layers"),
-    ("Area", "/pi/area", "map"),
-    ("Settings", "/pi/settings", "settings"),
 ]
 
 COMMUNITY_PATHS = (
@@ -23,8 +20,10 @@ def section_for(path: str) -> str:
     """Keep the parent destination selected on its supporting pages."""
     if path in ("/", "/welcome"):
         return "/"
-    if path == "/profile" or path.startswith("/profile/"):
+    if path == "/profile" or path.startswith("/profile/") or path == "/pi/reset":
         return "/profile"
+    if path == "/pi/glossary":
+        return ""   # a help page linked from the "?" answers, not a plan setup step
     if path == "/pi/operate" or path.startswith("/pi/operate/"):
         return "/pi/operate"
     if path == "/pi" or path.startswith("/pi/"):

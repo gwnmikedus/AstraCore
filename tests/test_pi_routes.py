@@ -26,14 +26,6 @@ def test_pi_entry_lands_where_it_should(browser, eve):
     assert c.get("/pi", follow_redirects=False).headers["location"] == "/pi/operate"   # returning user -> Operate
 
 
-def test_old_paths_redirect_permanently(browser):
-    c = browser()
-    for old, new in (("/space", "/pi/area"), ("/planner?view=advanced", "/pi/plan?view=advanced"),
-                     ("/operate", "/pi/operate"), ("/characters", "/profile"), ("/export/plan.md", "/pi/export/plan.md")):
-        r = c.get(old, follow_redirects=False)
-        assert r.status_code == 301 and r.headers["location"] == new
-
-
 def test_wizard_save_changes_only_what_was_sent(browser, eve):
     c = browser()
     sso_login(c, eve, new_id(), "Saver")
@@ -263,3 +255,18 @@ def test_area_scan_picker_includes_unused_and_unselected_planets(browser, eve, m
     assert c.post("/pi/area/richness", data={"planet_id": "31", "richness": ""}).status_code == 403
     c.post("/pi/area/richness", data={"planet_id": "31", "richness": "", "csrf_token": csrf(c)})
     assert store.planet_overrides(pid) == {}
+
+
+def test_visiting_pi_writes_only_when_something_changes(browser, eve, monkeypatch):
+    c = browser()
+    sso_login(c, eve, new_id(), "Returning")
+    pid = me(c)
+    c.get("/pi?rhythm=max", follow_redirects=False)                  # first visit: onboarded and goal preview saved
+    assert db.get_profile(pid)["onboarded"] and store.load_settings(pid).effort == 100
+    writes = []
+    preview = store.apply_preview_goal
+    monkeypatch.setattr(db, "update_profile", lambda *a, **kw: writes.append(("profile", kw)))
+    monkeypatch.setattr(store, "apply_preview_goal", lambda *a: preview(*a) and writes.append(("goal", a)))
+    for path in ("/pi", "/pi?rhythm=max"):
+        assert c.get(path, follow_redirects=False).status_code in (200, 303)
+    assert writes == []

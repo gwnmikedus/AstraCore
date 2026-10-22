@@ -278,12 +278,15 @@ Module(
   route_prefix="/pi", icon="static/img/modules/pi.svg",
   required_bundle=Bundle("pi.required", scopes=[...], why="..."),
   optional_bundles=[Bundle("pi.optional.customs", ...), Bundle("pi.optional.waypoints", ...)],
-  nav=[("Operate", "/pi/operate"), ("Plan", "/pi/plan"), ("Area", "/pi/area"), ("Settings", "/pi/settings")],
+  nav=[("Plan", "/pi/plan", "layers", "..."), ("Area", "/pi/area", "map", "..."),
+       ("Settings", "/pi/settings", "settings", "...")],   # (label, href, icon, menu description)
   dashboard_tile=pi_tile,   # callable(profile) -> tile data
   on_character_removed=..., on_profile_reset=...,
 )
 ```
 - Home cards, dashboard tiles, nav, "What we read", sign-in scopes and reset hooks are all generated from this list.
+  The module's `nav` is its sub-nav and its menu group; the site-wide destinations (Home · Plan · Operate · Characters)
+  live in `core/navigation.py`.
 - Modules with `status="coming"` are not registered in v1 (the home page uses the generic "more coming" card).
 
 ---
@@ -292,10 +295,10 @@ Module(
 
 ### 7.1 Routes and where you land
 - Prefix everything: `/pi/area` (was `/space`), `/pi/plan` (was `/planner`, advanced = `/pi/plan?view=advanced`), `/pi/operate`,
-  `/pi/settings`, `/pi/export/...`, `/pi/api/...`. 301-redirect the old paths for one release.
-- Entering the module (`/pi`): no characters with PI scopes → "connect characters" panel; no area → Area; no saved plan → Plan wizard;
+  `/pi/settings`, `/pi/export/...`, `/pi/api/...`. The old paths were 301-redirected for one release (removed since).
+- Entering the module (`/pi`): no characters with PI scopes → "connect characters" panel; no saved plan → Plan wizard (it asks for the area);
   **a plan exists → Operate** (that's the daily screen; today returning users are dropped back into the wizard).
-- PI sub-nav: **Operate · Plan · Area · Settings** (Operate first once a plan exists). Drop the numbered 1–4 stepper
+- PI sub-nav: **Plan · Area · Settings** on the plan pages; Operate is a main destination of its own. Drop the numbered 1–4 stepper
   in the global header; the stepper stays only inside the wizard. Characters move to the profile page; PI keeps a
   compact "Characters in this plan" panel (§7.2).
 

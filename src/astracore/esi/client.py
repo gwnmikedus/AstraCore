@@ -285,7 +285,3 @@ class ESIClient:
             c.execute("REPLACE INTO http_cache(url, body, etag, expires, esi_expires) VALUES(?,?,?,?,?)",
                       (cache_key, json.dumps(data), None, _expires(resp, ttl), _esi_expires(resp)))
         return data
-
-    async def gather_get(self, paths: List[str], ttl: Optional[int] = None) -> Dict[str, Any]:
-        results = await asyncio.gather(*[self.get(p, ttl=ttl) for p in paths], return_exceptions=True)
-        return {p: r for p, r in zip(paths, results) if not isinstance(r, Exception)}

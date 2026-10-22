@@ -52,7 +52,7 @@ def apply_preview_goal(profile_id: int, rhythm: str) -> bool:
         row = c.execute("SELECT settings_json FROM module_settings WHERE profile_id=? AND module_id=?",
                         (profile_id, MODULE_ID)).fetchone()
         settings = json.loads(row["settings_json"]) if row else {}
-        if "goal" in (settings.get("answered") or []):
+        if "goal" in (settings.get("answered") or []) or settings.get("effort") == GOAL_EFFORT[rhythm]:
             return False
         settings["effort"] = GOAL_EFFORT[rhythm]
         c.execute("REPLACE INTO module_settings(profile_id, module_id, settings_json) VALUES(?,?,?)",

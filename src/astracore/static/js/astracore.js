@@ -138,15 +138,22 @@
       }
     };
     themeLabel();
+    // One crossfade of the whole page (a view transition) instead of each element fading at its own speed.
+    // data-theme-changing holds element transitions still while the theme flips; without view transitions
+    // (or with reduced motion) the theme switches at once.
     if (tt) tt.onclick = () => {
       const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+      const apply = () => {
+        root.dataset.theme = next;
+        try { localStorage.setItem('ac_theme', next); } catch (e) {}
+        themeLabel();
+      };
       clearTimeout(themeTimer);
-      root.toggleAttribute('data-theme-changing', !reducedMotion.matches);
-      root.dataset.theme = next;
-      try { localStorage.setItem('ac_theme', next); } catch (e) {}
-      themeLabel();
+      root.toggleAttribute('data-theme-changing', true);
       tt.classList.add('tip-quiet');
-      themeTimer = setTimeout(() => root.removeAttribute('data-theme-changing'), 400);
+      const settle = () => { themeTimer = setTimeout(() => root.removeAttribute('data-theme-changing'), 50); };
+      if (document.startViewTransition && !reducedMotion.matches) document.startViewTransition(apply).finished.finally(settle);
+      else { apply(); settle(); }
     };
     // After a switch the tooltip stays hidden until the pointer or focus leaves, so it never warns about the theme you just chose.
     if (tt) ['pointerleave', 'blur'].forEach(type => tt.addEventListener(type, () => tt.classList.remove('tip-quiet')));
@@ -173,6 +180,13 @@
         b.textContent = 'Copied';
       } catch (err) { b.textContent = 'Copy failed'; }
       setTimeout(() => b.innerHTML = t, 1600);
+    });
+    // A section the pilot opens fades in (the CSS keys on data-opening); one drawn or redrawn open doesn't.
+    document.addEventListener('click', e => {
+      const details = e.target.closest?.('#main-content details > summary')?.parentElement;
+      if (!details || details.open) return;
+      details.setAttribute('data-opening', '');
+      setTimeout(() => details.removeAttribute('data-opening'), 400);
     });
     document.querySelectorAll('[data-autosubmit]').forEach(el => el.addEventListener('change', () => el.form.requestSubmit()));
     document.querySelectorAll('form[data-confirm]').forEach(f => f.addEventListener('submit', e => {

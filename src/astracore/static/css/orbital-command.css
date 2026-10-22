@@ -25,13 +25,13 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .platform-copy .lead { max-width: 36ch; font-size: 22px; line-height: 30px; margin: 0 0 12px; }
 .platform-copy .hero-description { color: var(--ink-muted); font-size: 17px; line-height: 26px; margin-bottom: 0; }
 .platform-copy .text-action { color: var(--ink); }
-.platform-copy .text-action:hover { color: var(--signal); }
+@media (hover: hover) { .platform-copy .text-action:hover { color: var(--signal); } }
 .platform-copy .primary-link { min-height: 48px; padding-inline: 24px; }
 .assurance-row { display: flex; flex-wrap: wrap; gap: 4px 0; list-style: none; padding: 0; margin: 24px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 20px; }
 .assurance-row li { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0; }
 .assurance-row li + li::before { content: "·"; margin: 0 10px; color: var(--ink-muted); }
 .assurance-row a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
-.assurance-row a:hover { color: var(--signal); }
+@media (hover: hover) { .assurance-row a:hover { color: var(--signal); } }
 /* Film hero: the trailer plays once over the header (js/hero-film.js), then dissolves into it; Play the film replays it.
    The hero spans the window (the script measures it); the copy keeps to the page column through --column-left. */
 .platform-hero.is-live { margin-right: 0; }
@@ -44,11 +44,16 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .platform-hero.is-live .hero-film { display: block; position: absolute; inset: 0; z-index: 5; overflow: hidden; background: #0b0c0d;
   transition: opacity 1.4s ease, visibility 0s linear 0s; }
 .platform-hero.film-done .hero-film { opacity: 0; visibility: hidden; transition: opacity 1.4s ease, visibility 0s linear 1.4s; }
-.platform-hero.film-done .platform-copy > * { animation: hero-rise .9s cubic-bezier(.2, .7, .2, 1) both; }
-.platform-hero.film-done .platform-copy > :nth-child(2) { animation-delay: .12s; }
-.platform-hero.film-done .platform-copy > :nth-child(3) { animation-delay: .22s; }
-.platform-hero.film-done .platform-copy > :nth-child(n+4) { animation-delay: .32s; }
+/* The copy rises only when a film that played ends (film-ended): when the film doesn't play, the copy was drawn
+   first and stays still. A first visit that will play starts covered (html[data-film-intro="play"], set in the
+   head), so the copy never flashes before the film; if the film script never runs, the cover lifts by itself. */
+.platform-hero.film-ended .platform-copy > * { animation: hero-rise .9s cubic-bezier(.2, .7, .2, 1) both; }
+.platform-hero.film-ended .platform-copy > :nth-child(2) { animation-delay: .12s; }
+.platform-hero.film-ended .platform-copy > :nth-child(3) { animation-delay: .22s; }
+.platform-hero.film-ended .platform-copy > :nth-child(n+4) { animation-delay: .32s; }
 @keyframes hero-rise { from { opacity: 0; transform: translateY(18px); } }
+html[data-film-intro="play"] .platform-hero:not(.is-live) :is(.platform-copy, .hero-caption) { animation: hero-wait 2.5s step-end; }
+@keyframes hero-wait { from, to { visibility: hidden; } }
 .hero-film-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0;
   --display: var(--font-display); --sans: var(--font-sans); --mono: var(--font-mono);   /* the film's fonts are the site's */
   /* The film is always night: pin the dark theme's tokens so the light theme's ink can't reach into it. */
@@ -80,9 +85,10 @@ html[data-header-away] .site-menu:not([open]) .menu-label { display: none; }
 .hero-replay > .ic { width: 40px; height: 40px; padding: 10px; box-sizing: border-box; background: var(--signal); color: var(--on-signal); fill: currentColor; }
 .hero-replay-text { display: grid; gap: 2px; font-size: 13px; line-height: 18px; color: var(--ink-muted); }
 .hero-replay-label { font: 600 16px/20px var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); }
-.hero-replay:hover .hero-replay-label, .hero-replay:focus-visible .hero-replay-label { color: var(--signal); }
+.hero-replay:focus-visible .hero-replay-label { color: var(--signal); }
+@media (hover: hover) { .hero-replay:hover .hero-replay-label { color: var(--signal); } }
 .hero-replay:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
-.platform-hero.film-done .hero-replay { animation: hero-rise .9s .5s cubic-bezier(.2, .7, .2, 1) both; }
+.platform-hero.film-ended .hero-replay { animation: hero-rise .9s .5s cubic-bezier(.2, .7, .2, 1) both; }
 .hero-caption { position: absolute; inset: auto 32px 20px; display: flex; justify-content: space-between; gap: 16px; color: var(--ink-muted); font: 400 10px/16px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .hero-caption > :first-child { color: var(--ink); border-left: 2px solid var(--signal); padding-left: 12px; }
 .hero-caption > :last-child { background: var(--void); padding: 2px 8px; }

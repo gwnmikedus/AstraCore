@@ -178,15 +178,15 @@
     <b>{{ icon('truck') }} Hauling to {{ hl.dropoff }}</b>
     <ul class="muted">
     {% for c in hl.contracts %}
-      <li>VOC courier {{ c.from }} → {{ c.to }}{% if c.section == 'starter_stock' %} (starter stock{% if c.shared %}, added to the command center contract{% endif %}){% endif %}:
+      <li>{{ (c.provider ~ ' courier') if c.provider else 'Courier' }} {{ c.from }} → {{ c.to }}{% if c.section == 'starter_stock' %} (starter stock{% if c.shared %}, added to the command center contract{% endif %}){% endif %}:
         {{ c.m3|m3 }}, collateral {{ c.collateral|isk }}, {% if c.shared %}extra {% endif %}fee {{ c.fee|isk }}
-        {%- if c.contracts > 1 %} over {{ c.contracts }} contracts (VOC’s size limit){% endif %}
+        {%- if c.contracts > 1 %} over {{ c.contracts }} contracts (the courier’s size limit){% endif %}
         {%- if c.carry_jumps %}, then carry it {{ c.carry_jumps }} jump{{ 's' if c.carry_jumps != 1 }} to {{ hl.dropoff }} yourself{% endif %}.
         {% if c.self_haul_trips %}<br>The fee is more than these goods are worth: with a Deep Space Transport
           ({{ c.self_haul_trips }} trip{{ 's' if c.self_haul_trips != 1 }} of ≈ 60,000 m³) flying it yourself may be cheaper; AstraCore doesn’t price that trip or its risk.{% endif %}
-        {% if c.approx %}<span class="warn">Approximation:</span> VOC’s tariff lists {{ c.to }} → {{ c.from }} only; the same rate is assumed this way. Check it on <a href="{{ voc_site }}" target="_blank" rel="noopener">vochauling.com</a> before you contract.{% endif %}</li>
+        {% if c.approx %}<span class="warn">Approximation:</span> the courier’s tariff lists {{ c.to }} → {{ c.from }} only; the same rate is assumed this way. {% if c.provider_site %}Check it on {{ external_link(c.provider_site, c.provider) }}{% else %}Check it with the courier{% endif %} before you contract.{% endif %}</li>
     {% endfor %}
-    {% if hl.self_haul %}<li>From {{ hl.self_haul|join(' and ') }}: no VOC courier route to your drop-off is known, so you haul it yourself and the hauling isn’t priced.</li>{% endif %}
+    {% if hl.self_haul %}<li>From {{ hl.self_haul|join(' and ') }}: no courier route to your drop-off is known, so you haul it yourself and the hauling isn’t priced.</li>{% endif %}
     </ul>
   </div>
   {% endif %}
@@ -381,9 +381,9 @@
   <div class="warnbox reality">
     <strong>{{ r.m3|m3 }} in {{ r.where }}{% if r.system %} ({{ r.system }}){% endif %}</strong>, worth {{ r.value|isk }} at Jita buy, has to reach {{ r.dest }}.
     That is {% for t in r.trips %}{{ t.trips }} {{ t.ship }} trip{{ 's' if t.trips != 1 }} (≈ {{ t.capacity|m3 }} each){% if not loop.last %} or {% endif %}{% endfor %}.
-    {% if r.voc %}Alternative: move it to the VOC pickup in {{ r.voc.origin }} ({{ r.voc.jumps }} jumps) and let VOC courier it:
-      about <strong>{{ r.voc.fee|isk }}</strong> in fees{% if r.voc.contracts > 1 %}, split into {{ r.voc.contracts }} contracts{% endif %}.
-    {% else %}VOC has no pickup within reach of this hangar.{% endif %}
+    {% if r.carrier %}Alternative: move it to the courier pickup in {{ r.carrier.origin }} ({{ r.carrier.jumps }} jumps) and let the courier take it:
+      about <strong>{{ r.carrier.fee|isk }}</strong> in fees{% if r.carrier.contracts > 1 %}, split into {{ r.carrier.contracts }} contracts{% endif %}.
+    {% else %}No courier has a pickup within reach of this hangar.{% endif %}
   </div>
   {% endfor %}
   {% if c.unsellable %}<p class="muted warn">No enabled way to sell: {{ c.unsellable|join(', ') }}. Enable more selling options in the plan.</p>{% endif %}
@@ -399,7 +399,7 @@
       <div class="haul-detail">
         <b>{{ b.label }}</b> <span class="muted">{{ b.m3|m3 }} · {% if b.hold %}hold{% else %}≈ {{ b.net|isk }} net{% endif %}</span>
         {% if b.channel == 'buyback' %}
-          <div class="muted">1. Copy this list, paste it at {{ external_link(buyback_site, 'VOC buyback') }} (location {{ g.system }}), Appraise.
+          <div class="muted">1. Copy this list, paste it at {{ external_link(buyback_site, 'the buyback') }} (location {{ g.system }}), Appraise.
             2. Create an Item Exchange contract to <b>United East-Indian Compagnie</b> with the reference it shows.</div>
           <textarea class="paste" readonly aria-label="Paste list">{{ b.paste }}</textarea><button class="copy outline" data-copy="{{ b.paste }}">Copy list</button>
         {% elif b.contract %}
@@ -427,14 +427,14 @@
   <h5>{{ icon('truck') }} In the pipeline</h5>
   <div class="grid">
     <div>
-      <b>VOC courier contracts</b>
+      <b>Courier contracts</b>
       {% for c in pipe.courier %}
       <p class="muted compact-copy"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.from }} → {{ c.to }}
         · {{ c.volume|m3 }} · collateral {{ c.collateral|isk }} · reward {{ c.reward|isk }}</p>
       {% else %}<p class="empty">None open.</p>{% endfor %}
     </div>
     <div>
-      <b>VOC buyback contracts</b>
+      <b>Buyback contracts</b>
       {% for c in pipe.buyback %}
       <p class="muted compact-copy"><span class="st-{{ c.status }}">{{ c.status.replace('_', ' ') }}</span> · {{ c.character }} · {{ c.price|isk }}
         · {% for k, v in c['items'].items() %}{{ eve_img(k, 16) }}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% if c.other_items %} <span class="muted">+ {{ c.other_items }} other item{{ 's' if c.other_items != 1 }}</span>{% endif %}</p>
@@ -445,7 +445,7 @@
   <details><summary class="muted">Completed in the last 7 days ({{ pipe.done|length }})</summary>
     {% for c in pipe.done %}
     <p class="muted compact-copy"><span class="st-finished">{{ c.status.replace('_', ' ') }}</span> · {{ c.kind }} · {{ c.character }}
-      {% if c.kind == 'VOC courier' %}· {{ c.from }} → {{ c.to }} · {{ c.volume|m3 }} · reward {{ c.reward|isk }}{% else %}· {{ c.price|isk }}
+      {% if c.kind.endswith('ourier') %}· {{ c.from }} → {{ c.to }} · {{ c.volume|m3 }} · reward {{ c.reward|isk }}{% else %}· {{ c.price|isk }}
       · {% for k, v in c['items'].items() %}{{ v|num }} {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>
     {% endfor %}
   </details>
@@ -467,8 +467,8 @@
   <h5>{{ icon('wallet') }} ISK that actually came in <span class="muted">· last <a href="?days=7" {{ 'aria-current=page' if days == 7 }}>7</a> / <a href="?days=30" {{ 'aria-current=page' if days == 30 }}>30</a> days</span></h5>
   <div class="cards">
     <div class="card"><div class="v">{{ earned.market_sales|isk }}</div><div class="l">market sales (PI)</div></div>
-    <div class="card"><div class="v">{{ earned.buyback|isk }}</div><div class="l">VOC buyback payouts</div></div>
-    <div class="card"><div class="v">{{ (-earned.courier_costs)|isk }}</div><div class="l">VOC courier rewards paid</div></div>
+    <div class="card"><div class="v">{{ earned.buyback|isk }}</div><div class="l">Buyback payouts</div></div>
+    <div class="card"><div class="v">{{ (-earned.courier_costs)|isk }}</div><div class="l">Courier rewards paid</div></div>
     <div class="card"><div class="v">{{ (-earned.taxes)|isk }}</div><div class="l">POCO, sales &amp; broker taxes</div></div>
     <div class="card"><div class="v {{ 'ok' if earned.net > 0 else '' }}">{{ earned.net|isk }}</div><div class="l">net · {{ earned.net_per_day|isk }}/day</div></div>
     <div class="card"><div class="v">{{ (plan.totals.isk_per_day if plan and plan.totals else none)|isk }}</div><div class="l">active plan expects / day</div></div>

@@ -38,7 +38,7 @@ GLOSSARY: List[Dict[str, str]] = [
     {"id": "buying-inputs", "term": "Buying inputs",
      "text": "Factories can run on P1, P2 or P3 you buy in Jita, Amarr or Delve instead of only on what your own "
              "miners make. That's how most pilots make P3 and P4: a few factory planets fed from the market. The "
-             "planner counts the price, the VOC courier to your drop-off and customs, buys at most 10% of what those "
+             "planner counts the price, the courier to your drop-off and customs, buys at most 10% of what those "
              "markets trade a day, and stays within your budget for ISK tied up in inputs. Operate lists what to buy "
              "for each restock."},
     {"id": "yield", "term": "Yield estimate and calibration",
@@ -67,14 +67,15 @@ GLOSSARY: List[Dict[str, str]] = [
      "text": "Bringing a factory its inputs. On each visit you drop off enough for the next few days (as many as its "
              "buffer holds) and take the products made since last time."},
     {"id": "buyback", "term": "Buyback",
-     "text": "Selling products straight to VOC where you are, at a set share of the Jita buy price. No hauling and no "
-             "waiting, but a bit less ISK, and VOC's buyback takes P2 and up, not P1."},
-    {"id": "voc", "term": "VOC Hauling",
-     "text": "A hauling service in Delve (United East-Indian Compagnie). You give them a courier contract at the "
-             "drop-off and they fly it to Jita or Amarr for a fee: per m³, with a minimum per contract. They also run "
-             "the buyback. AstraCore plans with their published rates; it isn't affiliated with them."},
-    {"id": "self-haul", "term": "VOC or hauling yourself",
-     "text": "By default the plan ships through VOC, so you don't fly cargo out of null yourself. On the Selling step "
+     "text": "Selling products straight to a buyer where you are, at a set share of the Jita buy price. No hauling "
+             "and no waiting, but a bit less ISK. Only offered when an active courier runs one; Humpback doesn't."},
+    {"id": "courier", "term": "Courier",
+     "text": "A hauling service: you give it a courier contract at its pickup and it flies the goods to Jita or "
+             "Amarr for a fee, per m³ plus a share of the collateral, with a minimum per contract. AstraCore plans "
+             "with every courier on the Couriers page that runs now (Humpback Whale Logistic of Dracarys.) and takes "
+             "the cheapest; it isn't affiliated with them."},
+    {"id": "self-haul", "term": "Courier or hauling yourself",
+     "text": "By default the plan ships through a courier, so you don't fly cargo out of null yourself. On the Selling step "
              "you can pick your own trip to Jita or Amarr instead: no courier fee, but the journey time, fuel and "
              "the risk of losing the cargo are yours, and AstraCore doesn't price them."},
     {"id": "ccu", "term": "CCU (Command Center Upgrades)",
@@ -160,9 +161,9 @@ def answers(settings: Any = None, head_yield: float = 0.0, calibrated: bool = Fa
                    "text": "A factory runs on inputs you bring it: each restock drops off enough for the days its "
                            "buffer (launchpads and storage) can hold. Miners fill the same space with products, "
                            "so collect before it's full."},
-        "voc": {"label": "VOC or haul it yourself?", "more": "self-haul",
-                "text": "The plan ships through VOC Hauling: a courier contract from your drop-off to Jita or Amarr, "
-                        "priced per m³ with a minimum fee, or their buyback where you are. Your own trip saves the "
+        "courier": {"label": "Courier or haul it yourself?", "more": "self-haul",
+                "text": "The plan ships through a courier: a contract from its pickup to Jita "
+                        "or Amarr, priced per m³ plus collateral with a minimum fee. Your own trip saves the "
                         "fee, but its time, fuel and risk aren't priced in the ISK shown."},
     }
 

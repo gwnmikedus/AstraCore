@@ -23,7 +23,7 @@ from .module import PI_REQUIRED
 from .planner import checklist, compare, demand, nextup, notices, operate, optimizer, prices, selling, setups, upkeep
 from .planner import skills as skills_mod
 from .settings import Settings, auto_teamwork
-from .static_data import dalshooth, sde_loader, voc
+from .static_data import dalshooth, sde_loader, carrier
 
 log = logging.getLogger("astracore")
 REQUIRED_SCOPES = set(PI_REQUIRED.scopes)
@@ -164,9 +164,9 @@ async def market_data(pi, outage: Optional[esi_errors.Outage] = None):
             outage.note(None, prices.cached().get("at"))
     if prices.history_stale():
         refresh_history_soon(pi)
-    info = voc.routes_info()
+    info = carrier.routes_info()
     if not info["at"] or time.time() - info["at"] > 86400:
-        await voc.refresh_routes()
+        await carrier.refresh_routes()
     return prices.cached()["books"]
 
 
@@ -427,12 +427,12 @@ def run_plan(ctx, s=None) -> dict:
     res["yield"] = {"head_yield": round(ctx["head_yield"]), "calibrated": bool(ctx["calibrated"])}
     if not ctx["s"].use_self_haul and ctx["origin"] is None and ctx["dropoff"]:
         res["warnings"].append(notices.note(
-            "voc_unreachable", f"VOC doesn't pick up in {ctx['dropoff']} and no VOC pickup is reachable in your "
+            "voc_unreachable", f"No courier picks up in {ctx['dropoff']} and no courier pickup is reachable in your "
             f"area, so products that need a courier are valued at 0. Pick a drop-off from "
-            f"{', '.join(voc.COURIER_ORIGINS)}.", steps=("area", "sell")))
+            f"{', '.join(carrier.courier_origins())}.", steps=("area", "sell")))
     elif not ctx["s"].use_self_haul and ctx["origin"] != ctx["dropoff"]:
         res["warnings"].append(notices.note(
-            "voc_origin", f"VOC doesn't pick up in {ctx['dropoff']}: courier values assume you move the goods to "
+            "voc_origin", f"No courier picks up in {ctx['dropoff']}: courier values assume you move the goods to "
             f"{ctx['origin']} ({notices.plural(ctx['origin_jumps'], 'jump')}) first.", steps=("area",), level="info"))
     res["income_check"] = income_check(res)
     richness_sources(res["colonies"], ctx["manual_overrides"], ctx["measured"])
@@ -449,7 +449,7 @@ def data_stamp(profile_id: int) -> tuple:
     chars = tuple((c["character_id"], c.get("synced_at"), c["enabled"], c["status"])
                   for c in db.list_characters(profile_id))
     return (profile_id, chars, tuple(sorted(store.planet_overrides(profile_id).items())),
-            prices.cached().get("at"), prices.history_cached().get("at"), voc.routes_info().get("at"),
+            prices.cached().get("at"), prices.history_cached().get("at"), carrier.routes_info().get("at"),
             tuple(sorted(store.admin_defaults().items())), sde_loader.stamp())
 
 
@@ -645,7 +645,7 @@ def restock_purchases(ctx: dict, active: Optional[dict]) -> Optional[dict]:
             "isk": round(sum(r["isk"] for r in rows)), "hauling": round(sum(r["haul_isk"] for r in rows)),
             "landed": round(sum(r["landed_isk"] for r in rows)),
             "unpriced": [r["key"] for r in rows if not r["where"]],
-            "multibuy": voc.paste_list(need), "contracts": buy["contracts"],
+            "multibuy": carrier.paste_list(need), "contracts": buy["contracts"],
             "capital_isk": (res.get("totals") or {}).get("capital_isk"),
             "budget_isk": float(settings.get("input_budget_isk") or 0)}
 

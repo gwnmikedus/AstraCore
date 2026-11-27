@@ -1,15 +1,15 @@
 """Turning PI products into liquid ISK: compare every channel per product.
 
 Channels (value per unit, at your drop-off station, after all costs):
-  buyback     VOC alliance buyback: % of Jita buy, sold where you are (no hauling).
-  jita_buy    VOC courier to Jita, sell into buy orders (instant).
-  jita_sell   VOC courier to Jita, list sell orders (more ISK, slower, needs relisting). Only valued
+  buyback     a buyback: % of Jita buy, sold where you are (no hauling). Only when the courier has one.
+  jita_buy    courier to Jita, sell into buy orders (instant).
+  jita_sell   courier to Jita, list sell orders (more ISK, slower, needs relisting). Only valued
               when there is evidence it sells: the hub's sell book loaded and recent trades in its region
               (see `sell_order_gap`); otherwise the product keeps its instant-sale value.
   amarr_buy / amarr_sell   same via Amarr.
   local_buy   sell into Delve buy orders.
 
-Courier costs use VOC's rule: max(min fee, m3 x rate + collateral x col%). The minimum
+Courier costs use the courier's rule: max(min fee, m3 x rate + collateral x col%). The minimum
 fee is handled per shipment in `sell_plan`; per-unit values use the variable part.
 """
 from __future__ import annotations
@@ -18,11 +18,11 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from ..settings import Settings, hour_value
-from ..static_data import voc
+from ..static_data import carrier
 from ..static_data.sde_loader import PIData
 
 LABELS = {
-    "buyback": "VOC buyback",
+    "buyback": "Buyback",
     "jita_buy": "Courier → Jita, sell to buy orders",
     "jita_sell": "Courier → Jita, list sell orders",
     "amarr_buy": "Courier → Amarr, sell to buy orders",
@@ -101,7 +101,7 @@ def _one_hub(choice: Dict[int, str], per_item: Dict[int, dict], trip_isk: float)
 
 
 def in_delve(system: str, area: Optional[dict]) -> bool:
-    if system in voc.BUYBACK_LOCATIONS or system in voc.COURIER_ORIGINS:
+    if system in carrier.local_pickups("Delve"):
         return True
     if area:
         for s in area["systems"].values():
@@ -111,9 +111,9 @@ def in_delve(system: str, area: Optional[dict]) -> bool:
 
 
 def courier_origin(dropoff: str, area: Optional[dict]) -> Tuple[Optional[str], int]:
-    """VOC pickup to start couriers from: the drop-off itself when VOC serves it, otherwise the
-    nearest VOC pickup in your space (you move the goods there first). (None, 0) if none is known."""
-    if dropoff in voc.COURIER_ORIGINS or dropoff in HUB_SYSTEMS.values():
+    """Courier pickup to start couriers from: the drop-off itself when a courier serves it, otherwise the
+    nearest courier pickup in your space (you move the goods there first). (None, 0) if none is known."""
+    if dropoff in carrier.courier_origins() or dropoff in HUB_SYSTEMS.values():
         return dropoff, 0
     if not area:
         return None, 0
@@ -123,7 +123,7 @@ def courier_origin(dropoff: str, area: Optional[dict]) -> Tuple[Optional[str], i
         return None, 0
     dist = area_mod.jumps_from(area, start["system_id"])
     best = None
-    for name in voc.COURIER_ORIGINS:
+    for name in carrier.courier_origins():
         h = area_mod.system_by_name(area, name)
         if h and h["system_id"] in dist and (best is None or dist[h["system_id"]] < best[1]):
             best = (name, dist[h["system_id"]])
@@ -133,8 +133,9 @@ def courier_origin(dropoff: str, area: Optional[dict]) -> Tuple[Optional[str], i
 def coverage(dropoff: str, area: Optional[dict]) -> dict:
     """Channels reachable from the resolved drop-off, without enabling any preferences."""
     origin, _ = courier_origin(dropoff, area)
-    return {"local": in_delve(dropoff, area),
-            "courier": any(voc.route(origin or dropoff, dest) for dest in (voc.JITA, voc.AMARR)),
+    local = in_delve(dropoff, area)
+    return {"local": local, "buyback": local and carrier.has_buyback(),
+            "courier": any(carrier.route(origin or dropoff, dest) for dest in (carrier.JITA, carrier.AMARR)),
             "trade_hub": dropoff in HUB_SYSTEMS.values()}
 
 
@@ -144,8 +145,8 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
                    history: Optional[History] = None) -> Dict[str, float]:
     """Net ISK per unit at the drop-off for every enabled channel.
     `local` = the drop-off is in Delve (buyback and Delve market are reachable).
-    `origin` = VOC pickup the courier starts from (defaults to the drop-off).
-    `self_haul` = when VOC can't take it from here, value it as hauled to Jita/Amarr yourself.
+    `origin` = courier pickup the courier starts from (defaults to the drop-off).
+    `self_haul` = when no courier takes it from here, value it as hauled to Jita/Amarr yourself.
     `history` = recent trades per market: sell orders are only valued where they show it sells
     (None = not checked). A sell order is priced at the lowest sell order there (you list at or just
     under it), after sales tax and broker fee."""
@@ -156,11 +157,11 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
     broker = s.broker_fee_pct / 100.0
     jita_buy = b.get("jita_buy", 0.0)
     out: Dict[str, float] = {}
-    if s.use_buyback and jita_buy and local:
+    if s.use_buyback and jita_buy and local and carrier.has_buyback():
         frac = buyback_fraction(s, tier)
         if frac > 0:
             out["buyback"] = frac * jita_buy
-    for hub_key, dest in (("jita", voc.JITA), ("amarr", voc.AMARR)):
+    for hub_key, dest in (("jita", carrier.JITA), ("amarr", carrier.AMARR)):
         if not getattr(s, f"use_{hub_key}"):
             continue
         if dropoff == HUB_SYSTEMS[hub_key]:
@@ -170,13 +171,13 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
                 out[f"{hub_key}_self"] = b[f"{hub_key}_buy"] * (1 - tax)
             continue
         else:
-            r = voc.route(origin, dest, routes)
+            r = carrier.route(origin, dest, routes)
             if not r:
                 if self_haul and b.get(f"{hub_key}_buy"):
                     out[f"{hub_key}_self"] = b[f"{hub_key}_buy"] * (1 - tax)
                 continue
             coll = jita_buy or b.get(f"{hub_key}_buy", 0.0)
-            cost = voc.courier_variable_per_unit(r, vol, coll)
+            cost = carrier.courier_variable_per_unit(r, vol, coll)
         if b.get(f"{hub_key}_buy"):
             out[f"{hub_key}_buy"] = b[f"{hub_key}_buy"] * (1 - tax) - cost
         if s.use_sell_orders and b.get(f"{hub_key}_sell") and not sell_order_gap(b, history, type_id, hub_key):
@@ -190,7 +191,7 @@ def best_values(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
                 local: bool = True, origin: Optional[str] = None,
                 history: Optional[History] = None) -> Dict[int, float]:
     """What the planner should value each product at (best channel per unit)."""
-    routes = voc.routes_cached()
+    routes = carrier.routes_cached()
     vals = {}
     for t in pi.items:
         if pi.tier(t) < 1:
@@ -220,7 +221,7 @@ def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, 
     """ISK per unit to get an input to the drop-off, for every market the pilot uses (the same Jita,
     Amarr and Delve choices as for selling). Instant buys pay the cheapest sell order; pilots who list
     sell orders may also place buy orders at the best bid plus broker fee (cheaper, slower).
-    Couriers need a VOC route from the hub to your pickup; hauling yourself prices only the goods."""
+    Couriers need a route from the hub to your pickup; hauling yourself prices only the goods."""
     origin = origin or dropoff
     b = books.get(type_id, {})
     vol = pi.volume(type_id)
@@ -235,7 +236,7 @@ def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, 
             p["_order"] = b[f"{market}_buy"] * (1 + broker)
         return p
 
-    for hub_key, src in (("jita", voc.JITA), ("amarr", voc.AMARR)):
+    for hub_key, src in (("jita", carrier.JITA), ("amarr", carrier.AMARR)):
         if not getattr(s, f"use_{hub_key}"):
             continue
         for suffix, price in prices(hub_key).items():
@@ -244,9 +245,9 @@ def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, 
             elif s.use_self_haul:
                 out[f"{hub_key}{suffix}_self"] = price
             else:
-                r = voc.route(src, origin, routes)
+                r = carrier.route(src, origin, routes)
                 if r:
-                    out[f"{hub_key}{suffix}"] = price + voc.courier_variable_per_unit(r, vol, price)
+                    out[f"{hub_key}{suffix}"] = price + carrier.courier_variable_per_unit(r, vol, price)
     if s.use_local and local:
         for suffix, price in prices("delve").items():
             out[f"local{suffix}"] = price
@@ -259,7 +260,7 @@ def buy_costs(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
     market has its own price and (demand.buy_limits) its own volume. Empty for own production only."""
     if not s.buy_inputs:
         return {}
-    routes = voc.routes_cached()
+    routes = carrier.routes_cached()
     costs = {}
     for t in pi.items:
         if not 1 <= pi.tier(t) <= 3:
@@ -273,7 +274,7 @@ def buy_costs(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
 def compare_table(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str, type_ids: List[int],
                   local: bool = True, origin: Optional[str] = None,
                   history: Optional[History] = None) -> List[dict]:
-    routes = voc.routes_cached()
+    routes = carrier.routes_cached()
     rows = []
     for t in type_ids:
         ch = channel_values(pi, s, books, t, dropoff, routes, local, origin, history=history)
@@ -289,10 +290,10 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
               origin: Optional[str] = None, origin_jumps: int = 0, self_haul: bool = False,
               history: Optional[History] = None) -> dict:
     """Per shipment cycle (every `ship_every_days`): which products go where, with exact
-    VOC contract values. If a courier batch is too small to beat the minimum fee, those
+    courier contract values. If a courier batch is too small to beat the minimum fee, those
     products fall back to their next-best channel. `history` as in channel_values: products whose
     sell order would pay best but has no evidence it sells are listed in `sell_order_fallback`."""
-    routes = voc.routes_cached()
+    routes = carrier.routes_cached()
     origin = origin or dropoff
     days = max(1.0, float(s.ship_every_days)) if per_day else 1.0
     per_item = {}
@@ -316,14 +317,14 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
         _one_hub(choice, per_item, extra_trip_isk(s))
     for _ in range(3):  # re-check courier batches against the minimum fee
         changed = False
-        for dest_key, dest in (("jita", voc.JITA), ("amarr", voc.AMARR)):
-            r = voc.route(origin, dest, routes)
+        for dest_key, dest in (("jita", carrier.JITA), ("amarr", carrier.AMARR)):
+            r = carrier.route(origin, dest, routes)
             members = [t for t, c in choice.items() if c.startswith(dest_key) and not c.endswith("_self")]
             if not r or not members or origin == HUB_SYSTEMS[dest_key]:
                 continue
             m3 = sum(per_item[t]["qty"] * pi.volume(t) for t in members)
             coll = sum(per_item[t]["qty"] * books.get(t, {}).get("jita_buy", 0.0) for t in members)
-            fee = voc.courier_fee(r, m3, coll)
+            fee = carrier.courier_fee(r, m3, coll)
             variable = m3 * r["per_m3"] + coll * r["collateral_pct"] / 100.0
             extra = fee - variable  # minimum-fee top-up spread over the batch
             if extra <= 0:
@@ -353,7 +354,7 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
         jita_value = sum(per_item[t]["qty"] * books.get(t, {}).get("jita_buy", 0.0) for t in members)
         net = sum(per_item[t]["qty"] * per_item[t]["channels"][c] for t in members)
         batch = {"channel": c, "label": LABELS[c], "speed": SPEED[c], "items": qty,
-                 "m3": round(m3, 1), "jita_value": round(jita_value), "paste": voc.paste_list(qty)}
+                 "m3": round(m3, 1), "jita_value": round(jita_value), "paste": carrier.paste_list(qty)}
         if c.endswith("_sell"):
             hub = c.split("_")[0]
             rows = []
@@ -366,30 +367,31 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
             batch["sell_orders"] = {"market": HUB_MARKETS[hub], "sales_tax_pct": s.sales_tax_pct,
                                     "broker_fee_pct": s.broker_fee_pct, "items": rows, "days": None}
         if c.endswith("_self"):
-            # Only point at a VOC pickup that courier_origin actually found within reach of this hangar.
-            via = (f" (or move it to the VOC pickup in {origin}, {origin_jumps} jumps, and courier it from there)"
-                   if origin != dropoff and origin in voc.COURIER_ORIGINS else "")
+            # Only point at a courier pickup that courier_origin actually found within reach of this hangar.
+            via = (f" (or move it to the {carrier.pickup_name(origin)} pickup in {origin}, {origin_jumps} jumps, and courier it from there)"
+                   if origin != dropoff and origin in carrier.courier_origins() else "")
             batch.update(note=f"Haul it to {'Jita' if c.startswith('jita') else 'Amarr'} "
                               f"yourself{via}, then sell. Proceeds are before your own trip time, fuel and loss risk; "
                               "those costs are not priced.")
         elif c.startswith(("jita", "amarr")) and origin not in HUB_SYSTEMS.values():
-            dest = voc.JITA if c.startswith("jita") else voc.AMARR
-            r = voc.route(origin, dest, routes)
-            fee = voc.courier_fee(r, m3, jita_value)
+            dest = carrier.JITA if c.startswith("jita") else carrier.AMARR
+            r = carrier.route(origin, dest, routes)
+            fee = carrier.courier_fee(r, m3, jita_value)
             variable = m3 * r["per_m3"] + jita_value * r["collateral_pct"] / 100.0
             net -= max(0.0, fee - variable)
             batch.update(contract={
-                "type": "Courier", "availability": "Private", "assign_to": voc.CORP_NAME,
+                "type": "Courier", "availability": "Private", "assign_to": carrier.assignee(r),
                 "from": origin, "to": dest, "reward": round(fee), "collateral": round(jita_value),
                 "volume": round(m3, 1), "expiration": "7 days", "completion": "3 days",
                 "contracts_needed": max(1, int(-(-m3 // r["max_m3"]))),
             })
             if origin != dropoff:
-                batch["contract"]["move_first"] = (f"VOC doesn't pick up in {dropoff}: move it to {origin} first "
+                batch["contract"]["move_first"] = (f"{carrier.route_provider(r).name if carrier.route_provider(r) else 'The courier'} doesn't pick up in {dropoff}: move it to {origin} first "
                                                    f"({origin_jumps} jumps), then create the contract there.")
         elif c == "buyback":
-            batch.update(contract={"type": "Item Exchange", "assign_to": voc.CORP_NAME, "location": dropoff,
-                                   "how": f"Paste the list at {voc.BUYBACK_SITE}, then create the contract "
+            bb = carrier.buyback_provider()
+            batch.update(contract={"type": "Item Exchange", "assign_to": bb.corp_name if bb else "the buyback", "location": dropoff,
+                                   "how": f"Paste the list at {carrier.buyback_site()}, then create the contract "
                                           f"with the reference it gives you."})
         batch["net"] = round(net)
         if c.endswith("_self"):
@@ -397,11 +399,11 @@ def sell_plan(pi: PIData, s: Settings, books: Dict[int, dict], dropoff: str,
         elif net <= 0 or (batch.get("contract", {}).get("reward") and
                         batch["contract"]["reward"] > 0.25 * max(1.0, jita_value)):
             # The minimum courier fee eats this batch: hold it and ship with a later one.
-            r = voc.route(origin, voc.JITA if c.startswith("jita") else voc.AMARR, routes)
+            r = carrier.route(origin, carrier.JITA if c.startswith("jita") else carrier.AMARR, routes)
             per_m3_value = (jita_value / m3) if m3 else 0
             need_m3 = (r["min_fee"] / (r["per_m3"] + per_m3_value * r["collateral_pct"] / 100.0)) if r else 0
             batch["hold"] = True
-            batch["note"] = (f"Too small for VOC's minimum fee - keep it in the hangar and ship it once you "
+            batch["note"] = (f"Too small for the courier's minimum fee - keep it in the hangar and ship it once you "
                              f"have about {need_m3:,.0f} m³ of it.")
         else:
             total += net

@@ -29,7 +29,7 @@ import pulp
 from ..settings import Settings, time_weights
 from ..intel import area as area_mod
 from ..intel import richness as rich
-from ..static_data import dalshooth, voc
+from ..static_data import dalshooth, carrier
 from ..static_data.pi_rules import HIGH_TECH_PLANETS, PLANET_TYPES
 from ..static_data.sde_loader import PIData
 from . import economics as eco
@@ -93,7 +93,7 @@ def existing_product(pi: PIData, col: dict) -> Optional[int]:
 
 
 def resolve_hub(area: dict, s: Settings, systems: Dict[int, dict], overrides: dict) -> Optional[dict]:
-    """The hub is where products are dropped off for selling. Auto mode prefers a VOC
+    """The hub is where products are dropped off for selling. Auto mode prefers a courier
     courier/buyback location close to the selected space; otherwise the best PI spot."""
     if s.hub_system:
         hub = area_mod.system_by_name(area, s.hub_system)
@@ -102,11 +102,11 @@ def resolve_hub(area: dict, s: Settings, systems: Dict[int, dict], overrides: di
     sub = {"systems": {str(k): {**v, "neighbours": [n for n in v["neighbours"] if n in systems]}
                        for k, v in systems.items()}}
     best_pi = area_mod.suggest_hub(sub, overrides)
-    voc_hubs = [area_mod.system_by_name(area, n) for n in voc.COURIER_ORIGINS]
-    voc_hubs = [h for h in voc_hubs if h]
-    if voc_hubs and best_pi:
+    courier_hubs = [area_mod.system_by_name(area, n) for n in carrier.courier_origins()]
+    courier_hubs = [h for h in courier_hubs if h]
+    if courier_hubs and best_pi:
         dist = area_mod.jumps_from(area, best_pi["system_id"])
-        near = [h for h in voc_hubs if dist.get(h["system_id"], 99) <= 3]
+        near = [h for h in courier_hubs if dist.get(h["system_id"], 99) <= 3]
         if near:
             return min(near, key=lambda h: dist.get(h["system_id"], 99))
     return best_pi

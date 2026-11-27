@@ -57,8 +57,8 @@
   <form method="post" action="/admin/settings">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="grid">
-      {{ num(s, 'buyback_pct', 'VOC buyback: % of Jita buy for P2–P4', 'Measured 90% from an appraisal at 7G-QIG on 2026-10-10.') }}
-      {{ num(s, 'buyback_pct_p1', 'VOC buyback: % of Jita buy for P1', '0 = refused (as of 2026-10-10).') }}
+      {{ num(s, 'buyback_pct', 'Buyback: % of Jita buy for P2–P4', 'Only used when an active courier runs a buyback.') }}
+      {{ num(s, 'buyback_pct_p1', 'Buyback: % of Jita buy for P1', '0 = refused.') }}
       {{ num(s, 'solver_time_limit', 'Solver safety limit (seconds per solve)', 'A solve normally ends after a fixed number of search steps (about a second); this only stops a stuck one. At least 30 seconds.', 1, 2) }}
     </div>
     <button>Save</button>
@@ -66,7 +66,7 @@
 </article>
 
 <article>
-  <header><strong>VOC courier tariff</strong> <span class="muted">{{ 'read live from vochauling.com' if routes_info.live else 'defaults (could not read vochauling.com)' }}{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
+  <header><strong>Courier tariffs</strong> <span class="muted">{{ 'read live from the providers' if routes_info.live else 'some are fallback values (could not read the provider)' }}{% if routes_info.at %}, {{ routes_info.at|ago }}{% endif %}</span></header>
   <div class="scroll"><table>
     <thead><tr><th>From</th><th>To</th><th>Min fee</th><th>Per m³</th><th>Collateral</th><th>Max m³</th></tr></thead>
     <tbody>{% for r in routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|num }}</td><td>{{ r.collateral_pct|pct }}</td><td>{{ r.max_m3|num }}</td></tr>{% endfor %}</tbody>

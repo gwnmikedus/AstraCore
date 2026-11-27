@@ -12,7 +12,7 @@ from astracore.modules.pi import service, store
 from astracore.modules.pi.planner import checklist, prices
 from astracore.modules.pi.settings import Settings
 from astracore.modules.pi.static_data import pi_rules as R
-from astracore.modules.pi.static_data import voc
+from astracore.modules.pi.static_data import carrier
 
 from test_core import browser, eve, me, new_id, sso_login  # noqa: F401 (fixtures)
 from test_planner import TEMPLATES, _plan, _tpl, pi  # noqa: F401 (fixtures)
@@ -349,9 +349,9 @@ def test_operate_links_the_checklist_exports(browser, eve, pi, monkeypatch):
 
 
 # --------------------------------------------------------------------------- landed cost: price + hauling
-JITA_ROUTE = {"origin": "7G-QIG", "dest": voc.JITA, "min_fee": 10_000_000, "per_m3": 1000, "collateral_pct": 1.0,
+JITA_ROUTE = {"origin": "7G-QIG", "dest": carrier.JITA, "min_fee": 10_000_000, "per_m3": 1000, "collateral_pct": 1.0,
               "max_m3": 165_000}
-AMARR_ROUTE = {"origin": "7G-QIG", "dest": voc.AMARR, "min_fee": 20_000_000, "per_m3": 650, "collateral_pct": 1.0,
+AMARR_ROUTE = {"origin": "7G-QIG", "dest": carrier.AMARR, "min_fee": 20_000_000, "per_m3": 650, "collateral_pct": 1.0,
                "max_m3": 165_000}
 ROUTES = [JITA_ROUTE, AMARR_ROUTE]                      # VOC lists Delve -> hub only, like the fallback tariff
 AREA = {"systems": {
@@ -369,14 +369,14 @@ def _cc_only(ptype="Barren", n=3, hub="7G-QIG"):
 def test_hauling_routes_use_voc_and_flag_an_assumed_return_tariff():
     h = checklist.hauling_routes("7G-QIG", AREA, ROUTES)
     assert h["jita"]["status"] == "courier" and h["jita"]["to"] == "7G-QIG" and h["jita"]["approx"]
-    both_ways = ROUTES + [{**JITA_ROUTE, "origin": voc.JITA, "dest": "7G-QIG"}]   # site said bidirectional
+    both_ways = ROUTES + [{**JITA_ROUTE, "origin": carrier.JITA, "dest": "7G-QIG"}]   # site said bidirectional
     assert not checklist.hauling_routes("7G-QIG", AREA, both_ways)["jita"]["approx"]
     assert checklist.hauling_routes("Jita", None, ROUTES)["jita"]["status"] == "free"
     assert checklist.hauling_routes("Somewhere", None, ROUTES)["amarr"]["status"] == "unpriced"
 
 
 def test_delve_seller_beats_a_cheaper_hub_once_the_courier_is_counted(pi):
-    k = _build(pi, _cc_only(), local=True, area=AREA, voc_routes=ROUTES)
+    k = _build(pi, _cc_only(), local=True, area=AREA, courier_routes=ROUTES)
     cc = k["command_centers"][0]
     # Jita: 3 x 100k + a 10M minimum fee; Delve: 3 x 150k, no courier
     assert cc["where"] == checklist.LOCAL_MARKET and cc["isk"] == 450_000 and cc["haul_isk"] == 0
@@ -385,7 +385,7 @@ def test_delve_seller_beats_a_cheaper_hub_once_the_courier_is_counted(pi):
 
 def test_courier_fee_is_shown_separately_and_counts_in_the_startup_cost(pi):
     books = {**CC_BOOKS, BARREN: {"jita_sell": 100_000.0, "amarr_sell": 120_000.0}}     # Delve doesn't list it
-    k = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES)
+    k = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES)
     cc = k["command_centers"][0]
     assert cc["where"] == "Jita 4-4" and cc["isk"] == 300_000          # goods
     assert cc["haul_isk"] == 10_000_000 and cc["landed_isk"] == 10_300_000   # Jita's minimum fee
@@ -399,14 +399,14 @@ def test_courier_fee_is_shown_separately_and_counts_in_the_startup_cost(pi):
 
 def test_starter_stock_rides_along_and_a_lower_price_can_lose_to_a_higher_minimum_fee(pi):
     books = {**CC_BOOKS, BARREN: {"jita_sell": 100_000.0}}
-    k = _build(pi, DELVE_PLAN, local=True, books=books, area=AREA, voc_routes=ROUTES)
+    k = _build(pi, DELVE_PLAN, local=True, books=books, area=AREA, courier_routes=ROUTES)
     stock = {s["item"]: s for s in k["supplies"]}
     # Biofuels are cheaper in Amarr (550 vs 600), but Amarr's 20M minimum fee isn't worth it
     assert stock["Biofuels"]["where"] == "Jita 4-4"
     cc_m3, cc_coll = 3 * R.COMMAND_CENTER_M3, 3 * 100_000
     st_m3 = 1920 * (pi.volume(2396) + pi.volume(2399))
     st_coll = 1920 * 600 + 1920 * 700
-    extra = voc.courier_fee(JITA_ROUTE, cc_m3 + st_m3, cc_coll + st_coll) - voc.courier_fee(JITA_ROUTE, cc_m3, cc_coll)
+    extra = carrier.courier_fee(JITA_ROUTE, cc_m3 + st_m3, cc_coll + st_coll) - carrier.courier_fee(JITA_ROUTE, cc_m3, cc_coll)
     assert k["costs"]["supplies_hauling"] == round(extra)               # only what it adds to the same contract
     assert sum(s["haul_isk"] for s in k["supplies"]) == pytest.approx(extra, abs=2)
     shared = [c for c in k["hauling"]["contracts"] if c["section"] == "starter_stock"]
@@ -414,7 +414,7 @@ def test_starter_stock_rides_along_and_a_lower_price_can_lose_to_a_higher_minimu
 
 
 def test_unknown_courier_route_keeps_the_local_preference_and_says_hauling_isnt_priced(pi):
-    k = _build(pi, {**_cc_only(hub="Far Away")}, local=False, area=None, voc_routes=ROUTES)
+    k = _build(pi, {**_cc_only(hub="Far Away")}, local=False, area=None, courier_routes=ROUTES)
     cc = k["command_centers"][0]
     assert cc["where"] == "Jita 4-4" and cc["haul_isk"] == 0 and "not priced" in cc["haul_note"]
     assert k["hauling"]["self_haul"] == ["Jita 4-4"] and k["costs"]["hauling"] == 0
@@ -424,13 +424,13 @@ def test_delve_offer_names_the_station_and_the_jumps(pi):
     books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
         "location_id": 60_000_001, "system_id": 2, "station": "1DQ1-A - Test Station", "system": "1DQ1-A",
         "units": 2, "structure": False}}}
-    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES)["command_centers"][0]
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES)["command_centers"][0]
     assert cc["pickup"]["station"] == "1DQ1-A - Test Station" and cc["pickup"]["jumps"] == 1
     assert "1 jump from 7G-QIG" in cc["pickup"]["text"] and cc["pickup"]["partial"]   # 2 there, 3 needed
     books[BARREN]["delve_sell_at"] = {"location_id": 1_000_000_000_123, "system_id": 3, "station": None,
                                       "system": None, "units": 5, "structure": True}
     free_time = {"cycle_days": 2, "hour_isk": 0}       # time worth nothing: the cheaper Delve price wins
-    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,
                 settings=free_time)["command_centers"][0]
     assert cc["pickup"]["text"].startswith("a player structure in NEXT (2 jumps")    # system from the area
 
@@ -445,7 +445,7 @@ def test_buying_walks_the_sell_depth_and_flags_a_short_book():
 def test_courier_splits_above_voc_size_limit():
     h = {"route": JITA_ROUTE}
     fee, n = checklist.courier_cost(h, 200_000, 0)
-    assert n == 2 and fee == 2 * voc.courier_fee(JITA_ROUTE, 100_000, 0)
+    assert n == 2 and fee == 2 * carrier.courier_fee(JITA_ROUTE, 100_000, 0)
 
 
 def test_cheapest_delve_order_location_is_named_without_auth(monkeypatch):
@@ -489,22 +489,22 @@ def test_operate_shows_landed_cost_and_hauling(browser, eve, pi, monkeypatch):
         chars = [dict(ch, ccu_level=5, colonies=[]) for ch in service.planning_characters(profile_id)]
         return {"chars": chars, "pi": pi, "s": Settings(), "books": books, "area": AREA, "tpl": _templates()}
     monkeypatch.setattr(service, "planning_context", fake_ctx)
-    monkeypatch.setattr(voc, "routes_cached", lambda: ROUTES)
+    monkeypatch.setattr(carrier, "routes_cached", lambda: ROUTES)
     html = c.get("/pi/operate").text
     assert "<th>Landed</th>" in html and "Hauling to 7G-QIG" in html
-    assert "VOC courier Jita 4-4 → 7G-QIG" in html and "Approximation:" in html
+    assert "Courier Jita 4-4 → 7G-QIG" in html and "Approximation:" in html
 
 
 def test_your_own_delve_trip_is_priced_at_your_hour_value(pi):
     books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
         "location_id": 1_000_000_000_123, "system_id": 3, "station": None, "system": None, "units": 5,
         "structure": True}}}
-    cheap_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+    cheap_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,
                         settings={"cycle_days": 2, "hour_isk": 0})["command_centers"][0]
     assert cheap_time["where"] == checklist.LOCAL_MARKET
     assert cheap_time["trip"]["jumps"] == 2 and "your trip: 2 jumps each way" in cheap_time["haul_note"]
     # 2 jumps each way at 1.5 min + handling: at 90M ISK/h that trip outweighs the courier for 3 command centers
-    dear_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+    dear_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,
                        settings={"cycle_days": 2, "hour_isk": 90e6})["command_centers"][0]
     assert dear_time["where"] != checklist.LOCAL_MARKET
     trip = checklist.own_trip(2, 3000, 60e6)
@@ -515,12 +515,12 @@ def test_a_seller_at_an_unknown_distance_doesnt_beat_a_priced_courier(pi):
     books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
         "location_id": 60_000_009, "system_id": 999, "station": "FAR - Station", "system": "FAR",
         "units": 5, "structure": False}}}
-    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, voc_routes=ROUTES,
+    cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,
                 settings={"cycle_days": 2, "hour_isk": 0})["command_centers"][0]
     assert cc["where"] != checklist.LOCAL_MARKET and cc["haul_isk"] > 0    # outside the area: courier instead
 
 
 def test_a_courier_fee_above_the_goods_value_suggests_flying_it_yourself(pi):
-    k = _build(pi, _cc_only(), local=False, area=AREA, voc_routes=ROUTES)
+    k = _build(pi, _cc_only(), local=False, area=AREA, courier_routes=ROUTES)
     c = k["hauling"]["contracts"][0]
     assert c["fee"] > c["collateral"] and c["self_haul_trips"] == 1      # 3,000 m3: one DST trip

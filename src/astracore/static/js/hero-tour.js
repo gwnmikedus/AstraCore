@@ -12,11 +12,11 @@
   const selling = scenes[3];
   const channels = {
     jita: {destination: 'Jita 4-4', method: 'Buy orders or sell orders',
-      description: 'Consolidate in RF-K9W, use VOC delivery to Jita 4-4, then sell. Your plan compares the return after courier fees and selling taxes.'},
+      description: 'Consolidate in O4T-Z5, use Humpback delivery to Jita 4-4, then sell. Your plan compares the return after courier fees and selling taxes.'},
     amarr: {destination: 'Amarr', method: 'Emperor Family Academy · buy / sell orders',
-      description: 'VOC can deliver your consolidated stock to Amarr VIII – Emperor Family Academy. Compare the return after hauling, taxes, and any broker fees.'},
-    local: {destination: 'RF-K9W', method: 'VOC buyback or Delve buy orders',
-      description: 'Sell locally through VOC buyback or Delve buy orders. No high-sec courier leg is needed. Your plan compares the net return against Jita and Amarr.'},
+      description: 'Humpback can deliver your consolidated stock to Amarr VIII – Emperor Family Academy. Compare the return after hauling, taxes, and any broker fees.'},
+    local: {destination: 'O4T-Z5', method: 'Local buy orders',
+      description: 'Sell locally into buy orders near home. No high-sec courier leg is needed. Your plan compares the net return against Jita and Amarr.'},
   };
   let active = 0;
   let channel = 'jita';

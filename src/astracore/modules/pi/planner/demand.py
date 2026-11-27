@@ -7,7 +7,7 @@ buy orders you can see right now and the region's recent daily trade volume:
                the same per-unit hauling cost the planner used, and how much of the batch is left over.
   sell orders  an estimate only: how long the batch takes to sell if you capture a modest share of
                the daily traded volume, and how much the price moved over the history window.
-  buyback      VOC pays a share of the Jita buy price; its capacity is not published.
+  buyback      a buyback pays a share of the Jita buy price; its capacity is not published.
 
 When a market is too thin for the plan it says so and names a practical alternative, and
 `realistic_values` gives the planner what those batches really fetch so it can plan around them."""
@@ -240,7 +240,7 @@ def assess(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, D
                     row["status"] = "unknown"
                     row["advice"] = "No recent trades in this region, so there is no basis to estimate how fast it sells."
             else:
-                row["advice"] = ("VOC pays a share of the Jita buy price; it doesn't publish how much it can take, "
+                row["advice"] = ("The buyback pays a share of the Jita buy price; it doesn't publish how much it can take, "
                                  "so ask before shipping unusually large volumes.")
 
             if not hist or not hist.get("days"):

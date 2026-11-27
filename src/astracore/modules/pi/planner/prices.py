@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from astracore import db
 from astracore.esi import public
 from astracore.esi.client import ESIClient, ESIError, ESIUnavailable
-from ..static_data import voc
+from ..static_data import carrier
 from ..static_data.pi_rules import COMMAND_CENTER_TYPES
 from ..static_data.sde_loader import PIData
 
@@ -26,8 +26,8 @@ HISTORY_DAYS = 30
 DEPTH_LEVELS = 25               # price levels kept per side; plenty for a PI shipment
 
 MARKETS = {
-    "jita": (voc.MARKET_HUBS[voc.JITA]["region_id"], voc.MARKET_HUBS[voc.JITA]["station_id"]),
-    "amarr": (voc.MARKET_HUBS[voc.AMARR]["region_id"], voc.MARKET_HUBS[voc.AMARR]["station_id"]),
+    "jita": (carrier.MARKET_HUBS[carrier.JITA]["region_id"], carrier.MARKET_HUBS[carrier.JITA]["station_id"]),
+    "amarr": (carrier.MARKET_HUBS[carrier.AMARR]["region_id"], carrier.MARKET_HUBS[carrier.AMARR]["station_id"]),
     "delve": (DELVE_REGION, 0),   # whole region
 }
 

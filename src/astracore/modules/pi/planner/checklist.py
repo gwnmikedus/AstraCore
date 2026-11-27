@@ -4,7 +4,7 @@ Three kinds of things go into a new colony, and the checklist keeps them apart:
   * bought on the market  - one command center per planet (of that planet's type), plus an optional
                             starter stock of factory inputs. AstraCore only produces a list to paste
                             into EVE's Multibuy window; it never buys anything or places market orders.
-                            Each item is bought where its landed cost (price + VOC courier to the drop-off)
+                            Each item is bought where its landed cost (price + courier to the drop-off)
                             is lowest; the courier fee is shown separately, and Delve offers name the seller.
   * upgraded in game      - the command center level, paid from the wallet in the planetary interface
                             and capped by the Command Center Upgrades skill.
@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 from . import compare, demand, selling
 from ..static_data import pi_rules as R
-from ..static_data import voc
+from ..static_data import carrier
 from ..static_data.sde_loader import PIData
 
 HUBS = (("jita", "Jita 4-4"), ("amarr", "Amarr VIII"))
@@ -52,14 +52,14 @@ LABELS = {**dict(HUBS), "delve": LOCAL_MARKET}
 MIN_PER_JUMP = 1.5                 # align, warp and gate in a hauler
 DEFAULT_HOUR_ISK = 90e6            # the Balanced goal's default
 DST_M3 = 60_000                    # a Deep Space Transport's cargo, for the fly-it-yourself hint
-COURIER_HUBS = {"jita": voc.JITA, "amarr": voc.AMARR}
+COURIER_HUBS = {"jita": carrier.JITA, "amarr": carrier.AMARR}
 
 
 def hauling_routes(dropoff: str, area: Optional[dict], routes: Optional[List[dict]] = None) -> Dict[str, dict]:
     """How a purchase gets from each trade hub to the drop-off, per hub key:
       free      the drop-off is that hub;
-      courier   a VOC courier from the hub's station to VOC's pickup nearest the drop-off. VOC's tariff
-                lists Delve -> hub; when the reverse isn't listed, the same tariff is assumed (`approx`);
+      courier   a courier from the hub's station to the courier pickup nearest the drop-off. A tariff may
+                list only pickup -> hub; when the reverse isn't listed, the same tariff is assumed (`approx`);
       unpriced  no courier route is known: you haul it yourself and AstraCore doesn't price that."""
     origin, origin_jumps = selling.courier_origin(dropoff, area) if dropoff else (None, 0)
     out: Dict[str, dict] = {}
@@ -67,10 +67,10 @@ def hauling_routes(dropoff: str, area: Optional[dict], routes: Optional[List[dic
         if dropoff and dropoff == selling.HUB_SYSTEMS[key]:
             out[key] = {"status": "free"}
             continue
-        r = voc.route(COURIER_HUBS[key], origin, routes) if origin else None
+        r = carrier.route(COURIER_HUBS[key], origin, routes) if origin else None
         approx = False
         if origin and not r:
-            r = voc.route(origin, COURIER_HUBS[key], routes)
+            r = carrier.route(origin, COURIER_HUBS[key], routes)
             approx = bool(r)
         if not r or origin in selling.HUB_SYSTEMS.values():
             out[key] = {"status": "unpriced"}
@@ -81,12 +81,12 @@ def hauling_routes(dropoff: str, area: Optional[dict], routes: Optional[List[dic
 
 
 def courier_cost(h: dict, m3: float, collateral: float) -> Tuple[float, int]:
-    """VOC fee for one hub's purchases (split into several contracts above VOC's size limit)."""
+    """Courier fee for one hub's purchases (split into several contracts above the courier's size limit)."""
     if m3 <= 0 and collateral <= 0:
         return 0.0, 0
     r = h["route"]
     n = max(1, math.ceil(m3 / r["max_m3"])) if r.get("max_m3") else 1
-    return n * voc.courier_fee(r, m3 / n, collateral / n), n
+    return n * carrier.courier_fee(r, m3 / n, collateral / n), n
 
 
 def _variable(h: dict, m3: float, collateral: float) -> float:
@@ -287,6 +287,8 @@ def purchases(pi: PIData, cc_count: Dict[str, int], supply_need: Dict[str, float
             out.append({"section": section, "from": LABELS[m], "to": h["to"], "m3": round(c["m3"]),
                         "collateral": round(c["collateral"]), "fee": round(c["fee"]), "contracts": c["contracts"],
                         "shared": c["shared"], "approx": h["approx"], "carry_jumps": h["carry_jumps"],
+                        "provider": carrier.route_provider(r).name if carrier.route_provider(r) else "",
+                        "provider_site": carrier.route_provider(r).site if carrier.route_provider(r) else "",
                         # a minimum fee above the goods' value: worth knowing you could fly it yourself
                         "self_haul_trips": math.ceil(c["m3"] / DST_M3) if c["fee"] > c["collateral"] else 0,
                         "tariff": f"max({r['min_fee']:,.0f}, m³ × {r['per_m3']:,.0f} + {r['collateral_pct']:g}% "
@@ -364,10 +366,10 @@ def _steps(col: dict, compat: dict, upgrade: dict, structures: List[dict], suppl
 def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict], templates: List[dict],
           settings: Optional[dict] = None, local: bool = False,
           planet_names: Optional[Dict[int, dict]] = None, area: Optional[dict] = None,
-          voc_routes: Optional[List[dict]] = None) -> Optional[dict]:
+          courier_routes: Optional[List[dict]] = None) -> Optional[dict]:
     """The checklist for the colonies a saved plan still needs (action new or rebuild).
     `plan` should already reflect what was built since it was saved (service.progress_against).
-    `area` (systems and gates) finds VOC's pickup and the jumps to a Delve seller; `voc_routes` = VOC tariff."""
+    `area` (systems and gates) finds the courier's pickup and the jumps to a Delve seller; `courier_routes` = courier tariffs."""
     if not plan or "colonies" not in plan:
         return None
     settings = settings or {}
@@ -441,7 +443,7 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
     # what to buy and where: lowest landed cost (price + courier to the drop-off)
     dropoff = plan.get("hub") or ""
     hour = float(settings.get("hour_isk", -1) if settings.get("hour_isk") is not None else -1)
-    buy = purchases(pi, cc_count, supply_need, books, local, dropoff, area, voc_routes,
+    buy = purchases(pi, cc_count, supply_need, books, local, dropoff, area, courier_routes,
                     hour if hour >= 0 else DEFAULT_HOUR_ISK)
     command_centers, estimated = [], False
     for r in buy["cc"]:
@@ -469,9 +471,9 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
         "blocked": blocked, "warned": warned, "local": local, "cycle_days": cycle_days,
         "command_centers": command_centers, "cc_qty": cc_qty, "cc_m3": cc_qty * R.COMMAND_CENTER_M3,
         "cc_local": any(c["where"] == LOCAL_MARKET for c in command_centers),
-        "multibuy": voc.paste_list({c["name"]: c["qty"] for c in command_centers}),
+        "multibuy": carrier.paste_list({c["name"]: c["qty"] for c in command_centers}),
         "supplies": supplies, "supply_days": cycle_days,
-        "supplies_multibuy": voc.paste_list({s["item"]: s["qty"] for s in supplies}),
+        "supplies_multibuy": carrier.paste_list({s["item"]: s["qty"] for s in supplies}),
         "unpriced": unpriced,
         "costs": {"command_centers": round(cc_isk), "upgrades": upgrades_isk, "structures": structures_isk,
                   "supplies": round(supply_isk), "estimated_cc": estimated,

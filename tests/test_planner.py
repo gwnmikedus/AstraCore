@@ -300,10 +300,10 @@ def test_operate_flow(pi):
         ],
         "assets": [{"type_id": 2329, "qty": 100_000, "location_id": 1, "flag": "Hangar"}],
         "contracts": [
-            {"contract_id": 7, "type": "courier", "status": "in_progress", "voc": True, "pi": True, "collateral": 5e8,
+            {"contract_id": 7, "type": "courier", "status": "in_progress", "carrier": True, "pi": True, "collateral": 5e8,
              "reward": 1.2e7, "volume": 75000, "date_issued": _iso(-30), "start_location_id": 1, "end_location_id": 1,
              "items": [{"type_id": 2329, "qty": 50000}]},
-            {"contract_id": 8, "type": "item_exchange", "status": "finished", "voc": True, "pi": True, "price": 9e7,
+            {"contract_id": 8, "type": "item_exchange", "status": "finished", "carrier": True, "pi": True, "price": 9e7,
              "date_issued": _iso(-40), "items": [{"type_id": 2329, "qty": 10000}]},
         ],
         "orders": [{"order_id": 1, "type_id": 2329, "price": 12000.0, "volume_remain": 50, "volume_total": 100,
@@ -433,13 +433,13 @@ def test_stock_outside_voc_reach_can_still_be_sold(pi):
 
 def test_pipeline_hides_old_and_non_pi(pi):
     ch = {"character_id": 1, "name": "A", "orders": [], "contracts": [
-        {"contract_id": 1, "type": "courier", "status": "finished", "voc": True, "date_issued": _iso(-24 * 20),
+        {"contract_id": 1, "type": "courier", "status": "finished", "carrier": True, "date_issued": _iso(-24 * 20),
          "date_completed": _iso(-24 * 18)},
-        {"contract_id": 2, "type": "courier", "status": "finished", "voc": True, "pi": True, "date_issued": _iso(-48),
+        {"contract_id": 2, "type": "courier", "status": "finished", "carrier": True, "pi": True, "date_issued": _iso(-48),
          "date_completed": _iso(-24), "items": [{"type_id": 2329, "qty": 10}]},
-        {"contract_id": 3, "type": "item_exchange", "status": "outstanding", "voc": True, "price": 1e6,
+        {"contract_id": 3, "type": "item_exchange", "status": "outstanding", "carrier": True, "price": 1e6,
          "date_issued": _iso(-2), "items": [{"type_id": 34, "qty": 100}]},
-        {"contract_id": 4, "type": "item_exchange", "status": "outstanding", "voc": True, "price": 1e6,
+        {"contract_id": 4, "type": "item_exchange", "status": "outstanding", "carrier": True, "price": 1e6,
          "date_issued": _iso(-2), "items": [{"type_id": 2329, "qty": 10}, {"type_id": 34, "qty": 5}]},
     ]}
     pipe = operate.pipeline(pi, BOOKS, [ch])
@@ -716,15 +716,15 @@ def test_self_haul_sends_one_hangar_to_one_hub_unless_the_gain_beats_a_trip(pi):
     assert selling.extra_trip_isk(Settings(hour_isk=120e6)) == pytest.approx(60e6)
 
 
-def test_self_haul_note_only_names_a_voc_pickup_within_reach(pi, monkeypatch):
+def test_self_haul_note_only_names_a_courier_pickup_within_reach(pi, monkeypatch):
     plan = selling.sell_plan(pi, Settings(), BOOKS, "Konora", {2396: 1000}, per_day=False, local=False,
                              self_haul=True)
-    assert "VOC pickup" not in plan["batches"][0]["note"]
+    assert "pickup" not in plan["batches"][0]["note"]
     assert "7G-QIG" not in plan["batches"][0]["note"]
-    monkeypatch.setattr(selling.voc, "route", lambda *a, **k: None)     # pickup found, but no route from it
+    monkeypatch.setattr(selling.carrier, "route", lambda *a, **k: None)     # pickup found, but no route from it
     plan = selling.sell_plan(pi, Settings(), BOOKS, "HZAQ-W", {2396: 1000}, per_day=False, local=False,
                              origin="7G-QIG", origin_jumps=2, self_haul=True)
-    assert "VOC pickup in 7G-QIG, 2 jumps" in plan["batches"][0]["note"]
+    assert "courier pickup in 7G-QIG, 2 jumps" in plan["batches"][0]["note"]
 
 
 def test_no_access_structure_is_not_hauled_or_counted_in_the_hand_over(pi, monkeypatch):

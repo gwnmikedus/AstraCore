@@ -114,6 +114,8 @@ ALLOWED = {
     "alliance": set(_ids("ASTRACORE_ALLOWED_ALLIANCES")),
 }
 ACCESS_GATE = PRODUCTION or env("ASTRACORE_ACCESS_GATE") == "1"
+# Courier providers to plan with, by id (e.g. "humpback,voc"); empty = each provider's own default.
+COURIERS = [x for x in env("ASTRACORE_COURIERS").lower().replace(" ", "").split(",") if x]
 
 
 def default_solve_concurrency(cpus: Optional[int]) -> int:

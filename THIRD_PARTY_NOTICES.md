@@ -35,7 +35,7 @@ These are self-hosted Latin WOFF2 subsets originally supplied by Google Fonts. F
 
 [DalShooth's PI templates](https://github.com/DalShooth/EVE_PI_Templates) and [Fuzzwork's static data exports](https://www.fuzzwork.co.uk/dump/) are downloaded at runtime into the ignored data directory. They are not AstraCore-authored files and are not covered by the root license. Preserve their source attribution and check the publisher's applicable permissions before repackaging or redistributing them. Where no explicit redistribution license is supplied, a public download alone is not treated as a grant from AstraCore.
 
-[VOC Hauling](https://vochauling.com/) supplies courier tariffs; its names and published service information remain its own. A quote shown by AstraCore is not a booking or a guarantee of service availability.
+[Humpback Whale Logistic](https://dc.eve-hs.top/#/tool/tools_kuaidi) (Dracarys.) and [VOC Hauling](https://vochauling.com/) supply courier tariffs; their names and published service information remain their own. A quote shown by AstraCore is not a booking or a guarantee of service availability.
 
 ## Installed dependencies
 

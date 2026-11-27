@@ -86,7 +86,7 @@ def test_changed_recipe_changes_planner_and_displayed_result_fingerprints(source
     monkeypatch.setattr(service.store, "admin_defaults", lambda: {})
     monkeypatch.setattr(service.prices, "cached", lambda: {"at": 1})
     monkeypatch.setattr(service.prices, "history_cached", lambda: {"at": 1})
-    monkeypatch.setattr(service.voc, "routes_info", lambda: {"at": 1})
+    monkeypatch.setattr(service.carrier, "routes_info", lambda: {"at": 1})
     monkeypatch.setattr(routes, "_profile_result_stamp", lambda pid: "same-profile")
     key, result = service.plan_key(1, Settings()), routes._result_stamp(1)
     source["now"] += sde.CHECK_EVERY

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from astracore import db
-from astracore.modules.pi.static_data import sde_loader, voc
+from astracore.modules.pi.static_data import sde_loader, carrier
 from . import public, sso
 from .client import ESIClient, ESIError
 
@@ -243,7 +243,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
             a["location"] = resolved[a["location_id"]]
         extra["assets"] = assets
 
-    # --- contracts (keep recent ones; items for VOC / PI-relevant ones) ------------------
+    # --- contracts (keep recent ones; items for courier providers / PI-relevant ones) ------------------
     contracts_raw = await _safe(esi.get(f"/characters/{cid}/contracts/", token=token, owner=cid), None)
     if contracts_raw is not None:
         previous = {c.get("contract_id"): c for c in (me.get("contracts") or [])}
@@ -255,8 +255,10 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
                                          "issuer_id", "price", "reward", "collateral", "volume",
                                          "start_location_id", "end_location_id", "date_issued",
                                          "date_accepted", "date_completed", "date_expired", "title")}
-            row["voc"] = c.get("assignee_id") == voc.CORP_ID or c.get("acceptor_id") == voc.CORP_ID
-            if row["voc"] or c.get("type") == "item_exchange":
+            prov = carrier.by_corp(c.get("assignee_id")) or carrier.by_corp(c.get("acceptor_id"))
+            row["carrier"] = bool(prov)
+            row["carrier_name"] = prov.name if prov else ""
+            if row["carrier"] or c.get("type") == "item_exchange":
                 items = await _safe(esi.get(f"/characters/{cid}/contracts/{c['contract_id']}/items/",
                                             token=token, owner=cid, ttl=86400), None)
                 if items is None:
@@ -264,7 +266,7 @@ async def sync_character(esi: ESIClient, character_id: int) -> Dict:
                     # PI courier non-PI (it would vanish from In transit and the courier costs)
                     old = previous.get(c["contract_id"]) or {}
                     row["items"] = old.get("items", [])
-                    row["pi"] = old.get("pi", bool(row["voc"] and c.get("type") == "courier"))
+                    row["pi"] = old.get("pi", bool(row["carrier"] and c.get("type") == "courier"))
                 else:
                     row["items"] = [{"type_id": i["type_id"], "qty": i["quantity"]} for i in items
                                     if i.get("is_included", True)]

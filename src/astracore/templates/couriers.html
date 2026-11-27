@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="ac-page-header">
+  <div class="eyebrow">PI / Selling reference</div>
+  <h1 class="page-title">Couriers</h1>
+  <p>The courier services AstraCore prices hauling with. Plans use every courier that runs now and, per route, the cheapest one.
+    They are EVE community services; AstraCore isn’t affiliated with them.</p>
+</header>
+{% for c in couriers %}
+<article id="{{ c.p.id }}">
+  <header><strong>{{ c.p.full_name }}</strong> <span class="muted">· {{ c.p.corp_name }}</span>
+    {% if c.p.active %}<span class="badge you">Used in plans</span>{% else %}<span class="pill">Not used{% if c.p.status %}: {{ c.p.status }}{% endif %}</span>{% endif %}</header>
+  <p>{{ c.p.about }}</p>
+  <p>{{ external_link(c.p.site, c.p.name ~ ' website') }}{% if c.p.buyback_site %} · {{ external_link(c.p.buyback_site, c.p.name ~ ' buyback') }}{% endif %}</p>
+  {% if c.info.live %}
+  <p class="muted">Cached from {{ external_link(c.p.site, c.p.name) }}{% if c.info.at %}, refreshed {{ c.info.at|ago }}{% endif %}.
+    Viewing this page does not refresh the tariff.</p>
+  {% else %}
+  <p class="muted">Fallback values recorded on {{ c.p.recorded }}. A cached {{ c.p.name }} tariff is not available.
+    Check {{ external_link(c.p.site, c.p.name) }} for current prices before creating a contract.</p>
+  {% endif %}
+  <div class="scroll"><table>
+    <caption>{{ c.p.name }} courier fees and contract limits</caption>
+    <thead><tr><th>From</th><th>To</th><th>Minimum fee</th><th>ISK per m³</th><th>Collateral fee</th><th>Maximum m³</th><th>Runs</th></tr></thead>
+    <tbody>{% for r in c.routes %}<tr><td>{{ r.origin }}</td><td>{{ r.dest }}</td><td>{{ r.min_fee|isk }}</td><td>{{ r.per_m3|num }}</td><td>{{ r.collateral_pct|pct }}</td><td>{{ r.max_m3|num }}</td><td>{{ r.frequency or '–' }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if c.p.buyback_site %}
+  <p class="muted">Buyback: {{ c.p.buyback_note }}{% if c.p.active %} AstraCore values it at <strong>{{ s.buyback_pct|pct }}</strong> of Jita buy for P2–P4 and
+    <strong>{{ s.buyback_pct_p1|pct }}</strong> for P1 ({{ 'refused' if not s.buyback_pct_p1 else 'accepted' }}), the same for everyone on this site.{% endif %}</p>
+  {% endif %}
+</article>
+{% endfor %}
+<p class="muted">Availability depends on the drop-off and each courier’s routes. Own trips are a separate selling choice; these tariffs do not price their time or risk.</p>
+<p><a href="/pi/settings">Back to your PI Settings</a></p>
+{% endblock %}

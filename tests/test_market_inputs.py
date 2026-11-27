@@ -4,7 +4,7 @@ from pathlib import Path
 
 from astracore.modules.pi.planner import optimizer, selling
 from astracore.modules.pi.settings import Settings
-from astracore.modules.pi.static_data import voc
+from astracore.modules.pi.static_data import carrier
 from astracore.modules.pi.static_data.sde_loader import PIData
 
 METADATA = json.loads((Path(__file__).parent / 'fixtures/sterile_conduits_metadata.json').read_text())
@@ -93,7 +93,7 @@ def books():
                        'delve_sell': 130_000.0, 'delve_buy': 80_000.0}}
 
 
-ROUTES = [{'origin': voc.JITA, 'dest': '7G-QIG', 'min_fee': 10e6, 'per_m3': 1000, 'collateral_pct': 1.0,
+ROUTES = [{'origin': carrier.JITA, 'dest': '7G-QIG', 'min_fee': 10e6, 'per_m3': 1000, 'collateral_pct': 1.0,
            'max_m3': 165_000}]
 
 
@@ -122,7 +122,7 @@ def test_buy_costs_list_every_market_and_respect_own_production_only():
     s = Settings()
     assert s.buy_inputs is True             # the maintainer's default: buy when it pays (#225)
     costs = selling.buy_costs(PI, s, books(), '7G-QIG', local=True)
-    assert costs[SMARTFAB] == selling.buy_channels(PI, s, books(), SMARTFAB, '7G-QIG', voc.routes_cached(), True)
+    assert costs[SMARTFAB] == selling.buy_channels(PI, s, books(), SMARTFAB, '7G-QIG', carrier.routes_cached(), True)
     assert P4 not in costs                  # only P1-P3 are bought
     s.buy_inputs = False
     assert selling.buy_costs(PI, s, books(), '7G-QIG', local=True) == {}
@@ -202,7 +202,7 @@ def test_factory_rows_say_which_inputs_are_bought():
 
 def test_operate_lists_one_restock_round_of_bought_inputs(monkeypatch):
     from astracore.modules.pi import service
-    monkeypatch.setattr(voc, 'routes_cached', lambda: ROUTES)
+    monkeypatch.setattr(carrier, 'routes_cached', lambda: ROUTES)
     res = solve(2_000_000.0)
     active = {'result': {**res, 'hub': '7G-QIG'}, 'settings': {'cycle_days': 2, 'input_budget_isk': 0}}
     ctx = {'pi': PI, 'books': {SMARTFAB: {'jita_sell': 100_000.0}, VACCINES: {'jita_sell': 90_000.0},

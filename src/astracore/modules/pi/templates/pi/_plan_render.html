@@ -235,7 +235,7 @@ function planHTML(res, opts = {}) {
 function renderSelling(res) {
   const sp = res.selling; if (!sp) return '';
   const L = res.channel_labels || {};
-  let h = `<h5 class="selling-heading">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.voc, {glossary: GLOSSARY})}</h5>`;
+  let h = `<h5 class="selling-heading">How you get paid <span class="muted">· every ${sp.every_days} days from ${esc(sp.dropoff)} · ≈ ${isk(sp.net_per_cycle)} per batch</span>${AC.helpFor(HELP.courier, {glossary: GLOSSARY})}</h5>`;
   h += incomeCheckHTML(res);
   const tx = res.taxes || {};
   h += `<p class="muted text-small">` + (res.seller
@@ -295,7 +295,7 @@ function renderDemand(d) {
     const traded = hs && hs.days
       ? `${num(hs.avg_volume)}<br><span class="muted">${hs.days}/${hs.window} days with trades${Number.isFinite(r.volume_share) ? ` · plan = ${AC.pct(r.volume_share * 100, 0)}` : ''}</span>`
       : '<span class="muted">no history</span>';
-    let sale = '<span class="muted">VOC buyback</span>';
+    let sale = '<span class="muted">Buyback</span>';
     if (r.book_missing) {
       sale = '<span class="muted">order book not loaded</span>';
     } else if (r.min_volume_only) {

@@ -1,7 +1,7 @@
 """AstracorePI preferences: everything the planner can be tuned with.
 
 Stored per profile in `module_settings` (module "pi"). A few instance-wide values
-(VOC buyback terms, solver time limit) are admin settings: the admin edits them and
+(buyback terms, solver time limit) are admin settings: the admin edits them and
 they override whatever a profile has stored.
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ class Settings:
     # --- Space (step 2) ----------------------------------------------------------
     extra_area: str = ""                         # extra names (region/constellation/system)
     selected_constellations: List[int] = field(default_factory=list)
-    hub_system: str = ""                         # drop-off / hub; empty = auto (prefers a VOC location)
+    hub_system: str = ""                         # drop-off / hub; empty = auto (prefers a courier pickup)
 
     # --- Live sliders (step 3) ----------------------------------------------------
     effort: int = 30            # the goal: 0 = set and forget, 50 = balanced, 100 = max ISK
@@ -50,9 +50,9 @@ class Settings:
     product_blacklist: List[str] = field(default_factory=list)
 
     # --- Turning products into ISK (live) ------------------------------------------
-    use_buyback: bool = True         # VOC alliance buyback
-    use_jita: bool = True            # VOC courier to Jita
-    use_amarr: bool = True           # VOC courier to Amarr
+    use_buyback: bool = True         # a buyback, only offered when the courier has one
+    use_jita: bool = True            # courier to Jita
+    use_amarr: bool = True           # courier to Amarr
     use_local: bool = True           # Delve buy orders
     use_self_haul: bool = False      # own trips to trade hubs; journey time/risk are not priced
     use_sell_orders: bool = False    # list sell orders in Jita/Amarr (more ISK, more effort)
@@ -68,8 +68,8 @@ class Settings:
     answered: List[str] = field(default_factory=list)   # wizard questions the user has answered
 
     # --- Economics (settings page) ---------------------------------------------
-    buyback_pct: float = 90.0        # VOC buyback, % of Jita buy for P2-P4 (appraisal 2026-10-10)
-    buyback_pct_p1: float = 0.0      # VOC buyback refuses P1
+    buyback_pct: float = 90.0        # buyback, % of Jita buy for P2-P4 (unused without a buyback)
+    buyback_pct_p1: float = 0.0      # buyback, % of Jita buy for P1
     poco_tax_pct: float = 10.0       # fallback where your customs offices can't be read from ESI
     taxes_from_skills: bool = True   # sales tax / broker fee from the selling character's skills
     sales_tax_pct: float = 4.5       # used when taxes_from_skills is off

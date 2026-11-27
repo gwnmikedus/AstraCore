@@ -44,7 +44,7 @@ from .module import MODULE
 from .planner import compare, nextup, operate, optimizer, prices, selling, setups
 from .planner import skills as skills_mod
 from .settings import ADMIN_FIELDS, HOUR_DEFAULTS, TEXT_LIMITS, Settings, time_weights
-from .static_data import dalshooth, sde_loader, voc
+from .static_data import dalshooth, sde_loader, carrier
 
 log = logging.getLogger("astracore")
 router = APIRouter(prefix="/pi", dependencies=[Depends(require_user)])
@@ -155,7 +155,7 @@ async def area_page(request: Request):
     return render(request, "space.html", "area", "Area", area=area, groups=groups, s=s,
                   sources=area.get("sources", {}), selected=s.selected_constellations,
                   sel_systems=sorted(v["name"] for v in sel_systems.values()),
-                  voc_hubs=voc.COURIER_ORIGINS,
+                  courier_hubs=carrier.courier_origins(),
                   scan_systems=[v for v in scan_systems if v["planets"]], richness_labels=RICHNESS_LABELS,
                   overrides=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v,
                               "label": richness_label(v)} for k, v in overrides.items()],
@@ -277,10 +277,10 @@ async def api_area(request: Request, extra_area: Optional[str] = None,
             for r in groups for c in r["constellations"]]
     systems = space_mod.selected_systems(area, selected)
     names = sorted({v["name"] for v in systems.values()}
-                   | {n for n in voc.COURIER_ORIGINS if space_mod_has(area, n)})
+                   | {n for n in carrier.courier_origins() if space_mod_has(area, n)})
     hub = optimizer.resolve_hub(area, s, systems, store.planet_overrides(pid)) if systems else None
     return JSONResponse({"constellations": cons, "selected": selected, "systems": names,
-                         "hub_system": s.hub_system, "voc": voc.COURIER_ORIGINS,
+                         "hub_system": s.hub_system, "courier_hubs": carrier.courier_origins(),
                          "selling_coverage": selling.coverage(hub["name"] if hub else "", area)})
 
 
@@ -297,7 +297,7 @@ async def plan_page(request: Request):
     ctx = await service.planning_context(pid, persist_default=False)
     s = ctx["s"]
     hubs = sorted({v["name"] for v in ctx["systems"].values()} |
-                  {n for n in voc.COURIER_ORIGINS if ctx["area"] and space_mod_has(ctx["area"], n)})
+                  {n for n in carrier.courier_origins() if ctx["area"] and space_mod_has(ctx["area"], n)})
     advanced = request.query_params.get("view") == "advanced"
     page = "planner.html" if advanced else "guide.html"
     if not advanced:
@@ -306,7 +306,7 @@ async def plan_page(request: Request):
     first_visit = not store.has_settings(pid) or not s.answered
     return render(request, page, page[:-5], "Plan", s=s, chars=ctx["chars"], systems=hubs,
                   prices_at=prices.cached().get("at"), calibrated=ctx["calibrated"],
-                  head_yield=ctx["head_yield"], settings_json=s.to_json(), voc_hubs=voc.COURIER_ORIGINS,
+                  head_yield=ctx["head_yield"], settings_json=s.to_json(), courier_hubs=carrier.courier_origins(),
                   slots=sum(int(c["slots"]) for c in eligible), eligible_characters=len(eligible),
                   blocked_characters=len(ctx["chars"]) - len(eligible),
                   n_systems=len(ctx["systems"]) if advanced or s.selected_constellations else 0,
@@ -625,7 +625,7 @@ async def api_prices_refresh(request: Request):
                              "plans keep using the last ones. Try again in a few minutes."}, status_code=503)
     if prices.history_stale():
         service.refresh_history_soon(pi)
-    await voc.refresh_routes()
+    await carrier.refresh_routes()
     return JSONResponse({"ok": True, "at": prices.cached().get("at")})
 
 
@@ -747,8 +747,8 @@ async def operate_page(request: Request):
                   progress=ov["progress"], drift=ov["drift"], plan=plan, active=active, missing=missing,
                   checklist=service.first_build(ctx, active), restock_buy=service.restock_purchases(ctx, active),
                   plans=store.list_plan_runs(pid), max_plans=store.MAX_PLANS, freshness=freshness.state(pid),
-                  colony_note=freshness.COLONY_NOTE, buyback_site=voc.BUYBACK_SITE,
-                  voc_site=voc.SITE, waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))
+                  colony_note=freshness.COLONY_NOTE, buyback_site=carrier.buyback_site(),
+                  waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))
 
 
 # ----------------------------------------------------------------------------- exports
@@ -792,7 +792,7 @@ def _pickup_item_list(pi, chars):
                 or any(char in name for char in "\r\n\t")):
             raise HTTPException(503, "The item list needs cached EVE product names. Open Operate to load them first.")
         totals[name] += row["quantity"]
-    return voc.paste_list(totals)
+    return carrier.paste_list(totals)
 
 
 @router.get("/export/pickup.txt")
@@ -935,19 +935,19 @@ def _first_build_md(k: Optional[dict]) -> list:
         out += [f"### Hauling to {hl.get('dropoff')}", ""]
         for c in hl.get("contracts", []):
             extra = " extra" if c.get("shared") else ""
-            split = f" over {c['contracts']} contracts (VOC's size limit)" if c.get("contracts", 1) > 1 else ""
+            split = f" over {c['contracts']} contracts (the courier's size limit)" if c.get("contracts", 1) > 1 else ""
             carry = (f", then carry it {c['carry_jumps']} jump{'s' if c['carry_jumps'] != 1 else ''} to "
                      f"{hl.get('dropoff')} yourself") if c.get("carry_jumps") else ""
-            approx = (f" *Approximation: VOC's tariff lists {c['to']} → {c['from']} only; the same rate is assumed "
-                      "this way. Check it on vochauling.com before you contract.*") if c.get("approx") else ""
+            approx = (f" *Approximation: the courier's tariff lists {c['to']} → {c['from']} only; the same rate is assumed "
+                      "this way. Check it with the courier before you contract.*") if c.get("approx") else ""
             what = " (starter stock)" if c.get("section") == "starter_stock" else ""
             diy = (f" The fee is more than these goods are worth: with a Deep Space Transport ({c['self_haul_trips']} "
                    f"trip{'s' if c['self_haul_trips'] != 1 else ''} of ≈ 60,000 m³) flying it yourself may be cheaper; "
                    "AstraCore doesn't price that trip or its risk.") if c.get("self_haul_trips") else ""
-            out.append(f"- VOC courier {c['from']} → {c['to']}{what}: {fmt.m3(c['m3'])}, collateral "
+            out.append(f"- {(c['provider'] + ' courier') if c.get('provider') else 'Courier'} {c['from']} → {c['to']}{what}: {fmt.m3(c['m3'])}, collateral "
                        f"{fmt.isk(c['collateral'])},{extra} fee {fmt.isk(c['fee'])}{split}{carry}.{diy}{approx}")
         if hl.get("self_haul"):
-            out.append(f"- From {' and '.join(hl['self_haul'])}: no VOC courier route to your drop-off is known, "
+            out.append(f"- From {' and '.join(hl['self_haul'])}: no courier route to your drop-off is known, "
                        "so you haul it yourself and the hauling isn't priced.")
         out.append("")
     out += ["### 2 · Upgrade and build, per character and planet", "",

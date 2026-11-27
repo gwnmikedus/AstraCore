@@ -111,3 +111,17 @@ def test_empty_area_shows_a_visible_search_field(browser, eve, monkeypatch):
     assert start and 'name="extra_area"' in start.group(0)
     assert "Where do you want to do PI?" in page
     assert "<summary>Add another region" not in page
+
+
+def test_access_gate_setting_can_open_production_and_keeps_local_default():
+    assert config.access_gate("", production=True) is True
+    assert config.access_gate("", production=False) is False
+    assert config.access_gate("0", production=True) is False      # open to every pilot
+    assert config.access_gate("off", production=True) is False
+    assert config.access_gate("1", production=False) is True
+
+
+def test_open_gate_lets_any_pilot_in_and_drops_invite_only_text(browser, monkeypatch):
+    _gate(monkeypatch, on=False)
+    assert accounts.gate_allows(91234567, 98999999, 99999999)
+    assert "Invite-only" not in _text(browser().get("/").text)

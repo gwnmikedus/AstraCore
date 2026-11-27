@@ -159,7 +159,7 @@ def test_footer_carries_the_data_credit_line(browser):
     html = browser().get("/about").text
     footer = html.split('<footer class="site-footer">', 1)[1].split("</footer>", 1)[0]
     credit = footer.split('class="legal data-credit">', 1)[1].split("</p>", 1)[0]
-    for source in ("ESI (Fenris Creations)", "SDE", "DalShooth", "VOC"):
+    for source in ("ESI (Fenris Creations)", "SDE", "DalShooth", "Courier rates"):
         assert source in credit
     assert 'href="/credits"' in credit
 

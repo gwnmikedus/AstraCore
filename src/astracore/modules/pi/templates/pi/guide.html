@@ -91,16 +91,16 @@ const STEPS = [
    custom: st => ({id: 'custom', icon: 'map-pin', label: `${+st.max_systems ? `Up to ${+st.max_systems} system${+st.max_systems === 1 ? '' : 's'}` : 'Any number of systems'}, ≤ ${st.max_jumps} jumps`,
                    patch: {max_systems: +st.max_systems, max_jumps: +st.max_jumps}, blurb: 'Your current setting.'})},
   {id: 'tier', title: 'Products', q: 'How far should your planets process?',
-   intro: 'Miner planets turn raw resources (P0) into P1 on their own. Factory planets turn P1 into P2 and up: worth more per m³, so less hauling, and VOC buyback takes P2+ (not P1). But a factory has to be stocked with its inputs on every run.',
+   intro: 'Miner planets turn raw resources (P0) into P1 on their own. Factory planets turn P1 into P2 and up: worth more per m³, so less hauling. But a factory has to be stocked with its inputs on every run.',
    options: [
-     {id: 1, icon: 'pickaxe', label: 'Only P1 (miners)', patch: {max_tier: 1}, blurb: 'Every planet works alone: restart, pick up, sell. P1 sells through trade-hub or local buy orders; VOC buyback refuses it.'},
+     {id: 1, icon: 'pickaxe', label: 'Only P1 (miners)', patch: {max_tier: 1}, blurb: 'Every planet works alone: restart, pick up, sell. P1 sells through trade-hub or local buy orders.'},
      {id: 2, icon: 'factory', label: 'Up to P2', patch: {max_tier: 2}, blurb: 'Adds factories that combine two P1 into P2, where that pays.'},
      {id: 3, icon: 'factory', label: 'Up to P3', patch: {max_tier: 3}, blurb: 'Longer chains: more inputs to move between planets.'},
      {id: 4, icon: 'rocket', label: 'Up to P4', patch: {max_tier: 4}, blurb: 'Allows any factory. The planner only uses one if the ISK justifies it.'}],
    match: st => +st.max_tier},
   {id: 'buy', title: 'Buying', q: 'May your factories run on inputs you buy?', metric: 'buy',
    intro: 'Most pilots who make P3 or P4 don’t mine every input: they buy P1, P2 or P3 in Jita, Amarr or Delve and run a few factory planets on it. ' +
-          'The planner counts the price, the VOC courier to your drop-off and customs, never buys more than 10% of what a market trades a day, and keeps the ISK tied up in inputs within your budget. ' +
+          'The planner counts the price, the courier to your drop-off and customs, never buys more than 10% of what a market trades a day, and keeps the ISK tied up in inputs within your budget. ' +
           'Bought inputs are paid back when you sell, so they cost ISK up front, not per day.',
    options: [
      {id: 'own', icon: 'pickaxe', label: 'Only my own production', patch: {buy_inputs: false, input_budget_isk: 0}, blurb: 'Factories run only on what your miners make. No ISK tied up.'},
@@ -125,13 +125,13 @@ const STEPS = [
   {id: 'sell', title: 'Selling', q: 'How do you want to turn products into ISK?',
    intro: '',
    options: [
-     {id: 'nohaul', icon: 'house', label: 'Sell in Delve only', patch: SELL.nohaul, blurb: 'VOC buyback (P2+) and Delve buy orders. Nothing leaves null, but P1 is worth little here.'},
-     {id: 'courier', icon: 'truck', label: 'Also courier to Jita / Amarr', patch: SELL.courier, blurb: 'VOC hauls it, you sell into buy orders on arrival.'},
+     {id: 'nohaul', icon: 'house', label: 'Sell in Delve only', patch: SELL.nohaul, blurb: 'Delve buy orders. Nothing leaves null, but P1 is worth little here.'},
+     {id: 'courier', icon: 'truck', label: 'Also courier to Jita / Amarr', patch: SELL.courier, blurb: 'A courier hauls it, you sell into buy orders on arrival.'},
      {id: 'self', icon: 'truck', label: 'Haul to Jita / Amarr myself', patch: SELL.self, blurb: 'Sell to visible buy orders. Your journey time, fuel and loss risk are not priced.'},
      {id: 'orders', icon: 'trending-up', label: 'Also list sell orders', patch: SELL.orders, blurb: 'Better prices, but you list orders and update them when undercut.'}],
    match: st => Object.keys(SELL).find(k => Object.entries(SELL[k]).every(([f, v]) => !!st[f] === v)) || null},
   {id: 'batch', title: 'Batches', q: 'How often do you want to sell a batch?', metric: 'sell',
-   intro: 'VOC charges a minimum fee per courier contract (10M to Jita, 20M to Amarr). Bigger, less frequent batches spread that fee; smaller ones turn into ISK sooner.',
+   intro: 'Couriers charge a minimum fee per contract. Bigger, less frequent batches spread that fee; smaller ones turn into ISK sooner.',
    options: [
      {id: 7, icon: 'package', label: 'Every week', patch: {ship_every_days: 7}, blurb: 'ISK comes in quickly; more frequent trips with smaller batches.'},
      {id: 14, icon: 'package', label: 'Every 2 weeks', patch: {ship_every_days: 14}, blurb: ''},
@@ -146,7 +146,7 @@ const RESULT = STEPS.length - 1;
 const QUESTIONS = MAIN.length - 1;
 STEPS.find(s => s.id === 'share').intro += ` <a href="/pi/settings?expert=1#expert-sharing">Expert: how much an extra colony yields</a>`;
 const routineOnly = step => step.isGoal || (step.id === 'cycle' && !st.selected_constellations?.length);
-STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after VOC’s fees and your taxes' +
+STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after the courier’s fees and your taxes' +
   (SELLER.name ? ` (${esc(SELLER.name)} sells: ${AC.pct(SELLER.sales_tax_pct, 2)} sales tax, ${AC.pct(SELLER.broker_fee_pct, 2)} broker fee).` : '.');
 
 // ---- state ----------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ const STEP_CONTEXT = {
 const STEP_HELP = {
   area: [['dropoff'], ['isk', 'Why doesn’t a wider area always earn more?']],
   tier: [['tier']], buy: [['buy']], share: [['share']], chain: [['transfer']],
-  sell: [['voc']], batch: [['batch']],
+  sell: [["carrier"]], batch: [['batch']],
 };
 const stepHelp = step => (STEP_HELP[step.id] || []).map(([key, label]) => {
   const answer = key && HELP[key];
@@ -448,7 +448,7 @@ function showQuestion(step) {
     ${cur <= 1 ? blockedNote() : ''}
     <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.id === 'batch' && st.use_self_haul ? 'You make the trip yourself. Bigger batches mean fewer journeys, but more cargo to move. Journey time, fuel and loss risk are not priced.' : step.intro}</p></details>
     ${stepHelp(step)}
-    ${needsOwnTrip() ? '<div class="flash warn"><div><strong>No selling route from this drop-off yet.</strong><p>VOC does not serve this drop-off. You can haul to Jita or Amarr yourself; journey time, fuel and loss risk are not priced.</p><button type="button" id="enable-own-trip">Use my own trip to a trade hub</button><p id="own-trip-status" role="status"></p></div></div>' : ''}
+    ${needsOwnTrip() ? '<div class="flash warn"><div><strong>No selling route from this drop-off yet.</strong><p>No courier serves this drop-off. You can haul to Jita or Amarr yourself; journey time, fuel and loss risk are not priced.</p><button type="button" id="enable-own-trip">Use my own trip to a trade hub</button><p id="own-trip-status" role="status"></p></div></div>' : ''}
     <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map((o, index) => `
       <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false"
         aria-labelledby="answer-name-${index}" aria-describedby="answer-blurb-${index}${routineOnly(step) ? '' : ' answer-results-' + index}">
@@ -772,7 +772,7 @@ async function wireArea(step) {
       <div class="cons">${(a.constellations || []).map(c => `<label><input type="checkbox" value="${c.id}" ${sel.has(c.id) ? 'checked' : ''}>
         ${esc(c.name)} <span class="muted">${esc(c.region)} · ${c.systems} systems${c.has_colonies ? ' · your colonies' : ''}</span></label>`).join('')}</div>
       <label>Drop-off (where you collect products and ship them from)
-        <select id="area-hub"><option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
+        <select id="area-hub"><option value="">Auto: nearest courier pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         ${(a.systems || []).map(n => `<option ${n === (st.hub_system || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
     const apply = async () => {

@@ -68,25 +68,25 @@
     <div class="ctl">
       <label>Drop-off (where you bring products)</label>
       <select id="hub_system" class="no-margin">
-        <option value="">Auto: nearest VOC pickup within 3 jumps of the best spot, otherwise the best PI system</option>
+        <option value="">Auto: nearest courier pickup within 3 jumps of the best spot, otherwise the best PI system</option>
         {% for n in systems %}<option>{{ n }}</option>{% endfor %}
       </select>
-      <div class="hint">VOC picks up couriers at {{ voc_hubs|join(', ') }}.</div>
+      <div class="hint">Couriers pick up at {{ courier_hubs|join(', ') }}.</div>
     </div>
     <div class="ctl">
-      <label data-local-channel {% if not selling_coverage.local %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.local %}disabled{% endif %}> VOC buyback</span></label>
+      <label data-buyback-channel {% if not selling_coverage.buyback %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.buyback %}disabled{% endif %}> Buyback</span></label>
       <label class="strong-label"><span><input type="checkbox" role="switch" id="use_jita"> Sell at Jita</span></label>
       <label class="strong-label"><span><input type="checkbox" role="switch" id="use_amarr"> Sell at Amarr</span></label>
       <label data-local-channel {% if not selling_coverage.local %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Delve buy orders</span></label>
       <label class="strong-label"><span><input type="checkbox" role="switch" id="use_self_haul"> Haul to the trade hub myself</span></label>
-      <p class="hint">Your journey time, fuel and loss risk are not priced. {% if not selling_coverage.courier and not selling_coverage.trade_hub %}VOC has no route from this drop-off; enable your own trip to use Jita or Amarr.{% endif %}</p>
+      <p class="hint">Your journey time, fuel and loss risk are not priced. {% if not selling_coverage.courier and not selling_coverage.trade_hub %}No courier has a route from this drop-off; enable your own trip to use Jita or Amarr.{% endif %}</p>
       <label data-order-channel {% if not selling_coverage.trade_hub and (s.use_self_haul or not selling_coverage.courier) %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>
       <div class="hint">Each product goes to whichever enabled option pays most after fees. Sell orders pay more but you have to list and update them.</div>
     </div>
     <div class="ctl">
       <label>Sell a batch every <output id="o-ship_every_days"></output></label>
       <input type="range" id="ship_every_days" min="1" max="28" step="1">
-      <div class="hint" id="batch-transport-note">{% if s.use_self_haul %}Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.{% else %}Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).{% endif %}</div>
+      <div class="hint" id="batch-transport-note">{% if s.use_self_haul %}Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.{% else %}Bigger batches spread the courier's minimum fee per contract.{% endif %}</div>
     </div>
     <div class="hint space-after">Prices updated {{ prices_at|ago }} · <a href="#" id="refresh-prices">refresh now</a></div>
     <div class="ctl">
@@ -270,7 +270,11 @@ function updateSellingCoverage(coverage) {
   $('use_sell_orders').disabled = orders.hidden;
   $('batch-transport-note').textContent = ownTrip
     ? 'Bigger batches mean fewer own trips and more cargo. Journey costs are not priced.'
-    : "Bigger batches spread VOC's minimum fee (10M Jita / 20M Amarr).";
+    : "Bigger batches spread the courier's minimum fee per contract.";
+  document.querySelectorAll("[data-buyback-channel]").forEach(label => {
+    label.hidden = !coverage.buyback;
+    label.querySelector("input").disabled = !coverage.buyback;
+  });
   document.querySelectorAll("[data-local-channel]").forEach(label => {
     label.hidden = !coverage.local;
     label.querySelector("input").disabled = !coverage.local;

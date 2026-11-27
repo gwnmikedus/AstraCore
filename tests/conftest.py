@@ -58,11 +58,23 @@ def isolated_market_history(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def offline_courier_tariff(monkeypatch):
-    """The courier tariff is never read from vochauling.com in tests: the cached or fallback routes stay in use."""
-    from astracore.modules.pi.static_data import voc
+def all_courier_providers(monkeypatch):
+    """Planner tests run with every courier provider active (including VOC's Delve routes and buyback), so they
+    don't depend on which provider a deployment uses. Tests of the defaults set `config.COURIERS` themselves."""
+    from astracore import config
 
-    async def cached():
-        return voc.routes_cached()
+    monkeypatch.setattr(config, "COURIERS", ["humpback", "voc"])
 
-    monkeypatch.setattr(voc, "refresh_routes", cached)
+
+@pytest.fixture(autouse=True)
+def offline_courier_tariffs(monkeypatch):
+    """Courier tariffs are never read from the providers' sites in tests: every request fails, so the cached or
+    fallback routes stay in use. Tests of the refresh itself install their own mock transport."""
+    import httpx
+
+    from astracore.modules.pi.static_data import carrier
+
+    def unreachable(request):
+        raise httpx.ConnectError("tests never reach courier sites", request=request)
+
+    monkeypatch.setattr(carrier, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(unreachable)))

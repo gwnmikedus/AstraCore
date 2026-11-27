@@ -23,7 +23,7 @@ from astracore.modules.pi import service, store
 from astracore.modules.pi.intel import area as area_mod
 from astracore.modules.pi.planner import prices
 from astracore.modules.pi.settings import LIST_ITEM_MAX, LIST_MAX, TEXT_LIMITS, Settings
-from astracore.modules.pi.static_data import voc
+from astracore.modules.pi.static_data import carrier
 
 from test_core import PI_SCOPES, browser, csrf, eve, me, new_id, sso_login  # noqa: F401 (fixtures)
 from test_planner import TEMPLATES, _colonies, pi  # noqa: F401 (fixture)
@@ -279,7 +279,7 @@ def esi_down(monkeypatch, pi):  # noqa: F811
         return []
 
     monkeypatch.setattr(service, "load_static", static)
-    monkeypatch.setattr(voc, "refresh_routes", no_routes)          # VOC's site, not ESI
+    monkeypatch.setattr(carrier, "refresh_routes", no_routes)          # VOC's site, not ESI
     monkeypatch.setattr(service, "refresh_history_soon", lambda pi: None)
     saved = {k: db.kv_get(k) for k in (prices.BOOKS_KEY, area_mod.AREA_KEY + AREA_QUERY.lower())}
     books_at = time.time() - 2 * 86400

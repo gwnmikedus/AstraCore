@@ -26,13 +26,19 @@ async def project_page(request: Request):
     return render(request, "project.html", page="project", page_title="Source & contribute")
 
 
-@router.get("/voc-hauling", response_class=HTMLResponse)
-async def voc_hauling_page(request: Request):
+@router.get("/couriers", response_class=HTMLResponse)
+async def couriers_page(request: Request):
     from astracore.modules.pi import store as pi_store
-    from astracore.modules.pi.static_data import voc
-    return render(request, "voc_hauling.html", page="voc-hauling", page_title="About VOC Hauling",
-                  s=pi_store.admin_settings(), routes=voc.routes_cached(), routes_info=voc.routes_info(),
-                  voc_site=voc.SITE, buyback_site=voc.BUYBACK_SITE, corp_name=voc.CORP_NAME)
+    from astracore.modules.pi.static_data import carrier
+    couriers = [{"p": p, "routes": carrier.provider_routes(p), "info": carrier.provider_info(p)}
+                for p in sorted(carrier.PROVIDERS, key=lambda p: not p.active)]
+    return render(request, "couriers.html", page="couriers", page_title="Couriers",
+                  s=pi_store.admin_settings(), couriers=couriers)
+
+
+@router.get("/voc-hauling")
+async def voc_hauling_page():
+    return RedirectResponse("/couriers#voc", status_code=301)
 
 
 @router.get("/releases", response_class=HTMLResponse)
@@ -384,7 +390,7 @@ async def admin(request: Request):
         return render(request, "error.html", page="error", page_title="Not found", code=404,
                       message="This page doesn't exist.", status_code=404)
     from astracore.modules.pi import store as pi_store
-    from astracore.modules.pi.static_data import voc
+    from astracore.modules.pi.static_data import carrier
     from .solvegate import GATE
     with db.session() as c:
         n_profiles = c.execute("SELECT COUNT(*) FROM profiles").fetchone()[0]
@@ -399,7 +405,7 @@ async def admin(request: Request):
                   me=_admin(request)["id"], admin_ids=sorted(config.ADMIN_CHARACTER_IDS),
                   stats={"profiles": n_profiles, "characters": n_chars, "sessions": n_sessions,
                          "solving": GATE.running, "waiting": GATE.waiting},
-                  routes=voc.routes_cached(), routes_info=voc.routes_info(), mode=config.MODE)
+                  routes=carrier.routes_cached(), routes_info=carrier.routes_info(), mode=config.MODE)
 
 
 async def _entity_names(ids) -> dict:

@@ -133,14 +133,15 @@ def test_feedback_menu_marks_only_the_selected_report_kind(browser):
         assert current == [f'/feedback?kind={kind}']
 
 
-def test_voc_reference_uses_the_shared_external_link(browser, eve):
-    from astracore.modules.pi.static_data.voc import SITE
+def test_courier_reference_uses_the_shared_external_link(browser, eve):
+    from astracore.modules.pi.static_data.carrier import PROVIDERS
 
     client = browser()
     sso_login(client, eve, new_id(), 'Link inspector', scopes='publicData')
-    assert 'href="/voc-hauling"' in client.get('/pi/settings').text   # settings point to the credited page
-    response = client.get('/voc-hauling')
+    assert 'href="/couriers"' in client.get('/pi/settings').text   # settings point to the credited page
+    response = client.get('/couriers')
     assert response.status_code == 200
     links = OutboundLinks.parse(response.text)
-    voc = [link for link in links if link['attrs']['href'] == SITE]
-    assert voc and all(link['indicators'] == 1 and 'opens in a new tab' in link['text'] for link in voc)
+    for p in PROVIDERS:
+        site = [link for link in links if link['attrs']['href'] == p.site]
+        assert site and all(link['indicators'] == 1 and 'opens in a new tab' in link['text'] for link in site)

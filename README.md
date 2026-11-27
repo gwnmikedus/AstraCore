@@ -69,7 +69,8 @@ Never commit them (`.env*` is gitignored) and keep them `chmod 600`. Keys (see `
 | `EVE_CLIENT_ID`, `EVE_CLIENT_SECRET`, `EVE_CALLBACK_URL` | from developers.eveonline.com (one application per mode) |
 | `ASTRACORE_TOKEN_KEY` | Fernet key that encrypts EVE tokens. **Back it up**: lose it and everyone has to log in again. Generated (with a loud warning) in local mode if missing. To rotate it, list `new,old`: the first key encrypts, a restart re-encrypts every stored login with it, then drop the old key. |
 | `ASTRACORE_SESSION_SECRET` | keys the stored session ids and signed messages |
-| `ASTRACORE_ADMIN_CHARACTER_IDS` | characters whose profile is the admin (admin page, VOC buyback %, invite list) |
+| `ASTRACORE_ADMIN_CHARACTER_IDS` | characters whose profile is the admin (admin page, buyback %, invite list) |
+| `ASTRACORE_COURIERS` | courier providers to plan with, e.g. `humpback,voc` (empty = provider defaults; see Selling) |
 | `ASTRACORE_ALLOWED_CHARACTERS` / `_CORPS` / `_ALLIANCES` | invite list (production); more can be added on `/admin` without a restart |
 | `ASTRACORE_SOLVE_CONCURRENCY` | plans solved at the same time (default: half the CPU cores, at least 2 and at most 4) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | production only; from the Cloudflare dashboard. Never printed or logged. |
@@ -161,18 +162,25 @@ switcher, "What we read", sign-in scopes and resets pick it up from the registry
    profile; one is the **active plan**. **Advanced** (`/pi/plan?view=advanced`) has every option on one screen.
 4. **Operate**: an upkeep schedule per colony (extractor restarts, factory restocks and collections derived from its
    launchpad/storage space, market shipments on their own cycle, measured output vs. the plan and data freshness),
-   products waiting on launchpads, factories low on inputs, one "Consolidate & sell" card for everything in hangars, VOC contracts and sell orders in progress, and the ISK that came in vs. the active plan.
+   products waiting on launchpads, factories low on inputs, one "Consolidate & sell" card for everything in hangars, courier contracts and sell orders in progress, and the ISK that came in vs. the active plan.
 
 Only [DalShooth/EVE_PI_Templates](https://github.com/DalShooth/EVE_PI_Templates) templates are suggested
 (`Miner - 00/LS - <P1>`, `Factory - <product>`); each template's CPU/PG is checked against every character's
 Command Center Upgrades (nullsec miners CCU 4, lowsec miners 5, factories 2–3).
 
-### Selling: VOC Hauling
+### Selling: couriers
 
-- Courier tariff is read live from <https://vochauling.com>. Courier fee = max(min fee, m³ × rate + collateral × col%).
-- Buyback (<https://buyback.vochauling.com>): 90% of Jita buy for P2–P4, P1 refused (appraisal at 7G-QIG, 2026-10-10).
-  Instance-wide; the admin changes it on `/admin`.
+- Courier providers live in `modules/pi/static_data/carrier.py` (`PROVIDERS`): name, corporation, site, an optional
+  live tariff source with its parser, fallback routes, an optional buyback and whether it's active by default.
+  Plans use every active provider and, per route, the cheapest. Contracts of every known provider count on Operate.
+- **Humpback Whale Logistic** (Dracarys.) is active: routes read at most daily from the Dracarys courier calculator,
+  Jita daily, Amarr weekly, 5M minimum. Courier fee = max(min fee, m³ × rate + collateral × col%). No buyback.
+- **VOC Hauling** stopped in November 2026 and is inactive. Switch providers without a code change with
+  `ASTRACORE_COURIERS=humpback,voc` (comma-separated ids; empty = each provider's default).
+- A buyback is only offered when an active provider runs one; its % is instance-wide (`/admin`).
 - Batches whose courier fee would be eaten by the minimum fee fall back to another channel or are marked "hold".
+- `/couriers` lists every provider and the tariff in use. Add a provider only with its consent and credit it
+  (docs/third-party.md).
 
 ### Model notes
 
@@ -252,6 +260,6 @@ Bug reports, testing and ideas are acknowledged
 alongside the source contributors, with a link to the public discussion.
 
 Astracore © 2026 is its own fan-made product; `/credits` thanks everything it builds on: ESI, EVE SSO and the Image Server
-(Fenris Creations), DalShooth's templates, Fuzzwork's SDE, VOC Hauling, Lucide, Barlow, IBM Plex Mono, FastAPI, PuLP/CBC and more.
+(Fenris Creations), DalShooth's templates, Fuzzwork's SDE, Humpback Whale Logistic and VOC Hauling, Lucide, Barlow, IBM Plex Mono, FastAPI, PuLP/CBC and more.
 EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
 "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.

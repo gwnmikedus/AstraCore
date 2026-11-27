@@ -322,7 +322,7 @@ def colony_product(pi: PIData, col: dict) -> Optional[int]:
 
 
 def _last_shipment(characters: List[dict]) -> Optional[float]:
-    """When PI products last left for the market: a VOC courier or buyback with PI products, a PI
+    """When PI products last left for the market: a courier or buyback with PI products, a PI
     sell order or a PI sale. Non-PI contracts (command centers, other goods) and starter stock
     coming in don't count."""
     locs = locations()

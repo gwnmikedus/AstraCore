@@ -11,7 +11,7 @@ from test_core import browser, eve, new_id, sso_login  # noqa: F401 (fixtures)
 from test_planner import TEMPLATES, _plan, pi  # noqa: F401 (fixture)
 
 REQUIRED_TERMS = ["drop-off", "batch", "transfer", "buffer", "restock", "buyback", "ccu", "p0-p4", "poco", "esi",
-                  "voc", "dalshooth"]
+                  "courier", "dalshooth"]
 
 
 def _guide_context(monkeypatch, calibrated=False):
@@ -33,7 +33,7 @@ def test_glossary_page_lists_every_term_with_an_anchor(browser, eve):
     assert r.status_code == 200
     for term in REQUIRED_TERMS:
         assert f'<dt id="{term}">' in r.text, term
-    assert "Command Center Upgrades" in r.text and "VOC Hauling" in r.text
+    assert "Command Center Upgrades" in r.text and "Humpback Whale Logistic" in r.text
     assert 'href="/what-we-read"' in r.text
     assert "github.com/DalShooth" in r.text
 

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from ..settings import Settings
 from astracore.esi.character import locations, unknown_location
-from ..static_data import voc
+from ..static_data import carrier
 from ..static_data.sde_loader import PIData
 from . import selling, skills
 
@@ -207,7 +207,7 @@ def consolidate(stock: List[dict], area: Optional[dict] = None) -> Optional[dict
 
 
 def _reality(g: dict, batches: List[dict], area: Optional[dict]) -> dict:
-    """What hauling a hangar's stack yourself really means, next to letting VOC take it from their nearest
+    """What hauling a hangar's stack yourself really means, next to letting a courier take it from its nearest
     pickup. `batches` are that hangar's self-haul batches (normally one hub, see selling._one_hub)."""
     import math
     m3 = sum(b["m3"] for b in batches)
@@ -223,17 +223,17 @@ def _reality(g: dict, batches: List[dict], area: Optional[dict]) -> dict:
                 for d in dests)
         trips.append({"ship": name, "trips": n, "capacity": cap})
     out = {"where": g["location"], "system": g["system"], "m3": m3, "value": value, "dest": " and ".join(dests),
-           "trips": trips, "voc": None}
+           "trips": trips, "carrier": None}
     origin, jumps = selling.courier_origin(g["system"], area)
     if origin:
         fee, contracts = 0.0, 0
         for b in batches:
-            r = voc.route(origin, voc.JITA if b["channel"].startswith("jita") else voc.AMARR)
+            r = carrier.route(origin, carrier.JITA if b["channel"].startswith("jita") else carrier.AMARR)
             if not r:
                 return out
-            fee += voc.courier_fee(r, b["m3"], b["jita_value"])
+            fee += carrier.courier_fee(r, b["m3"], b["jita_value"])
             contracts += max(1, math.ceil(b["m3"] / r["max_m3"]))
-        out["voc"] = {"origin": origin, "jumps": jumps, "fee": round(fee), "contracts": contracts}
+        out["carrier"] = {"origin": origin, "jumps": jumps, "fee": round(fee), "contracts": contracts}
     return out
 
 
@@ -242,20 +242,25 @@ TRADE_HUBS = ("Jita", "Perimeter", "Amarr", "Dodixie", "Rens", "Hek")
 
 
 def pi_shipment(c: dict, locs: Dict[int, dict]) -> bool:
-    """A VOC courier that takes PI products to market.
+    """A courier that takes PI products to market.
 
     Only contracts the ESI sync flagged `pi` (they carry PI products) count: a courier with command
     centers or other goods isn't PI. A PI courier that starts at a trade hub brings starter stock
     in; that is a purchase, like the goods themselves (which Operate doesn't book either), so it's
     neither a market shipment nor a selling cost. When the start location isn't known it counts."""
-    if c.get("type") != "courier" or not c.get("voc") or not c.get("pi"):
+    if c.get("type") != "courier" or not _by_courier(c) or not c.get("pi"):
         return False
     return locs.get(c.get("start_location_id"), {}).get("system") not in TRADE_HUBS
 
 
+def _by_courier(c: dict) -> bool:
+    """A contract with a known courier provider (rows read before the provider list used the "voc" key)."""
+    return bool(c.get("carrier") or c.get("voc"))
+
+
 def pi_buyback(c: dict) -> bool:
-    """A VOC buyback (item exchange) with PI products in it."""
-    return c.get("type") == "item_exchange" and bool(c.get("voc")) and bool(c.get("pi"))
+    """A buyback (item exchange) by the courier corporation with PI products in it."""
+    return c.get("type") == "item_exchange" and bool(_by_courier(c)) and bool(c.get("pi"))
 
 
 def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict:
@@ -277,14 +282,14 @@ def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict
             if not active and not (c["status"] in DONE and _recent_days(c.get("date_completed") or
                                                                        c.get("date_accepted") or c.get("date_issued"), 7)):
                 continue  # expired, deleted, rejected or older than a week
-            if c["type"] == "courier" and c.get("voc"):
+            if c["type"] == "courier" and _by_courier(c):
                 if not pi_shipment(c, locs):
                     continue  # command centers, starter stock coming in or other goods: not a PI shipment
-                (courier if active else done).append({**row, "kind": "VOC courier"})
-            elif c["type"] == "item_exchange" and c.get("voc"):
+                (courier if active else done).append({**row, "kind": f"{c.get('carrier_name') or 'VOC'} courier"})
+            elif c["type"] == "item_exchange" and _by_courier(c):
                 if not row["items"]:
-                    continue  # a VOC contract without PI products in it
-                (buyback if active else done).append({**row, "kind": "VOC buyback"})
+                    continue  # a courier contract without PI products in it
+                (buyback if active else done).append({**row, "kind": "Buyback"})
             elif c.get("pi") and active:
                 other.append(row)
         for o in ch.get("orders", []):
@@ -311,8 +316,8 @@ def pipeline(pi: PIData, books: Dict[int, dict], characters: List[dict]) -> dict
 def earnings(pi: PIData, characters: List[dict], days: int = 7) -> dict:
     """ISK that came in from PI over the last `days` days, net of PI selling costs.
 
-    Only PI activity counts: market sales of PI products, VOC buybacks with PI products, rewards of
-    VOC couriers taking PI products to market (`pi_shipment`), customs taxes, and the sales tax and
+    Only PI activity counts: market sales of PI products, buybacks with PI products, rewards of
+    couriers taking PI products to market (`pi_shipment`), customs taxes, and the sales tax and
     broker fees of PI trades. The wallet journal doesn't name the item, so a `transaction_tax` counts
     when it belongs to a PI sale (its context is the sale's transaction id, or, for data synced
     before transaction ids were kept, it has the sale's timestamp) and a `brokers_fee` when it

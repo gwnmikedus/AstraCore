@@ -16,7 +16,7 @@ PI_REQUIRED = Bundle(
         "esi-characters.read_standings.v1",
     ),
     why="Colonies and extractors, Command Center Upgrades and tax skills, products in your hangars and where they "
-        "are, VOC contracts, sell orders, the ISK that actually came in, and standings for the broker fee.",
+        "are, courier contracts, sell orders, the ISK that actually came in, and standings for the broker fee.",
 )
 PI_CUSTOMS = Bundle(
     "pi.optional.customs", "Real customs office tax",

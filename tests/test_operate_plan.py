@@ -32,9 +32,9 @@ def _locations():
     })
 
 
-def _courier(cid, *, pi_items, start=1, status="in_progress", collateral=0.0, reward=0.0, hours=-30, voc=True):
+def _courier(cid, *, pi_items, start=1, status="in_progress", collateral=0.0, reward=0.0, hours=-30, carrier=True):
     items = [{"type_id": 2329, "qty": 1000}] if pi_items else [{"type_id": CC_TYPE, "qty": 3}]
-    return {"contract_id": cid, "type": "courier", "status": status, "voc": voc, "pi": pi_items,
+    return {"contract_id": cid, "type": "courier", "status": status, "carrier": carrier, "pi": pi_items,
             "collateral": collateral, "reward": reward, "volume": 1000, "date_issued": _iso(hours),
             "start_location_id": start, "end_location_id": 2, "items": items}
 
@@ -49,7 +49,7 @@ def _trader():
             _courier(11, pi_items=True, collateral=5e8, reward=1e7),                    # PI to market
             _courier(12, pi_items=False, collateral=3e8, reward=5e6),                   # command centers
             _courier(13, pi_items=True, start=2, collateral=1e8, reward=2e6),           # starter stock coming in
-            _courier(14, pi_items=True, collateral=7e8, reward=9e6, voc=False),         # not VOC
+            _courier(14, pi_items=True, collateral=7e8, reward=9e6, carrier=False),         # not VOC
         ],
         "orders": [{"order_id": 501, "type_id": 2329, "price": 12000.0, "volume_remain": 5, "volume_total": 10,
                     "location_id": 2, "is_buy_order": False, "issued": order_t}],

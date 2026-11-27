@@ -30,14 +30,14 @@ def outside_context(monkeypatch, pi):
     monkeypatch.setattr(service, 'planning_characters', lambda pid: copy.deepcopy(CHARS))
     monkeypatch.setattr(prices, 'cached', lambda: {'at': 123, 'books': books})
     monkeypatch.setattr(prices, 'history_cached', lambda: {'at': 123, 'markets': {}})
-    monkeypatch.setattr(selling.voc, 'routes_cached', lambda: [])
+    monkeypatch.setattr(selling.carrier, 'routes_cached', lambda: [])
     return area, books
 
 
 def test_explicit_own_trip_overrides_courier_without_changing_default(pi, monkeypatch):
-    routes = [{'origin': '7G-QIG', 'dest': selling.voc.JITA, 'per_m3': 1, 'collateral_pct': 1,
+    routes = [{'origin': '7G-QIG', 'dest': selling.carrier.JITA, 'per_m3': 1, 'collateral_pct': 1,
                'min_fee': 10e6, 'max_m3': 1e6}]
-    monkeypatch.setattr(selling.voc, 'routes_cached', lambda: routes)
+    monkeypatch.setattr(selling.carrier, 'routes_cached', lambda: routes)
     normal = selling.channel_values(pi, Settings(use_amarr=False), BOOKS, 2396, '7G-QIG')
     own = selling.channel_values(pi, Settings(use_self_haul=True, use_amarr=False), BOOKS, 2396, '7G-QIG')
     assert 'jita_buy' in normal and 'jita_self' not in normal

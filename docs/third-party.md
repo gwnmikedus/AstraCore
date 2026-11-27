@@ -73,7 +73,22 @@ terms again).
 | Feedback upstream | Template issues the planner finds (planet type mismatch, CCU level) go back to the repository as issues (#71) |
 | Until settled | Prefer linking to the files on GitHub over redistributing copies |
 
-## VOC Hauling: review
+## Humpback Whale Logistic: review
+
+| | |
+|---|---|
+| Owner / contact | Humpback Whale Logistic (Dracarys.), courier calculator on the Dracarys site |
+| URLs | `https://api.eve-hs.top:13002/getRoute` (route table behind the calculator), `https://dc.eve-hs.top/#/tool/tools_kuaidi` (link only) |
+| Basis | Published service information from the alliance's own courier calculator. Its names and published service details remain theirs (THIRD_PARTY_NOTICES.md) |
+| What we use | Routes, minimum fees, ISK per m³, collateral %, maximum m³ and frequency, to price couriers. No buyback |
+| Refresh | Read at most once a day (`carrier.refresh_provider`); falls back to values recorded on 27 November 2026 |
+| Attribution | Couriers page, Credits, Community and the footer; a quote is not a booking or a guarantee |
+| Open points | **Ask Dracarys / Humpback for consent** to read the route table automatically (#263) |
+
+## VOC Hauling: inactive
+
+VOC stopped in November 2026. It stays in the provider list (`carrier.VOC`, inactive) so older contracts keep counting and it can be switched back on with `ASTRACORE_COURIERS=humpback,voc`.
+
 
 | | |
 |---|---|

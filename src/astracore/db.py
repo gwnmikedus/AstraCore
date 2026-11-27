@@ -2,7 +2,7 @@
 
 Personal data always belongs to a profile: every function that reads or changes it takes a
 `profile_id` (or a character id that the caller has already checked belongs to the profile).
-Shared, non-personal caches (kv: prices, SDE, VOC tariff, area data, public ESI responses in http_cache)
+Shared, non-personal caches (kv: prices, SDE, courier tariffs, area data, public ESI responses in http_cache)
 stay global. Authenticated ESI responses in http_cache are personal: keyed per character (`#auth:<id>`),
 deleted with the character and dropped once expired.
 Module data access lives with the module (e.g. modules/pi/store.py).

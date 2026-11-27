@@ -55,3 +55,14 @@ def isolated_market_history(monkeypatch):
 
     # The startup warm-up of regional trade history calls ESI; tests never reach the network.
     monkeypatch.setattr(service, "warm_history", idle)
+
+
+@pytest.fixture(autouse=True)
+def offline_courier_tariff(monkeypatch):
+    """The courier tariff is never read from vochauling.com in tests: the cached or fallback routes stay in use."""
+    from astracore.modules.pi.static_data import voc
+
+    async def cached():
+        return voc.routes_cached()
+
+    monkeypatch.setattr(voc, "refresh_routes", cached)

@@ -19,7 +19,8 @@ screenshot tour, using only the isolated fictional runner. The fixed summary is 
 optimized or executable colony plan, and the video shows no live EVE actions.
 
 The original captures record the v0.3.13 interface. The guided question was refreshed from
-v0.3.21 to show the five main questions and simpler answer details. Later changes may alter
+v0.3.21 to show what were then the five main questions and simpler answer details. These captures are
+historical: the current wizard has six main questions (Buying was added) and later changes may alter
 the layout; capture commits and narration are recorded in [the storyboard](video-storyboard.json). The runner
 compatibility fix is tracked in [#196](https://github.com/gwnmikedus/AstraCore/issues/196).
 
@@ -31,7 +32,7 @@ compatibility fix is tracked in [#196](https://github.com/gwnmikedus/AstraCore/i
 
    ![Fictional operating Area](area.png)
 
-2. **Choose a routine.** Start with your goal: Set and forget, Balanced or Maximum ISK. The five main questions are Goal, Logins, Area, Products and Selling. More options shows the existing Planets, Teamwork and Batches settings and lets you adjust them. On a real account the comparisons use your characters, settings and available data. In this screenshot runner every comparison uses the same illustrative fixture; it does not optimize your answers or save changes.
+2. **Choose a routine.** Start with your goal: Set and forget, Balanced or Maximum ISK. The six main questions are Goal, Logins, Area, Products, Buying and Selling (the v0.3.21 screenshot below predates Buying). More options shows the existing Planets, Teamwork and Batches settings and lets you adjust them. On a real account the comparisons use your characters, settings and available data. In this screenshot runner every comparison uses the same illustrative fixture; it does not optimize your answers or save changes.
 
    ![A guided question with fictional comparison data](guided-question.png)
 

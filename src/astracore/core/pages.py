@@ -64,7 +64,7 @@ async def home(request: Request, code: str = "", state: str = ""):
     user = _user(request)
     if not user or request.url.path == "/about":
         return render(request, "home.html", page="home", page_title="", modules=registry.MODULES,
-                      access_gate=config.ACCESS_GATE,
+                      access_gate=accounts.gate_on(), origin=accounts.home_groups(),
                       members=accounts.member_groups(), contributor_credits=contributors.snapshot())
     tiles = []
     for m in registry.MODULES:
@@ -401,7 +401,7 @@ async def admin(request: Request):
     for r in env_rows:
         r["name"] = names.get(r["entity_id"], "")
     return render(request, "admin.html", page="admin", page_title="Admin", s=pi_store.admin_settings(),
-                  access=db.access_list(), env_rows=env_rows, gate=config.ACCESS_GATE, people=_people(),
+                  access=db.access_list(), env_rows=env_rows, gate=config.ACCESS_GATE, access_open=accounts.access_open(), people=_people(),
                   me=_admin(request)["id"], admin_ids=sorted(config.ADMIN_CHARACTER_IDS),
                   stats={"profiles": n_profiles, "characters": n_chars, "sessions": n_sessions,
                          "solving": GATE.running, "waiting": GATE.waiting},
@@ -489,6 +489,18 @@ async def admin_access(request: Request):
         return redirect("/admin", f"No {kind} called {raw} found.", "warn")
     db.access_add(kind, entity_id, name)
     return redirect("/admin", f"Added {name or entity_id} to the invite list.")
+
+
+@router.post("/admin/access/open")
+async def admin_access_open(request: Request):
+    """The admin's switch: open AstraCore to every EVE pilot, or back to the invite list."""
+    if not _admin(request):
+        return redirect("/")
+    form = await request.form()
+    on = form.get("open") == "1"
+    accounts.set_access_open(on)
+    return redirect("/admin", "Every EVE pilot can log in now." if on
+                    else "Invite-only again: the list below decides who can log in.")
 
 
 @router.post("/admin/access/{kind}/{entity_id}/remove")

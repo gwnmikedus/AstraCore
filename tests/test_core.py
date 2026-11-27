@@ -840,6 +840,27 @@ def test_admin_can_remove_people_but_not_admins(browser, eve):
                       follow_redirects=False).status_code == 303 and db.get_profile(admin_pid)
 
 
+def test_admin_switch_opens_access_and_only_admins_can_flip_it(browser, eve):
+    from astracore import config
+    from astracore.core import accounts
+    admin_id = next(iter(config.ADMIN_CHARACTER_IDS))
+    ca = browser()
+    if db.get_character(admin_id):
+        sso_login(ca, eve, admin_id, "Boss")
+    else:
+        sso_login(ca, eve, new_id(), "Boss main")
+        sso_login(ca, eve, admin_id, "Boss", path="/auth/login?intent=add")
+    assert "Open to every EVE pilot" in ca.get("/admin").text
+    ca.post("/admin/access/open", data={"csrf_token": csrf(ca), "open": "1"})
+    assert accounts.access_open() and "Make it invite-only again" in ca.get("/admin").text
+    other = browser()
+    sso_login(other, eve, new_id(), "Nope")
+    other.post("/admin/access/open", data={"csrf_token": csrf(other), "open": "0"}, follow_redirects=False)
+    assert accounts.access_open()                                        # non-admins can't close it
+    ca.post("/admin/access/open", data={"csrf_token": csrf(ca), "open": "0"})
+    assert not accounts.access_open()
+
+
 def test_footer_credits_the_app_not_ccp_and_credits_page():
     from astracore.app import app
     with TestClient(app) as c:

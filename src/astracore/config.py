@@ -113,7 +113,21 @@ ALLOWED = {
     "corporation": set(_ids("ASTRACORE_ALLOWED_CORPS")),
     "alliance": set(_ids("ASTRACORE_ALLOWED_ALLIANCES")),
 }
-ACCESS_GATE = PRODUCTION or env("ASTRACORE_ACCESS_GATE") == "1"
+
+
+def access_gate(setting: str, production: bool) -> bool:
+    """Whether the invite list limits who can log in. On by default in production, off locally;
+    ASTRACORE_ACCESS_GATE=0 opens production to every EVE pilot (the invite list stays configured for later),
+    =1 turns it on locally."""
+    s = setting.strip().lower()
+    if s in ("0", "off", "false", "no"):
+        return False
+    if s in ("1", "on", "true", "yes"):
+        return True
+    return production
+
+
+ACCESS_GATE = access_gate(env("ASTRACORE_ACCESS_GATE"), PRODUCTION)
 # Courier providers to plan with, by id (e.g. "humpback,voc"); empty = each provider's own default.
 COURIERS = [x for x in env("ASTRACORE_COURIERS").lower().replace(" ", "").split(",") if x]
 # Regions whose markets count as the home (local) market, by name (e.g. "Paragon Soul,Esoteria"); empty = default.

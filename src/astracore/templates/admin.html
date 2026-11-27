@@ -7,7 +7,7 @@
   {{ stats.sessions }} signed-in browsers · solves running {{ stats.solving }}, waiting {{ stats.waiting }}</p>
 
 <article>
-  <header><strong>Who can log in</strong> {% if not gate %}<span class="muted">(the invite gate is off in local mode; this list applies in production)</span>{% endif %}</header>
+  <header><strong>Who can log in</strong> {% if not gate %}<span class="muted">(the invite gate is off, so every EVE pilot can log in; this list applies again once <code>ASTRACORE_ACCESS_GATE</code> is on)</span>{% endif %}</header>
   <p class="muted">A login passes if the character, its corporation or its alliance is on this list. Characters already in a profile can
     always sign in again (remove their profile below to take access away). You are an admin because your characters are set in
     <code>ASTRACORE_ADMIN_CHARACTER_IDS</code>; admin characters always get in.</p>

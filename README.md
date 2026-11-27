@@ -211,8 +211,8 @@ migration from an MVP database, the solve gate, and the planner.
 
 ## Access
 
-Production lets in: admin characters (`ASTRACORE_ADMIN_CHARACTER_IDS`, always), everyone in **Dutch Legions** and
-**Insidious.** (`ASTRACORE_ALLOWED_CORPS` / `_ALLIANCES` in `.env.production`), and whoever the admin invites on
+Production lets in: admin characters (`ASTRACORE_ADMIN_CHARACTER_IDS`, always), everyone in the corporations and alliances
+listed in `ASTRACORE_ALLOWED_CORPS` / `_ALLIANCES` (`.env.production`), and whoever the admin invites on
 `/admin` (characters, corporations or alliances; no restart needed). Characters already in a profile can always sign
 in again; to take someone's access away, remove their profile under **People** on `/admin` (this revokes their EVE
 logins) and take them off the invite list.
@@ -239,7 +239,7 @@ artifact it links to. `static/css/astracore.css` implements it; templates never 
 ## EVE images
 
 `src/astracore/static/img/eve/` holds a curated subset of `assets for possible usage/` (from the EVE Image Server, see its
-`manifest.json`): PI commodity and planet icons, a few PI structure icons, the Dutch Legions / Insidious. logos and PI
+`manifest.json`): PI commodity and planet icons, a few PI structure icons, the Dutch Legions logo and PI
 ship renders. `core/eveimg.py` looks them up by name or type id (`eve_img()`, `planet_img()`, `logo_img()` in templates;
 `AC.eveImg()` etc. in the browser, generated with `python -m astracore.core.eveimg`). Anything not bundled loads live from
 images.evetech.net.

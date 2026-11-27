@@ -105,8 +105,8 @@ def member_groups() -> dict:
     """The corporation/alliance whose members may always log in (landing and invite-only pages).
 
     Each group keeps its exact EVE name (``name``) and gets ``label``, the name for running text: a
-    trailing full stop ("Insidious.") would otherwise end the sentence it is joined into. ``phrase``
-    joins the labels ("Dutch Legions and Insidious")."""
+    trailing full stop (an alliance such as "Example.") would otherwise end the sentence it is joined into.
+    ``phrase`` joins the labels ("Dutch Legions and Example")."""
     from astracore.core import eveimg
     groups = eveimg.home_groups()
     out = {}

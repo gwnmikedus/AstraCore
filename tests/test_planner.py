@@ -229,8 +229,8 @@ def test_ccu4_character_gets_only_fitting_templates(pi):
 from astracore.modules.pi.planner import selling  # noqa: E402
 
 BOOKS = {
-    2396: {"jita_buy": 800.0, "jita_sell": 850.0, "amarr_buy": 790.0, "amarr_sell": 840.0, "delve_buy": 150.0},
-    2329: {"jita_buy": 10000.0, "jita_sell": 11000.0, "amarr_buy": 9500.0, "amarr_sell": 10500.0, "delve_buy": 7000.0},
+    2396: {"jita_buy": 800.0, "jita_sell": 850.0, "amarr_buy": 790.0, "amarr_sell": 840.0, "home_buy": 150.0},
+    2329: {"jita_buy": 10000.0, "jita_sell": 11000.0, "amarr_buy": 9500.0, "amarr_sell": 10500.0, "home_buy": 7000.0},
 }
 
 
@@ -251,7 +251,7 @@ def test_p2_buyback_is_90_percent_of_jita_buy(pi):
     assert ch["buyback"] == pytest.approx(9000.0)
 
 
-def test_disabled_channels_and_outside_delve(pi):
+def test_disabled_channels_and_outside_home(pi):
     s = Settings(use_buyback=False, use_local=False, use_amarr=False)
     assert set(selling.channel_values(pi, s, BOOKS, 2329, "7G-QIG")) == {"jita_buy"}
     # stock already in Jita: no courier cost, no buyback/local

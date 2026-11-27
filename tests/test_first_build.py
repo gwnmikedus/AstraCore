@@ -19,8 +19,8 @@ from test_planner import TEMPLATES, _plan, _tpl, pi  # noqa: F401 (fixtures)
 
 BARREN, GAS = R.COMMAND_CENTER_TYPES["Barren"], R.COMMAND_CENTER_TYPES["Gas"]
 CC_BOOKS = {
-    BARREN: {"jita_sell": 100_000.0, "amarr_sell": 120_000.0, "delve_sell": 150_000.0},
-    GAS: {"jita_sell": 0.0, "amarr_sell": 0.0, "delve_sell": 0.0},     # nobody sells it: estimate
+    BARREN: {"jita_sell": 100_000.0, "amarr_sell": 120_000.0, "home_sell": 150_000.0},
+    GAS: {"jita_sell": 0.0, "amarr_sell": 0.0, "home_sell": 0.0},     # nobody sells it: estimate
     2396: {"jita_sell": 600.0, "amarr_sell": 550.0},                   # Biofuels
     2399: {"jita_sell": 700.0},                                        # Precious Metals
 }
@@ -375,7 +375,7 @@ def test_hauling_routes_use_voc_and_flag_an_assumed_return_tariff():
     assert checklist.hauling_routes("Somewhere", None, ROUTES)["amarr"]["status"] == "unpriced"
 
 
-def test_delve_seller_beats_a_cheaper_hub_once_the_courier_is_counted(pi):
+def test_home_seller_beats_a_cheaper_hub_once_the_courier_is_counted(pi):
     k = _build(pi, _cc_only(), local=True, area=AREA, courier_routes=ROUTES)
     cc = k["command_centers"][0]
     # Jita: 3 x 100k + a 10M minimum fee; Delve: 3 x 150k, no courier
@@ -420,14 +420,14 @@ def test_unknown_courier_route_keeps_the_local_preference_and_says_hauling_isnt_
     assert k["hauling"]["self_haul"] == ["Jita 4-4"] and k["costs"]["hauling"] == 0
 
 
-def test_delve_offer_names_the_station_and_the_jumps(pi):
-    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
+def test_home_offer_names_the_station_and_the_jumps(pi):
+    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "home_sell_at": {
         "location_id": 60_000_001, "system_id": 2, "station": "1DQ1-A - Test Station", "system": "1DQ1-A",
         "units": 2, "structure": False}}}
     cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES)["command_centers"][0]
     assert cc["pickup"]["station"] == "1DQ1-A - Test Station" and cc["pickup"]["jumps"] == 1
     assert "1 jump from 7G-QIG" in cc["pickup"]["text"] and cc["pickup"]["partial"]   # 2 there, 3 needed
-    books[BARREN]["delve_sell_at"] = {"location_id": 1_000_000_000_123, "system_id": 3, "station": None,
+    books[BARREN]["home_sell_at"] = {"location_id": 1_000_000_000_123, "system_id": 3, "station": None,
                                       "system": None, "units": 5, "structure": True}
     free_time = {"cycle_days": 2, "hour_isk": 0}       # time worth nothing: the cheaper Delve price wins
     cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,
@@ -448,7 +448,7 @@ def test_courier_splits_above_voc_size_limit():
     assert n == 2 and fee == 2 * carrier.courier_fee(JITA_ROUTE, 100_000, 0)
 
 
-def test_cheapest_delve_order_location_is_named_without_auth(monkeypatch):
+def test_cheapest_home_order_location_is_named_without_auth(monkeypatch):
     sells = [{"price": 120.0, "location_id": 60_000_001, "system_id": 2, "volume_remain": 5},
              {"price": 100.0, "location_id": 1_000_000_000_123, "system_id": 3, "volume_remain": 4},
              {"price": 100.0, "location_id": 1_000_000_000_123, "system_id": 3, "volume_remain": 1}]
@@ -495,8 +495,8 @@ def test_operate_shows_landed_cost_and_hauling(browser, eve, pi, monkeypatch):
     assert "Courier Jita 4-4 → 7G-QIG" in html and "Approximation:" in html
 
 
-def test_your_own_delve_trip_is_priced_at_your_hour_value(pi):
-    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
+def test_your_own_home_trip_is_priced_at_your_hour_value(pi):
+    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "home_sell_at": {
         "location_id": 1_000_000_000_123, "system_id": 3, "station": None, "system": None, "units": 5,
         "structure": True}}}
     cheap_time = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,
@@ -512,7 +512,7 @@ def test_your_own_delve_trip_is_priced_at_your_hour_value(pi):
 
 
 def test_a_seller_at_an_unknown_distance_doesnt_beat_a_priced_courier(pi):
-    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "delve_sell_at": {
+    books = {**CC_BOOKS, BARREN: {**CC_BOOKS[BARREN], "home_sell_at": {
         "location_id": 60_000_009, "system_id": 999, "station": "FAR - Station", "system": "FAR",
         "units": 5, "structure": False}}}
     cc = _build(pi, _cc_only(), local=True, books=books, area=AREA, courier_routes=ROUTES,

@@ -32,6 +32,14 @@ templates.env.globals["icon"] = icon
 templates.env.globals.update(eveimg.JINJA_GLOBALS)
 
 
+def _home_market() -> str:
+    from astracore.modules.pi.static_data import markets
+    return markets.home_label()
+
+
+templates.env.globals["home_market"] = _home_market   # the home regions' names, e.g. "Paragon Soul / Esoteria"
+
+
 templates.env.globals["asset"] = asset     # content-hashed /static URLs, see core/assets.py
 
 

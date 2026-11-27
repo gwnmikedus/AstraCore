@@ -71,6 +71,7 @@ Never commit them (`.env*` is gitignored) and keep them `chmod 600`. Keys (see `
 | `ASTRACORE_SESSION_SECRET` | keys the stored session ids and signed messages |
 | `ASTRACORE_ADMIN_CHARACTER_IDS` | characters whose profile is the admin (admin page, buyback %, invite list) |
 | `ASTRACORE_COURIERS` | courier providers to plan with, e.g. `humpback,voc` (empty = provider defaults; see Selling) |
+| `ASTRACORE_HOME_REGIONS` | regions whose market counts as the home (local) market, e.g. `Paragon Soul,Esoteria` (the default); `Name:region_id` for others |
 | `ASTRACORE_ALLOWED_CHARACTERS` / `_CORPS` / `_ALLIANCES` | invite list (production); more can be added on `/admin` without a restart |
 | `ASTRACORE_SOLVE_CONCURRENCY` | plans solved at the same time (default: half the CPU cores, at least 2 and at most 4) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | production only; from the Cloudflare dashboard. Never printed or logged. |
@@ -178,6 +179,7 @@ Command Center Upgrades (nullsec miners CCU 4, lowsec miners 5, factories 2–3)
 - **VOC Hauling** stopped in November 2026 and is inactive. Switch providers without a code change with
   `ASTRACORE_COURIERS=humpback,voc` (comma-separated ids; empty = each provider's default).
 - A buyback is only offered when an active provider runs one; its % is instance-wide (`/admin`).
+- The **home market** is the region-wide order books of the home regions (`static_data/markets.py`, `ASTRACORE_HOME_REGIONS`, default Paragon Soul + Esoteria). A drop-off in a home region can sell into and buy from it without a courier; when the alliance moves, change the setting.
 - Batches whose courier fee would be eaten by the minimum fee fall back to another channel or are marked "hold".
 - `/couriers` lists every provider and the tariff in use. Add a provider only with its consent and credit it
   (docs/third-party.md).

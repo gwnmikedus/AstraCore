@@ -19,7 +19,7 @@ from ..settings import Settings
 from ..static_data.sde_loader import PIData
 from . import prices, selling
 
-MARKET_LABELS = {"jita": "Jita 4-4", "amarr": "Amarr VIII", "delve": "Delve (region-wide)"}
+MARKET_LABELS = {"jita": "Jita 4-4", "amarr": "Amarr VIII", "home": "Home market (region-wide)"}
 # Share of a region's daily traded units a new seller can expect to take with sell orders.
 SELL_CAPTURE = (0.10, 0.30)
 THIN_PRICE_DROP = 0.05     # walking the book costs more than 5% below the top buy price
@@ -35,7 +35,7 @@ BUY_INPUT_SHARE = 0.10
 
 def market_of(channel: str) -> str:
     if channel == "local_buy":
-        return "delve"
+        return "home"
     if channel.startswith("amarr"):
         return "amarr"
     return "jita"   # jita_*, buyback (priced off Jita buy)
@@ -82,10 +82,10 @@ def _alternative(row: dict, channels: Dict[str, float], books: dict, history: di
 
 def buy_limits(pi: PIData, s: Settings, books: Dict[int, dict], history: Dict[str, Dict[int, dict]],
                local: bool, days: float) -> Dict[int, Dict[str, float]]:
-    """Units/day of each P1-P3 input a plan may buy per market the pilot uses (jita, amarr, delve):
+    """Units/day of each P1-P3 input a plan may buy per market the pilot uses (jita, amarr, home):
     BUY_INPUT_SHARE of what that market trades a day. Without trade history there, the sell orders
     visible now, spread over `days` (how long one purchase has to last)."""
-    markets = [m for m, on in (("jita", s.use_jita), ("amarr", s.use_amarr), ("delve", s.use_local and local)) if on]
+    markets = [m for m, on in (("jita", s.use_jita), ("amarr", s.use_amarr), ("home", s.use_local and local)) if on]
     out: Dict[int, Dict[str, float]] = {}
     for t in pi.items:
         if not 1 <= pi.tier(t) <= 3:

@@ -1,35 +1,40 @@
 """Order-book prices for PI items at every place you could sell them (and command centers,
-where you could buy them): Jita 4-4, Amarr VIII and Delve (local), best buy and best sell for each,
+where you could buy them): Jita 4-4, Amarr VIII and the home market (the home regions together, see
+static_data/markets.py), best buy and best sell for each,
 plus the visible buy/sell depth (price levels) and each region's recent daily trade history."""
 from __future__ import annotations
 
 import time
 from datetime import date, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from astracore import db
 from astracore.esi import public
 from astracore.esi.client import ESIClient, ESIError, ESIUnavailable
-from ..static_data import carrier
+from ..static_data import carrier, markets as home
 from ..static_data.pi_rules import COMMAND_CENTER_TYPES
 from ..static_data.sde_loader import PIData
 
 # v2: every market side carries its depth. v1 entries could have a best price but no depth, which the
 # demand check read as "no visible buyers" while the plan still sold into those buy orders.
-BOOKS_KEY = "price_books_v2"
-DELVE_REGION = 10000060
+# v3: the local market is "home" (the configured home regions), no longer Delve.
+BOOKS_KEY = "price_books_v3"
 MAX_AGE = 3 * 3600
 INCOMPLETE_MAX_AGE = 10 * 60    # some order books didn't load: try again soon
-HISTORY_KEY = "market_history_v1"
+HISTORY_KEY = "market_history_v2"
 HISTORY_MAX_AGE = 24 * 3600     # ESI publishes regional history once a day
 HISTORY_DAYS = 30
 DEPTH_LEVELS = 25               # price levels kept per side; plenty for a PI shipment
 
-MARKETS = {
+HUBS = {
     "jita": (carrier.MARKET_HUBS[carrier.JITA]["region_id"], carrier.MARKET_HUBS[carrier.JITA]["station_id"]),
     "amarr": (carrier.MARKET_HUBS[carrier.AMARR]["region_id"], carrier.MARKET_HUBS[carrier.AMARR]["station_id"]),
-    "delve": (DELVE_REGION, 0),   # whole region
 }
+
+
+def markets() -> Dict[str, List[Tuple[int, int]]]:
+    """Market key -> [(region id, station id or 0 for the whole region)]. "home" spans every home region."""
+    return {**{k: [v] for k, v in HUBS.items()}, "home": [(rid, 0) for rid in home.home_region_ids()]}
 
 
 def loaded(book: Optional[dict], market: str) -> bool:
@@ -45,8 +50,15 @@ async def refresh(esi: ESIClient, pi: PIData) -> Dict[int, dict]:
     previous = cached()
     books: Dict[int, dict] = {t: {} for t in items}
     failed = 0
-    for market, (region_id, station_id) in MARKETS.items():
-        orders = await public.many(public.region_orders(esi, region_id, t, force=True) for t in items)
+    places = markets()
+    for market, regions in places.items():
+        orders: List[Optional[list]] = [[] for _ in items]
+        station_id = regions[0][1] if len(regions) == 1 else 0
+        for region_id, _ in regions:
+            got = await public.many(public.region_orders(esi, region_id, t, force=True) for t in items)
+            for i, rows in enumerate(got):
+                # one region that didn't answer makes the whole book unknown, never "fewer orders"
+                orders[i] = None if rows is None or orders[i] is None else orders[i] + rows
         for t, rows in zip(items, orders):
             if rows is None:
                 failed += 1
@@ -65,11 +77,12 @@ async def refresh(esi: ESIClient, pi: PIData) -> Dict[int, dict]:
             if not station_id:
                 # region-wide book: remember where its cheapest seller is (to buy from, e.g. command centers)
                 books[t][f"{market}_sell_at"] = cheapest_at(sells)
-    if failed == len(items) * len(MARKETS):
+    if failed == len(items) * len(places):
         # ESI didn't answer at all: keep the last books (still stale, so the next plan tries again)
         return previous["books"]
-    await name_locations(esi, [b.get("delve_sell_at") for b in books.values()])
-    db.kv_set(BOOKS_KEY, {"at": time.time(), "failed": failed, "books": {str(k): v for k, v in books.items()}})
+    await name_locations(esi, [b.get("home_sell_at") for b in books.values()])
+    db.kv_set(BOOKS_KEY, {"at": time.time(), "failed": failed, "home": home.home_region_ids(),
+                          "books": {str(k): v for k, v in books.items()}})
     return books
 
 
@@ -135,19 +148,22 @@ def summarise_history(rows: List[dict], today: Optional[date] = None) -> dict:
     if len(avgs) >= 2:
         mean = sum(avgs) / len(avgs)
         cv = (sum((a - mean) ** 2 for a in avgs) / len(avgs)) ** 0.5 / mean if mean else None
-    return {"avg_volume": sum(vols) / HISTORY_DAYS, "days": len(recent), "window": HISTORY_DAYS,
+    return {"avg_volume": sum(vols) / HISTORY_DAYS, "days": len({d for d, _, _ in recent}), "window": HISTORY_DAYS,
             "last": max(d for d, _, _ in recent).isoformat(), "price_cv": cv}
 
 
 async def refresh_history(esi: ESIClient, pi: PIData) -> Dict[str, Dict[int, dict]]:
-    """Recent trade history per market region (Jita = The Forge, Amarr = Domain, Delve)."""
+    """Recent trade history per market (Jita = The Forge, Amarr = Domain, home = every home region together)."""
     items = [t for t in pi.items if pi.tier(t) >= 1]
     previous = history_cached()["markets"]
     out: Dict[str, Dict[int, dict]] = {}
-    regions = {m: region_id for m, (region_id, _) in MARKETS.items()}
+    regions = {m: [rid for rid, _ in places] for m, places in markets().items()}
     failed = 0
-    for market, region_id in regions.items():
-        rows = await public.many(public.region_history(esi, region_id, t) for t in items)
+    for market, region_ids in regions.items():
+        rows: List[Optional[list]] = [[] for _ in items]
+        for region_id in region_ids:
+            got = await public.many(public.region_history(esi, region_id, t) for t in items)
+            rows = [None if g is None or r is None else r + g for r, g in zip(rows, got)]
         out[market] = {}
         for t, r in zip(items, rows):
             if r is None:     # ESI didn't answer: keep the last summary rather than "nothing traded"
@@ -158,7 +174,8 @@ async def refresh_history(esi: ESIClient, pi: PIData) -> Dict[str, Dict[int, dic
                 out[market][t] = summarise_history(r)
     if items and failed == len(items) * len(regions):
         raise ESIUnavailable("no trade history loaded", "unreachable")   # keep the last copy, retry later
-    db.kv_set(HISTORY_KEY, {"at": time.time(), "markets": {m: {str(k): v for k, v in h.items()}
+    db.kv_set(HISTORY_KEY, {"at": time.time(), "home": home.home_region_ids(),
+                            "markets": {m: {str(k): v for k, v in h.items()}
                                                            for m, h in out.items()}})
     return out
 
@@ -171,7 +188,8 @@ def history_cached() -> dict:
 
 def history_stale() -> bool:
     c = history_cached()
-    return not c["markets"] or time.time() - (c["at"] or 0) > HISTORY_MAX_AGE
+    moved = (db.kv_get(HISTORY_KEY) or {}).get("home") != home.home_region_ids()   # the home regions changed
+    return not c["markets"] or moved or time.time() - (c["at"] or 0) > HISTORY_MAX_AGE
 
 
 def cached() -> dict:
@@ -183,4 +201,5 @@ def cached() -> dict:
 def stale() -> bool:
     c = cached()
     max_age = INCOMPLETE_MAX_AGE if c["failed"] else MAX_AGE
-    return not c["books"] or time.time() - (c["at"] or 0) > max_age
+    moved = (db.kv_get(BOOKS_KEY) or {}).get("home") != home.home_region_ids()   # the home regions changed
+    return not c["books"] or moved or time.time() - (c["at"] or 0) > max_age

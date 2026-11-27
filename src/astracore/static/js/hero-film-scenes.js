@@ -385,7 +385,7 @@ const QS = [
   ['Step 2 of 6', 'How often can you log in to restart extractors?', ['Every day', 'Every 2 days', 'Every 3 days', 'Once a week'], 2],
   ['Step 3 of 6', 'How far are you willing to fly?', ['One system', 'A few nearby systems', 'Wherever pays most'], 1],
   ['Step 4 of 6', 'How far should your planets process?', ['Only P1 (miners)', 'Up to P2', 'Up to P3', 'Up to P4'], 1],
-  ['Step 6 of 6', 'How do you want to turn products into ISK?', ['Sell in Delve only', 'Also courier to Jita / Amarr', 'Haul to Jita / Amarr myself'], 1],
+  ['Step 6 of 6', 'How do you want to turn products into ISK?', ['Sell at home only', 'Also courier to Jita / Amarr', 'Haul to Jita / Amarr myself'], 1],
 ];
 kit.scene('questions', {
   init(kit) {

@@ -86,13 +86,13 @@
   <p>Your characters have no colonies yet and no sovereignty to start from. Enter the region you fly in, such as your
     corporation's or alliance's home region; you can add constellations or systems too.</p>
   <label>Region, constellation or system
-    <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)"></label>
+    <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Esoteria, O4T-Z5, R-ARKN (comma separated)"></label>
   <button name="refresh" value="1">{{ icon('map') }} Find planets</button>
 </section>
 {% else %}
 <details>
   <summary>Add another region, constellation or system</summary>
-  <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Delve, SG-CTQ, HZAQ-W (comma separated)">
+  <input name="extra_area" value="{{ s.extra_area }}" placeholder="e.g. Esoteria, O4T-Z5, R-ARKN (comma separated)">
 </details>
 {% endif %}
 

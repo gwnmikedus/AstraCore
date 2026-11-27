@@ -99,7 +99,7 @@ const STEPS = [
      {id: 4, icon: 'rocket', label: 'Up to P4', patch: {max_tier: 4}, blurb: 'Allows any factory. The planner only uses one if the ISK justifies it.'}],
    match: st => +st.max_tier},
   {id: 'buy', title: 'Buying', q: 'May your factories run on inputs you buy?', metric: 'buy',
-   intro: 'Most pilots who make P3 or P4 don’t mine every input: they buy P1, P2 or P3 in Jita, Amarr or Delve and run a few factory planets on it. ' +
+   intro: 'Most pilots who make P3 or P4 don’t mine every input: they buy P1, P2 or P3 in Jita, Amarr or at home ({{ home_market() }}) and run a few factory planets on it. ' +
           'The planner counts the price, the courier to your drop-off and customs, never buys more than 10% of what a market trades a day, and keeps the ISK tied up in inputs within your budget. ' +
           'Bought inputs are paid back when you sell, so they cost ISK up front, not per day.',
    options: [
@@ -125,7 +125,7 @@ const STEPS = [
   {id: 'sell', title: 'Selling', q: 'How do you want to turn products into ISK?',
    intro: '',
    options: [
-     {id: 'nohaul', icon: 'house', label: 'Sell in Delve only', patch: SELL.nohaul, blurb: 'Delve buy orders. Nothing leaves null, but P1 is worth little here.'},
+     {id: 'nohaul', icon: 'house', label: 'Sell at home only', patch: SELL.nohaul, blurb: 'Buy orders in {{ home_market() }}. Nothing leaves null, but P1 is worth little here.'},
      {id: 'courier', icon: 'truck', label: 'Also courier to Jita / Amarr', patch: SELL.courier, blurb: 'A courier hauls it, you sell into buy orders on arrival.'},
      {id: 'self', icon: 'truck', label: 'Haul to Jita / Amarr myself', patch: SELL.self, blurb: 'Sell to visible buy orders. Your journey time, fuel and loss risk are not priced.'},
      {id: 'orders', icon: 'trending-up', label: 'Also list sell orders', patch: SELL.orders, blurb: 'Better prices, but you list orders and update them when undercut.'}],

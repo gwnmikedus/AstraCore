@@ -7,7 +7,7 @@ Channels (value per unit, at your drop-off station, after all costs):
               when there is evidence it sells: the hub's sell book loaded and recent trades in its region
               (see `sell_order_gap`); otherwise the product keeps its instant-sale value.
   amarr_buy / amarr_sell   same via Amarr.
-  local_buy   sell into Delve buy orders.
+  local_buy   sell into home-market buy orders (the home regions, static_data/markets.py).
 
 Courier costs use the courier's rule: max(min fee, m3 x rate + collateral x col%). The minimum
 fee is handled per shipment in `sell_plan`; per-unit values use the variable part.
@@ -18,7 +18,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from ..settings import Settings, hour_value
-from ..static_data import carrier
+from ..static_data import carrier, markets
 from ..static_data.sde_loader import PIData
 
 LABELS = {
@@ -27,7 +27,7 @@ LABELS = {
     "jita_sell": "Courier → Jita, list sell orders",
     "amarr_buy": "Courier → Amarr, sell to buy orders",
     "amarr_sell": "Courier → Amarr, list sell orders",
-    "local_buy": "Sell to Delve buy orders",
+    "local_buy": "Sell to home-market buy orders",
     "jita_self": "Haul it to Jita yourself, sell to buy orders",
     "amarr_self": "Haul it to Amarr yourself, sell to buy orders",
 }
@@ -46,7 +46,7 @@ def buyback_fraction(s: Settings, tier: int) -> float:
 HUB_SYSTEMS = {"jita": "Jita", "amarr": "Amarr"}
 HUB_MARKETS = {"jita": "Jita 4-4", "amarr": "Amarr VIII"}
 
-History = Dict[str, Dict[int, dict]]   # market (jita, amarr, delve) -> item -> prices.summarise_history
+History = Dict[str, Dict[int, dict]]   # market (jita, amarr, home) -> item -> prices.summarise_history
 
 
 def sell_order_gap(book: dict, history: Optional[History], type_id: int, hub: str) -> Optional[str]:
@@ -100,14 +100,13 @@ def _one_hub(choice: Dict[int, str], per_item: Dict[int, dict], trip_isk: float)
             choice[t] = best[0]
 
 
-def in_delve(system: str, area: Optional[dict]) -> bool:
-    if system in carrier.local_pickups("Delve"):
-        return True
+def in_home(system: str, area: Optional[dict]) -> bool:
+    """Whether `system` is in one of the home regions, so the home market is reachable without a courier."""
     if area:
         for s in area["systems"].values():
             if s["name"] == system:
-                return s.get("region") == "Delve"
-    return False
+                return markets.is_home_region(s.get("region") or "")
+    return markets.is_home_region(carrier.pickup_region(system))
 
 
 def courier_origin(dropoff: str, area: Optional[dict]) -> Tuple[Optional[str], int]:
@@ -133,7 +132,7 @@ def courier_origin(dropoff: str, area: Optional[dict]) -> Tuple[Optional[str], i
 def coverage(dropoff: str, area: Optional[dict]) -> dict:
     """Channels reachable from the resolved drop-off, without enabling any preferences."""
     origin, _ = courier_origin(dropoff, area)
-    local = in_delve(dropoff, area)
+    local = in_home(dropoff, area)
     return {"local": local, "buyback": local and carrier.has_buyback(),
             "courier": any(carrier.route(origin or dropoff, dest) for dest in (carrier.JITA, carrier.AMARR)),
             "trade_hub": dropoff in HUB_SYSTEMS.values()}
@@ -144,7 +143,7 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
                    origin: Optional[str] = None, self_haul: bool = False,
                    history: Optional[History] = None) -> Dict[str, float]:
     """Net ISK per unit at the drop-off for every enabled channel.
-    `local` = the drop-off is in Delve (buyback and Delve market are reachable).
+    `local` = the drop-off is in a home region (buyback and home market are reachable).
     `origin` = courier pickup the courier starts from (defaults to the drop-off).
     `self_haul` = when no courier takes it from here, value it as hauled to Jita/Amarr yourself.
     `history` = recent trades per market: sell orders are only valued where they show it sells
@@ -182,8 +181,8 @@ def channel_values(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int
             out[f"{hub_key}_buy"] = b[f"{hub_key}_buy"] * (1 - tax) - cost
         if s.use_sell_orders and b.get(f"{hub_key}_sell") and not sell_order_gap(b, history, type_id, hub_key):
             out[f"{hub_key}_sell"] = b[f"{hub_key}_sell"] * (1 - tax - broker) - cost
-    if s.use_local and local and b.get("delve_buy"):
-        out["local_buy"] = b["delve_buy"] * (1 - tax)
+    if s.use_local and local and b.get("home_buy"):
+        out["local_buy"] = b["home_buy"] * (1 - tax)
     return {k: v for k, v in out.items() if v > 0}
 
 
@@ -210,8 +209,8 @@ BUY_LABELS = {
     "amarr_order": "Buy order in Amarr, courier to your drop-off",
     "jita_order_self": "Buy order in Jita, haul it in yourself",
     "amarr_order_self": "Buy order in Amarr, haul it in yourself",
-    "local": "Buy in Delve",
-    "local_order": "Buy order in Delve",
+    "local": "Buy at home",
+    "local_order": "Buy order at home",
 }
 
 
@@ -219,7 +218,7 @@ def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, 
                  routes: Optional[List[dict]] = None, local: bool = True,
                  origin: Optional[str] = None) -> Dict[str, float]:
     """ISK per unit to get an input to the drop-off, for every market the pilot uses (the same Jita,
-    Amarr and Delve choices as for selling). Instant buys pay the cheapest sell order; pilots who list
+    Amarr and home-market choices as for selling). Instant buys pay the cheapest sell order; pilots who list
     sell orders may also place buy orders at the best bid plus broker fee (cheaper, slower).
     Couriers need a route from the hub to your pickup; hauling yourself prices only the goods."""
     origin = origin or dropoff
@@ -249,7 +248,7 @@ def buy_channels(pi: PIData, s: Settings, books: Dict[int, dict], type_id: int, 
                 if r:
                     out[f"{hub_key}{suffix}"] = price + carrier.courier_variable_per_unit(r, vol, price)
     if s.use_local and local:
-        for suffix, price in prices("delve").items():
+        for suffix, price in prices("home").items():
             out[f"local{suffix}"] = price
     return {k: v for k, v in out.items() if v > 0}
 

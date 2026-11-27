@@ -36,7 +36,7 @@ def test_defaults_plan_with_humpback_only_and_offer_no_buyback(monkeypatch):
     assert r["provider"] == "humpback" and r["min_fee"] == 5_000_000 and r["max_m3"] == 60_000
     assert carrier.route("7G-QIG", carrier.JITA) is None          # VOC is inactive
     assert carrier.assignee(r) == "Humpback Whale Logistic"
-    assert selling.coverage("O4T-Z5", None) == {"local": False, "buyback": False, "courier": True, "trade_hub": False}
+    assert selling.coverage("O4T-Z5", None) == {"local": True, "buyback": False, "courier": True, "trade_hub": False}
 
 
 def test_env_list_switches_a_stopped_provider_back_on(monkeypatch):

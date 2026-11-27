@@ -73,7 +73,6 @@ Never commit them (`.env*` is gitignored) and keep them `chmod 600`. Keys (see `
 | `ASTRACORE_COURIERS` | courier providers to plan with, e.g. `humpback,voc` (empty = provider defaults; see Selling) |
 | `ASTRACORE_HOME_REGIONS` | regions whose market counts as the home (local) market, e.g. `Paragon Soul,Esoteria` (the default); `Name:region_id` for others |
 | `ASTRACORE_ALLOWED_CHARACTERS` / `_CORPS` / `_ALLIANCES` | invite list (production); more can be added on `/admin` without a restart |
-| `ASTRACORE_ACCESS_GATE` | `0` opens production to every EVE pilot (the invite list is kept but not enforced); `1` enforces the invite list locally. Default: on in production, off locally |
 | `ASTRACORE_SOLVE_CONCURRENCY` | plans solved at the same time (default: half the CPU cores, at least 2 and at most 4) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | production only; from the Cloudflare dashboard. Never printed or logged. |
 
@@ -220,8 +219,8 @@ listed in `ASTRACORE_ALLOWED_CORPS` / `_ALLIANCES` (`.env.production`), and whoe
 in again; to take someone's access away, remove their profile under **People** on `/admin` (this revokes their EVE
 logins) and take them off the invite list.
 
-To let everyone in for a while, set `ASTRACORE_ACCESS_GATE=0` in `.env.production` and restart; the invite list
-stays as it is and applies again once you remove that line.
+To let every EVE pilot in for a while, press **Open to every EVE pilot** under **Who can log in** on `/admin`; the
+invite list is kept and applies again once you make it invite-only.
 
 ## Static files and caching
 

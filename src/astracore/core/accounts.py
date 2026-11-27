@@ -101,19 +101,47 @@ def merge_profiles(src: int, dst: int, character_id: int) -> bool:
 
 
 # --------------------------------------------------------------------------- invite gate
+OPEN_KEY = "access_open"
+
+
+def access_open() -> bool:
+    """The admin's switch on /admin: every EVE pilot may log in. The invite list is kept and applies
+    again once the switch is off."""
+    return bool(db.kv_get(OPEN_KEY, False))
+
+
+def set_access_open(on: bool) -> None:
+    db.kv_set(OPEN_KEY, bool(on))
+
+
+def gate_on() -> bool:
+    """Whether the invite list limits who can log in: production (or ASTRACORE_ACCESS_GATE=1 locally),
+    unless the admin opened access to everyone."""
+    return config.ACCESS_GATE and not access_open()
+
+
+def home_groups() -> dict:
+    """The corporation/alliance AstraCore was born within, labelled for running text (see member_groups)."""
+    from astracore.core import eveimg
+    groups = eveimg.home_groups()
+    out = {kind: {**g, "label": g["name"].rstrip(". ") or g["name"]}
+           for kind in ("corporation", "alliance") if (g := groups.get(kind))}
+    if out:
+        out["phrase"] = " and ".join(g["label"] for g in out.values())
+    return out
+
+
 def member_groups() -> dict:
     """The corporation/alliance whose members may always log in (landing and invite-only pages).
 
     Each group keeps its exact EVE name (``name``) and gets ``label``, the name for running text: a
     trailing full stop (an alliance such as "Example.") would otherwise end the sentence it is joined into.
     ``phrase`` joins the labels ("Dutch Legions and Example")."""
-    from astracore.core import eveimg
-    groups = eveimg.home_groups()
-    out = {}
-    for kind in ("corporation", "alliance"):
-        group = groups.get(kind)
-        if group and (group["id"] in config.ALLOWED[kind] or not config.ACCESS_GATE):
-            out[kind] = {**group, "label": group["name"].rstrip(". ") or group["name"]}
+    gate = gate_on()
+    allowed = {k: set(v) | {int(r["entity_id"]) for r in db.access_list() if r["kind"] == k}
+               for k, v in config.ALLOWED.items()}
+    out = {kind: g for kind, g in home_groups().items()
+           if kind != "phrase" and (not gate or g["id"] in allowed[kind])}
     if out:
         out["phrase"] = " and ".join(g["label"] for g in out.values())
     return out
@@ -122,7 +150,7 @@ def member_groups() -> dict:
 def gate_allows(character_id: int, corporation_id: Optional[int], alliance_id: Optional[int]) -> bool:
     """Production invite list: a login passes if the character, its corporation or its alliance is listed
     (in the env file or on the admin page). Local mode has no gate."""
-    if not config.ACCESS_GATE:
+    if not gate_on():
         return True
     if character_id in config.ADMIN_CHARACTER_IDS:
         return True

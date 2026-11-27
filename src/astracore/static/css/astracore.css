@@ -524,8 +524,16 @@ button.copy, .copy { min-height: 24px; padding: 0 var(--space-2); font-size: 12p
 .page-guide .bar i { display: block; height: 100%; background: var(--ink-muted); }   /* drawn at its width: each render rebuilds the card */
 .page-guide .opt.pick .bar i { background: var(--signal); }
 .page-guide .metrics { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--space-3); font-size: 13px; line-height: 18px; }
-.page-guide .metrics span:nth-child(odd) { color: var(--ink-muted); display: inline-flex; gap: var(--space-2); align-items: center; }
-.page-guide .metrics span:nth-child(even) { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.page-guide .metrics > span:nth-child(odd) { color: var(--ink-muted); display: inline-flex; gap: var(--space-2); align-items: center; }
+.page-guide .metrics > span:nth-child(even) { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A narrow answer card (three columns at mid widths) stacks each figure under its label instead of
+   squeezing the label onto several lines next to the value and the "?" button. */
+.page-guide .opt .res { container-type: inline-size; }
+@container (max-width: 220px) {
+  .page-guide .metrics { grid-template-columns: minmax(0, 1fr); }
+  .page-guide .metrics > span:nth-child(odd) { white-space: nowrap; }
+  .page-guide .metrics > span:nth-child(even) { text-align: left; padding-left: calc(14px + var(--space-2)); margin-bottom: var(--space-1); }
+}
 .page-guide .metrics .ic { width: 14px; height: 14px; }
 .page-guide .metrics .more { color: var(--status-warn) !important; } .page-guide .metrics .less { color: var(--status-ok) !important; }
 .page-guide .mix { font-size: 12px; line-height: 16px; color: var(--ink-muted); margin-top: var(--space-2); }

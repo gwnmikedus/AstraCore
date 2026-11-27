@@ -116,6 +116,8 @@ ALLOWED = {
 ACCESS_GATE = PRODUCTION or env("ASTRACORE_ACCESS_GATE") == "1"
 # Courier providers to plan with, by id (e.g. "humpback,voc"); empty = each provider's own default.
 COURIERS = [x for x in env("ASTRACORE_COURIERS").lower().replace(" ", "").split(",") if x]
+# Regions whose markets count as the home (local) market, by name (e.g. "Paragon Soul,Esoteria"); empty = default.
+HOME_REGIONS = [x.strip() for x in env("ASTRACORE_HOME_REGIONS").split(",") if x.strip()]
 
 
 def default_solve_concurrency(cpus: Optional[int]) -> int:

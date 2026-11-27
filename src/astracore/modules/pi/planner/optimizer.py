@@ -5,7 +5,7 @@ Two stages so the live sliders stay fast:
 1. Pooled integer program over (planet, template) pairs. n[j] = how many of your
    characters place template j on that planet. Factories get a utilisation
    z[j] in [0, n[j]]. Item flows must balance: inputs come from your own colonies or are
-   bought (P1-P3, at Jita, Amarr or Delve), leftovers are sold. A factory runs no faster
+   bought (P1-P3, at Jita, Amarr or the home market), leftovers are sold. A factory runs no faster
    than its launchpad/storage can buffer for one extractor cycle, so it needs one restock per
    cycle at most.
 
@@ -45,12 +45,12 @@ SOLVER_MAX_NODES = 1000
 SOLVER_SAFETY_SECONDS = 30
 MARKET = -1  # producer index of inputs bought on the market, in the feeder links
 BuyCosts = Dict[int, Dict[str, float]]   # item -> {buy channel (selling.buy_channels): ISK per unit at the drop-off}
-BuyCaps = Dict[int, Dict[str, float]]    # item -> {market (jita, amarr, delve): units/day it can supply}
+BuyCaps = Dict[int, Dict[str, float]]    # item -> {market (jita, amarr, home): units/day it can supply}
 
 
 def market_of(channel: str) -> str:
-    """The market a buy channel buys in: jita, amarr or delve."""
-    return "delve" if channel.startswith("local") else channel.split("_")[0]
+    """The market a buy channel buys in: jita, amarr or home."""
+    return "home" if channel.startswith("local") else channel.split("_")[0]
 
 
 def capital_days(s: Settings) -> float:

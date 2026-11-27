@@ -100,8 +100,10 @@ def test_advanced_never_produce_is_a_checkbox_per_pi_product(browser, eve, monke
     assert "Water" in boxes and "Coolant" in boxes
     assert all(p["name"] in boxes for p in routes._product_names(pi))
     assert not any(pi.tier(t) == 0 and pi.name(t) in boxes for t in pi.items)   # raw resources can't be produced
+    assert "Home-market buy orders (Paragon Soul / Esoteria / Delve)" in html and "Delve buy orders" not in html
     assert 'href="/pi/settings?expert=1#expert"' in html
     guided = c.get("/pi/plan").text
+    assert "Sell at home only" in guided and "Buy orders in Paragon Soul / Esoteria / Delve" in guided
     assert "/pi/settings?expert=1#expert" in guided and "const RICHNESS = [[" in guided
 
 

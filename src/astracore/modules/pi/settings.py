@@ -53,13 +53,13 @@ class Settings:
     use_buyback: bool = True         # a buyback, only offered when the courier has one
     use_jita: bool = True            # courier to Jita
     use_amarr: bool = True           # courier to Amarr
-    use_local: bool = True           # Delve buy orders
+    use_local: bool = True           # home-market buy orders
     use_self_haul: bool = False      # own trips to trade hubs; journey time/risk are not priced
     use_sell_orders: bool = False    # list sell orders in Jita/Amarr (more ISK, more effort)
     ship_every_days: int = 7         # how often you ship / sell a batch
 
     # --- Buying inputs (live) -----------------------------------------------------
-    buy_inputs: bool = True          # factories may run on P1-P3 bought at Jita, Amarr or in Delve
+    buy_inputs: bool = True          # factories may run on P1-P3 bought at Jita, Amarr or the home market
     input_budget_isk: float = 0.0    # ISK you want tied up in bought inputs; 0 = no limit
 
     # --- Wizard state (was browser localStorage) ----------------------------------

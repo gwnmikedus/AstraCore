@@ -62,7 +62,7 @@
       <label class="strong-label"><span><input type="checkbox" role="switch" id="buy_inputs"> Buy factory inputs</span></label>
       <label for="input_budget_b">ISK tied up in inputs at most (billion, 0 = no limit)</label>
       <input type="number" id="input_budget_b" min="0" step="0.5" inputmode="decimal">
-      <div class="hint">Factories may run on P1-P3 bought in Jita, Amarr or Delve, at most 10% of what a market trades a day.</div>
+      <div class="hint">Factories may run on P1-P3 bought in Jita, Amarr or the home market ({{ home_market() }}), at most 10% of what a market trades a day.</div>
     </div>
     <h6 class="selling-label">Turning it into ISK</h6>
     <div class="ctl">
@@ -77,7 +77,7 @@
       <label data-buyback-channel {% if not selling_coverage.buyback %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_buyback" {% if not selling_coverage.buyback %}disabled{% endif %}> Buyback</span></label>
       <label class="strong-label"><span><input type="checkbox" role="switch" id="use_jita"> Sell at Jita</span></label>
       <label class="strong-label"><span><input type="checkbox" role="switch" id="use_amarr"> Sell at Amarr</span></label>
-      <label data-local-channel {% if not selling_coverage.local %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Delve buy orders</span></label>
+      <label data-local-channel {% if not selling_coverage.local %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_local" {% if not selling_coverage.local %}disabled{% endif %}> Home-market buy orders ({{ home_market() }})</span></label>
       <label class="strong-label"><span><input type="checkbox" role="switch" id="use_self_haul"> Haul to the trade hub myself</span></label>
       <p class="hint">Your journey time, fuel and loss risk are not priced. {% if not selling_coverage.courier and not selling_coverage.trade_hub %}No courier has a route from this drop-off; enable your own trip to use Jita or Amarr.{% endif %}</p>
       <label data-order-channel {% if not selling_coverage.trade_hub and (s.use_self_haul or not selling_coverage.courier) %}hidden{% endif %} class="strong-label"><span><input type="checkbox" role="switch" id="use_sell_orders"> List sell orders</span></label>

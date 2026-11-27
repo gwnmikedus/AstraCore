@@ -36,7 +36,7 @@ GLOSSARY: List[Dict[str, str]] = [
              "production alone, \"Up to P4\" often gives the same plan as \"Up to P2\". Buying inputs changes that: "
              "factories then run on P1-P3 from the market, and P3 or P4 pays when the market prices leave a margin."},
     {"id": "buying-inputs", "term": "Buying inputs",
-     "text": "Factories can run on P1, P2 or P3 you buy in Jita, Amarr or Delve instead of only on what your own "
+     "text": "Factories can run on P1, P2 or P3 you buy in Jita, Amarr or your home market instead of only on what your own "
              "miners make. That's how most pilots make P3 and P4: a few factory planets fed from the market. The "
              "planner counts the price, the courier to your drop-off and customs, buys at most 10% of what those "
              "markets trade a day, and stays within your budget for ISK tied up in inputs. Operate lists what to buy "
@@ -148,7 +148,7 @@ def answers(settings: Any = None, head_yield: float = 0.0, calibrated: bool = Fa
                          "miners, each factory takes a miner's slot, and few planets can host one. With bought inputs "
                          "P3 and P4 can pay; the planner adds a factory only when the ISK justifies it."},
         "buy": {"label": "How does buying inputs work?", "more": "buying-inputs",
-                "text": "Factories run on P1-P3 bought in Jita, Amarr or Delve, priced with the courier to your "
+                "text": "Factories run on P1-P3 bought in Jita, Amarr or the home market, priced with the courier to your "
                         "drop-off and customs. The planner buys at most 10% of what a market trades a day and keeps "
                         "the ISK tied up within your budget. Operate lists what to buy each restock."},
         "yield": {"label": "Why is yield an estimate?" if not calibrated else "How is yield measured?",

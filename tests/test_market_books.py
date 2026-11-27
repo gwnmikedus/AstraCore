@@ -75,7 +75,7 @@ def test_cache_key_is_versioned_past_books_without_depth():
 
 
 def test_failed_fetch_keeps_the_last_good_book_or_leaves_it_out(kv, monkeypatch):
-    jita = prices.MARKETS["jita"]
+    jita = prices.markets()["jita"][0]
     good = {"jita_buy": 9.0, "jita_sell": 10.0, "jita_buy_depth": [[9.0, 50]], "jita_sell_depth": [[10.0, 5]]}
     kv[prices.BOOKS_KEY] = {"at": time.time() - 99_999, "books": {str(BIOCELLS): good}}
     # Jita fails, the other markets answer with an empty book
@@ -139,3 +139,36 @@ def test_sell_plan_counts_replanned_products_at_their_real_value():
     first = sp["batches"][0]
     assert first["quoted_net"] == 100_000 and first["net"] == 100_000 - 100 * 300
     assert sp["net_per_cycle"] == 70_000 and sp["net_per_day"] == 35_000     # held batch not counted
+
+
+def test_home_market_merges_every_home_region_and_one_failure_makes_it_unknown(kv, monkeypatch):
+    from astracore import config
+    monkeypatch.setattr(config, "HOME_REGIONS", ["Paragon Soul", "Esoteria"])
+    assert prices.markets()["home"] == [(10000059, 0), (10000039, 0)]
+    order = {"price": 0.0, "volume_remain": 10, "location_id": 1, "system_id": 1}
+    _orders(monkeypatch, lambda region, t: (
+        [{**order, "price": 8.0, "is_buy_order": True}] if region == 10000059 else
+        [{**order, "price": 9.0, "is_buy_order": True}, {**order, "price": 12.0, "is_buy_order": False}]
+        if region == 10000039 else []))
+    b = asyncio.run(prices.refresh(None, _PI))[BIOCELLS]
+    assert b["home_buy"] == 9.0 and b["home_sell"] == 12.0          # best of both regions
+    assert b["home_buy_depth"] == [[9.0, 10], [8.0, 10]]
+    assert kv[prices.BOOKS_KEY]["home"] == [10000059, 10000039]
+    kv[prices.BOOKS_KEY]["at"] = time.time()
+    assert not prices.stale()
+    monkeypatch.setattr(config, "HOME_REGIONS", ["Delve"])        # the alliance moved: refetch
+    assert prices.stale()
+
+    kv.clear()
+    monkeypatch.setattr(config, "HOME_REGIONS", ["Paragon Soul", "Esoteria"])
+    _orders(monkeypatch, lambda region, t: None if region == 10000039 else [])
+    b = asyncio.run(prices.refresh(None, _PI))[BIOCELLS]
+    assert not prices.loaded(b, "home") and prices.loaded(b, "jita")
+
+
+def test_history_days_count_dates_not_rows_across_regions():
+    from datetime import date
+    today = date(2026, 11, 27)
+    rows = [{"date": "2026-11-20", "volume": 5, "average": 10.0}, {"date": "2026-11-20", "volume": 7, "average": 11.0}]
+    h = prices.summarise_history(rows, today)
+    assert h["days"] == 1 and h["avg_volume"] == pytest.approx(12 / prices.HISTORY_DAYS)

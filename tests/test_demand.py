@@ -15,7 +15,7 @@ BIOCELLS = 2329
 
 
 def books(**extra):
-    b = {"jita_buy": 10000.0, "jita_sell": 11000.0, "amarr_buy": 9500.0, "amarr_sell": 10500.0, "delve_buy": 7000.0}
+    b = {"jita_buy": 10000.0, "jita_sell": 11000.0, "amarr_buy": 9500.0, "amarr_sell": 10500.0, "home_buy": 7000.0}
     b.update(extra)
     return {BIOCELLS: b}
 

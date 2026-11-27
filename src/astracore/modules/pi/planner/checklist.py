@@ -5,7 +5,7 @@ Three kinds of things go into a new colony, and the checklist keeps them apart:
                             starter stock of factory inputs. AstraCore only produces a list to paste
                             into EVE's Multibuy window; it never buys anything or places market orders.
                             Each item is bought where its landed cost (price + courier to the drop-off)
-                            is lowest; the courier fee is shown separately, and Delve offers name the seller.
+                            is lowest; the courier fee is shown separately, and home-market offers name the seller.
   * upgraded in game      - the command center level, paid from the wallet in the planetary interface
                             and capped by the Command Center Upgrades skill.
   * built in game         - the template's structures, also paid from the wallet when you submit.
@@ -22,21 +22,21 @@ from typing import Dict, List, Optional, Tuple
 
 from . import compare, demand, selling
 from ..static_data import pi_rules as R
-from ..static_data import carrier
+from ..static_data import carrier, markets
 from ..static_data.sde_loader import PIData
 
 HUBS = (("jita", "Jita 4-4"), ("amarr", "Amarr VIII"))
-LOCAL_MARKET = "Delve regional market"
+LOCAL_MARKET = "Home market"
 DEFAULT_SUPPLY_DAYS = 3.0
 
 
 def buy_source(book: Optional[dict], local: bool) -> Optional[Tuple[str, float]]:
     """Where to buy an item and the lowest sell price there, when hauling can't be priced. With
-    colonies in Delve a local seller saves hauling, so it wins whenever it lists the item; otherwise
+    colonies in the home regions a local seller saves hauling, so it wins whenever it lists the item; otherwise
     the cheaper trade hub. (With a known courier route, `allocate` compares landed cost instead.)"""
     book = book or {}
-    if local and book.get("delve_sell"):
-        return LOCAL_MARKET, float(book["delve_sell"])
+    if local and book.get("home_sell"):
+        return LOCAL_MARKET, float(book["home_sell"])
     offers = [(float(book.get(f"{k}_sell") or 0), label) for k, label in HUBS]
     offers = [o for o in offers if o[0] > 0]
     if not offers:
@@ -46,9 +46,9 @@ def buy_source(book: Optional[dict], local: bool) -> Optional[Tuple[str, float]]
 
 
 # --------------------------------------------------------------------------- landed cost (price + hauling)
-LABELS = {**dict(HUBS), "delve": LOCAL_MARKET}
+LABELS = {**dict(HUBS), "home": LOCAL_MARKET}
 # Your own trips: valued at the plan's "an hour of my time is worth" (goal default when unset) so a far
-# Delve seller doesn't win only because AstraCore can't charge you for the flight.
+# home-market seller doesn't win only because AstraCore can't charge you for the flight.
 MIN_PER_JUMP = 1.5                 # align, warp and gate in a hauler
 DEFAULT_HOUR_ISK = 90e6            # the Balanced goal's default
 DST_M3 = 60_000                    # a Deep Space Transport's cargo, for the fly-it-yourself hint
@@ -99,7 +99,7 @@ def offers(book: Optional[dict], qty: float, local: bool, estimate: Optional[flo
     `short` = units the cached price levels don't cover (priced at the last level)."""
     book = book or {}
     out: Dict[str, dict] = {}
-    for m in ("jita", "amarr") + (("delve",) if local else ()):
+    for m in ("jita", "amarr") + (("home",) if local else ()):
         best = float(book.get(f"{m}_sell") or 0)
         if best <= 0:
             continue
@@ -131,32 +131,32 @@ def allocate(lines: List[dict], hauls: Dict[str, dict], base: Optional[Dict[str,
             for ln in lines:
                 cands = {}
                 for m, o in ln["offers"].items():
-                    status = "delve" if m == "delve" else hauls.get(m, {}).get("status", "unpriced")
+                    status = "home" if m == "home" else hauls.get(m, {}).get("status", "unpriced")
                     if status == "courier":
                         if m not in used:
                             continue
                         cands[m] = o["unit"] + _variable(hauls[m], ln["vol"], o["unit"])
-                    elif status == "unpriced" and "delve" in ln["offers"]:
-                        continue          # a Delve seller saves a haul we can't price
-                    elif status == "delve":
+                    elif status == "unpriced" and "home" in ln["offers"]:
+                        continue          # a home-market seller saves a haul we can't price
+                    elif status == "home":
                         trip = ln.get("trip")
                         cands[m] = o["unit"] + (trip["isk"] / ln["qty"] if trip and ln["qty"] else 0.0)
                     else:
                         cands[m] = o["unit"]
-                priced = any(m != "delve" and hauls.get(m, {}).get("status") in ("courier", "free")
+                priced = any(m != "home" and hauls.get(m, {}).get("status") in ("courier", "free")
                              for m in ln["offers"])
                 outside = not ln.get("trip") and bool((ln.get("pickup") or {}).get("system"))
-                if "delve" in cands and outside and priced:
-                    del cands["delve"]    # a seller known to be outside your area doesn't beat a priced option
+                if "home" in cands and outside and priced:
+                    del cands["home"]    # a seller known to be outside your area doesn't beat a priced option
                 if not cands and ln["offers"]:
                     ok = False
                     break
-                choice[ln["key"]] = min(cands, key=lambda m: (cands[m], m != "delve")) if cands else None
+                choice[ln["key"]] = min(cands, key=lambda m: (cands[m], m != "home")) if cands else None
             if not ok:
                 continue
             contracts = _contracts(lines, choice, hauls, base)
             total = sum(ln["qty"] * ln["offers"][choice[ln["key"]]]["unit"] for ln in lines if choice[ln["key"]])
-            total += sum((ln.get("trip") or {}).get("isk", 0) for ln in lines if choice[ln["key"]] == "delve")
+            total += sum((ln.get("trip") or {}).get("isk", 0) for ln in lines if choice[ln["key"]] == "home")
             total += sum(c["fee"] for c in contracts.values())
             if best is None or total < best[0] - 0.5:
                 best = (total, choice, contracts)
@@ -183,9 +183,9 @@ def _contracts(lines: List[dict], choice: Dict[str, Optional[str]], hauls: Dict[
 
 
 def _pickup(book: Optional[dict], area: Optional[dict], dropoff: str, qty: float, dist: dict) -> dict:
-    """Where the cheapest Delve seller is: NPC station by name, a player structure by its system,
+    """Where the cheapest home-market seller is: NPC station by name, a player structure by its system,
     and jumps from the drop-off when that system is in your area."""
-    at = (book or {}).get("delve_sell_at") or {}
+    at = (book or {}).get("home_sell_at") or {}
     if not at:
         return {"text": "location not cached yet: refresh prices", "jumps": None}
     sid = at.get("system_id")
@@ -205,7 +205,7 @@ def _pickup(book: Optional[dict], area: Optional[dict], dropoff: str, qty: float
     units = int(at.get("units") or 0)
     partial = bool(units and units < qty)
     if partial:
-        text += f"; only {units:,} at that price there, the rest is elsewhere in Delve"
+        text += f"; only {units:,} at that price there, the rest is elsewhere in {markets.home_label()}"
     return {"text": text, "station": at.get("station"), "system": system, "jumps": jumps,
             "units": units, "partial": partial}
 
@@ -223,7 +223,7 @@ def purchases(pi: PIData, cc_count: Dict[str, int], supply_need: Dict[str, float
               routes: Optional[List[dict]] = None, hour_isk: float = DEFAULT_HOUR_ISK) -> dict:
     """What to buy where, at the lowest landed cost. The command centers are priced first; the
     optional starter stock then only adds what it costs on top of the same courier contracts.
-    A Delve seller is compared including your own trip there, valued at `hour_isk`."""
+    A home-market seller is compared including your own trip there, valued at `hour_isk`."""
     hauls = hauling_routes(dropoff, area, routes)
     dist: dict = {}
     cc_lines = []
@@ -239,7 +239,7 @@ def purchases(pi: PIData, cc_count: Dict[str, int], supply_need: Dict[str, float
         st_lines.append({"key": item, "qty": int(qty), "vol": pi.volume(tid) if tid else 0.0, "type_id": tid,
                          "book": books.get(tid), "offers": offers(books.get(tid), qty, local)})
     for ln in cc_lines + st_lines:
-        if "delve" in ln["offers"]:
+        if "home" in ln["offers"]:
             ln["pickup"] = _pickup(ln["book"], area, dropoff, ln["qty"], dist)
             ln["trip"] = own_trip(ln["pickup"].get("jumps"), ln["qty"] * ln["vol"], hour_isk)
     cc_choice, cc_contracts = allocate(cc_lines, hauls)
@@ -266,12 +266,12 @@ def purchases(pi: PIData, cc_count: Dict[str, int], supply_need: Dict[str, float
                 haul_note = "haul it yourself (not priced)"
             elif h and h["status"] == "free":
                 haul_note = "no hauling: your drop-off is here"
-            pickup = ln.get("pickup") if m == "delve" else None
-            trip = ln.get("trip") if m == "delve" else None
-            if m == "delve":
+            pickup = ln.get("pickup") if m == "home" else None
+            trip = ln.get("trip") if m == "home" else None
+            if m == "home":
                 haul_note = (f"your trip: {trip['jumps']} jump{'s' if trip['jumps'] != 1 else ''} each way, "
                              f"≈ {trip['minutes']:g} min" if trip and trip["jumps"]
-                             else "pick it up yourself in Delve")
+                             else f"pick it up yourself in {markets.home_label()}")
             out.append({"key": ln["key"], "qty": ln["qty"], "where": LABELS[m] if m else None, "market": m,
                         "unit_isk": round(unit), "isk": round(isk), "haul_isk": round(haul),
                         "landed_isk": round(isk + haul), "haul_note": haul_note, "pickup": pickup, "trip": trip,
@@ -369,7 +369,7 @@ def build(pi: PIData, plan: dict, characters: List[dict], books: Dict[int, dict]
           courier_routes: Optional[List[dict]] = None) -> Optional[dict]:
     """The checklist for the colonies a saved plan still needs (action new or rebuild).
     `plan` should already reflect what was built since it was saved (service.progress_against).
-    `area` (systems and gates) finds the courier's pickup and the jumps to a Delve seller; `courier_routes` = courier tariffs."""
+    `area` (systems and gates) finds the courier's pickup and the jumps to a home-market seller; `courier_routes` = courier tariffs."""
     if not plan or "colonies" not in plan:
         return None
     settings = settings or {}

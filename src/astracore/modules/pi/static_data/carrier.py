@@ -59,7 +59,7 @@ class Provider:
     fallback: Tuple[Route, ...]
     active_default: bool = True
     status: str = ""               # shown when inactive ("stopped in 2026")
-    local_region: str = ""         # region its pickups are in, when that region's market counts as local
+    pickup_regions: Dict[str, str] = field(default_factory=dict)   # pickup system -> its region
     source_url: str = ""           # live tariff (read at most once a day); empty = fallback only
     parse: Optional[Callable[[str], List[dict]]] = None
     buyback_site: str = ""
@@ -135,6 +135,7 @@ HUMPBACK = Provider(
     about="Dracarys.' courier service between its home systems and Jita (daily) or Amarr (weekly).",
     recorded="27 November 2026",
     source_url="https://api.eve-hs.top:13002/getRoute", parse=parse_humpback,
+    pickup_regions={"O4T-Z5": "Paragon Soul", "R-ARKN": "Esoteria"},
     fallback=(
         ("O4T-Z5", JITA, 5_000_000, 1250, 1.0, 60_000, "Daily"),
         ("R-ARKN", JITA, 5_000_000, 1250, 1.0, 60_000, "Daily"),
@@ -151,10 +152,11 @@ VOC = Provider(
     id="voc", name="VOC", full_name="VOC Hauling", corp_name="United East-Indian Compagnie", corp_id=98527816,
     site="https://vochauling.com/",
     about="Courier and buyback service in Delve.",
-    recorded="10 October 2026", active_default=False, local_region="Delve", status="Stopped in November 2026.",
+    recorded="10 October 2026", active_default=False, status="Stopped in November 2026.",
     source_url="https://vochauling.com/", parse=parse_voc,
     buyback_site="https://buyback.vochauling.com/", buyback_locations=("7G-QIG", "Q-02UL", "RF-K9W"),
     buyback_note="90% of Jita buy for P2–P4, P1 refused (appraisal at 7G-QIG on 10 October 2026).",
+    pickup_regions={s: "Delve" for s in ("7G-QIG", "E3OI-U", "Q-02UL", "RF-K9W")},
     fallback=tuple((o, d, f, m, 1.0, 165_000, "") for o in ("7G-QIG", "E3OI-U", "Q-02UL", "RF-K9W")
                    for d, f, m in ((AMARR, 20_000_000, 650), (JITA, 10_000_000, 1000))),
 )
@@ -193,12 +195,9 @@ def buyback_locations() -> List[str]:
     return [loc for p in active_providers() for loc in p.buyback_locations]
 
 
-def local_pickups(region: str) -> List[str]:
-    """Pickups of active providers based in `region` (used before universe data is loaded)."""
-    out = [loc for p in active_providers() if p.local_region == region for loc in p.buyback_locations]
-    out += [r["origin"] for p in active_providers() if p.local_region == region for r in provider_routes(p)
-            if r["dest"] in HUB_STATIONS]
-    return list(dict.fromkeys(out))
+def pickup_region(system: str) -> str:
+    """The region of a known courier or buyback pickup ("" if unknown), for when universe data isn't loaded."""
+    return next((p.pickup_regions[system] for p in PROVIDERS if system in p.pickup_regions), "")
 
 
 # --------------------------------------------------------------------------- tariffs

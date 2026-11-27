@@ -914,7 +914,7 @@ def _first_build_md(k: Optional[dict]) -> list:
                 f"| {fmt.isk(x.get('landed_isk', x['isk']))} |" for x in k["command_centers"]]
         out += ["", "Multibuy list:", "", "```", k["multibuy"], "```", "",
                 f"{fmt.m3(k['cc_m3'])} to carry"
-                + ("; the Delve market sells them, which saves the haul." if k.get("cc_local")
+                + ("; the home market sells them, which saves the haul." if k.get("cc_local")
                    else " from the trade hub to your systems."), ""]
     else:
         out += ["Nothing to buy: every colony still to build is a rebuild on a planet where you already have "

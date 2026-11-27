@@ -134,7 +134,7 @@ def hangar_stock(pi: PIData, s: Settings, books: Dict[int, dict], characters: Li
             origin, jumps = selling.courier_origin(here, area)
             plan = selling.sell_plan(pi, skills.for_character(s, by_name[who]), books, here,
                                      {t: q for t, q in stock.items()}, per_day=False,
-                                     local=selling.in_delve(here, area), origin=origin or here,
+                                     local=selling.in_home(here, area), origin=origin or here,
                                      origin_jumps=jumps, self_haul=True)
         own = skills.character_rates(by_name[who]) if by_name[who].get("skills") else None
         market = sum(b["net"] for b in plan["batches"] if b["channel"] != "buyback" and not b.get("hold"))

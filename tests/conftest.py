@@ -78,3 +78,12 @@ def offline_courier_tariffs(monkeypatch):
         raise httpx.ConnectError("tests never reach courier sites", request=request)
 
     monkeypatch.setattr(carrier, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(unreachable)))
+
+
+@pytest.fixture(autouse=True)
+def home_regions_include_delve(monkeypatch):
+    """Planner tests use Delve systems (VOC's pickups) as a local drop-off: count Delve as a home region too.
+    Tests of the default home regions set `config.HOME_REGIONS` themselves."""
+    from astracore import config
+
+    monkeypatch.setattr(config, "HOME_REGIONS", ["Paragon Soul", "Esoteria", "Delve"])

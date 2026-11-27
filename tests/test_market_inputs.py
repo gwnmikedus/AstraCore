@@ -90,14 +90,14 @@ def test_cross_character_plans_also_draw_on_bought_inputs():
 
 def books():
     return {SMARTFAB: {'jita_sell': 100_000.0, 'jita_buy': 90_000.0, 'amarr_sell': 120_000.0,
-                       'delve_sell': 130_000.0, 'delve_buy': 80_000.0}}
+                       'home_sell': 130_000.0, 'home_buy': 80_000.0}}
 
 
 ROUTES = [{'origin': carrier.JITA, 'dest': '7G-QIG', 'min_fee': 10e6, 'per_m3': 1000, 'collateral_pct': 1.0,
            'max_m3': 165_000}]
 
 
-def test_buy_channels_price_instant_buys_inbound_courier_and_delve():
+def test_buy_channels_price_instant_buys_inbound_courier_and_home():
     s = Settings(use_sell_orders=False)
     ch = selling.buy_channels(PI, s, books(), SMARTFAB, '7G-QIG', ROUTES, local=True)
     courier = PI.volume(SMARTFAB) * 1000 + 100_000.0 * 0.01
@@ -140,16 +140,16 @@ def test_buying_stays_within_what_the_market_can_supply():
 def test_buy_limits_use_a_modest_share_of_traded_volume_or_the_visible_sell_orders():
     from astracore.modules.pi.planner import demand
     history = {'jita': {SMARTFAB: {'avg_volume': 10_000}}, 'amarr': {SMARTFAB: {'avg_volume': 2_000}},
-               'delve': {SMARTFAB: {'avg_volume': 1_000}}}
-    book = {VACCINES: {'jita_sell_depth': [[100.0, 300], [101.0, 300]], 'delve_sell_depth': [[90.0, 400]]}}
+               'home': {SMARTFAB: {'avg_volume': 1_000}}}
+    book = {VACCINES: {'jita_sell_depth': [[100.0, 300], [101.0, 300]], 'home_sell_depth': [[90.0, 400]]}}
     s = Settings()
     caps = demand.buy_limits(PI, s, book, history, local=True, days=10)
     share = demand.BUY_INPUT_SHARE
-    assert caps[SMARTFAB] == {'jita': share * 10_000, 'amarr': share * 2_000, 'delve': share * 1_000}
-    assert caps[VACCINES] == {'jita': 60.0, 'amarr': 0.0, 'delve': 40.0}   # visible units over 10 days
+    assert caps[SMARTFAB] == {'jita': share * 10_000, 'amarr': share * 2_000, 'home': share * 1_000}
+    assert caps[VACCINES] == {'jita': 60.0, 'amarr': 0.0, 'home': 40.0}   # visible units over 10 days
     assert P4 not in caps
     far = demand.buy_limits(PI, s, book, history, local=False, days=10)
-    assert 'delve' not in far[SMARTFAB]
+    assert 'home' not in far[SMARTFAB]
 
 
 def test_each_market_supplies_only_its_own_share():
@@ -157,7 +157,7 @@ def test_each_market_supplies_only_its_own_share():
     s, area, systems, chars = scenario()
     cost = {**INPUT_COST, SMARTFAB: {'local': 80_000.0, 'jita': 100_000.0}}
     res = optimizer.plan(PI, s, area, systems, chars, {P4: 2_000_000.0}, METADATA['templates'], head_yield=3000,
-                         buy=cost, buy_cap={SMARTFAB: {'delve': 100.0, 'jita': 1e9}})
+                         buy=cost, buy_cap={SMARTFAB: {'home': 100.0, 'jita': 1e9}})
     row = next(r for r in res['bought'] if r['type_id'] == SMARTFAB)
     split = {src['channel']: src['units_per_day'] for src in row['sources']}
     assert split['local'] <= 100.5 and split['jita'] > 0

@@ -5,7 +5,7 @@ The production brand of AstraCore. The MVP look (Pico, navy and cyan, rounded ca
 - **Live design system** (tokens, component previews, assets, in both themes):
   https://claude.ai/artifact/EHW9iBXwWTsYgSPknnfyDB (private; share it from its Share menu).
 - [`brand-book.md`](brand-book.md): audience, naming, voice, logo rules, colour, type, shape, numbers, icons, imagery, motion,
-  accessibility, co-branding with Dutch Legions and Insidious.
+  accessibility, co-branding with Dutch Legions.
 - [`tokens.json`](tokens.json): every token with both theme values (Hull = dark, Chart = light) and a usage note.
 - [`logos/`](logos/): master SVGs and `generate.py`, which draws them.
 - Orbital Command is the approved composition: a static platform hero, available PI story, real product walkthrough, and clearly marked community directions.

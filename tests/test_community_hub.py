@@ -233,10 +233,11 @@ def test_hub_sections_thanks_and_copy(browser):
     assert page.index('id="roadmap-title"') < page.index('id="reports-title"') < page.index('id="whats-new-title"') \
         < page.index('id="thanks"') < page.index('id="build"') < page.index('id="creator"')
     for text in ("DalShooth/EVE_PI_Templates", "VOC Hauling", "Fuzzwork", "Fenris Creations", "Dutch Legions",
-                 "Insidious.", "https://janice.e-351.com", "https://everef.net", "https://zkillboard.com",
+                 "https://janice.e-351.com", "https://everef.net", "https://zkillboard.com",
                  "https://github.com/pyfa-org/Pyfa", "Support never changes access or features",
                  releases.history()[0]["title"]):
         assert text in page
+    assert "Insidious" not in page
     assert "Flashbang" not in page and "<strong>Light theme</strong><span>Easier in daylight.</span>" in page
     footer = page.split('<footer class="site-footer">', 1)[1]
     assert 'href="/credits#creator"' in footer and "revolut.me" not in footer

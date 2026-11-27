@@ -2,30 +2,14 @@
  "generated": "2026-10-10",
  "source": "EVE Online Image Server (images.evetech.net) + ESI",
  "entities": {
-  "alliance": {
-   "id": 99013537,
-   "name": "Insidious.",
-   "ticker": "EVIL."
-  },
   "corporation": {
    "id": 98652891,
    "name": "Dutch Legions",
-   "alliance_id": 99013537,
    "url": "https://dutchlegions.nl"
   }
  },
  "note": "Subset of 'assets for possible usage/' bundled with the app. EVE images \u00a9 CCP hf., used under the EVE Developer License.",
  "files": [
-  {
-   "path": "logos/insidious-alliance-logo-128.png",
-   "url": "https://images.evetech.net/alliances/99013537/logo?size=128",
-   "bytes": 38465
-  },
-  {
-   "path": "logos/insidious-alliance-logo-64.png",
-   "url": "https://images.evetech.net/alliances/99013537/logo?size=64",
-   "bytes": 10444
-  },
   {
    "path": "logos/dutch-legions-corp-logo-128.png",
    "url": "https://images.evetech.net/corporations/98652891/logo?size=128",

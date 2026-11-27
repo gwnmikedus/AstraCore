@@ -67,7 +67,7 @@ def planet_url(planet_type: str) -> Optional[str]:
 
 
 def logo_url(kind: str, entity_id: int, size: int = 64) -> str:
-    """Bundled for Dutch Legions / Insidious., live from the image server for everyone else."""
+    """Bundled for Dutch Legions, live from the image server for everyone else."""
     hit = _index()["logo"].get(f"{kind}:{entity_id}:{size}")
     if hit:
         return asset(hit)

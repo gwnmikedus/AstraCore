@@ -4,7 +4,7 @@ AstraCore is a command center for EVE Online pilots who run more than one charac
 
 ## Who it is for
 
-Capsuleers of **Dutch Legions** and the **Insidious.** alliance, mostly running two to ten alts, comfortable with spreadsheets and EVE's own UI. They know the game better than the app does. Write and design for someone who will notice a wrong number, a missing tax or a wasted click.
+Capsuleers of **Dutch Legions** and the wider Imperium, mostly running two to ten alts, comfortable with spreadsheets and EVE's own UI. They know the game better than the app does. Write and design for someone who will notice a wrong number, a missing tax or a wasted click.
 
 ## The idea: the core
 
@@ -137,9 +137,9 @@ The origin plate follows the contributor showcase and introduces CosmicCarrot as
 
 All text pairs named in token notes are at least 4.5:1 in both themes; `line-strong`, icons and the focus ring at least 3:1. Status always has a word and an icon. Touch targets are at least `control-h` (36px) with `space-2` between them; on phones primary actions grow to 44px.
 
-## Co-branding with Dutch Legions and Insidious.
+## Co-branding with Dutch Legions
 
-AstraCore is built for these pilots, but it is not their official tool. Show the corporation and alliance logos (Partners asset group, from the EVE Image Server) only as membership marks: "Open to members of Dutch Legions and Insidious." at the size of a 32px portrait, after the AstraCore wordmark, never merged with it, never recoloured, never larger than it.
+AstraCore is built for these pilots, but it is not their official tool. Show the corporation logo (Partners asset group, from the EVE Image Server) only as a membership mark: "Open to members of Dutch Legions" at the size of a 32px portrait, after the AstraCore wordmark, never merged with it, never recoloured, never larger than it.
 
 ## Replacing the MVP styles
 

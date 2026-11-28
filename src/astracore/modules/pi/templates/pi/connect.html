@@ -20,7 +20,7 @@
   <div class="charrow">
     <img src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64" alt="">
     <span class="grow"><strong>{{ c.name }}</strong></span>
-    <a role="button" class="outline" href="/auth/upgrade/{{ c.character_id }}">Log in as {{ c.name }}</a>
+    <a role="button" class="outline" href="/auth/upgrade/{{ c.character_id }}">Log in as <span class="eve-name">{{ c.name }}</span></a>
   </div>
   {% endfor %}
   {% endif %}

@@ -304,12 +304,7 @@ html[data-film-intro="play"] .platform-hero:not(.is-live) :is(.platform-copy, .h
   padding-block: 64px; margin-block: 0; background: var(--band);
   box-shadow: 0 0 0 100vmax var(--band); clip-path: inset(0 -100vmax); }
 
-/* Doodle placements. Dividers float in the gap between two sections; inline ones use free room in a section. */
-.doodle-divider { position: relative; z-index: 1; height: 168px; margin-block: -72px; pointer-events: none; }
-.doodle-divider > .doodle { position: absolute; top: 0; height: 100%; width: auto; }
-.doodle-divider--left > .doodle { left: 4%; }
-.doodle-divider--right > .doodle { right: 4%; }
-.doodle-divider--center > .doodle { left: 50%; transform: translateX(-50%); }
+/* Doodle placements. Small doodles use free room inside a section; gutter art fills the side margins of wide screens. */
 .faq-heading { position: relative; }
 .faq-heading > .doodle { position: absolute; right: 0; bottom: -8px; width: 240px; }
 .launch-panel > .doodle { position: absolute; right: 30%; top: 50%; width: 150px; transform: translateY(-50%); }
@@ -323,7 +318,20 @@ html[data-film-intro="play"] .platform-hero:not(.is-live) :is(.platform-copy, .h
 @media (max-width: 760px) {
   .page-home .landing-section:is(#preview, .product-proof, .community-teaser) { padding-block: 40px; }
   .launch-panel { padding-inline: var(--space-4); }
-  .doodle-divider { height: 104px; margin-block: -40px; }
   .faq-heading > .doodle { position: static; width: 180px; margin-top: var(--space-4); }
   .empty-doodle > .doodle { width: 88px; }
+}
+.doodle .d-beam { stroke: var(--signal); stroke-width: 1; stroke-dasharray: 6 4; }
+
+/* Gutter art (templates/_gutter_art.html): only where the side margins are wide enough to hold it with room to
+   spare, centred in the margin beside its section, so it never touches content. The page shell is the
+   container plus the 96px navigation rail, centred; --gut is what is left on each side. */
+.gutter-art { display: none; }
+@media (min-width: 1840px) {
+  .page-home :is(.pi-story, #preview, .product-proof, .operations-feature, .directions-section) { position: relative; }
+  .gutter-art { --gut: calc((100vw - var(--container) - 96px) / 2); --w: min(340px, calc(var(--gut) - 32px));
+    display: block; position: absolute; top: 50%; width: var(--w); translate: 0 -50%; pointer-events: none; }
+  .gutter-art--left { right: calc(100% + 120px + (var(--gut) - var(--w)) / 2); }
+  .gutter-art--right { left: calc(100% + 24px + (var(--gut) - var(--w)) / 2); }
+  .gutter-art > .doodle { overflow: hidden; }
 }

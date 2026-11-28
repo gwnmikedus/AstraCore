@@ -35,7 +35,8 @@
   --shadow-lift: 0 16px 40px rgba(0, 0, 0, .55);
   /* depth: quiet grounds and the space doodles (custom line art, decorative only, never behind body text) */
   --void-deep: #070809;                       /* sunken bands: the footer, wells below the ground */
-  --band: #101214;                            /* alternating full-width section bands on long pages */
+  --band: #121619;                            /* alternating full-width section bands on long pages (a cool step off void) */
+  --band-top: #1d242a;                        /* horizon light at a band's top edge: band with a trace of scan */
   --sheen: rgba(236, 232, 223, .035);         /* top-down light on panels, gone after 160px */
   --core-glow: rgba(255, 106, 26, .10);       /* the one warm corner on a screen's key panel */
   --doodle-ink: #5d636b;                      /* doodle strokes: quiet, still readable as a drawing (3.2:1 on void) */
@@ -66,7 +67,8 @@
   --on-status: #ffffff;
   --shadow-lift: 0 12px 32px rgba(40, 30, 10, .14);
   --void-deep: #ddd8cc;
-  --band: #eeeae2;
+  --band: #f1eee7;
+  --band-top: #e6e6e1;
   --sheen: rgba(255, 255, 255, .6);
   --core-glow: rgba(176, 63, 8, .07);
   --doodle-ink: #9a9384;

@@ -1,7 +1,23 @@
 {% extends "base.html" %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/community.css') }}">{% endblock %}
 {% block content %}
-<div class="eyebrow">AstraCore / Community administration</div><h1 class="page-title">Feedback delivery</h1>
+<div class="eyebrow">AstraCore / Community administration</div><h1 class="page-title">Feedback</h1>
+<section class="quick-notes" aria-labelledby="quick-notes-title">
+<h2 id="quick-notes-title">Quick notes</h2>
+<p class="muted">Private notes from the Feedback panel. They never go to GitHub on their own and don't show who sent them. <strong>Promote to issue</strong> opens the full form with only the note text: you rewrite it, preview it and confirm it, and it's published as you. The page context stays private.</p>
+<p class="quick-ratings">{% for r in ratings %}<span><strong>{{ r.label }}</strong>, was it clear? 👍 {{ r.up }} · 👎 {{ r.down }}</span>{% endfor %} <span class="muted">(last 30 days)</span></p>
+<nav class="quick-notes-filter" aria-label="Quick note lists">{% for state, label in [('new', 'New'), ('archived', 'Archived'), ('promoted', 'Promoted')] %}<a href="/community/admin?notes={{ state }}#quick-notes-title"{% if notes_state == state %} aria-current="page"{% endif %}>{{ label }} ({{ note_counts.get(state, 0) }})</a>{% endfor %}</nav>
+<ul class="quick-notes-list">
+{% for note in notes %}<li id="note-{{ note.id }}"><div class="quick-note-head"><span class="pill">{{ note.kind_label }}</span>{% if note.surface_label %} <span class="pill">{{ note.surface_label }}</span>{% endif %} <span class="muted">{{ note.created_at|ago }}</span></div>
+<p class="community-public-body">{{ note.body }}</p>
+<dl class="quick-note-context">{% if note.context.path %}<div><dt>Page</dt><dd><code>{{ note.context.path }}</code></dd></div>{% endif %}{% if note.context.step %}<div><dt>Plan step</dt><dd>{{ note.context.step }}</dd></div>{% endif %}{% if note.context.target %}<div><dt>Pointed at</dt><dd>{% if note.context.target.label %}“{{ note.context.target.label }}” {% endif %}<code>{{ note.context.target.selector }}</code></dd></div>{% endif %}{% if note.context.viewport %}<div><dt>Screen</dt><dd>{{ note.context.viewport|replace('x', ' × ') }}{% if note.context.theme %} · {{ note.context.theme }}{% endif %}</dd></div>{% endif %}{% if note.context.version %}<div><dt>Version</dt><dd>{{ note.context.version }}</dd></div>{% endif %}</dl>
+<div class="quick-note-actions">{% if note.state == 'promoted' %}{% if note.feedback_id %}<a href="/community/reports/{{ note.feedback_id }}">Promoted report</a>{% else %}<span class="muted">Promoted (report since removed)</span>{% endif %}{% else %}
+<a class="text-action" href="/feedback?note={{ note.id }}">Promote to issue {{ icon('arrow-right') }}</a>
+<form action="/community/admin/notes/{{ note.id }}/state" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="state" value="{{ 'new' if note.state == 'archived' else 'archived' }}"><button class="outline secondary" type="submit">{{ 'Move back to new' if note.state == 'archived' else 'Archive' }}</button></form>{% endif %}</div></li>
+{% else %}<li class="muted">No {{ 'new' if notes_state == 'new' else notes_state }} quick notes.</li>{% endfor %}
+</ul>
+</section>
+<h2>Delivery to GitHub</h2>
 <p>GitHub connection: <strong>{{ 'Configured' if connected else 'Not configured' }}</strong>{% if sync.last_success %} · last successful issue refresh {{ sync.last_success|ago }}{% endif %}</p>
 {% if sync.problem %}<p class="flash warn">{{ sync.problem }}</p>{% endif %}
 <form action="/community/admin/sync" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Check GitHub & queued reports</button></form>

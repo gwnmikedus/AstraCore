@@ -86,3 +86,17 @@
   .community-actions > a { width: 100%; }
   .help-mark button { width: 100%; justify-content: center; }
 }
+/* Quick notes on /community/admin (#301) */
+.quick-notes { margin-bottom: var(--space-12); }
+.quick-ratings { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); }
+.quick-notes-filter { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); padding-block: var(--space-3); border-block: 1px solid var(--line); }
+.quick-notes-filter [aria-current="page"] { color: var(--ink); font-weight: 600; text-decoration: none; }
+.quick-notes-list { list-style: none; padding: 0; }
+.quick-notes-list > li { padding: var(--space-4) 0; border-bottom: 1px solid var(--line); }
+.quick-note-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.quick-note-context { display: grid; gap: var(--space-1); margin: var(--space-2) 0; font-size: .88rem; }
+.quick-note-context > div { display: grid; grid-template-columns: 7em minmax(0, 1fr); gap: var(--space-2); }
+.quick-note-context dt { color: var(--ink-faint); }
+.quick-note-context dd { margin: 0; overflow-wrap: anywhere; }
+.quick-note-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.quick-note-actions form { margin: 0; }

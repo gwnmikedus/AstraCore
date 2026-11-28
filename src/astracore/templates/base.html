@@ -44,6 +44,9 @@
   <script src="{{ asset('js/experience.js') }}" defer></script>
   <script src="{{ asset('js/flight-tips.js') }}" defer></script>
   <script src="{{ asset('js/easter-eggs.js') }}" defer></script>
+  {% set quick_feedback = user is defined and user and page != 'feedback' %}
+  {% if quick_feedback %}<link rel="stylesheet" href="{{ asset('css/quick-feedback.css') }}">
+  <script src="{{ asset('js/quick-feedback.js') }}" defer></script>{% endif %}
   {% block head %}{% endblock %}
 </head>
 <body class="page-{{ page or 'default' }}">
@@ -65,6 +68,18 @@
   {% if flash %}<div class="flash {{ flash_kind or 'info' }}" role="status">{{ icon('circle-x' if flash_kind == 'bad' else ('triangle-alert' if flash_kind == 'warn' else ('circle-check' if flash_kind == 'ok' else 'info'))) }}<span>{{ flash }}</span></div>{% endif %}
   {% if esi_outage %}{% include "_esi_outage.html" %}{% endif %}
   <div id="main-content" class="{% block content_class %}{% endblock %}" tabindex="-1">{% block content %}{% endblock %}</div>
+  {% if quick_feedback and module and module.id == 'pi' and page in ('guide', 'operate') %}
+  {# "Was this clear?" (#301): on the guide it shows on the result step only (quick-feedback.js follows #track). #}
+  <aside class="qf-rate" data-qf-rate="{{ 'plan-result' if page == 'guide' else 'operate' }}"{% if page == 'guide' %} data-qf-rate-when="result"{% endif %} aria-labelledby="qf-rate-title" hidden>
+    <p id="qf-rate-title" class="qf-rate-title">{{ 'Was this plan clear?' if page == 'guide' else 'Was this page clear?' }}</p>
+    <div class="qf-rate-buttons">
+      <button type="button" class="outline secondary" data-qf-rate-kind="clear" aria-pressed="false"><span aria-hidden="true">👍</span><span class="sr-only">Yes, it was clear</span></button>
+      <button type="button" class="outline secondary" data-qf-rate-kind="unclear" aria-pressed="false"><span aria-hidden="true">👎</span><span class="sr-only">No, it wasn’t clear</span></button>
+    </div>
+    <span class="qf-rate-status" data-qf-rate-status role="status" aria-live="polite"></span>
+    <button type="button" class="qf-rate-more" data-qf-rate-more hidden>Tell us what {{ icon('arrow-right') }}</button>
+  </aside>
+  {% endif %}
   <footer class="site-footer">
     {% from "_support.html" import support_link %}
     <div class="footer-heading">
@@ -101,6 +116,7 @@
   </footer>
 </main>
 </div>
+{% if quick_feedback %}{% include "_quick_feedback.html" %}{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -22,6 +22,14 @@ GitHub App installed on this repository, configured using the fields in `docs/en
 Polling defaults to five minutes. A signed Issues webhook is optional; leave it inactive until
 its shared secret is configured. Reports remain private and withdrawable while queued.
 
+Signed-in pages also have a **Feedback** button for quick notes (confusing / idea / bug, one line, optional
+"point at it"), plus a one-tap "Was this clear?" on the plan result and Operate. Quick notes are private: they are
+stored with a small, cleaned context (page path without IDs, plan step, screen size, theme, version; the pilot's own
+character, corporation and alliance names are replaced) and never sent to GitHub. Administrators read and archive
+them under *Quick notes* on `/community/admin`. *Promote to issue* opens the normal `/feedback` form prefilled with
+the note text only, so the administrator rewrites, previews and confirms it and it is published as them; the pilot's
+context never becomes public. That is safer than publishing a pilot's private note as-is.
+
 The site runs on a Mac and is published at `https://astracore.hoppyhome.nl` through a Cloudflare Tunnel, only
 while that Mac runs it. Anyone with the URL can reach it (production can be limited to an invite list, switchable on `/admin`), so profiles are
 fully separated, sessions are server-side, and EVE tokens are encrypted at rest.

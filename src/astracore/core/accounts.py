@@ -89,6 +89,7 @@ def merge_profiles(src: int, dst: int, character_id: int) -> bool:
         c.execute("UPDATE characters SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("UPDATE plan_runs SET profile_id=?, active=0 WHERE profile_id=?", (dst, src))
         c.execute("UPDATE community_feedback SET profile_id=? WHERE profile_id=?", (dst, src))
+        c.execute("UPDATE community_notes SET profile_id=? WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO community_votes(profile_id, target, created_at) "
                   "SELECT ?, target, created_at FROM community_votes WHERE profile_id=?", (dst, src))
         c.execute("INSERT OR IGNORE INTO community_vote_seen(profile_id, target, stage, seen_at) "
@@ -194,7 +195,11 @@ def export_profile(profile_id: int) -> Dict:
             "SELECT cc.feedback_id, cc.character_id, cc.created_at FROM community_credit cc "
             "JOIN community_feedback f ON f.id = cc.feedback_id WHERE f.profile_id=? ORDER BY cc.created_at",
             (profile_id,))]
+        # Private quick notes and "Was this clear?" answers, with the context that was attached to them.
+        quick_notes = [dict(r) for r in c.execute(
+            "SELECT id, kind, body, context_json, created_at, state FROM community_notes WHERE profile_id=? "
+            "ORDER BY created_at", (profile_id,))]
     return {"exported_at": time.time(), "profile": p, "eve_accounts": db.list_accounts(profile_id),
             "characters": chars, "module_settings": modset, "plans": plans, "planet_overrides": overrides,
             "sessions": sessions, "feedback": feedback, "community_marks": marks, "community_marks_seen": marks_seen,
-            "report_credits": credits}
+            "report_credits": credits, "quick_notes": quick_notes}

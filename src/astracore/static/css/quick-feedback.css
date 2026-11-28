@@ -1,0 +1,93 @@
+/* In-context quick feedback (#301): floating button, side panel, "point at it", "Was this clear?". */
+a.qf-launch {
+  position: fixed; right: max(var(--space-4), env(safe-area-inset-right)); bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  z-index: 40; display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-4);
+  background: var(--hull-raised); color: var(--ink); border: var(--stroke-hair) solid var(--line-strong);
+  box-shadow: var(--shadow-lift); font-weight: 600; text-decoration: none; letter-spacing: .02em;
+}
+/* a.qf-launch outranks the shared [role="button"] look the script gives it. */
+a.qf-launch:hover, a.qf-launch[aria-expanded="true"] { background: var(--hull-raised); color: var(--ink); border-color: var(--signal); }
+a.qf-launch .ic { width: 18px; height: 18px; color: var(--signal); }
+
+.qf-panel {
+  position: fixed; right: max(var(--space-4), env(safe-area-inset-right)); bottom: calc(max(var(--space-4), env(safe-area-inset-bottom)) + 56px);
+  z-index: 41; width: min(380px, calc(100vw - 2 * var(--space-4))); max-height: calc(100dvh - 120px); overflow-y: auto;
+  padding: var(--space-4); background: var(--hull); color: var(--ink); border: var(--stroke-hair) solid var(--line-strong);
+  border-top: var(--stroke-bar) solid var(--signal); box-shadow: var(--shadow-lift);
+}
+/* Without JavaScript the launcher links to #qf-panel; with it, the script toggles .qf-open. */
+.qf-panel:not(.qf-ready):not(:target), .qf-panel.qf-ready:not(.qf-open) { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .qf-panel.qf-open { animation: qf-rise .16s ease-out; }
+  @keyframes qf-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+}
+.qf-panel form { margin: 0; }
+.qf-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
+.qf-head h2 { margin: 0; font-size: 1.35rem; }
+.qf-close { min-height: 36px; min-width: 36px; padding: 0; }
+.qf-private { display: flex; gap: var(--space-2); align-items: flex-start; margin-bottom: var(--space-3); color: var(--ink-muted); font-size: .9rem; }
+.qf-private .ic { flex: 0 0 auto; margin-top: 2px; color: var(--status-ok); }
+
+.qf-kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 var(--space-3); padding: 0; border: 0; }
+.qf-kinds legend { padding: 0; margin-bottom: var(--space-2); color: var(--ink-muted); font-size: .9rem; }
+.qf-kinds label { position: relative; margin: 0; }
+.qf-kinds input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.qf-kinds span {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-1); min-height: 40px; padding: 0 var(--space-2);
+  border: var(--stroke-hair) solid var(--line-strong); margin-left: -1px; color: var(--ink-muted); font-size: .92rem; white-space: nowrap;
+}
+.qf-kinds label:first-of-type span { margin-left: 0; }
+.qf-kinds input:checked + span { position: relative; background: var(--signal-tint); color: var(--ink); border-color: var(--signal); }
+.qf-kinds input:focus-visible + span { outline: var(--stroke-focus) solid var(--focus); outline-offset: 2px; position: relative; }
+
+.qf-body-label { display: block; margin-bottom: var(--space-1); color: var(--ink-muted); font-size: .9rem; }
+.qf-panel textarea { display: block; width: 100%; resize: vertical; min-height: 84px; margin-bottom: var(--space-3); }
+.qf-point { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
+.qf-point[hidden] { display: none; }
+.qf-hint { color: var(--ink-faint); font-size: .85rem; margin: 0; }
+
+.qf-attached { padding: var(--space-3); margin-bottom: var(--space-3); background: var(--void); border: var(--stroke-hair) solid var(--line); }
+.qf-attached-title { margin: 0 0 var(--space-2); font-size: .85rem; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .06em; }
+.qf-attached dl { display: grid; gap: var(--space-1); margin: 0 0 var(--space-2); font-size: .88rem; }
+.qf-attached dl > div { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-2); }
+.qf-attached dt { color: var(--ink-faint); }
+.qf-attached dd { margin: 0; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: .82rem; }
+.qf-remove { min-height: 0; padding: 0; background: none; color: var(--signal); text-decoration: underline; font-family: var(--font-sans); font-size: .85rem; }
+.qf-remove:hover { background: none; color: var(--signal-strong); }
+
+.qf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.qf-actions a { font-size: .9rem; }
+.qf-status { margin: var(--space-2) 0 0; min-height: 1.2em; font-size: .9rem; color: var(--ink-muted); }
+.qf-status:empty { display: none; }
+
+/* Point at it */
+.qf-pointing, .qf-pointing * { cursor: crosshair !important; }
+.qf-pointing-bar {
+  position: fixed; top: max(var(--space-3), env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 70;
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); width: max-content; max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-2) var(--space-3); background: var(--hull-raised); color: var(--ink); border: var(--stroke-hair) solid var(--signal); box-shadow: var(--shadow-lift);
+}
+.qf-pointing-bar[hidden] { display: none; }
+.qf-pointing-bar .ic { color: var(--signal); }
+.qf-pointing-box { position: fixed; z-index: 69; pointer-events: none; outline: var(--stroke-bar) dashed var(--signal); outline-offset: 2px; background: var(--core-glow); }
+.qf-pointing-box[hidden] { display: none; }
+
+/* Was this clear? */
+.qf-rate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-6) 0 var(--space-4); padding-top: var(--space-4); border-top: var(--stroke-hair) solid var(--line); }
+.qf-rate[hidden] { display: none; }
+.qf-rate-title { margin: 0; color: var(--ink-muted); }
+.qf-rate-buttons { display: flex; gap: var(--space-2); }
+.qf-rate-buttons button { min-width: 44px; min-height: 40px; padding: 0 var(--space-3); font-size: 1.1rem; }
+.qf-rate-buttons button[aria-pressed="true"] { background: var(--signal-tint); box-shadow: inset 0 0 0 var(--stroke-hair) var(--signal); }
+.qf-rate-status { color: var(--ink-muted); font-size: .92rem; }
+.qf-rate-more { min-height: 36px; padding: 0 var(--space-2); background: none; color: var(--signal); }
+.qf-rate-more:hover { background: none; color: var(--signal-strong); }
+.qf-rate-more[hidden] { display: none; }
+
+/* Phones: a compact square button that stays clear of bottom action bars, and a bottom sheet. */
+@media (max-width: 759px) {
+  a.qf-launch { bottom: auto; top: 62%; right: 0; min-height: 44px; width: 44px; padding: 0; justify-content: center; border-right: 0; }
+  .qf-launch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .qf-panel { left: 0; right: 0; bottom: 0; width: auto; max-height: min(85dvh, 640px); padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); border-left: 0; border-right: 0; }
+}
+@media print { .qf-launch, .qf-panel, .qf-rate, .qf-pointing-bar, .qf-pointing-box { display: none !important; } }

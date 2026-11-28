@@ -1,0 +1,47 @@
+{# In-context quick feedback (#301): a floating button on every signed-in page and a small side panel.
+   Notes stay private (core/community.py save_note); the panel lists exactly what it attaches.
+   Without JavaScript the button is a #qf-panel link (:target shows the panel) and the form posts and returns here. #}
+<a class="qf-launch" href="#qf-panel" data-qf-launch aria-controls="qf-panel">
+  {{ icon('send') }}<span class="qf-launch-label">Feedback</span>
+</a>
+<section class="qf-panel" id="qf-panel" data-qf-panel role="dialog" aria-labelledby="qf-title" aria-describedby="qf-private">
+  <form method="post" action="/community/notes" data-qf-form data-version="{{ app_release.version if app_release is defined else '' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="path" value="{{ request.url.path }}">
+    <header class="qf-head">
+      <h2 id="qf-title">Quick feedback</h2>
+      <button type="button" class="qf-close outline secondary" data-qf-close aria-label="Close feedback" hidden>{{ icon('x') }}</button>
+    </header>
+    <p id="qf-private" class="qf-private">{{ icon('lock') }}<span>Private. Only the maintainer reads it. Nothing is posted publicly.</span></p>
+    <fieldset class="qf-kinds">
+      <legend>What is it?</legend>
+      <label><input type="radio" name="kind" value="confusing" checked><span>{{ icon('info') }} Confusing</span></label>
+      <label><input type="radio" name="kind" value="idea"><span>{{ icon('lightbulb') }} Idea</span></label>
+      <label><input type="radio" name="kind" value="bug"><span>{{ icon('bug', 'icon-bug') }} Bug</span></label>
+    </fieldset>
+    <label class="qf-body-label" for="qf-body">Your note</label>
+    <textarea id="qf-body" name="body" rows="3" minlength="3" maxlength="2000" required placeholder="What confused you, or what would help?"></textarea>
+    <div class="qf-point" data-qf-point-row hidden>
+      <button type="button" class="outline secondary" data-qf-point aria-describedby="qf-point-hint">{{ icon('map-pin') }} Point at it</button>
+      <span id="qf-point-hint" class="qf-hint">Optional: click the part of the page you mean.</span>
+    </div>
+    <div class="qf-attached">
+      <p class="qf-attached-title">Sent with your note</p>
+      <dl data-qf-context>
+        <div><dt>Page</dt><dd>{{ request.url.path }}</dd></div>
+        {% if app_release is defined %}<div><dt>Version</dt><dd>{{ app_release.version }}</dd></div>{% endif %}
+      </dl>
+      <p class="qf-hint">Never your character names, wallet or locations. If you type a character, corporation or alliance name of yours, it’s replaced with [name].</p>
+    </div>
+    <div class="qf-actions">
+      <button type="submit" data-qf-send>{{ icon('send') }} Send</button>
+      <a href="/feedback">More detail? Use the full form</a>
+    </div>
+    <p class="qf-status" data-qf-status role="status" aria-live="polite"></p>
+  </form>
+</section>
+<div class="qf-pointing-bar" data-qf-pointing-bar role="status" aria-live="assertive" hidden>
+  {{ icon('map-pin') }}<span>Click the part you mean, or move to it with Tab and press Enter. Esc cancels.</span>
+  <button type="button" class="outline secondary" data-qf-point-cancel>Cancel</button>
+</div>
+<div class="qf-pointing-box" data-qf-pointing-box aria-hidden="true" hidden></div>

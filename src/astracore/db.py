@@ -289,8 +289,15 @@ def _migrate_v10(c: sqlite3.Connection) -> None:
     c.executescript(LOGBOOK_SCHEMA)
 
 
+def _migrate_v11(c: sqlite3.Connection) -> None:
+    """Quick notes from the in-page Feedback panel and "Was this clear?": private, never sent to GitHub.
+    A new table and an index only, so a rollback to an older build keeps working."""
+    from .core.community import QUICK_NOTES_SCHEMA
+    c.executescript(QUICK_NOTES_SCHEMA)
+
+
 MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6, _migrate_v7, _migrate_v8,
-              _migrate_v9, _migrate_v10]
+              _migrate_v9, _migrate_v10, _migrate_v11]
 
 
 def adopt_legacy_db() -> bool:

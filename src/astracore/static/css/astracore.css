@@ -33,15 +33,14 @@
   --status-danger: #ff4d6d;
   --on-status: #0b0c0d;
   --shadow-lift: 0 16px 40px rgba(0, 0, 0, .55);
-  /* depth: layered grounds, a hairline chart grid, panel bevels and one orbit ornament (all decorative, never behind body text alone) */
+  /* depth: quiet grounds and the space doodles (custom line art, decorative only, never behind body text) */
   --void-deep: #070809;                       /* sunken bands: the footer, wells below the ground */
   --band: #101214;                            /* alternating full-width section bands on long pages */
-  --grid-minor: rgba(236, 232, 223, .026);    /* 24px chart grid on the page ground */
-  --grid-major: rgba(236, 232, 223, .055);    /* 96px chart grid on the page ground */
-  --bevel: rgba(236, 232, 223, .07);          /* 1px top highlight inside panels */
   --sheen: rgba(236, 232, 223, .035);         /* top-down light on panels, gone after 160px */
   --core-glow: rgba(255, 106, 26, .10);       /* the one warm corner on a screen's key panel */
-  --ornament: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20320'%20fill='none'%3E%3Cg%20stroke='%232a2e33'%20stroke-width='1'%3E%3Ccircle%20cx='560'%20cy='380'%20r='240'/%3E%3Ccircle%20cx='560'%20cy='380'%20r='300'%20stroke-dasharray='2%206'/%3E%3Cellipse%20cx='560'%20cy='380'%20rx='420'%20ry='120'%20transform='rotate(-14%20560%20380)'/%3E%3Cpath%20d='M0%20300H640M0%20240H24M0%20180H12M0%20120H24M0%2060H12'/%3E%3C/g%3E%3Cg%20stroke='%233a3f45'%3E%3Ccircle%20cx='560'%20cy='380'%20r='180'/%3E%3C/g%3E%3Crect%20x='196'%20y='238'%20width='6'%20height='6'%20fill='%23646a72'/%3E%3C/svg%3E");
+  --doodle-ink: #5d636b;                      /* doodle strokes: quiet, still readable as a drawing (3.2:1 on void) */
+  --doodle-fill: #16191c;                     /* doodle bodies (planets, hulls) so lines behind them stay hidden */
+  --doodle-soft: #2c3136;                     /* doodle shading: planet bands, panel cells, far stars */
   /* checkbox tick and select chevron, drawn in on-signal / ink-muted */
   --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231a0a00' stroke-width='2'/%3E%3C/svg%3E");
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23a19d94' stroke-width='1.5'/%3E%3C/svg%3E");
@@ -68,12 +67,11 @@
   --shadow-lift: 0 12px 32px rgba(40, 30, 10, .14);
   --void-deep: #ddd8cc;
   --band: #eeeae2;
-  --grid-minor: rgba(23, 24, 26, .035);
-  --grid-major: rgba(23, 24, 26, .07);
-  --bevel: rgba(255, 255, 255, .9);
   --sheen: rgba(255, 255, 255, .6);
   --core-glow: rgba(176, 63, 8, .07);
-  --ornament: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20320'%20fill='none'%3E%3Cg%20stroke='%23d3cdc0'%20stroke-width='1'%3E%3Ccircle%20cx='560'%20cy='380'%20r='240'/%3E%3Ccircle%20cx='560'%20cy='380'%20r='300'%20stroke-dasharray='2%206'/%3E%3Cellipse%20cx='560'%20cy='380'%20rx='420'%20ry='120'%20transform='rotate(-14%20560%20380)'/%3E%3Cpath%20d='M0%20300H640M0%20240H24M0%20180H12M0%20120H24M0%2060H12'/%3E%3C/g%3E%3Cg%20stroke='%23c4bdae'%3E%3Ccircle%20cx='560'%20cy='380'%20r='180'/%3E%3C/g%3E%3Crect%20x='196'%20y='238'%20width='6'%20height='6'%20fill='%237e786c'/%3E%3C/svg%3E");
+  --doodle-ink: #9a9384;
+  --doodle-fill: #f1ede5;
+  --doodle-soft: #d9d3c6;
   --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%235d5950' stroke-width='1.5'/%3E%3C/svg%3E");
   color-scheme: light;

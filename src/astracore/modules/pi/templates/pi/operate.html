@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from '_doodles.html' import doodle %}
 {% from "_artwork.html" import artwork %}
 {% from "_freshness.html" import freshness_line with context %}
 {% from "pi/_plan_compare.html" import plan_compare_table %}
@@ -349,7 +350,7 @@
 </div>
 {% endif %}
 {% if not (upkeep.colonies or upkeep.plan_checks or active or status.extractors or status.pickups or upkeep.shortages) %}
-<p class="empty">No colonies yet. Restarts, restocks and pickups show up here once your first colony is built.</p>
+<div class="empty-doodle">{{ doodle('probe') }}<p class="empty">No colonies yet. Restarts, restocks and pickups show up here once your first colony is built.</p></div>
 {% endif %}
 </section>
 

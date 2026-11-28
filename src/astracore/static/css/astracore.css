@@ -1146,6 +1146,9 @@ html[data-menu-open] { overflow: hidden; }
 .site-menu[open]:not([data-closing]) .menu-mark-close { transform: scale(1); opacity: 1; }
 .header-action { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; text-decoration: none; color: var(--ink); font: 500 13px/18px var(--font-display); text-transform: uppercase; letter-spacing: .06em; flex-shrink: 0; }
 @media (hover: hover) { .header-action:hover { background: var(--hull); color: var(--signal); } }
+/* EVE names (characters, corporations, alliances) keep EVE's exact spelling. Uppercase labels may surround
+   them, but C0smicCarrot (zero) and CosmicCarrot (letter O) must stay distinguishable. */
+.eve-name { text-transform: none; font-variant-caps: normal; letter-spacing: 0; }
 .header-profile img { width: 32px; height: 32px; object-fit: cover; }
 .header-profile span { max-width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* The blur is applied at once and never animated (fading a full-screen backdrop-filter janks on Safari and slow

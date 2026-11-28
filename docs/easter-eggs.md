@@ -4,6 +4,23 @@ AstraCore has a few small jokes for capsuleers. **They are intentional.** Please
 cleanup pass; `tests/test_easter_eggs.cjs` and `tests/test_easter_eggs.py` fail if one disappears. If one has to
 go, remove it here and in the tests in the same pull request, and say why.
 
+## Capsuleer's logbook
+
+Finding an egg counts. The first time each one is found, a short notice says so and gives the count ("Logbook: 4 of 15").
+Signed in, finds are stored per profile (`core/logbook.py`, tables `logbook_finds` and `logbook_ranking`, migration v10);
+signed out, they stay in the browser (`localStorage` key `ac_logbook`) and are added to the profile on the next signed-in visit.
+
+- **Pointers:** the footer says "Rumour has it 15 things are hidden in AstraCore" until the first find, then counts. Four footer
+  tips hint at eggs without giving them away.
+- **The logbook** (`/logbook`, `templates/logbook.html`) is hidden (a 404) until a signed-in pilot has found 3. It lists their
+  finds, a hint for every egg still missing, who found each one first and a ranking by points.
+- **The ranking is opt-in:** a pilot picks one of their own characters on the logbook page. Removing that character, choosing
+  "Nobody" or resetting the profile takes them off. Pilots who don't opt in are only counted ("3 pilots hunt in private").
+- **Points:** 1 for the easy ones, 2 and 3 for harder ones, 5 for the calendar eggs, which the server only accepts on their day.
+  Finds are reported by the browser, so the ranking is a game, not proof.
+- Adding or removing an egg: change `EGGS` in `core/logbook.py` and `EGGS` in `static/js/easter-eggs.js` together (a test
+  compares them), and the "Fifteen" in the hint tip.
+
 Every easter egg follows the same rules:
 
 - it never blocks anything, shifts the layout or covers a control;
@@ -27,4 +44,4 @@ Every easter egg follows the same rules:
 | **o7 from the logo** | `static/js/easter-eggs.js` | Click the small AstraCore wordmark in the footer five times quickly. |
 | **YC year** | `templates/base.html` footer | Hover the year in the copyright line: it's YC 128 in New Eden (year − 1898). Update it with the © year. |
 | **Not on your overview** | `templates/error.html` | Hover the big 404 on a missing page. |
-| **Console greeting** | `static/js/easter-eggs.js` | Open the browser console. |
+| **Console greeting** | `static/js/easter-eggs.js` | Open the browser console and type `o7()`. |

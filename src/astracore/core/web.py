@@ -49,6 +49,13 @@ def _invite_only() -> bool:
 templates.env.globals["invite_only"] = _invite_only   # the home regions' names, e.g. "Paragon Soul / Esoteria"
 
 
+def _logbook_state(user: Optional[dict]) -> dict:
+    """The footer's logbook line (core/logbook.py, an intentional easter egg)."""
+    from astracore.core import logbook
+    return logbook.state(user)
+
+
+templates.env.globals["logbook_state"] = _logbook_state
 templates.env.globals["asset"] = asset     # content-hashed /static URLs, see core/assets.py
 
 

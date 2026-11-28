@@ -53,7 +53,7 @@ def flash(response):
 
 
 def test_migration_adds_only_new_tables():
-    assert len(db.MIGRATIONS) == 9 and db.MIGRATIONS[-1].__name__ == "_migrate_v9"
+    assert len(db.MIGRATIONS) >= 9 and db.MIGRATIONS[8].__name__ == "_migrate_v9"
     with db.session() as c:
         assert c.execute("PRAGMA user_version").fetchone()[0] == len(db.MIGRATIONS)
         names = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}

@@ -86,7 +86,14 @@
       <p data-flight-tip>Fly safe. Your factories can’t send a rescue fleet.</p>
       <button type="button" class="outline secondary" data-next-tip hidden aria-label="Show another capsuleer tip">One more tip {{ icon('refresh-cw') }}</button>
     </div>
-    <p><strong>AstraCore</strong> © <span title="YC 128 in New Eden">2026</span> · An independent, fan-made tool for EVE Online capsuleers.{% if app_release is defined %} <a href="/releases#release-{{ app_release.base }}">v{{ app_release.version }}</a>{% endif %}</p>
+    {# Capsuleer's logbook (core/logbook.py, docs/easter-eggs.md): an intentional hint that there's something to find. #}
+    {% set lb = logbook_state(user if user is defined else none) %}
+    <p class="logbook-line" data-logbook data-found="{{ lb.found|join(',') }}" data-total="{{ lb.total }}" data-unlock="{{ lb.unlock }}"{% if lb.signed_in %} data-signed-in{% endif %}>
+      {%- if lb.open %}<a href="/logbook">Capsuleer’s logbook: {{ lb.count }} of {{ lb.total }} found {{ icon('arrow-right') }}</a>
+      {%- elif lb.count %}Capsuleer’s logbook: {{ lb.count }} of {{ lb.total }} found. Find {{ lb.unlock }} to open it.
+      {%- else %}Rumour has it {{ lb.total }} things are hidden in AstraCore.{% endif -%}
+    </p>
+    <p><strong>AstraCore</strong> © <span title="YC 128 in New Eden" data-egg-hover="yc_year">2026</span> · An independent, fan-made tool for EVE Online capsuleers.{% if app_release is defined %} <a href="/releases#release-{{ app_release.base }}">v{{ app_release.version }}</a>{% endif %}</p>
     <p class="legal data-credit">Data: ESI (Fenris Creations) · SDE via Fuzzwork · PI templates by DalShooth · <a href="/couriers">Courier rates</a> · <a href="/credits">Credits</a></p>
     <p class="legal">EVE Online material is used under the EVE Developer License: © 2014 CCP hf. All rights reserved. "EVE", "EVE Online",
       "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf.</p>

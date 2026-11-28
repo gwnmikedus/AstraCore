@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{# Capsuleer's logbook: hidden until a pilot has found enough easter eggs (core/logbook.py, docs/easter-eggs.md). #}
+{% block head %}<link rel="stylesheet" href="{{ asset('css/logbook.css') }}">{% endblock %}
+{% block content_class %}ac-stack ac-stack--major logbook-page{% endblock %}
+{% block content %}
+<header class="ac-page-header logbook-header">
+  <div class="eyebrow">AstraCore / Classified</div>
+  <h1 class="page-title">Capsuleer’s logbook</h1>
+  <p class="logbook-intro">You found this page by finding things that aren’t on any overview. There are {{ total }} in all. Some only show up on certain days.</p>
+  <dl class="logbook-stats" aria-label="Your logbook">
+    <div><dt>Found</dt><dd><span class="logbook-big">{{ found|length }}</span> of {{ total }}</dd></div>
+    <div><dt>Points</dt><dd><span class="logbook-big">{{ my_points }}</span> of {{ total_points }}</dd></div>
+    <div><dt>Rank</dt><dd>{% if mine %}<span class="logbook-big">#{{ mine.rank }}</span> of {{ board.all|length }}{% else %}<span class="logbook-big">–</span> off the ranking{% endif %}</dd></div>
+  </dl>
+</header>
+
+<section class="ac-section" aria-labelledby="finds-title">
+  <h2 id="finds-title">Your finds</h2>
+  <ul class="logbook-eggs">
+    {% for egg in eggs %}{% set at = found.get(egg.id) %}{% set first = board.first.get(egg.id) %}
+    <li class="logbook-egg{{ ' is-found' if at else '' }}">
+      <div class="logbook-egg-head"><strong>{{ egg.title if at else 'Unknown signal' }}</strong><span class="logbook-points">{{ egg.points }} {{ 'point' if egg.points == 1 else 'points' }}</span></div>
+      {% if at %}
+      <p>Found {{ utc(at).strftime('%-d %b %Y') }}.{% if board.found_by.get(egg.id) %} {{ board.found_by[egg.id] }} {{ 'pilot has' if board.found_by[egg.id] == 1 else 'pilots have' }} found it.{% endif %}</p>
+      {% else %}
+      <p class="muted">Hint: {{ egg.hint }}</p>
+      {% endif %}
+      {% if egg.id in board.first %}<p class="logbook-first">First found by {% if first %}<span class="eve-name">{{ first.name }}</span>{% else %}a pilot who hunts in private{% endif %}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="ac-section" aria-labelledby="ranking-title" id="ranking">
+  <h2 id="ranking-title">Ranking</h2>
+  <p class="muted">Pilots who opened their logbook and chose to be listed. Points first; on a tie, whoever got there first. {% if board.private %}{{ board.private }} {{ 'pilot hunts' if board.private == 1 else 'pilots hunt' }} in private.{% endif %}</p>
+  {% if board.board %}
+  <div class="scroll"><table class="logbook-ranking">
+    <thead><tr><th scope="col">#</th><th scope="col">Pilot</th><th scope="col">Found</th><th scope="col">Points</th><th scope="col">Last find</th></tr></thead>
+    <tbody>
+      {% for row in board.board %}
+      <tr{% if mine and row.profile_id == mine.profile_id %} class="is-you"{% endif %}>
+        <td class="logbook-rank">{{ row.rank }}</td>
+        <td><span class="logbook-pilot"><img src="https://images.evetech.net/characters/{{ row.character_id }}/portrait?size=64" width="32" height="32" alt="" loading="lazy"><span class="eve-name">{{ row.name }}</span>{% if mine and row.profile_id == mine.profile_id %} <span class="pill">You</span>{% endif %}</span></td>
+        <td>{{ row.eggs }} of {{ total }}</td>
+        <td><strong>{{ row.points }}</strong></td>
+        <td>{{ row.last|ago }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">Nobody is on the ranking yet. Be the first.</p>
+  {% endif %}
+
+  <form method="post" action="/logbook/ranking" class="logbook-optin">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="ranking-character">Show me on the ranking as</label>
+    <div class="logbook-optin-row">
+      <select id="ranking-character" name="character_id">
+        <option value=""{% if not choice %} selected{% endif %}>Nobody: keep me off the ranking</option>
+        {% for c in characters %}<option value="{{ c.character_id }}"{% if choice == c.character_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+      </select>
+      <button type="submit">Save</button>
+    </div>
+    <p class="muted">Only the character’s name, portrait, your count, points and last find are shown, to pilots who opened their logbook. It stays up to date as you find more. Removing the character or resetting your profile takes you off.</p>
+  </form>
+</section>
+{% endblock %}

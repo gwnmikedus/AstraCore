@@ -282,8 +282,15 @@ def _migrate_v9(c: sqlite3.Connection) -> None:
     c.executescript(MARK_SEEN_SCHEMA)
 
 
+def _migrate_v10(c: sqlite3.Connection) -> None:
+    """Capsuleer's logbook: easter eggs each pilot found and their opt-in ranking character.
+    New tables only, so a rollback to an older build keeps working."""
+    from .core.logbook import LOGBOOK_SCHEMA
+    c.executescript(LOGBOOK_SCHEMA)
+
+
 MIGRATIONS = [_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5, _migrate_v6, _migrate_v7, _migrate_v8,
-              _migrate_v9]
+              _migrate_v9, _migrate_v10]
 
 
 def adopt_legacy_db() -> bool:

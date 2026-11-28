@@ -21,6 +21,11 @@
     'The best PI alt is the one you remember to log into.',
     'Storms on a storm planet. Nobody could have seen it coming.',
     'Spreadsheets are a valid form of PvP.',
+    // Hints for the hunt (docs/easter-eggs.md): they point at easter eggs without giving them away.
+    'Some things in AstraCore aren’t on any overview. Fifteen, rumour has it.',
+    'The theme switch has opinions. Ask it in the dark.',
+    'Capsuleers say o7. AstraCore is listening.',
+    'Our footer logo likes attention. Lots of it, quickly.',
   ];
   // About one page load in fifty starts on this one.
   const RARE = 'You found the rare tip. Tell nobody. Especially not local.';
@@ -60,7 +65,11 @@
       timer = schedule(auto, ROTATE_MS);
     }
 
-    show(random() < RARE_CHANCE ? RARE : tips[index], false);
+    const rare = random() < RARE_CHANCE;
+    show(rare ? RARE : tips[index], false);
+    // The rare tip is a logbook find too (js/easter-eggs.js listens for this).
+    if (rare && doc.dispatchEvent && typeof CustomEvent === 'function')
+      doc.dispatchEvent(new CustomEvent('astracore:egg', {detail: 'rare_tip'}));
     button.hidden = false;
     button.addEventListener('click', () => {
       next(true);

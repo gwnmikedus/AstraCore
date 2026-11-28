@@ -9,6 +9,7 @@ from test_plan_save import plan_client, suggest, save  # noqa: F401
 from test_core import browser, csrf, eve, me, new_id, sso_login  # noqa: F401
 from test_help import _guide_context
 from test_planner import pi  # noqa: F401 (fixture)
+from plan_page import plan_data, script  # noqa: E402
 
 
 def post(client, endpoint, **body):
@@ -48,7 +49,7 @@ def test_advanced_page_offers_saving_and_explains_operate(plan_client, monkeypat
     client, _, _, _, _ = plan_client
     _guide_context(monkeypatch)
     html = client.get("/pi/plan?view=advanced").text
-    assert 'id="planbar"' in html and "const PLANS = " in html
+    assert 'id="planbar"' in html and plan_data(html)["plans"] == [] and "const PLANS = PLAN_DATA.plans" in script("planner.js")
     assert "when built" not in html and "Operate tracks your saved active plan" in html
 
 

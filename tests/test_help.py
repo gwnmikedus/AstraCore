@@ -9,6 +9,7 @@ from astracore.modules.pi.settings import Settings
 
 from test_core import browser, eve, new_id, sso_login  # noqa: F401 (fixtures)
 from test_planner import TEMPLATES, _plan, pi  # noqa: F401 (fixture)
+from plan_page import plan_data, script  # noqa: E402
 
 REQUIRED_TERMS = ["drop-off", "batch", "transfer", "buffer", "restock", "buyback", "ccu", "p0-p4", "poco", "esi",
                   "courier", "dalshooth"]
@@ -71,10 +72,14 @@ def test_guided_setup_has_the_help_toggles_and_no_time_paragraph(browser, eve, m
     assert '<span class="help-answer" id="help-yield-head" hidden>' in html
     assert 'href="/pi/glossary#yield"' in html
     # the browser-side answers come from glossary.answers()
-    assert "const HELP = {" in html and '"time":' in html and "const GLOSSARY = \"/pi/glossary\"" in html
-    assert "AC.helpPartsFor(HELP.isk" in html and "'Your time / week' + timeHelp.button" in html
-    assert "samePlanHTML(step, o, r, res)" in html
-    assert "TIME_NOTE" not in html and "Time estimate: 1.5 min" not in html
+    data = plan_data(html)
+    assert "time" in data["help_answers"] and data["glossary_url"] == "/pi/glossary"
+    assert "/static/js/plan-render.js" in html and "/static/js/guide.js" in html
+    guide = script("guide.js")
+    assert "const HELP = PLAN_DATA.help_answers" in script("plan-render.js")
+    assert "AC.helpPartsFor(HELP.isk" in guide and "'Your time / week' + timeHelp.button" in guide
+    assert "samePlanHTML(step, o, r, res)" in guide
+    assert "TIME_NOTE" not in html + guide and "Time estimate: 1.5 min" not in html
 
 
 def test_advanced_planner_loads_the_help_scripts(browser, eve, monkeypatch):
@@ -83,7 +88,8 @@ def test_advanced_planner_loads_the_help_scripts(browser, eve, monkeypatch):
     _guide_context(monkeypatch, calibrated=True)
     html = c.get("/pi/plan?view=advanced").text
     assert "/static/js/help.js" in html and "/static/js/plan-help.js" in html
-    assert "AC.tierHelp(res.tier_need)" in html
+    assert "/static/js/plan-render.js" in html and "/static/js/planner.js" in html
+    assert "AC.tierHelp(res.tier_need)" in script("plan-render.js")
 
 
 def test_p1_equivalent_counts_what_went_into_a_product(pi):  # noqa: F811

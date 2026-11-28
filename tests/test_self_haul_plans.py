@@ -7,6 +7,7 @@ from astracore.modules.pi.planner import selling, prices
 from astracore.modules.pi.settings import Settings
 from test_core import browser, csrf, eve, me, new_id, sso_login  # noqa: F401
 from test_planner import pi, _area, CHARS, TEMPLATES, BOOKS  # noqa: F401
+from plan_page import plan_data, script  # noqa: E402
 
 
 def outside_context(monkeypatch, pi):
@@ -75,6 +76,7 @@ def test_outside_plan_choice_persists_and_values_sales_demand_and_comparisons(br
     assert not any(w['code'].startswith('voc_') for w in result['warnings'])
     assert any(w['code'] == 'self_haul' and 'loss risk' in w['text'] for w in result['warnings'])
     page = client.get('/pi/plan').text
-    coverage = re.search(r'let SELL_COVERAGE = (.*?);', page).group(1)
-    assert '"local": false' in coverage and '"courier": false' in coverage
-    assert 'Haul to Jita / Amarr myself' in page and 'journey time, fuel and loss risk are not priced' in page
+    coverage = plan_data(page)['selling_coverage']
+    assert coverage['local'] is False and coverage['courier'] is False
+    guide = script('guide.js')
+    assert 'Haul to Jita / Amarr myself' in guide and 'journey time, fuel and loss risk are not priced' in guide

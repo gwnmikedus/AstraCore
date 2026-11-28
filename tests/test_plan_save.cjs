@@ -4,7 +4,7 @@ const path = require('node:path');
 const {test} = require('node:test');
 const vm = require('node:vm');
 
-const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
+const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/guide.js'), 'utf8');
 const resultCode = guide.slice(guide.indexOf('async function showPlan()'), guide.indexOf('\ngo(cur, false);'));
 
 function fixture(active = false) {
@@ -17,7 +17,7 @@ function fixture(active = false) {
   const calls = [];
   const context = {seq: 0, PLANS: active ? [{id: 5, active: true, label: 'Original', totals: {isk_per_day: 100}}] : [],
     OPTIONAL_IDS: new Set(['share','chain','batch']), additionalChoicesHTML: () => '', wireAdditionalChoices() {}, backIndex: () => 6,
-    $, API: '/pi/api', EXPORT: '/pi/export', EXPORT_Q: '', STEPS: [], cur: 8,
+    $, API: '/pi/api', EXPORT: '/pi/export', EXPORT_Q: '', STEPS: [], cur: 8, OPERATE_URL: '/pi/operate', EXPERT_URL: '/pi/settings?expert=1#expert', ADVANCED_URL: '/pi/plan?view=advanced',
     AC: {icon: () => '', compareTableHTML: () => '', post: (url, body) => new Promise(resolve => calls.push({url, body, resolve}))},
     document: {querySelectorAll: () => []}, esc: String, isk: String, encodeURIComponent,
     planHTML: () => 'Displayed build list', fillYieldBand() {}, navigate() { context.seq += 1; }};

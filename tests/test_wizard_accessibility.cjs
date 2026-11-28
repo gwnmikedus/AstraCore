@@ -3,7 +3,7 @@ const {readFileSync} = require('node:fs');
 const {test} = require('node:test');
 const vm = require('node:vm');
 const path = require('node:path');
-const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
+const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/guide.js'), 'utf8');
 const code = guide.slice(guide.indexOf('function setHint('), guide.indexOf('async function load(step)'));
 
 function fixture(noArea = false) {

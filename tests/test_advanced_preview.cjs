@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const source = fs.readFileSync('src/astracore/modules/pi/templates/pi/planner.html', 'utf8');
+const source = fs.readFileSync('src/astracore/modules/pi/templates/pi/planner.html', 'utf8') + fs.readFileSync('src/astracore/static/js/planner.js', 'utf8');
 function setup() {
   const nodes = Object.fromEntries(['apply-preview', 'preview-status', 'planbar', 'busy', 'result', 'h-effort'].map(k => [k, {disabled: false, textContent: '', style: {}, classList: {add(){}, remove(){}}, innerHTML: ''}]));
   const requests = [], draws = [], links = [{href: '/pi/export/plan.md?current=1', removeAttribute(k){ delete this[k]; }, setAttribute(k,v){this[k]=v;}}];

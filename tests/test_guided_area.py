@@ -3,6 +3,7 @@ from astracore import db
 from astracore.modules.pi import service, store
 from test_core import PI_SCOPES, browser, csrf, eve, me, new_id, sso_login  # noqa: F401
 from test_planner import _area
+from plan_page import plan_data, script  # noqa: E402
 
 
 def setup(client, eve):
@@ -74,8 +75,7 @@ def test_guided_get_keeps_context_suggestions_unsaved(browser, eve, monkeypatch)
     html = c.get("/pi/plan").text
     import json
     import re
-    encoded = re.search(r"const S = JSON.parse\((.*?)\);", html).group(1)
-    assert json.loads(json.loads(encoded))["selected_constellations"] == []
+    assert json.loads(plan_data(html)["settings_json"])["selected_constellations"] == []
     assert not store.has_settings(pid)
 
 

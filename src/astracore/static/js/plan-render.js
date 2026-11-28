@@ -1,10 +1,15 @@
-// Shared by the guided and the advanced plan views. Needs isk(), num(), m3(), count(), esc() (from AC),
-// AC.planWarningsHTML (js/plan-warnings.js), AC.printChecklist (js/print-checklist.js),
-// API, EXPORT, EXPORT_Q (which plan the export links download) and WAYPOINT_CHARS.
-// The "?" answers need AC.helpFor (js/help.js) and AC.tierHelp (js/plan-help.js).
-const HELP = {{ (help_answers or {})|tojson }};   // glossary.answers(): {key: {label, text, more}}
-const GLOSSARY = {{ (glossary_url or '/pi/glossary')|tojson }};
-const RICHNESS = {{ (richness_labels or [])|tojson }};   // routes.RICHNESS_LABELS: [[scan label, multiplier], ...]
+// The plan result, shared by the guided (js/guide.js) and the advanced (js/planner.js) plan views.
+// Loaded as a classic script before the page's own script, so its functions and constants are page globals.
+// Needs isk(), num(), m3(), count(), esc() (from AC, declared by the page script), AC.planWarningsHTML
+// (js/plan-warnings.js), AC.printChecklist (js/print-checklist.js), API, EXPORT, EXPORT_Q (which plan the export
+// links download), SETTINGS_URL and WAYPOINT_CHARS (page script). The "?" answers need AC.helpFor (js/help.js)
+// and AC.tierHelp (js/plan-help.js).
+// Server data comes from the page's <script type="application/json" id="plan-data"> block.
+const PLAN_DATA = JSON.parse(document.getElementById('plan-data').textContent);
+const HELP = PLAN_DATA.help_answers || {};   // glossary.answers(): {key: {label, text, more}}
+const GLOSSARY = PLAN_DATA.glossary_url || '/pi/glossary';
+const RICHNESS = PLAN_DATA.richness_labels || [];   // routes.RICHNESS_LABELS: [[scan label, multiplier], ...]
+const TEMPLATE_REPO = PLAN_DATA.template_repo || '';   // DalShooth's template repository
 // The page decides what a change on the result means: the guided setup saves and replans, the Advanced
 // view previews. onNeverProduce(names) and onRichnessSaved() are defined by each page.
 let NEVER = [];
@@ -208,7 +213,7 @@ function planHTML(res, opts = {}) {
       h += `<tr>
         <td><div class="cellimg">${AC.planetImg(c.planet_type, 28)}<div>${esc(c.planet)}<br><span class="muted">${esc(c.planet_type)} · sec ${c.security}</span>${richnessHTML(c)}</div></div></td>
         <td><div class="cellimg">${AC.structureImg(c.kind === 'miner' ? 'miner' : (c.tier === 4 ? 'factory_p4' : 'factory'), 24)}<div>${AC.externalLink(c.template_url, c.template, {cls: `kind-${c.kind}`})}
-            <br><span class="muted">${AC.externalLink(c.template_url || {{ template_repo|tojson }}, 'Template by DalShooth')}</span>
+            <br><span class="muted">${AC.externalLink(c.template_url || TEMPLATE_REPO, 'Template by DalShooth')}</span>
             ${c.p0.length ? `<br><span class="muted">extract ${c.p0.map(esc).join(', ')}</span>` : ''}
             ${c.utilisation < 0.99 ? `<br><span class="muted">runs at ${Math.round(c.utilisation*100)}% (limited by inputs)</span>` : ''}
             ${c.upkeep && c.upkeep.visit_every_days ? `<br><span class="muted">${c.kind === 'miner' ? 'visit' : 'restock'} every ${num(c.upkeep.visit_every_days, 1)} days · ${m3(c.upkeep.capacity_m3)} buffer</span>` : ''}

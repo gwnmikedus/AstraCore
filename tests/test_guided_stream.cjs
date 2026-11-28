@@ -95,7 +95,7 @@ test('without a readable body the whole stream is read at once', async () => {
 });
 
 // ---- guide.html -------------------------------------------------------------------------------
-const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
+const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/guide.js'), 'utf8');
 const code = guide.slice(guide.indexOf('function stepOptions(step)'), guide.indexOf('// The same answers as a table'));
 
 function wizard(events) {
@@ -196,7 +196,7 @@ function lazyPage(source, start, end, extra = {}) {
 }
 
 test('the yield range is worked out only when the pilot asks for it', async () => {
-  const render = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/_plan_render.html'), 'utf8');
+  const render = readFileSync(path.join(__dirname, '../src/astracore/static/js/plan-render.js'), 'utf8');
   const {context, node, posts} = lazyPage(render, 'function fillYieldBand', "document.addEventListener('click'",
     {reply: {rows: [{factor: 0.5, isk_per_day: 10}, {factor: 2, isk_per_day: 40}]}});
   context.fillYieldBand({effort: 100});
@@ -209,7 +209,7 @@ test('the yield range is worked out only when the pilot asks for it', async () =
 });
 
 test('the advanced view compares the three goals only once asked, then keeps them current', async () => {
-  const planner = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/planner.html'), 'utf8');
+  const planner = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/planner.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/planner.js'), 'utf8');
   const {context, node, posts} = lazyPage(planner, 'let altSeq = 0;', 'function markAlt()',
     {reply: [], markAlt() {}});
   context.document.querySelectorAll = () => [];

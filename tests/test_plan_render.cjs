@@ -4,7 +4,7 @@ const path = require('node:path');
 const {test} = require('node:test');
 const vm = require('node:vm');
 
-const render = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/_plan_render.html'), 'utf8');
+const render = readFileSync(path.join(__dirname, '../src/astracore/static/js/plan-render.js'), 'utf8');
 const helpers = render.slice(render.indexOf('function colonyValueHTML'), render.indexOf('// opts.steps'));
 
 function load() {

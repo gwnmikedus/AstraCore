@@ -9,6 +9,7 @@ from astracore.modules.pi.settings import Settings
 
 from test_core import browser, csrf, eve, me, new_id, sso_login  # noqa: F401 (fixtures)
 from test_planner import _plan, pi  # noqa: F401 (fixture)
+from plan_page import plan_data, script  # noqa: E402
 
 
 def test_expert_panel_is_collapsed_and_holds_the_expert_assumptions(browser, eve):
@@ -103,8 +104,9 @@ def test_advanced_never_produce_is_a_checkbox_per_pi_product(browser, eve, monke
     assert "Home-market buy orders (Paragon Soul / Esoteria / Delve)" in html and "Delve buy orders" not in html
     assert 'href="/pi/settings?expert=1#expert"' in html
     guided = c.get("/pi/plan").text
-    assert "Sell at home only" in guided and "Buy orders in Paragon Soul / Esoteria / Delve" in guided
-    assert "/pi/settings?expert=1#expert" in guided and "const RICHNESS = [[" in guided
+    data = plan_data(guided)
+    assert "Sell at home only" in script("guide.js") and data["home_market"] == "Paragon Soul / Esoteria / Delve"
+    assert data["expert_url"] == "/pi/settings?expert=1#expert" and data["richness_labels"]
 
 
 def test_area_lists_scans_and_measurements_alongside_the_grouped_scan_picker(browser, eve, monkeypatch):

@@ -23,7 +23,7 @@ Polling defaults to five minutes. A signed Issues webhook is optional; leave it 
 its shared secret is configured. Reports remain private and withdrawable while queued.
 
 The site runs on a Mac and is published at `https://astracore.hoppyhome.nl` through a Cloudflare Tunnel, only
-while that Mac runs it. Anyone with the URL can log in (an invite list gates production), so profiles are
+while that Mac runs it. Anyone with the URL can reach it (production can be limited to an invite list, switchable on `/admin`), so profiles are
 fully separated, sessions are server-side, and EVE tokens are encrypted at rest.
 
 ## Quick start (fresh clone, local mode)
@@ -51,7 +51,7 @@ Running in the foreground for development works too: `.venv/bin/python -m astrac
 | Cloudflare tunnel | not started | started (and stopped first on `stop`) |
 | Secure cookies, HSTS | off | on |
 | `/docs`, debug tracebacks | on | off (branded error pages, errors in `data/logs/`) |
-| Invite list | off | on |
+| Invite list | off | on (unless opened to every pilot on `/admin`) |
 | "LOCAL" badge in the header | yes | no |
 
 Each mode has its own EVE application and database because EVE refresh tokens only work with the

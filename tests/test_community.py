@@ -66,7 +66,8 @@ def allow_github(monkeypatch):
     monkeypatch.setitem(config._ENV, "ASTRACORE_GITHUB_TOKEN", "mock-token-not-a-real-secret")
 
 
-def test_public_roadmap_and_login_required_for_submit(browser):
+def test_public_roadmap_and_login_required_for_submit(browser, monkeypatch):
+    monkeypatch.setattr(config, "ACCESS_GATE", True)   # the invite gate as in production
     client = browser()
     response = client.get("/roadmap")
     assert response.status_code == 200

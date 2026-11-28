@@ -131,3 +131,18 @@ def test_landing_footer_says_born_within_without_invited_capsuleers(browser, mon
     footer = _text(re.search(r'<div class="members landing-members">.*?</div>', page, re.S).group(0))
     assert "Born within" in footer and "Example Corp" in footer and "Example Alliance" in footer
     assert "invited capsuleers" not in page and "Built for pilots of" not in page
+
+
+def test_open_access_removes_every_invite_claim_from_public_pages(browser, monkeypatch):
+    _gate(monkeypatch)
+    accounts.set_access_open(True)
+    c = browser()
+    for path in ("/", "/project", "/feedback"):
+        r = c.get(path)
+        if r.status_code != 200:
+            continue
+        text = _text(r.text).lower()
+        for claim in ("invite-only", "invite-based", "requires an invitation", "plus invited pilots"):
+            assert claim not in text, (path, claim)
+    accounts.set_access_open(False)
+    assert "invite-based" in _text(c.get("/project").text).lower()

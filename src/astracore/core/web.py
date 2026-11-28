@@ -37,7 +37,16 @@ def _home_market() -> str:
     return markets.home_label()
 
 
-templates.env.globals["home_market"] = _home_market   # the home regions' names, e.g. "Paragon Soul / Esoteria"
+templates.env.globals["home_market"] = _home_market
+
+
+def _invite_only() -> bool:
+    from astracore.core import accounts
+    return accounts.gate_on()
+
+
+# Whether the invite list limits who can log in right now (production, unless /admin opened access to everyone).
+templates.env.globals["invite_only"] = _invite_only   # the home regions' names, e.g. "Paragon Soul / Esoteria"
 
 
 templates.env.globals["asset"] = asset     # content-hashed /static URLs, see core/assets.py

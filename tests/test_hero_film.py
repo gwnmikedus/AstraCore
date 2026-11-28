@@ -29,8 +29,13 @@ def test_home_hero_plays_the_film_once_over_the_header_without_a_video():
     assert re.search(r'data-hero-film-bar hidden>', hero)                                 # no JS: the plain header
     assert "Fictional example pilots and figures" in hero
     assert "<video" not in home and "trailer-dialog" not in home and "astracore-trailer.mp4" not in home
-    for path in ("js/hero-film.js", "js/hero-film-scenes.js", "css/hero-film.css"):
+    for path in ("js/hero-film.js", "css/hero-film.css"):
         assert assets.asset(path) in home, path
+    # the scenes (most of the film's weight) load only when it plays: preloaded by the head script on a first visit,
+    # fetched by the player on Play the film; never a script every visitor downloads
+    scenes = assets.asset("js/hero-film-scenes.js")
+    assert f'src="{scenes}"' not in home and f'data-scenes="{scenes}"' in hero
+    assert "l.rel = 'preload'" in home and f"l.href = '{scenes}'" in home
     assert not (STATIC / "video" / "astracore-trailer.mp4").exists()
     # sound is opt-in: the synth and score load only after a click, so the page never ships or starts them
     for path in ("js/hero-film-audio.js", "js/hero-film-score.js"):

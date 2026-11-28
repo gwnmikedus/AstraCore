@@ -9,6 +9,6 @@
     const leading = symbol ? AC.icon(symbol, `link-symbol icon-${symbol}`) + ' ' : '';
     const target = newTab ? ' target="_blank" rel="noopener noreferrer"' : '';
     const description = newTab ? 'external site, opens in a new tab' : 'external site';
-    return `<a href="${AC.esc(url.href)}" class="external-link ${AC.esc(cls)}"${target}>${leading}${AC.esc(label)} ${AC.icon('external-link', 'external-indicator')}<span class="sr-only"> (${description})</span></a>`;
+    return `<a href="${AC.esc(url.href)}" class="external-link ${AC.esc(cls)}"${target}>${leading}${AC.esc(label)} <span class="external-indicator" aria-hidden="true"></span><span class="sr-only"> (${description})</span></a>`;
   };
 })();

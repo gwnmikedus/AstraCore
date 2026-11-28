@@ -10,8 +10,13 @@
   (() => {
     let seen = false;
     try { seen = localStorage.getItem('astracore.heroFilm') === 'seen'; } catch (e) {}
-    if (!seen && !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.clientWidth >= 760)
+    if (!seen && !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.clientWidth >= 760) {
       document.documentElement.dataset.filmIntro = 'play';
+      /* only a film that plays needs its scenes: start that download now, alongside the player */
+      const l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'script'; l.href = '{{ asset('js/hero-film-scenes.js') }}';
+      document.head.append(l);
+    }
   })();
 </script>{% endblock %}
 {% block content %}
@@ -35,7 +40,7 @@
   </div>
   <div class="hero-caption" aria-hidden="true"><span>PI available today</span><span>Orbital Command / AstraCore</span></div>
   <button type="button" class="hero-replay" data-hero-film-replay hidden>{{ icon('play') }}<span class="hero-replay-text"><span class="hero-replay-label">Play the film</span><span>PI setup, without the spreadsheet</span></span></button>
-  <div class="hero-film" data-hero-film aria-hidden="true" data-audio="{{ asset('js/hero-film-audio.js') }}" data-score="{{ asset('js/hero-film-score.js') }}"><div class="hero-film-stage"></div></div>
+  <div class="hero-film" data-hero-film aria-hidden="true" data-audio="{{ asset('js/hero-film-audio.js') }}" data-score="{{ asset('js/hero-film-score.js') }}" data-scenes="{{ asset('js/hero-film-scenes.js') }}"><div class="hero-film-stage"></div></div>
   <div class="hero-film-bar" data-hero-film-bar hidden>
     <p class="hero-film-note">Fictional example pilots and figures. Real plans use your characters, prices and taxes.</p>
     <div class="hero-film-controls">
@@ -71,7 +76,7 @@
       <div class="production-chain" aria-label="Example production chain">
         <div><img src="{{ asset('img/eve/pi/planets/11-planet-temperate.png') }}" width="64" height="64" alt="Temperate planet"><span>Extract</span></div>{{ icon('arrow-right') }}
         <div><img data-preview-product src="{{ asset('img/eve/pi/p1-basic/2395-proteins.png') }}" width="64" height="64" alt="Proteins, a P1 product"><span data-preview-tier>Produce P1</span></div>{{ icon('arrow-right') }}
-        <div><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="88" height="64" alt="Epithal PI hauler"><span>Collect &amp; sell</span></div>
+        <div><img src="{{ asset('img/eve/renders/655-epithal-128.webp') }}" srcset="{{ asset('img/eve/renders/655-epithal-128.webp') }} 128w, {{ asset('img/eve/renders/655-epithal-256.webp') }} 256w" sizes="88px" width="88" height="64" alt="Epithal PI hauler" loading="lazy"><span>Collect &amp; sell</span></div>
       </div>
       <div class="preview-routine"><div><span class="console-label">On your planets</span><p data-preview-planets>Restart extractors. Pick up products.</p></div><div><span class="console-label">Your trade-off</span><p data-preview-tradeoff>Less upkeep; lower hourly extraction.</p></div></div>
       <a href="{{ '/pi' if user else '/auth/login' }}?rhythm=passive" class="text-action" data-preview-start>Find what works for my characters {{ icon('arrow-right') }}</a>
@@ -127,7 +132,7 @@
 </section>
 </section>
 <section class="operations-feature" aria-labelledby="operate-title">
-{{ gutter_art('station', 'left') }}  <div class="operations-art" aria-hidden="true"><span class="console-label">PI / Logistics</span><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="512" height="512" alt="" loading="lazy"><span class="art-caption">Epithal <span>/ Planetary transport</span></span></div>
+{{ gutter_art('station', 'left') }}  <div class="operations-art" aria-hidden="true"><span class="console-label">PI / Logistics</span><img src="{{ asset('img/eve/renders/655-epithal-512.webp') }}" srcset="{{ asset('img/eve/renders/655-epithal-256.webp') }} 256w, {{ asset('img/eve/renders/655-epithal-384.webp') }} 384w, {{ asset('img/eve/renders/655-epithal-512.webp') }} 512w" sizes="(max-width: 760px) 90vw, 420px" width="512" height="512" alt="" loading="lazy"><span class="art-caption">Epithal <span>/ Planetary transport</span></span></div>
   <div class="operations-copy"><div class="eyebrow">04 / Keep the operation moving</div><h2 id="operate-title">Log in with a purpose.<br>Then get back to flying.</h2><p>Once your colonies are built, Operate puts the work in front of you. Across every character. In one place.</p>
     <ul class="operation-list"><li>{{ icon('timer') }}<div><strong>Restart before production stops.</strong><span>See which extractors have stopped or are ending soon.</span></div></li><li>{{ icon('package') }}<div><strong>Collect what’s ready.</strong><span>Find products waiting on launchpads and factories low on inputs.</span></div></li><li>{{ icon('wallet') }}<div><strong>Know how you get paid.</strong><span>Compare selling channels after fees and taxes, and track earned ISK against your active plan.</span></div></li></ul>
   </div>
@@ -159,4 +164,4 @@
 {% if origin %}<div class="members landing-members"><span class="muted">Born within</span>{% if origin.corporation %}<span class="m">{{ logo_img('corporation', origin.corporation.id, 32) }}{{ origin.corporation.label }}</span>{% endif %}{% if origin.alliance %}<span class="m">{{ logo_img('alliance', origin.alliance.id, 32) }}{{ origin.alliance.label }}</span>{% endif %}</div>{% endif %}
 {% endblock %}
 
-{% block scripts %}<script src="{{ asset('js/hero-tour.js') }}" defer></script><script src="{{ asset('js/hero-film.js') }}" defer></script><script src="{{ asset('js/hero-film-scenes.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ asset('js/hero-tour.js') }}" defer></script><script src="{{ asset('js/hero-film.js') }}" defer></script>{% endblock %}

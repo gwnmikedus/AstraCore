@@ -17,7 +17,7 @@ def test_pages_reference_only_versioned_static_urls():
     urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', home)
     assert urls, "the home page should load static files"
     for u in urls:
-        path, _, v = u.partition("?v=")
+        path, _, v = u.split("#", 1)[0].partition("?v=")   # icons: /static/img/icons.svg?v=...#truck
         assert v == assets.version(path), u
 
 

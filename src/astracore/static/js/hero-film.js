@@ -1,6 +1,7 @@
 // The home hero plays the PI trailer live: its scenes (docs/demo/trailer/film) are drawn in code on a 1920x1080
 // stage scaled to the hero, so there is no video to download. This is the small player they need; the scenes
-// themselves are bundled into js/hero-film-scenes.js by scripts/trailer/build_hero_film.py.
+// themselves are bundled into js/hero-film-scenes.js by scripts/trailer/build_hero_film.py and load only when the
+// film plays.
 // It plays once over the header and then dissolves into it; Play the film replays it. Only the scene on screen is in
 // the page. Reduced motion, a phone-sized hero or a browser that has seen it start on the header; a hidden tab, a hero
 // out of view or the pause button stop the clock.
@@ -133,21 +134,50 @@
                scene(id, def) { defs[id] = def; }, score(fn) { scoreFn = fn; }};
   window.kit = kit;
 
-  let order = [], total = 0;
-  kit.boot = function (scenes) {
+  let order = [], total = 0, realTotal = 0;
+  function script(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.append(s);
+    });
+  }
+  // The scenes (js/hero-film-scenes.js, most of the film's weight) load only when it plays: a browser that has seen
+  // it, reduced motion or a phone-sized hero never downloads them unless the pilot asks for the film. The bundle
+  // ends with kit.boot([...]), which hands over the running order.
+  let scenesReady = null;
+  function loadScenes(src) {
+    scenesReady = scenesReady || new Promise((resolve, reject) => {
+      kit.boot = scenes => {
+        let at = 0, real = 0;
+        order = scenes.filter(s => defs[s.id]).map(s => {
+          const speed = SPEED[s.id] || 1;
+          const o = {...s, start: at, speed, realStart: real};
+          at += s.dur; real += s.dur / speed;
+          return o;
+        });
+        total = at; realTotal = real;
+        if (order.length) resolve(); else reject(new Error('no scenes'));
+      };
+      script(src).catch(reject);
+    }).catch(e => { scenesReady = null; throw e; });   // a failed download can be retried with Play the film
+    return scenesReady;
+  }
+
+  function setup() {
     const root = document.querySelector('[data-hero-film]');
     const hero = root && root.closest('.platform-hero');
     if (!root || !hero) return;
-    let at = 0, real = 0;
-    order = scenes.filter(s => defs[s.id]).map(s => {
-      const speed = SPEED[s.id] || 1;
-      const o = {...s, start: at, speed, realStart: real};
-      at += s.dur; real += s.dur / speed;
-      return o;
-    });
-    total = at;
-    const realTotal = real;
-    if (!order.length) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let seen = false;
+    try { seen = localStorage.getItem(KEY) === 'seen'; } catch (e) { /* storage blocked: play it */ }
+    // The same test as the home page's head script (html[data-film-intro]), which keeps the copy covered meanwhile.
+    const autoplay = !seen && !reduced.matches && document.documentElement.clientWidth >= SMALL;
+    if (!autoplay) { start(root, hero, false); return; }
+    loadScenes(root.dataset.scenes).then(() => start(root, hero, true), () => start(root, hero, false));
+  }
+
+  function start(root, hero, autoplay) {
     const holder = root.querySelector('.hero-film-stage');
     const bar = hero.querySelector('[data-hero-film-bar]');
     const toggle = hero.querySelector('[data-hero-film-toggle]');
@@ -231,9 +261,6 @@
       }
     }
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let seen = false;
-    try { seen = localStorage.getItem(KEY) === 'seen'; } catch (e) { /* storage blocked: play it */ }
     let playing = false, paused = false, inView = true, raf = 0, last = 0, clock = 0;
     let audio = null, soundOn = false, loading = null, ending = false;
     const running = () => playing && !paused && inView && !document.hidden;
@@ -248,13 +275,6 @@
       raf = requestAnimationFrame(tick);
     }
     // Sound is off until the pilot turns it on; the synth and score load then, never before.
-    function script(src) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src; s.onload = resolve; s.onerror = reject;
-        document.head.append(s);
-      });
-    }
     async function enableSound() {
       loading = loading || (async () => {
         await script(root.dataset.audio);
@@ -287,7 +307,6 @@
       playing = false;
       ending = true;
       if (audio) audio.hush(1.6);   // the end card's hit rings out with the dissolve
-      seen = true;
       try { localStorage.setItem(KEY, 'seen'); } catch (e) { /* plays again next visit */ }
       hero.classList.add('film-ended');   // the header rises in as the film dissolves
       update();
@@ -295,6 +314,11 @@
       setTimeout(() => { if (!playing) clear(); }, 1600);   // after the dissolve: nothing left running
     }
     function play() {
+      if (!order.length) {   // first time on this page: fetch the scenes, then play (Play the film after a skip)
+        replay.disabled = true;
+        return loadScenes(root.dataset.scenes).then(play, () => { /* stays on the header */ })
+          .finally(() => { replay.disabled = false; });
+      }
       playing = true; paused = false; clock = 0; last = 0;
       hero.classList.remove('film-done', 'film-ended');
       bar.hidden = false;
@@ -302,8 +326,10 @@
       fit();
       frame(0);
       update();
+      return Promise.resolve();
     }
 
+    if (!autoplay) hero.classList.add('film-done');   // starts on the header: the film layer never covers it
     hero.classList.add('is-live');
     bleed();
     new ResizeObserver(bleed).observe(hero.parentElement);
@@ -314,7 +340,7 @@
     document.addEventListener('visibilitychange', update);
     toggle.addEventListener('click', () => { paused = !paused; update(); });
     skip.addEventListener('click', finish);
-    replay.addEventListener('click', () => { play(); toggle.focus({preventScroll: true}); });
+    replay.addEventListener('click', () => play().then(() => { if (playing) toggle.focus({preventScroll: true}); }));
     // Sound isn't remembered: browsers only start audio after a click, so every visit begins quiet.
     sound.addEventListener('click', async () => {
       soundOn = !soundOn;
@@ -325,11 +351,15 @@
       }
       update();
     });
-    if (seen || reduced.matches || hero.getBoundingClientRect().width < SMALL) { playing = false; update(); }
-    else play();
-    // Drawing any moment by hand (tests, screenshots) and the playback state.
-    window.AC = Object.assign(window.AC || {}, {heroFilm: {total, realTotal, frame, play, finish, toReal,
-      scenes: order.map(s => ({id: s.id, start: s.start, dur: s.dur, speed: s.speed})),
+    if (autoplay) play();
+    else { playing = false; update(); }
+    // Drawing any moment by hand (tests, screenshots) and the playback state. The scenes are there once it played.
+    window.AC = Object.assign(window.AC || {}, {heroFilm: {frame, play, finish, toReal,
+      get total() { return total; }, get realTotal() { return realTotal; },
+      get scenes() { return order.map(s => ({id: s.id, start: s.start, dur: s.dur, speed: s.speed})); },
       get playing() { return playing; }, get audio() { return audio; }}});
-  };
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();

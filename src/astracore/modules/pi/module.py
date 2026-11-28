@@ -31,9 +31,15 @@ PI_WAYPOINTS = Bundle(
 )
 
 
-def _tile(profile):
-    from .service import dashboard_tile   # late import: keeps the registry light
-    return dashboard_tile(profile)
+async def _tile(profile):
+    from . import service   # late import: keeps the registry light
+    tile = await service.dashboard_tile(profile)
+    try:
+        if tile.get("state") == "operate":
+            tile["outside_area"] = service.home_space_warning(profile["id"])
+    except Exception:  # noqa: BLE001 - a tile must never break the dashboard
+        service.log.exception("PI tile: area check")
+    return tile
 
 
 def _character_removed(profile_id: int, character_id: int) -> None:

@@ -87,3 +87,18 @@ def home_regions_include_delve(monkeypatch):
     from astracore import config
 
     monkeypatch.setattr(config, "HOME_REGIONS", ["Paragon Soul", "Esoteria", "Delve"])
+
+
+@pytest.fixture(autouse=True)
+def offline_affiliations(monkeypatch):
+    """Area loads and profile refreshes read every character's alliance from ESI (#298); tests never reach it.
+    Tests of that refresh put `REAL_REFRESH_AFFILIATIONS` back and answer it with a fake ESI."""
+    from astracore.esi import character
+
+    async def unchanged(esi, characters):
+        return []
+
+    monkeypatch.setattr(character, "refresh_affiliations", unchanged)
+
+
+from astracore.esi.character import refresh_affiliations as REAL_REFRESH_AFFILIATIONS  # noqa: E402,F401

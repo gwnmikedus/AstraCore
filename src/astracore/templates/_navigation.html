@@ -91,7 +91,7 @@
     <span class="theme-tip" id="theme-tip" role="tooltip"><strong>Flashbang warning</strong><span>Light theme ahead. Shield your eyes.</span></span>
   </button>
   {% if user %}
-  <a href="/profile" class="header-action header-profile" aria-label="Your profile: {{ user.display_name }}">{% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" width="32" height="32" alt="">{% else %}{{ icon('user') }}{% endif %}<span>{{ user.display_name }}</span></a>
+  <a href="/profile" class="header-action header-profile" aria-label="Your profile: {{ user.display_name }}">{% if user.main_character_id %}<img src="https://images.evetech.net/characters/{{ user.main_character_id }}/portrait?size=64" width="32" height="32" alt="">{% else %}{{ icon('user') }}{% endif %}<span class="eve-name">{{ user.display_name }}</span></a>
   {% else %}
   <a href="/auth/login" class="header-action">{{ icon('key-round') }}<span>Log in</span></a>
   {% endif %}

@@ -57,6 +57,7 @@ Two themes. **Hull** (dark) is the default and the brand's home; **Chart** (ligh
 - **`scan`** is the cold second voice: links inside prose, a second chart series, "you are here". Never a button.
 - **Status is blue/amber/red, and always worded.** `status-ok` is deliberately blue, so good and bad never depend on red/green vision. `status-danger` sits close to `signal` in lightness; that is acceptable only because every danger state carries a word and an icon. Text on status fills is `on-status`.
 - No gradients on operational surfaces. Restrained image blending may support cinematic marketing art. No translucent glass. The only shadow is `shadow-lift`, for floating layers.
+- **Depth comes from grounds, not effects.** The page `void` carries a faint chart grid (`grid-minor` 24px, `grid-major` 96px) that fades down the viewport. Panels stay opaque `hull`, with a 1px `bevel` under the top hairline and a `sheen` that is gone after 160px. Sunken bands (`void-deep`: the footer, a landing feature) and alternating full-width `band` sections mark where one part of a page ends; section heads carry a `line` rule with a 48px `line-strong` bar. The key panel of a screen (one per screen) may hold a `core-glow` corner. The footer ends in the `ornament` orbit chart, in its own strip, never behind text. All of these are tokens with a Chart value and are removed in print. Don't put `signal` text on `void-deep` in Chart (4.2:1).
 
 ## Typography
 

@@ -83,7 +83,7 @@
     {% for ch in plan.characters if ch.route %}
       {% for w in waypoints if w.character_id == ch.character_id %}
       <button class="outline send-route" data-character="{{ w.character_id }}" data-systems='{{ ch.route.order|tojson }}'>
-        {{ icon('send') }} Send {{ ch.name }}'s pickup route to EVE</button>
+        {{ icon('send') }} Send <span class="eve-name">{{ ch.name }}</span>'s pickup route to EVE</button>
       {% endfor %}
     {% endfor %}
   </div>

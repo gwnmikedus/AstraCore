@@ -247,7 +247,7 @@ def test_add_character_of_other_profile_move(browser, eve):
     p2 = me(c2)
     r, _ = sso_login(c2, eve, y, "Shared", path="/auth/login?intent=add")
     assert r.headers["location"] == "/auth/choose"
-    assert "Move Shared to this profile" in c2.get("/auth/choose").text
+    assert 'Move <span class="eve-name">Shared</span> to this profile' in c2.get("/auth/choose").text
     assert db.character_profile(y) == p1                        # nothing moved before the choice
     c2.post("/auth/choose", data={"action": "move", "csrf_token": csrf(c2)})
     assert db.character_profile(y) == p2 and db.character_profile(x) == p1

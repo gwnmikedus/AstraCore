@@ -47,5 +47,6 @@ test('doodles are decorative inline SVG: hidden from assistive tech, no scripts,
     assert.match(svg, /focusable="false"/);
   }
   assert.doesNotMatch(doodles, /<script|on[a-z]+=|href=|fill='#|stroke='#|style=/i);
-  assert.match(home, /class="doodle-divider[^"]*" aria-hidden="true"/, 'landing dividers are hidden from assistive tech');
+  assert.match(home, /gutter_art\('/, 'the landing page uses gutter art');
+  assert.match(orbital, /\.gutter-art \{ display: none; \}/, 'gutter art is off unless the margins are wide enough');
 });

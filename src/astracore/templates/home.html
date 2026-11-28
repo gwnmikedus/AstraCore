@@ -3,6 +3,7 @@
 {% block description %}A command center for your EVE characters. Start with planetary operations. Help shape what comes next.{% endblock %}
 {% from '_artwork.html' import artwork %}
 {% from '_doodles.html' import doodle %}
+{% from '_gutter_art.html' import gutter_art %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/hero-film.css') }}">
 <script nonce="{{ nonce }}">
   /* Will the film play? The same test as hero-film.js, decided before the first paint so the copy isn't drawn and then covered. */
@@ -46,12 +47,11 @@
 </section>
 <div class="capability-strip" aria-label="What your plan includes"><span>{{ icon('users') }} Every alt, planned together</span><span>{{ icon('clock') }} Your time counts</span><span>{{ icon('download') }} DalShooth colony templates, ready to place</span><span>{{ icon('route') }} From extraction to selling</span></div>
 <section class="pi-story landing-section" id="pi-today" aria-labelledby="pi-today-title">
-  <div class="pi-story-copy"><div class="eyebrow">01 / PI available today</div><h2 id="pi-today-title">Your planets.<br>Your pace.</h2><p class="lead">Plan, build and run your planetary operation across all your characters.</p><p>Compare income against the time it takes. Place DalShooth colony templates. See the next restart, pickup and sale in one place.</p><a class="text-action" href="#preview">Find your routine {{ icon('arrow-right') }}</a><p class="muted">Forecasts account for taxes and hauling. Yield and prices can change.</p></div>
+{{ gutter_art('poco', 'right') }}  <div class="pi-story-copy"><div class="eyebrow">01 / PI available today</div><h2 id="pi-today-title">Your planets.<br>Your pace.</h2><p class="lead">Plan, build and run your planetary operation across all your characters.</p><p>Compare income against the time it takes. Place DalShooth colony templates. See the next restart, pickup and sale in one place.</p><a class="text-action" href="#preview">Find your routine {{ icon('arrow-right') }}</a><p class="muted">Forecasts account for taxes and hauling. Yield and prices can change.</p></div>
   <div class="pi-story-art"><div class="art-viewport" data-parallax="section">{{ artwork('pi-orbit', '(max-width: 760px) 100vw, (min-width: 1360px) 680px, 50vw') }}</div><span class="art-caption">PI / Plan. Build. Operate.</span></div>
 </section>
-<div class="doodle-divider doodle-divider--left" aria-hidden="true">{{ doodle('frigate') }}</div>
 <section class="landing-section" id="preview" aria-labelledby="preview-title">
-  <div class="section-heading"><div><div class="eyebrow">PI / Find your rhythm</div><h2 id="preview-title">Good PI starts with how you play.</h2></div><p>Less hauling or longer production chains?<br>Try a direction. See what running it involves.</p></div>
+{{ gutter_art('miner', 'left') }}  <div class="section-heading"><div><div class="eyebrow">PI / Find your rhythm</div><h2 id="preview-title">Good PI starts with how you play.</h2></div><p>Less hauling or longer production chains?<br>Try a direction. See what running it involves.</p></div>
   <div class="preview-console" data-pi-preview>
     <div class="preview-controls">
       <span class="console-label">Choose your approach</span>
@@ -87,7 +87,7 @@
     <div class="workflow-step"><span class="workflow-number">03</span>{{ icon('factory', 'xl') }}<h3>Operate. Then go fly.</h3><p>Keep an eye on extractors, factory inputs and products waiting to collect. Compare selling channels after fees and taxes.</p><span class="workflow-caption">A plan you can actually fly</span></div>
   </div>
 </section>
-<section class="landing-section product-proof" aria-labelledby="proof-title"><div class="section-heading"><div><div class="eyebrow">03 / A closer look</div><h2 id="proof-title">From every alt to one operation.</h2></div><p>A walkthrough using official EVE assets.<br>Illustrative actions, never live character data.</p></div><section class="landing-hero hero-tour product-tour" data-hero-tour aria-label="Illustrative PI walkthrough">
+<section class="landing-section product-proof" aria-labelledby="proof-title">{{ gutter_art('stargate', 'right') }}<div class="section-heading"><div><div class="eyebrow">03 / A closer look</div><h2 id="proof-title">From every alt to one operation.</h2></div><p>A walkthrough using official EVE assets.<br>Illustrative actions, never live character data.</p></div><section class="landing-hero hero-tour product-tour" data-hero-tour aria-label="Illustrative PI walkthrough">
   <div class="hero-copy">
     <div class="eyebrow">PI / Illustrated walkthrough</div>
     <div class="hero-copy-slides">
@@ -126,16 +126,14 @@
   </div>
 </section>
 </section>
-<div class="doodle-divider doodle-divider--right" aria-hidden="true">{{ doodle('station') }}</div>
 <section class="operations-feature" aria-labelledby="operate-title">
-  <div class="operations-art" aria-hidden="true"><span class="console-label">PI / Logistics</span><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="512" height="512" alt="" loading="lazy"><span class="art-caption">Epithal <span>/ Planetary transport</span></span></div>
+{{ gutter_art('station', 'left') }}  <div class="operations-art" aria-hidden="true"><span class="console-label">PI / Logistics</span><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="512" height="512" alt="" loading="lazy"><span class="art-caption">Epithal <span>/ Planetary transport</span></span></div>
   <div class="operations-copy"><div class="eyebrow">04 / Keep the operation moving</div><h2 id="operate-title">Log in with a purpose.<br>Then get back to flying.</h2><p>Once your colonies are built, Operate puts the work in front of you. Across every character. In one place.</p>
     <ul class="operation-list"><li>{{ icon('timer') }}<div><strong>Restart before production stops.</strong><span>See which extractors have stopped or are ending soon.</span></div></li><li>{{ icon('package') }}<div><strong>Collect what’s ready.</strong><span>Find products waiting on launchpads and factories low on inputs.</span></div></li><li>{{ icon('wallet') }}<div><strong>Know how you get paid.</strong><span>Compare selling channels after fees and taxes, and track earned ISK against your active plan.</span></div></li></ul>
   </div>
 </section>
-<div class="doodle-divider doodle-divider--left" aria-hidden="true">{{ doodle('planet') }}</div>
 <section class="landing-section directions-section" aria-labelledby="directions-title">
-  <div class="section-heading"><div><div class="eyebrow">05 / Shaped by capsuleers</div><h2 id="directions-title">Help shape what comes next.</h2></div><p>PI is available today.<br>Other operations are possible directions.</p></div>
+{{ gutter_art('fleet', 'right') }}  <div class="section-heading"><div><div class="eyebrow">05 / Shaped by capsuleers</div><h2 id="directions-title">Help shape what comes next.</h2></div><p>PI is available today.<br>Other operations are possible directions.</p></div>
   <div class="direction-grid">
     <div class="direction-card"><div class="art-viewport" data-parallax="section">{{ artwork('fittings-hangar', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}</div><div class="direction-copy"><span class="console-label">Community direction</span><h3>Fittings across your alts.</h3><p>The right ship, the right character, a shared preparation routine. What would help your operation?</p><a class="text-action" href="/feedback?kind=idea">Shape fittings {{ icon('arrow-right') }}</a></div></div>
     <div class="direction-card"><div class="art-viewport" data-parallax="section">{{ artwork('pvp-fleet', '(max-width: 760px) 100vw, (min-width: 1360px) 640px, 50vw') }}</div><div class="direction-copy"><span class="console-label">Community direction</span><h3>Ready for the next fleet.</h3><p>PvP and fleet preparation across characters. Bring the problem you would like AstraCore to solve.</p><a class="text-action" href="/feedback?kind=idea">Shape fleet preparation {{ icon('arrow-right') }}</a></div></div>

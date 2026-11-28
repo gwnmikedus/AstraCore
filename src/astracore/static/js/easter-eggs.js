@@ -11,10 +11,19 @@
     birthday: 'Happy birthday, New Eden. First undock: 6 May 2003.',
     konami: 'Cheat codes don’t work in New Eden. CONCORD has been notified.',
     logo: 'o7, capsuleer. Fly safe, and restart those extractors.',
+    o7: 'o7 to you too, capsuleer.',
+    themeFlip: 'Make up your mind, capsuleer. Your pupils have filed a complaint with CONCORD.',
+    longSession: 'An hour of planning. Your extractors would like a word.',
+    aprilFools: 'Today’s tips are 100% accurate. Check the date.',
+    holidays: 'Happy holidays, capsuleer. The customs office never closes.',
+    newYear: 'New year, new extractor cycle. Fly safe in YC {yc}.',
   };
   const LOGO_CLICKS = 5;
   const LOGO_WINDOW_MS = 2500;
   const TOAST_MS = 4500;
+  const THEME_FLIPS = 6;
+  const THEME_WINDOW_MS = 8000;
+  const LONG_SESSION_MS = 60 * 60 * 1000;
 
   // Daily downtime starts at 11:00 UTC; the nod shows for its first half hour.
   const isDowntime = date => date.getUTCHours() === 11 && date.getUTCMinutes() < 30;
@@ -23,10 +32,38 @@
   // New Eden counts years from YC 0 = 1898.
   const yc = date => date.getUTCFullYear() - 1898;
 
+  // Footer tip for a moment worth a nod (UTC), or null on an ordinary day.
   function footerLine(date) {
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
     if (isDowntime(date)) return LINES.downtime;
     if (isEveBirthday(date)) return LINES.birthday;
+    if (month === 4 && day === 1) return LINES.aprilFools;
+    if (month === 12 && day >= 24 && day <= 26) return LINES.holidays;
+    if (month === 1 && day === 1) return LINES.newYear.replace('{yc}', yc(date));
     return null;
+  }
+
+  // Feeds keys one at a time; true when the last two spell o7, the capsuleer salute.
+  function o7Tracker() {
+    let last = '';
+    return key => {
+      const k = key.length === 1 ? key.toLowerCase() : '';
+      const hit = last === 'o' && k === '7';
+      last = k;
+      return hit;
+    };
+  }
+
+  // Counts events in a sliding window; true once `count` land within `windowMs`, then starts over.
+  function burst(count, windowMs) {
+    let times = [];
+    return t => {
+      times = times.filter(x => t - x < windowMs).concat(t);
+      if (times.length < count) return false;
+      times = [];
+      return true;
+    };
   }
 
   // Feeds keys one at a time; returns true when the last ten keys spell the code.
@@ -66,24 +103,34 @@
     };
 
     const konami = konamiTracker();
+    const o7 = o7Tracker();
     doc.addEventListener('keydown', event => {
       if (event.ctrlKey || event.metaKey || event.altKey || typing(event.target)) return;
-      if (konami(event.key || '')) say(LINES.konami);
+      const key = event.key || '';
+      if (konami(key)) say(LINES.konami);
+      else if (o7(key)) say(LINES.o7);
     });
 
     const logo = doc.querySelector('.site-footer .footmark');
     if (logo) {
-      let clicks = [];
-      logo.addEventListener('click', () => {
-        const t = now().getTime();
-        clicks = clicks.filter(c => t - c < LOGO_WINDOW_MS).concat(t);
-        if (clicks.length >= LOGO_CLICKS) { clicks = []; say(LINES.logo); }
-      });
+      const clicks = burst(LOGO_CLICKS, LOGO_WINDOW_MS);
+      logo.addEventListener('click', () => { if (clicks(now().getTime())) say(LINES.logo); });
     }
+
+    // Flipping the theme back and forth: astracore.js does the switch, this only notices.
+    const toggle = doc.getElementById && doc.getElementById('theme-toggle');
+    if (toggle && toggle.addEventListener) {
+      const flips = burst(THEME_FLIPS, THEME_WINDOW_MS);
+      toggle.addEventListener('click', () => { if (flips(now().getTime())) say(LINES.themeFlip); });
+    }
+
+    // Once per page, after an hour on it.
+    schedule(() => say(LINES.longSession), LONG_SESSION_MS);
     return {say};
   }
 
-  const api = {KONAMI, LINES, LOGO_CLICKS, isDowntime, isEveBirthday, yc, footerLine, konamiTracker, init};
+  const api = {KONAMI, LINES, LOGO_CLICKS, THEME_FLIPS, LONG_SESSION_MS, isDowntime, isEveBirthday, yc, footerLine,
+    konamiTracker, o7Tracker, burst, init};
   if (typeof window !== 'undefined') window.AstraEggs = api;
   if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('DOMContentLoaded', () => {

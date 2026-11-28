@@ -65,36 +65,91 @@ test('an expired session returns to the sign-in entry', async () => {
   assert.equal(context.location.href, '/');
 });
 
-function flightTips(output = {textContent: 'First tip'}, button = {}) {
-  let ready;
-  let click;
-  const context = {document: {
-    addEventListener: (event, callback) => ready = callback,
-    querySelector: selector => selector === '[data-next-tip]' ? button : output,
-  }};
-  if (button) button.addEventListener = (event, callback) => click = callback;
+// The first random pick chooses the starting tip, the second the rare-tip chance.
+const sequence = (...values) => { let i = 0; return () => values[i++ % values.length]; };
+
+function flightTips({output = {textContent: 'First tip'}, button = {}, random = sequence(0, 0.99), reduced = false} = {}) {
+  const context = {window: {}};
   vm.runInNewContext(readFileSync(path.join(__dirname, '../src/astracore/static/js/flight-tips.js'), 'utf8'), context);
-  ready();
-  return {output, button, click};
+  const api = context.window.AstraTips;
+  let click;
+  if (button) button.addEventListener = (event, callback) => { if (event === 'click') click = callback; };
+  if (output) output.setAttribute = function (name, value) { this[name] = value; };
+  const on = {};
+  if (output) output.addEventListener = (event, callback) => { on[event] = callback; };
+  const timers = [];
+  let seen;
+  const tips = api.setup({
+    document: {querySelector: selector => selector === '[data-next-tip]' ? button : output, hidden: false},
+    random, reducedMotion: () => reduced,
+    schedule: (fn, ms) => { timers.push({fn, ms}); return timers.length; }, cancel: () => {},
+    observe: (el, fn) => { seen = fn; },
+  });
+  return {api, tips, output, button, click, timers, on, setVisible: v => seen(v)};
 }
 
-test('capsuleer tips change only on request, stay plain text, and wrap to the original', () => {
-  const {output, button, click} = flightTips();
+test('capsuleer tips change on request, stay plain text, and wrap to the original', () => {
+  const {output, button, click, api} = flightTips();
   assert.equal(button.hidden, false);
   assert.equal(output.textContent, 'First tip');
   const seen = new Set([output.textContent]);
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < api.TIPS.length; i++) {
     click();
     assert.equal(seen.has(output.textContent), false);
     assert.equal(output.textContent.includes('<'), false);
+    assert.equal(output['aria-live'], 'polite', 'a pressed tip is announced');
     seen.add(output.textContent);
   }
   click();
   assert.equal(output.textContent, 'First tip');
 });
 
+test('a page starts on a random tip, sometimes the rare one', () => {
+  const {output, api} = flightTips({random: sequence(0.5, 0.99)});
+  assert.notEqual(output.textContent, 'First tip');
+  assert.ok(api.TIPS.includes(output.textContent));
+  const rare = flightTips({random: sequence(0, 0.001)});
+  assert.equal(rare.output.textContent, rare.api.RARE);
+});
+
+test('tips rotate silently only while the footer is in view and nobody is reading it', () => {
+  const {output, timers, setVisible, api} = flightTips();
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].ms, api.ROTATE_MS);
+  timers.shift().fn();
+  assert.equal(output.textContent, 'First tip', 'off screen: no change');
+  setVisible(true);
+  timers.shift().fn();
+  assert.notEqual(output.textContent, 'First tip');
+  assert.equal(output['aria-live'], 'off', 'automatic changes are not announced');
+});
+
+test('hovering or focusing the tip holds it still', () => {
+  const {output, timers, setVisible, on} = flightTips();
+  setVisible(true);
+  on.pointerenter();
+  timers.shift().fn();
+  assert.equal(output.textContent, 'First tip');
+  on.pointerleave();
+  timers.shift().fn();
+  assert.notEqual(output.textContent, 'First tip');
+});
+
+test('tips never rotate on their own under reduced motion, but the button still works', () => {
+  const {output, timers, click} = flightTips({reduced: true});
+  assert.equal(timers.length, 0);
+  click();
+  assert.notEqual(output.textContent, 'First tip');
+  assert.equal(timers.length, 0);
+});
+
+test('every capsuleer tip is short enough to keep the footer still', () => {
+  const {api} = flightTips();
+  for (const tip of api.TIPS.concat(api.RARE)) assert.ok(tip.length <= 80, tip);
+});
+
 test('pages without the capsuleer tip controls still initialize', () => {
-  assert.doesNotThrow(() => flightTips(null, null));
+  assert.doesNotThrow(() => flightTips({output: null, button: null}));
 });
 
 function externalLinks() {

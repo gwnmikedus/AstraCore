@@ -29,7 +29,7 @@ test('every depth token has a Hull and a Chart value, and print neutralises it',
 test('the depth layer uses tokens only: no colour literals, no motion', () => {
   const at = orbital.indexOf('depth (#');
   assert.ok(at >= 0, 'depth block present');
-  const depth = orbital.slice(at);
+  const depth = orbital.slice(orbital.lastIndexOf('/*', at));
   assert.doesNotMatch(depth.replace(/\/\*[\s\S]*?\*\//g, ''), /#[0-9a-f]{3,8}\b|rgba?\((?!0, 0, 0)/i, 'colours come from tokens (mask alpha excepted)');
   assert.doesNotMatch(depth, /animation|transition|@keyframes/, 'nothing in the depth layer moves');
   assert.match(depth, /body::before \{[^}]*pointer-events: none/, 'the grid never takes pointer events');

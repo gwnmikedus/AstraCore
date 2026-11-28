@@ -42,17 +42,56 @@ def clear_legacy_private_cache() -> None:
             c.execute("INSERT INTO kv(key,value) VALUES(?,?)", (PRIVATE_CACHE_CLEANUP, "true"))
 
 
+AFFILIATION_BATCH = 1000   # ESI takes up to 1000 character ids per call
+
+
+async def affiliations(esi: ESIClient, character_ids) -> Dict[int, Dict]:
+    """Corporation and alliance of each character, from the public `POST /characters/affiliation/`: no token
+    needed, so it also works for characters whose EVE login expired. One call per 1000 ids, cached an hour."""
+    ids = sorted({int(i) for i in character_ids})
+    rows: List[dict] = []
+    for i in range(0, len(ids), AFFILIATION_BATCH):
+        rows += await esi.post("/characters/affiliation/", ids[i:i + AFFILIATION_BATCH], ttl=3600)
+    names = await public.ids_to_names(esi, {r[k] for r in rows for k in ("corporation_id", "alliance_id")
+                                            if r.get(k)}) if rows else {}
+    out = {}
+    for row in rows:
+        out[row["character_id"]] = {
+            "corporation_id": row.get("corporation_id"),
+            "corporation_name": names.get(row.get("corporation_id"), ""),
+            "alliance_id": row.get("alliance_id"),
+            "alliance_name": names.get(row.get("alliance_id"), "") if row.get("alliance_id") else "",
+        }
+    return out
+
+
 async def affiliation(esi: ESIClient, character_id: int) -> Dict:
-    rows = await esi.post("/characters/affiliation/", [character_id], ttl=3600)
-    row = rows[0] if rows else {}
-    ids = [i for i in (row.get("corporation_id"), row.get("alliance_id")) if i]
-    names = await public.ids_to_names(esi, ids) if ids else {}
-    return {
-        "corporation_id": row.get("corporation_id"),
-        "corporation_name": names.get(row.get("corporation_id"), ""),
-        "alliance_id": row.get("alliance_id"),
-        "alliance_name": names.get(row.get("alliance_id"), "") if row.get("alliance_id") else "",
-    }
+    found = await affiliations(esi, [character_id])
+    return found.get(int(character_id)) or {"corporation_id": None, "corporation_name": "",
+                                            "alliance_id": None, "alliance_name": ""}
+
+
+async def refresh_affiliations(esi: ESIClient, characters: List[dict]) -> List[dict]:
+    """Store each character's current corporation and alliance (one batched public call, also for characters
+    without a working login) and update `characters` in place. Returns the characters whose alliance changed:
+    [{character_id, name, before, after}] with alliance names."""
+    if not characters:
+        return []
+    found = await affiliations(esi, [c["character_id"] for c in characters])
+    changed = []
+    for c in characters:
+        aff = found.get(int(c["character_id"]))
+        # skip what ESI didn't answer, and names it couldn't resolve (never store a blank over a real name)
+        if not aff or not aff["corporation_name"] or aff["alliance_id"] and not aff["alliance_name"]:
+            continue
+        if all(c.get(k) == v for k, v in aff.items()):
+            continue
+        if (c.get("alliance_id") or None) != (aff["alliance_id"] or None):
+            changed.append({"character_id": c["character_id"], "name": c.get("name", ""),
+                            "before": c.get("alliance_name") or "", "after": aff["alliance_name"]})
+        db.set_character(c["character_id"], **aff)
+        c.update(aff)
+    return changed
 
 
 def _recent(ts: Optional[str]) -> bool:

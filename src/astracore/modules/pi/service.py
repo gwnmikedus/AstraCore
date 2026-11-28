@@ -64,6 +64,7 @@ async def load_space(chars, s: Settings, force: bool = False, outage: Optional[e
     """The characters' area. When ESI isn't answering, the area they last resolved (noted in `outage`)."""
     try:
         async with ESIClient() as esi:
+            await refresh_affiliations(esi, chars)   # the area follows the alliance each character is in now
             area = await space_mod.load(esi, chars, s.extra_area, force=force)
             if outage is not None and esi.stale:
                 outage.note(esi_errors.ESIUnavailable("served expired public copies", "unreachable"))
@@ -81,6 +82,108 @@ async def load_space(chars, s: Settings, force: bool = False, outage: Optional[e
     if area and area.get("query"):
         db.kv_set(_area_owner(chars, s), area["query"])
     return area
+
+
+SPACE_ALLIANCES_KEY = "pi_space_alliances:"   # alliances the saved area selection was made for, per profile
+SPACE_NOTICE_KEY = "pi_space_notice:"         # why the selection was reset, shown on Area and Plan
+SPACE_NOTICE_FOR = 7 * 86400
+
+
+def _alliances(chars) -> List[str]:
+    return sorted({c["alliance_name"] for c in chars if c.get("alliance_name")})
+
+
+async def refresh_affiliations(esi: ESIClient, chars: List[dict]) -> List[dict]:
+    """Corporation and alliance of `chars` from ESI's public affiliation call, in place (best effort: on any
+    failure the stored ones stay). A pilot whose EVE login expired still gets the area of their new alliance.
+    When an alliance changed and the profile has no record yet of what its selection was made for, the
+    alliances from before are noted, so `reconcile_space` sees the move."""
+    from astracore.esi import character as esi_char
+    planning = [c for c in chars if c.get("enabled", True) and c.get("has_token", True)]
+    before = _alliances(planning)
+    try:
+        changed = await esi_char.refresh_affiliations(esi, chars)
+    except Exception as e:  # noqa: BLE001 - affiliation is a refinement; the stored one still works
+        log.warning("affiliation refresh failed: %r", e)
+        return []
+    for pid in {c.get("profile_id") for c in chars if c.get("profile_id")} if changed else ():
+        if db.kv_get(SPACE_ALLIANCES_KEY + str(pid)) is None:
+            db.kv_set(SPACE_ALLIANCES_KEY + str(pid), before)
+    return changed
+
+
+def reconcile_space(profile_id: int, chars: List[dict], area: Optional[dict], s: Settings) -> Optional[str]:
+    """Reset the saved area selection when it belongs to space the characters left: their alliances changed
+    since it was made, or none of its constellations is in the area any more. The new selection is
+    `space_mod.default_selection` (also on `s`). Returns the one-line notice for Area and Plan (None: unchanged)."""
+    now = _alliances(chars)
+    if not area or (area.get("sources") or {}).get("alliances") != now:
+        return None   # no area, or one resolved for other alliances (ESI down: the last area shown)
+    key = SPACE_ALLIANCES_KEY + str(profile_id)
+    before = db.kv_get(key)
+    if before is None:
+        db.kv_set(key, now)
+        before = now
+    in_area = {v.get("constellation_id") for v in area["systems"].values()}
+    moved = before != now
+    lost = bool(s.selected_constellations) and not in_area & set(s.selected_constellations)
+    if not moved and not lost:
+        return None
+    groups = space_mod.grouped(area, chars, store.planet_overrides(profile_id))
+    s.selected_constellations = space_mod.default_selection(groups)
+    saved = store.load_settings(profile_id)
+    saved.selected_constellations = s.selected_constellations
+    store.save_settings(profile_id, saved)
+    db.kv_set(key, now)
+    if moved:
+        text = (f"Your alliance changed ({', '.join(before) or 'none'} → {', '.join(now) or 'none'}), "
+                "so AstraCore suggested a new area for your current space. Check it and plan again.")
+    else:
+        text = ("Your saved constellations are no longer in your area, so AstraCore suggested a new one. "
+                "Check it and plan again.")
+    db.kv_set(SPACE_NOTICE_KEY + str(profile_id), {"text": text, "at": time.time()})
+    return text
+
+
+def space_notice(profile_id: int, now: Optional[float] = None) -> Optional[str]:
+    """The last area reset's explanation, for a week or until the pilot saves their area again."""
+    note = db.kv_get(SPACE_NOTICE_KEY + str(profile_id))
+    now = time.time() if now is None else now
+    return note["text"] if note and now - note.get("at", 0) < SPACE_NOTICE_FOR else None
+
+
+def clear_space_notice(profile_id: int) -> None:
+    with db.session() as c:
+        c.execute("DELETE FROM kv WHERE key=?", (SPACE_NOTICE_KEY + str(profile_id),))
+
+
+def plan_outside_area(plan_result: Optional[dict], area: Optional[dict], systems: Dict[int, dict]) -> List[str]:
+    """Names of the saved plan's systems outside the pilot's area: colonies outside the selected systems
+    (`systems`, see space_mod.selected_systems), or a drop-off that isn't in the area at all.
+    Empty: the plan still fits (or there is no area to compare with)."""
+    if not plan_result or not area:
+        return []
+    inside = {int(k) for k in systems}
+    known = {int(k) for k in area["systems"]}
+    names = {int(c["system_id"]): str(c["system"]) for c in plan_result.get("colonies") or []
+             if c.get("system") and c.get("system_id")}
+    hub_id = int(plan_result["hub_id"]) if plan_result.get("hub_id") else None
+    if hub_id and plan_result.get("hub"):
+        names[hub_id] = str(plan_result["hub"])
+    return sorted({names[sid] for sid in plan_systems(plan_result).values()
+                   if sid not in inside and not (sid == hub_id and sid in known)})
+
+
+def home_space_warning(profile_id: int) -> List[str]:
+    """`plan_outside_area` for Home: the active plan against the last area Operate used. Never calls ESI."""
+    plan = store.active_plan(profile_id)
+    chars = planning_characters(profile_id)
+    if not plan or not chars:
+        return []
+    s = store.load_settings(profile_id)
+    area = cached_space(chars, s)
+    return plan_outside_area(plan["result"], area, space_mod.selected_systems(area, s.selected_constellations)
+                             if area else {})
 
 
 def cached_space(chars, s: Settings) -> Optional[dict]:
@@ -177,6 +280,7 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     outage = esi_errors.Outage()     # what couldn't be refreshed: pages show a banner, not an error
     pi, tpl = await load_static()
     area = await load_space(chars, s, outage=outage) if chars else None
+    reconcile_space(profile_id, chars, area, s)
     if area and not s.selected_constellations:
         s.selected_constellations = space_mod.default_selection(space_mod.grouped(area, chars))
         if persist_default:
@@ -696,4 +800,6 @@ async def refresh_profile(profile_id: int, only: Optional[int] = None,
                     log.warning("ESI refresh of character %s failed: %r", c["character_id"], e)
                 problems[c["name"]] = esi_errors.explain(e)
             await asyncio.sleep(0)
+        # every character, also one whose EVE login expired: its alliance decides the area (one public call)
+        await refresh_affiliations(esi, characters(profile_id))
     return problems

@@ -34,6 +34,7 @@
       <h2 id="tile-{{ t.module.id }}"><img src="{{ asset(t.module.icon) }}" alt="" width="32" height="32">{{ t.module.name }}</h2>
       <span class="console-label">{{ 'Build in progress' if incomplete else ('Operation ready' if t.state == 'operate' else 'Setup in progress') }}</span>
     </div>
+    {% if t.module.id == 'pi' and t.outside_area %}<div class="flash warn space-moved" role="status">{{ icon('triangle-alert') }}<span>Your space changed: this plan's systems are outside your area.</span> <a href="/pi/plan">Replan {{ icon('arrow-right') }}</a></div>{% endif %}
     {% if t.module.id == 'pi' and t.state == 'operate' %}
     {# Home is a launcher (#109): Operate's top Next up items (the same list) and one plan line #}
     <div class="command-next command-next-up">

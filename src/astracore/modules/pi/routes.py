@@ -129,6 +129,13 @@ def character_panel(pid: int) -> list:
 
 
 # ----------------------------------------------------------------------------- area
+def _space_flash(request: Request, pid: int) -> dict:
+    """Why the area selection was reset after the pilot's space changed (#298), as the page's one-line
+    notice. A flash from a redirect ("Saved.") wins."""
+    note = service.space_notice(pid)
+    return {"flash": note, "flash_kind": "info"} if note and not request.query_params.get("msg") else {}
+
+
 @router.get("/area", response_class=HTMLResponse)
 async def area_page(request: Request):
     pid = _pid(request)
@@ -138,6 +145,7 @@ async def area_page(request: Request):
     s = store.load_settings(pid)
     outage = esi_errors.Outage()
     area = await service.load_space(chars, s, outage=outage)
+    service.reconcile_space(pid, chars, area, s)
     banner = outage.banner(c.get("synced_at") for c in chars)
     if not area:
         return render(request, "space.html", "area", "Area", area=None, groups=[], s=s, sources={}, selected=[],
@@ -162,7 +170,7 @@ async def area_page(request: Request):
                   measured=[{"planet_id": k, "name": names.get(k, str(k)), "richness": v}
                             for k, v in sorted(measured.items(), key=lambda kv: names.get(kv[0], str(kv[0])))
                             if k not in overrides],
-                  esi_outage=banner)
+                  esi_outage=banner, **_space_flash(request, pid))
 
 
 # What an in-game scan shows, as a richness multiplier. Set per planet on the plan result rows.
@@ -238,6 +246,7 @@ async def area_save(request: Request):
     s.hub_system = form.get("hub_system", "")[:100]
     s.extra_area = new_extra
     store.save_settings(pid, s)
+    service.clear_space_notice(pid)   # the pilot chose their area: the reset notice has done its job
     if extra_changed or refresh:
         try:
             await service.load_space(service.planning_characters(pid), s, force=refresh)
@@ -316,7 +325,8 @@ async def plan_page(request: Request):
                   plans=store.list_plan_runs(pid), waypoints=_waypoint_chars(pid), hour_defaults=HOUR_DEFAULTS,
                   esi_outage=service.outage_banner(ctx), products=_product_names(ctx.get("pi")),
                   richness_labels=RICHNESS_LABELS, expert_url=EXPERT_URL,
-                  help_answers=glossary.answers(s, ctx["head_yield"], bool(ctx["calibrated"])), glossary_url=glossary.GLOSSARY_URL)
+                  help_answers=glossary.answers(s, ctx["head_yield"], bool(ctx["calibrated"])), glossary_url=glossary.GLOSSARY_URL,
+                  **_space_flash(request, pid))
 
 
 EXPERT_URL = "/pi/settings?expert=1#expert"
@@ -748,7 +758,8 @@ async def operate_page(request: Request):
                   checklist=service.first_build(ctx, active), restock_buy=service.restock_purchases(ctx, active),
                   plans=store.list_plan_runs(pid), max_plans=store.MAX_PLANS, freshness=freshness.state(pid),
                   colony_note=freshness.COLONY_NOTE, buyback_site=carrier.buyback_site(),
-                  waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx))
+                  waypoints=_waypoint_chars(pid), esi_outage=service.outage_banner(ctx),
+                  outside_area=service.plan_outside_area(plan, ctx.get("area"), ctx.get("systems") or {}))
 
 
 # ----------------------------------------------------------------------------- exports

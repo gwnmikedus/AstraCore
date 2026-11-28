@@ -5,7 +5,7 @@ const path = require('node:path');
 const {test} = require('node:test');
 const vm = require('node:vm');
 
-const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
+const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/guide.js'), 'utf8');
 const line = start => guide.slice(guide.indexOf(start), guide.indexOf('\n', guide.indexOf(start)));
 const between = (start, end) => guide.slice(guide.indexOf(start), guide.indexOf(end, guide.indexOf(start)));
 const code = [

@@ -44,11 +44,11 @@ def test_print_stylesheet_hides_chrome_and_keeps_tables_readable():
 
 
 def test_plan_offers_a_printable_build_checklist():
-    render = (STATIC.parent / "modules" / "pi" / "templates" / "pi" / "_plan_render.html").read_text()
+    render = (STATIC / "js" / "plan-render.js").read_text()
     assert "data-print-checklist" in render and "AC.printChecklist(PRINT_PLAN)" in render
     for page in ("guide.html", "planner.html"):
         template = (STATIC.parent / "modules" / "pi" / "templates" / "pi" / page).read_text()
-        assert "js/print-checklist.js" in template, page
+        assert "js/print-checklist.js" in template and "js/plan-render.js" in template, page
 
 
 def test_page_rules_for_details_never_move_the_menu():
@@ -72,7 +72,9 @@ def test_guide_names_the_step_and_folds_the_hero(browser, eve, monkeypatch):
     html = c.get("/pi/plan").text
     assert '<p class="g-head-line">Plan · 1 character · 6 slots' in html
     assert 'id="step-name"' in html
-    assert "document.body.classList.toggle('guide-later', cur > 0)" in html
-    assert "AC.tourScroll(" in html
+    guide = (STATIC / "js" / "guide.js").read_text()
+    assert "/static/js/guide.js" in html
+    assert "document.body.classList.toggle('guide-later', cur > 0)" in guide
+    assert "AC.tourScroll(" in guide
     css = (STATIC / "css" / "astracore.css").read_text()
     assert "min-height: 56px" in _rules(css, ".page-guide .q .nav")

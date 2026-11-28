@@ -1,0 +1,969 @@
+// The guided plan wizard (pi/guide.html): one question at a time, then the plan.
+// Server data: the page's <script type="application/json" id="plan-data"> block (read by js/plan-render.js,
+// which is loaded first and also provides planHTML, fillYieldBand, HELP and GLOSSARY).
+const S = JSON.parse(PLAN_DATA.settings_json);
+const SELLER = PLAN_DATA.seller || {};
+const PLANS = PLAN_DATA.plans || [];
+const WAYPOINT_CHARS = PLAN_DATA.waypoints || [];
+const FIRST_VISIT = !!PLAN_DATA.first_visit;
+const BLOCKED = +PLAN_DATA.blocked_characters || 0;   // included characters no template fits yet (CCU too low)
+const PLANNABLE = +PLAN_DATA.eligible_characters || 0;   // characters the planner can place colonies for
+const HOME_MARKET = PLAN_DATA.home_market || '';
+const EXPERT_URL = PLAN_DATA.expert_url, ADVANCED_URL = PLAN_DATA.advanced_url, OPERATE_URL = PLAN_DATA.operate_url;
+const $ = id => document.getElementById(id);
+const {isk, num, m3, count, duration, esc} = AC;
+const API = PLAN_DATA.api, SETTINGS_URL = PLAN_DATA.settings_url;
+let EXPORT = PLAN_DATA.export, EXPORT_Q = '?current=1';
+
+// ---- the questions --------------------------------------------------------------------------
+// Lifestyle constraints first (goal, logins, area), then how to produce, then how to sell.
+// Options are listed from least to most effort; the suggestion is the cheapest answer that earns
+// close enough to the best, where "close enough" comes from what an hour of your time is worth.
+let SELL_COVERAGE = PLAN_DATA.selling_coverage || {};
+const SELL = {
+  nohaul: {use_self_haul: false, use_buyback: true, use_local: true, use_jita: false, use_amarr: false, use_sell_orders: false},
+  courier: {use_self_haul: false, use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: false},
+  self: {use_self_haul: true, use_buyback: false, use_local: false, use_jita: true, use_amarr: true, use_sell_orders: false},
+  orders: {use_self_haul: false, use_buyback: true, use_local: true, use_jita: true, use_amarr: true, use_sell_orders: true},
+};
+// settings.auto_teamwork: for "Up to P3/P4" characters supply each other until the pilot chooses Teamwork.
+const autoTeamwork = st => !st.cross_character && !st.cross_character_set && +st.max_tier >= 3 && PLANNABLE > 1;
+const STEPS = [
+  {id: 'goal', title: 'Goal', q: 'What do you want from PI?', isGoal: true,
+   intro: 'PI costs time: every planet needs a visit to restart extractors, and everything you make has to be hauled to where it sells. ' +
+          'Your goal sets how much an hour of your time is worth. The planner weighs hauling, extra systems and factory restocks against it, and the next questions use it to judge whether extra effort is worth the extra ISK.',
+   options: [
+     {id: 'passive', icon: 'moon', label: 'Set and forget', patch: {effort: 0}, blurb: 'Simple colonies, longer programs, and fewer pickup stops. Keep maintenance predictable.'},
+     {id: 'balanced', icon: 'scale', label: 'Balanced', patch: {effort: 50}, blurb: 'Extra work only where it clearly pays off.'},
+     {id: 'max', icon: 'coins', label: 'Maximum ISK', patch: {effort: 100}, blurb: 'Every million counts. You don’t mind hauling and flying to more systems.'}],
+   match: st => st.effort <= 25 ? 'passive' : st.effort <= 75 ? 'balanced' : 'max'},
+  {id: 'cycle', title: 'Logins', q: 'How often can you log in to restart extractors?',
+   intro: 'Extractors slow down the longer a program runs (EVE’s official extraction formula): a 1-day program gives about 1.5× the hourly output of a 3-day one, a weekly one about 0.6×. Each restart is a quick login, but on every miner planet.',
+   options: [
+     {id: 1, icon: 'calendar', label: 'Every day', patch: {cycle_days: 1}, blurb: 'Most ISK per extractor, but it becomes a daily chore.'},
+     {id: 2, icon: 'calendar', label: 'Every 2 days', patch: {cycle_days: 2}, blurb: ''},
+     {id: 3, icon: 'calendar', label: 'Every 3 days', patch: {cycle_days: 3}, blurb: 'The usual compromise.'},
+     {id: 7, icon: 'calendar-days', label: 'Once a week', patch: {cycle_days: 7}, blurb: 'One login a week, but much less output.'}],
+   match: st => +st.cycle_days, logins: true,
+   custom: st => ({id: +st.cycle_days, icon: 'map-pin', label: `Every ${st.cycle_days} days`, patch: {cycle_days: +st.cycle_days}, blurb: 'Your current setting.'})},
+  {id: 'area', title: 'Area', q: 'How far are you willing to fly?', isArea: true,
+   intro: 'More systems mean more planets to choose from (better types, richer deposits), but every system is a stop on your pickup round.',
+   options: [
+     {id: 'compact', icon: 'map-pin', label: 'One system', patch: {max_systems: 1, max_jumps: 1}, blurb: 'Everything in a single system near the drop-off.'},
+     {id: 'near', icon: 'route', label: 'A few nearby systems', patch: {max_systems: 3, max_jumps: 3}, blurb: 'Up to 3 systems, at most 3 jumps out.'},
+     {id: 'wide', icon: 'map', label: 'Wherever pays most', patch: {max_systems: 0, max_jumps: 6}, blurb: 'No system limit, up to 6 jumps.'}],
+   match: st => (+st.max_systems === 1 && +st.max_jumps === 1) ? 'compact' : (+st.max_systems === 3 && +st.max_jumps === 3) ? 'near'
+               : (+st.max_systems === 0 && +st.max_jumps === 6) ? 'wide' : 'custom',
+   custom: st => ({id: 'custom', icon: 'map-pin', label: `${+st.max_systems ? `Up to ${+st.max_systems} system${+st.max_systems === 1 ? '' : 's'}` : 'Any number of systems'}, ≤ ${st.max_jumps} jumps`,
+                   patch: {max_systems: +st.max_systems, max_jumps: +st.max_jumps}, blurb: 'Your current setting.'})},
+  {id: 'tier', title: 'Products', q: 'How far should your planets process?',
+   intro: 'Miner planets turn raw resources (P0) into P1 on their own. Factory planets turn P1 into P2 and up: worth more per m³, so less hauling. But a factory has to be stocked with its inputs on every run.',
+   options: [
+     {id: 1, icon: 'pickaxe', label: 'Only P1 (miners)', patch: {max_tier: 1}, blurb: 'Every planet works alone: restart, pick up, sell. P1 sells through trade-hub or local buy orders.'},
+     {id: 2, icon: 'factory', label: 'Up to P2', patch: {max_tier: 2}, blurb: 'Adds factories that combine two P1 into P2, where that pays.'},
+     {id: 3, icon: 'factory', label: 'Up to P3', patch: {max_tier: 3}, blurb: 'Longer chains: more inputs to move between planets.'},
+     {id: 4, icon: 'rocket', label: 'Up to P4', patch: {max_tier: 4}, blurb: 'Allows any factory. The planner only uses one if the ISK justifies it.'}],
+   match: st => +st.max_tier},
+  {id: 'buy', title: 'Buying', q: 'May your factories run on inputs you buy?', metric: 'buy',
+   intro: 'Most pilots who make P3 or P4 don’t mine every input: they buy P1, P2 or P3 in Jita, Amarr or at home (' + esc(HOME_MARKET) + ') and run a few factory planets on it. ' +
+          'The planner counts the price, the courier to your drop-off and customs, never buys more than 10% of what a market trades a day, and keeps the ISK tied up in inputs within your budget. ' +
+          'Bought inputs are paid back when you sell, so they cost ISK up front, not per day.',
+   options: [
+     {id: 'own', icon: 'pickaxe', label: 'Only my own production', patch: {buy_inputs: false, input_budget_isk: 0}, blurb: 'Factories run only on what your miners make. No ISK tied up.'},
+     {id: 'b1', icon: 'wallet', label: 'Buy, up to 1B ISK tied up', patch: {buy_inputs: true, input_budget_isk: 1e9}, blurb: 'A small stake: enough for a factory planet or two.'},
+     {id: 'b5', icon: 'wallet', label: 'Buy, up to 5B ISK tied up', patch: {buy_inputs: true, input_budget_isk: 5e9}, blurb: 'Room for several factory planets on bought inputs.'},
+     {id: 'free', icon: 'coins', label: 'Buy whatever pays', patch: {buy_inputs: true, input_budget_isk: 0}, blurb: 'No budget limit: the market’s volume is the only cap.'}],
+   match: st => !st.buy_inputs ? 'own' : +st.input_budget_isk === 1e9 ? 'b1' : +st.input_budget_isk === 5e9 ? 'b5' : +st.input_budget_isk === 0 ? 'free' : 'custom',
+   custom: st => ({id: 'custom', icon: 'wallet', label: `Buy, up to ${isk(+st.input_budget_isk)} ISK tied up`, patch: {buy_inputs: true, input_budget_isk: +st.input_budget_isk}, blurb: 'Your current setting.'})},
+  {id: 'share', title: 'Planets', q: 'May several of your characters use the same planet?',
+   intro: 'A character can only have one colony per planet. Putting 2–3 of your characters on one good planet means fewer systems to visit, but colonies on the same resource share its deposits (each extra one counts at a lower yield).',
+   options: [
+     {id: 1, icon: 'user', label: 'One of mine per planet', patch: {per_planet: 1}, blurb: 'Full yield everywhere, spread over more planets.'},
+     {id: 2, icon: 'users', label: 'Up to 2', patch: {per_planet: 2}, blurb: 'Good planets get used twice.'},
+     {id: 3, icon: 'users', label: 'Up to 3', patch: {per_planet: 3}, blurb: 'Tightest grouping, lowest extra yield.'}],
+   match: st => +st.per_planet},
+  {id: 'chain', title: 'Teamwork', q: 'May your characters supply each other?',
+   intro: 'A factory needs inputs from several miners. Without this, each factory is fed only by miners of the same character. With it, one character’s P1 can go to another character’s factory: you move it with 0 ISK contracts between your own characters.',
+   options: [
+     {id: false, icon: 'user', label: 'No, each character on its own', patch: {cross_character: false, cross_character_set: true}, blurb: 'No contracts between your characters. A P3/P4 chain must then fit one character, or run on bought inputs.'},
+     {id: true, icon: 'handshake', label: 'Yes, they can trade', patch: {cross_character: true, cross_character_set: true}, blurb: 'More factories fit, but there are contracts to create on every haul.'}],
+   match: st => !!st.cross_character || autoTeamwork(st)},
+  {id: 'sell', title: 'Selling', q: 'How do you want to turn products into ISK?',
+   intro: '',
+   options: [
+     {id: 'nohaul', icon: 'house', label: 'Sell at home only', patch: SELL.nohaul, blurb: 'Buy orders in ' + HOME_MARKET + '. Nothing leaves null, but P1 is worth little here.'},
+     {id: 'courier', icon: 'truck', label: 'Also courier to Jita / Amarr', patch: SELL.courier, blurb: 'A courier hauls it, you sell into buy orders on arrival.'},
+     {id: 'self', icon: 'truck', label: 'Haul to Jita / Amarr myself', patch: SELL.self, blurb: 'Sell to visible buy orders. Your journey time, fuel and loss risk are not priced.'},
+     {id: 'orders', icon: 'trending-up', label: 'Also list sell orders', patch: SELL.orders, blurb: 'Better prices, but you list orders and update them when undercut.'}],
+   match: st => Object.keys(SELL).find(k => Object.entries(SELL[k]).every(([f, v]) => !!st[f] === v)) || null},
+  {id: 'batch', title: 'Batches', q: 'How often do you want to sell a batch?', metric: 'sell',
+   intro: 'Couriers charge a minimum fee per contract. Bigger, less frequent batches spread that fee; smaller ones turn into ISK sooner.',
+   options: [
+     {id: 7, icon: 'package', label: 'Every week', patch: {ship_every_days: 7}, blurb: 'ISK comes in quickly; more frequent trips with smaller batches.'},
+     {id: 14, icon: 'package', label: 'Every 2 weeks', patch: {ship_every_days: 14}, blurb: ''},
+     {id: 28, icon: 'boxes', label: 'Every 4 weeks', patch: {ship_every_days: 28}, blurb: 'One big haul a month: fewer trips with more cargo.'}],
+   match: st => +st.ship_every_days,
+   custom: st => ({id: +st.ship_every_days, icon: 'map-pin', label: `Every ${st.ship_every_days} days`, patch: {ship_every_days: +st.ship_every_days}, blurb: 'Your current setting.'})},
+  {id: 'plan', title: 'Your plan'},
+];
+const OPTIONAL_IDS = new Set(['share', 'chain', 'batch']);
+const MAIN = STEPS.map((step, i) => OPTIONAL_IDS.has(step.id) ? -1 : i).filter(i => i >= 0);
+const RESULT = STEPS.length - 1;
+const QUESTIONS = MAIN.length - 1;
+STEPS.find(s => s.id === 'share').intro += ` <a href="/pi/settings?expert=1#expert-sharing">Expert: how much an extra colony yields</a>`;
+const routineOnly = step => step.isGoal || (step.id === 'cycle' && !st.selected_constellations?.length);
+STEPS.find(s => s.id === 'sell').intro = 'Each product goes to whichever enabled option pays most after the courier’s fees and your taxes' +
+  (SELLER.name ? ` (${esc(SELLER.name)} sells: ${AC.pct(SELLER.sales_tax_pct, 2)} sales tax, ${AC.pct(SELLER.broker_fee_pct, 2)} broker fee).` : '.');
+
+// ---- state ----------------------------------------------------------------------------------
+// `st` is what the cards are planned with. Only an answer the user picked (or saw pre-selected) is saved.
+const st = {...S};
+if (Array.isArray(st.product_blacklist)) st.product_blacklist = st.product_blacklist.join(', ');
+const answered = new Set(S.answered || []);
+const saved = {...st};     // what the server has: an answer left without Continue falls back to this
+let cur = Math.max(0, Math.min(+S.guide_step || 0, STEPS.length - 1));
+const picks = {};          // step id -> option id chosen on this visit
+const results = {};        // step id -> {option id: what-if result}, filled card by card
+const complete = {};       // step id -> every card of its comparison is in
+let seq = 0;
+let comparisonRequest = null;
+let compareOpen = false;   // the side-by-side table stays open across answers once opened
+const answerDetailsOpen = new Set();
+let saving = false;
+let hourControl = null;
+let hourSave = Promise.resolve();
+let hourSaveRevision = 0;
+const STEP_CONTEXT = {
+  goal: 'Choose the balance between income and upkeep. You can change this later.',
+  cycle: 'Pick a restart schedule you can keep. The planner compares the income and effort.',
+  area: 'Keep colonies close, or travel further for more choices.',
+  tier: 'More processing saves cargo space, but factories need supplies.',
+  buy: 'Buying inputs lets a few factory planets make P3 or P4. It ties up ISK until you sell.',
+  share: 'Decide how tightly to group your characters on useful planets.',
+  chain: 'Choose whether moving inputs between alts is worth the extra logistics.',
+  sell: 'Compare enabled selling channels after fees and your character’s taxes.',
+  batch: 'Balance quicker payouts against courier minimum fees.',
+};
+
+// A "?" under a question's explanation, for the outcomes that surprise pilots (glossary.answers()).
+// [answer key, question shown] per step; no question = the answer's own label.
+const STEP_HELP = {
+  area: [['dropoff'], ['isk', 'Why doesn’t a wider area always earn more?']],
+  tier: [['tier']], buy: [['buy']], share: [['share']], chain: [['transfer']],
+  sell: [["carrier"]], batch: [['batch']],
+};
+const stepHelp = step => (STEP_HELP[step.id] || []).map(([key, label]) => {
+  const answer = key && HELP[key];
+  return answer ? `<p class="help-line">${AC.helpFor(label ? {...answer, label} : answer, {glossary: GLOSSARY, showLabel: true})}</p>` : '';
+}).join('');
+
+const value = (step, r) => r && !r.error ? (step.metric === 'sell' ? r.sell_net_per_day : r.totals.isk_per_day) : null;
+const optOf = (step, id) => (step.options || []).find(o => o.id === id);
+// The answer a card saves: a wider answer whose card shows the plan of an answer it contains ("Same plan as
+// Up to P3", see service.same_plan_cards) saves that answer, so the plan stays the one shown.
+const answerOf = (step, id) => { const r = (results[step.id] || {})[id]; return (r && r.same_as != null && optOf(step, r.same_as)) || optOf(step, id); };
+
+// Estimated minutes of your time per week for an answer (worked out with the plan, see
+// planner/compare.py). Rough, but the same yardstick for every question, so ISK can be weighed against time.
+// How it adds up is behind the "?" on "Your time / week" (HELP.time, from glossary.time_note()).
+function minutesPerWeek(o, r) {
+  const m = r && !r.error && r.facts ? r.facts.minutes_per_week : null;
+  return m == null ? Infinity : m;
+}
+const HOUR_DEFAULT = PLAN_DATA.hour_defaults;   // settings.HOUR_DEFAULTS: the planner uses the same values
+const goalId = () => STEPS[0].match(st);
+const iskPerHour = () => (+st.hour_isk >= 0 ? +st.hour_isk : HOUR_DEFAULT[goalId()]);
+
+function hourPicker() {
+  return AC.moneySliderHTML('hour', iskPerHour());
+}
+function wireHour(step) {
+  const root = $('hour'); if (!root) return;
+  hourControl = AC.wireMoneySlider(root, {
+    value: iskPerHour(), defaultValue: HOUR_DEFAULT[goalId()], isDefault: +st.hour_isk < 0,
+    onCommit: (value, {useDefault}) => {
+      if (saving) return;
+      st.hour_isk = useDefault || value === HOUR_DEFAULT[goalId()] ? -1 : value;
+      const hourValue = st.hour_isk;
+      const revision = ++hourSaveRevision;
+      $('save-status').textContent = 'Saving time preference…';
+      // Keep an earlier request from reaching the server after a newer preference or answer.
+      hourSave = hourSave.then(() => revision === hourSaveRevision
+        ? AC.post(API + '/save', {hour_isk: hourValue}) : {superseded: true});
+      hourSave.then(r => {
+        if (saving || revision !== hourSaveRevision) return;
+        $('save-status').textContent = r.error ? 'Preference not saved. Continue to retry.' : 'Time preference saved';
+      });
+      // The value of your time shapes the plans themselves, not only the advice: compare again.
+      if (step.isGoal) { paint(step); prefetchNext(step); } else load(step);
+    },
+  });
+}
+const net = (step, o, r) => value(step, r) - minutesPerWeek(o, r) / 7 / 60 * iskPerHour();   // ISK/day minus time cost
+const byEffort = (step, res) => step.options.filter(o => res[o.id] && !res[o.id].error)
+  .sort((a, b) => minutesPerWeek(a, res[a.id]) - minutesPerWeek(b, res[b.id]));
+const labelOf = step => { const o = answerOf(step, picks[step.id] ?? step.match(st)); return o ? o.label : (step.custom ? step.custom(st).label : 'custom'); };
+
+// Buying: ISK tied up isn't a daily cost, so the suggestion is the smallest stake that earns at least
+// BUY_ENOUGH of the best answer, not simply the biggest budget.
+const BUY_ENOUGH = 0.9;
+function recommend(step) {
+  const res = results[step.id]; if (!res || step.isGoal) return null;
+  const ok = byEffort(step, res);           // least time first: ties go to the easier answer
+  if (!ok.length) return null;
+  if (step.id === 'buy') {
+    const tied = o => res[o.id].totals.capital_isk || 0;
+    const best = Math.max(...ok.map(o => net(step, o, res[o.id])));
+    return [...ok].sort((a, b) => tied(a) - tied(b)).find(o => net(step, o, res[o.id]) >= BUY_ENOUGH * best - 1)?.id ?? ok[0].id;
+  }
+  return ok.reduce((a, o) => net(step, o, res[o.id]) > net(step, a, res[a.id]) + 1 ? o : a, ok[0]).id;
+}
+
+// ---- what is a difference worth mentioning ------------------------------------------------------
+// ISK < 1% or < 0.5M/day, hauling < 5%, < 5 min/week of your time: not worth a word.
+function diffs(step, a, b) {          // what answer b means compared with answer a
+  const res = results[step.id], ra = res[a.id], rb = res[b.id];
+  const out = {isk: 0, parts: []};
+  const va = value(step, ra), vb = value(step, rb), dv = vb - va;
+  if (!AC.aboutSame(va, vb)) out.isk = dv;
+  const dm = minutesPerWeek(b, rb) - minutesPerWeek(a, ra);
+  if (Math.abs(dm) >= 5) out.parts.push(`${duration(Math.abs(dm))} ${dm > 0 ? 'more' : 'less'} of your time a week`);
+  const ta = ra.totals, tb = rb.totals;
+  const dh = tb.m3_per_week - ta.m3_per_week;
+  if (Math.abs(dh) >= 0.05 * Math.max(ta.m3_per_week, tb.m3_per_week, 1)) out.parts.push(`${m3(Math.abs(dh))} ${dh > 0 ? 'more' : 'less'} to haul a week`);
+  const ds = tb.systems - ta.systems;
+  if (ds) out.parts.push(`${Math.abs(ds)} ${ds > 0 ? 'more' : 'fewer'} system${Math.abs(ds) === 1 ? '' : 's'}`);
+  const dc = (tb.capital_isk || 0) - (ta.capital_isk || 0);
+  if (Math.abs(dc) >= 0.05 * Math.max(ta.capital_isk || 0, tb.capital_isk || 0, 1) && Math.abs(dc) >= 50e6)
+    out.parts.push(`${isk(Math.abs(dc))} ${dc > 0 ? 'more' : 'less'} ISK tied up in inputs`);
+  const df = tb.factories - ta.factories;
+  if (df) out.parts.push(`${Math.abs(df)} ${df > 0 ? 'more' : 'fewer'} factory planet${Math.abs(df) === 1 ? '' : 's'}`);
+  out.matters = !!(out.isk || out.parts.length);
+  return out;
+}
+const iskText = d => d.isk ? `${d.isk > 0 ? '+' : '−'}${isk(Math.abs(d.isk))}/day` : 'about the same ISK';
+const sentence = d => iskText(d) + (d.parts.length ? ` for ${d.parts.join(', ')}` : '');
+
+// ---- question route -------------------------------------------------------------------------
+// Persist the original indices (including optional questions) so older saved positions still open.
+const optionalConfirmed = () => [...OPTIONAL_IDS].every(id => answered.has(id));
+const firstMainQuestion = () => MAIN.find(i => STEPS[i].options && !answered.has(STEPS[i].id)) ?? RESULT;
+let optionalReturn = firstMainQuestion();
+const nextIndex = (index = cur) => OPTIONAL_IDS.has(STEPS[index].id)
+  ? (optionalReturn === RESULT && !optionalConfirmed() ? STEPS.findIndex(s => s.id === 'sell') : optionalReturn)
+  : MAIN[Math.min(MAIN.indexOf(index) + 1, MAIN.length - 1)];
+const backIndex = () => OPTIONAL_IDS.has(STEPS[cur].id) ? optionalReturn : MAIN[Math.max(0, MAIN.indexOf(cur) - 1)];
+const questionPosition = () => MAIN.indexOf(cur) + 1;
+
+function additionalChoicesHTML() {
+  const optional = STEPS.filter(step => OPTIONAL_IDS.has(step.id));
+  return `<div class="additional-choices">
+    <p class="muted">Additional choices: ${optional.map(step => `<b>${step.title}:</b> ${esc(labelOf(step))}${step.id === 'chain' && autoTeamwork(st) ? ' (on for P3/P4)' : ''}`).join(' · ')}</p>
+    <details class="question-explainer"><summary>More options</summary>
+      <p>Keep these choices, or compare and change one. Your saved settings stay in place.</p>
+      <div class="toolbar">${optional.map(step => `<button type="button" class="outline" data-optional-i="${STEPS.indexOf(step)}">Change ${step.title}</button>`).join('')}</div>
+    </details>
+    ${STEPS[cur].id === 'sell' ? '<p class="muted">Confirming and building your plan also confirms the additional choices shown above.</p>' : ''}
+  </div>`;
+}
+function wireAdditionalChoices() {
+  document.querySelectorAll('[data-optional-i]').forEach(button => button.onclick = () => navigate(+button.dataset.optionalI));
+}
+
+// ---- tracker --------------------------------------------------------------------------------
+function drawTrack() {
+  const mainSteps = MAIN.map(i => STEPS[i]);
+  const reachPosition = Math.max(MAIN.indexOf(cur), AC.tourReach(mainSteps, answered));
+  const done = mainSteps.filter(s => s.options && answered.has(s.id)).length;
+  $('track').innerHTML = MAIN.map((i, position) => {
+    const s = STEPS[i], result = i === RESULT;
+    const isDone = i !== cur && answered.has(s.id);
+    const ans = s.options && answered.has(s.id) && i !== cur ? labelOf(s) : '';
+    const dot = result ? AC.icon('layers') : (isDone ? AC.icon('check') : position + 1);
+    const disabled = position > reachPosition || (result && i !== cur && !optionalConfirmed()) || saving;
+    const hint = i === cur || disabled ? '' : i > cur ? ' (jump ahead)' : ' (change)';
+    return `<li class="${isDone ? 'done' : i === cur ? 'cur' : ''} ${result ? 'result' : ''}" data-i="${i}">
+      <button type="button" ${disabled ? 'disabled' : ''} ${i === cur ? 'aria-current="step"' : ''} aria-label="${esc(s.title)}${ans ? ': ' + esc(ans) : ''}${hint}">
+      <span class="dot">${dot}</span><span class="lbl">${s.title}</span><span class="ans">${esc(ans)}</span>
+      </button></li>`;
+  }).join('');
+
+  const position = Math.max(0, MAIN.indexOf(OPTIONAL_IDS.has(STEPS[cur].id) ? optionalReturn : cur));
+  $('track').style.setProperty('--progress', (position / QUESTIONS) * 92 + '%');
+  $('progress-label').textContent = cur === RESULT ? 'Your flight plan'
+    : `Setup ${Math.round(done / QUESTIONS * 100)}% complete · ${QUESTIONS - done} main question${QUESTIONS - done === 1 ? '' : 's'} remaining`;
+  $('step-name').textContent = OPTIONAL_IDS.has(STEPS[cur].id) ? `More options · ${STEPS[cur].title}`
+    : cur === RESULT ? STEPS[cur].title : `Step ${questionPosition()} of ${QUESTIONS} · ${STEPS[cur].title}`;
+
+  document.querySelectorAll('.track li button:not(:disabled)').forEach(button => {
+    const i = +button.parentElement.dataset.i;
+    if (i !== cur) button.onclick = () => navigate(i);
+  });
+}
+
+// Leave the current question for step `target` (Back, the tracker or a chip). A compared answer is
+// kept; one that wasn't compared yet, or never confirmed, falls back to the saved answer.
+// Later answers are never cleared: a step whose saved answer no longer works says so when opened.
+async function navigate(target) {
+  if (saving || target === cur) return;
+  if (OPTIONAL_IDS.has(STEPS[target].id) && !OPTIONAL_IDS.has(STEPS[cur].id)) optionalReturn = cur;
+  const step = STEPS[cur];
+  if (!step.options) { go(target); return; }
+  const pick = picks[step.id], o = answerOf(step, pick), res = results[step.id] || {};
+  const valid = !!o && (step.isGoal || !!(res[pick] && !res[pick].error));
+  const changed = !!o && Object.entries(o.patch).some(([k, v]) => JSON.stringify(saved[k]) !== JSON.stringify(v));
+  const action = AC.tourLeave({forward: target > cur && !OPTIONAL_IDS.has(step.id) && !OPTIONAL_IDS.has(STEPS[target].id), valid, wasAnswered: answered.has(step.id), changed});
+  if (action === 'revert') revert(step);
+  if (action === 'save' && !(await commit(step, target))) return;
+  const needsConfirmation = target === RESULT && !optionalConfirmed();
+  go(needsConfirmation ? STEPS.findIndex(s => s.id === 'sell') : target);
+  if (needsConfirmation) setHint('Confirm the additional choices shown here before building your plan.');
+}
+function revert(step) {
+  for (const o of step.options) for (const k of Object.keys(o.patch)) st[k] = saved[k];
+  delete picks[step.id];
+}
+
+// ---- a question -----------------------------------------------------------------------------
+function go(i, focus = true) {
+  if (saving) return;
+  seq++;
+  comparisonRequest?.abort();
+  cur = Math.max(0, Math.min(STEPS.length - 1, i));
+  const visit = seq;
+  AC.post(API + '/save', {guide_step: cur}).then(r => {
+    if (r.error && visit === seq) $('save-status').textContent = 'Position not saved. Continue to retry.';
+  });
+  // After the first question the hero folds to one line on phones, so the question starts on the first screen.
+  document.body.classList.toggle('guide-later', cur > 0);
+  drawTrack();
+  STEPS[cur].id === 'plan' ? showPlan() : showQuestion(STEPS[cur]);
+  if (focus) {
+    AC.enterPanel($('q'));   // the one step transition: a fade, so the smooth scroll below lands where it aims
+    const title = $('question-title');
+    if (title) title.focus({preventScroll: true});
+    if (AC.tourScroll({top: $('q').getBoundingClientRect().top, viewport: window.innerHeight}))
+      $('q').scrollIntoView({block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+  }
+}
+
+// The first steps say early which characters the planner will leave out, and where to see what to train.
+function blockedNote() {
+  if (!BLOCKED) return '';
+  return `<div class="flash warn" id="blocked-note">${AC.icon('triangle-alert')}<span>${BLOCKED} character${BLOCKED === 1 ? '' : 's'} can’t be planned yet · ` +
+    '<a href="#characters-panel" id="see-characters">see Characters in this plan</a></span></div>';
+}
+
+function setHint(text) {
+  if ($('navhint')) $('navhint').textContent = text;
+  $('wizard-status').textContent = text;
+}
+
+function needsOwnTrip() {
+  return !!st.selected_constellations?.length && !SELL_COVERAGE.local && !SELL_COVERAGE.courier && !SELL_COVERAGE.trade_hub && !st.use_self_haul;
+}
+// The answers a question shows with the current answers `st`: the selling routes this drop-off has, and
+// "your current setting" when it matches none of the usual answers.
+function stepOptions(step) {
+  let options = step.options.filter(o => !o.isCustom);
+  if (step.id === 'sell') {
+    step.allOptions ||= [...options];
+    options = step.allOptions.filter(o => o.id === 'self' ||
+      (o.id === 'nohaul' ? SELL_COVERAGE.local : SELL_COVERAGE.courier || SELL_COVERAGE.trade_hub));
+    if (SELL_COVERAGE.trade_hub && !SELL_COVERAGE.courier)
+      options = options.map(o => o.id === 'courier' ? {...o, label: 'Sell at the trade hub', blurb: 'Your drop-off is already at a trade hub. Sell to buy orders there.'} : o);
+  }
+  const m = step.match(st);
+  if (step.custom && m != null && !options.some(o => o.id === m))
+    options.push({...step.custom(st), isCustom: true});
+  return options;
+}
+
+// While the pilot reads this question, the server plans the next question's cards with the answer picked
+// here, at low priority (only in a free planner slot; a newer pick replaces the request). Continue then
+// usually finds every card already planned.
+let prefetchTimer = null;
+function prefetchNext(step) {
+  clearTimeout(prefetchTimer);
+  const next = STEPS[nextIndex(STEPS.indexOf(step))];
+  if (!next || !next.options || !st.selected_constellations?.length || needsOwnTrip()) return;
+  prefetchTimer = setTimeout(() => {
+    if (STEPS[cur] !== step || saving) return;
+    AC.post(API + '/whatif', {base: {...st}, prefetch: true,
+      options: stepOptions(next).map(o => ({id: o.id, patch: o.patch}))});
+  }, 400);
+}
+
+// "2 pilots ahead of you, about 10 s" while this comparison waits for a planner slot.
+function queueText(q) {
+  if (!q || !q.ahead) return 'Comparing setups with your characters…';
+  const wait = q.eta >= 90 ? `${Math.round(q.eta / 60)} min` : `${Math.max(1, q.eta)} s`;
+  return `AstraCore is busy: ${q.ahead} pilot${q.ahead === 1 ? '' : 's'} ahead of you, about ${wait}. Answers appear as they are ready.`;
+}
+
+function showQuestion(step) {
+  $('q').dataset.step = step.id;
+  step.options = stepOptions(step);
+  const m = step.match(st);
+  $('q').innerHTML = `
+    <div class="eyebrow">${OPTIONAL_IDS.has(step.id) ? 'More options' : `Step ${questionPosition()} of ${QUESTIONS}`}</div>
+    <h2 id="question-title" tabindex="-1">${step.q}</h2>
+    <p class="intro">${step.id === 'batch' && st.use_self_haul ? 'Balance quicker payouts against fewer trips and more cargo.' : STEP_CONTEXT[step.id]}</p>
+    ${routineOnly(step) ? '' : '<p class="muted comparison-context">Estimates use your answers so far. Later choices can change them.</p>'}
+    ${step.id === 'chain' && autoTeamwork(st) ? '<p class="muted">This is on right now because you chose Up to P3 or P4: those chains rarely fit one character’s slots. Pick an answer to decide yourself.</p>' : ''}
+    ${cur <= 1 ? blockedNote() : ''}
+    <details class="question-explainer"><summary>How this affects your plan</summary><p>${step.id === 'batch' && st.use_self_haul ? 'You make the trip yourself. Bigger batches mean fewer journeys, but more cargo to move. Journey time, fuel and loss risk are not priced.' : step.intro}</p></details>
+    ${stepHelp(step)}
+    ${needsOwnTrip() ? '<div class="flash warn"><div><strong>No selling route from this drop-off yet.</strong><p>No courier serves this drop-off. You can haul to Jita or Amarr yourself; journey time, fuel and loss risk are not priced.</p><button type="button" id="enable-own-trip">Use my own trip to a trade hub</button><p id="own-trip-status" role="status"></p></div></div>' : ''}
+    <div class="opts" id="opts" role="radiogroup" aria-label="${esc(step.q)}">${step.options.map((o, index) => `
+      <div class="opt" data-id="${esc(JSON.stringify(o.id))}" role="radio" tabindex="-1" aria-checked="false"
+        aria-labelledby="answer-name-${index}" aria-describedby="answer-blurb-${index}${routineOnly(step) ? '' : ' answer-results-' + index}">
+        <div class="badges"></div>
+        <div class="ic-wrap">${AC.icon(o.icon, 'lg')}</div><div class="nm" id="answer-name-${index}">${esc(o.label)}</div>
+        <div class="bl" id="answer-blurb-${index}">${esc(o.blurb || '')}</div>
+        ${routineOnly(step) ? '' : `<div class="res" id="answer-results-${index}"><div class="skel"></div><div class="skel skel-medium"></div></div>`}
+      </div>`).join('')}</div>
+    ${step.isArea ? areaAdvanced() : ''}
+    <div id="advice"></div>
+    <div id="compare"></div>
+    ${step.isGoal ? hourPicker() : `<details class="question-explainer time-settings"><summary>Change the value of your time</summary>${hourPicker()}</details>`}
+    ${OPTIONAL_IDS.has(step.id) ? '' : additionalChoicesHTML()}
+    <div class="nav">
+      <button class="outline secondary" id="back" ${cur === 0 ? 'disabled' : ''}>${AC.icon('arrow-left')} <span class="nav-label">Back</span></button>
+      <span class="hint" id="navhint"></span>
+      <button id="next" ${routineOnly(step) ? '' : 'disabled'}>${OPTIONAL_IDS.has(step.id) ? 'Save and return' : step.id === 'sell' ? 'Confirm and build' : 'Continue'} ${AC.icon('arrow-right')}</button>
+    </div>`;
+  const ownTrip = $('enable-own-trip');
+  if (ownTrip) ownTrip.onclick = async () => {
+    ownTrip.disabled = true;
+    const result = await AC.post(API + '/save', SELL.self);
+    if (!ownTrip.isConnected) return;
+    if (result.error) {
+      $('own-trip-status').textContent = result.error;
+      ownTrip.disabled = false;
+      return;
+    }
+    Object.assign(st, SELL.self);
+    Object.assign(saved, SELL.self);
+    for (const key of Object.keys(results)) delete results[key];
+    showQuestion(step);
+  };
+  const see = $('see-characters');
+  if (see) see.onclick = () => { $('characters-panel').open = true; };
+  $('back').onclick = () => navigate(backIndex());
+  wireAdditionalChoices();
+  $('next').onclick = async () => { const target = nextIndex(); if (await commit(step, target, step.id === 'sell')) go(target); };
+  document.querySelectorAll('.opt').forEach(el => {
+    const pick = () => {
+      const id = JSON.parse(el.dataset.id);
+      if (saving || el.getAttribute('aria-disabled') === 'true' ||
+          (!routineOnly(step) && !(results[step.id] || {})[id])) {
+        setHint(saving ? 'Saving your answer. Please wait.' :
+          (el.getAttribute('aria-disabled') !== 'true' ? 'Comparing setups. You can pick an answer as soon as it shows its numbers.' :
+            'This answer is unavailable. Choose another answer.'));
+        return;
+      }
+      choose(step, id);
+    };
+    el.onclick = e => { if (!e?.target?.closest('.answer-details')) pick(); };
+    el.onkeydown = e => {
+      if (e.target?.closest('.answer-details')) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault();
+      const options = [...document.querySelectorAll('.opt')];
+      if (!options.length) return;
+      const position = options.indexOf(el);
+      const index = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 :
+        (position + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1) + options.length) % options.length;
+      options.forEach(option => option.tabIndex = option === options[index] ? 0 : -1);
+      const id = JSON.parse(options[index].dataset.id);
+      if (!saving && options[index].getAttribute('aria-disabled') !== 'true' &&
+          (routineOnly(step) || (results[step.id] || {})[id])) choose(step, id);
+      options[index].focus();
+    };
+  });
+  if (step.isArea) wireArea(step);
+  wireHour(step);
+  // First visit to this question: the suggestion is pre-selected once it's known. Afterwards: the saved answer.
+  if (picks[step.id] === undefined && (answered.has(step.id) || routineOnly(step) || OPTIONAL_IDS.has(step.id)) && m != null) picks[step.id] = m;
+  paint(step);
+  setHint(step.isGoal ? 'Your routine comes first. No commitment yet.' : 'Comparing setups with your characters…');
+  if (needsOwnTrip()) $('next').disabled = true;
+  else if (!routineOnly(step) && !step.isArea) load(step);
+  else if (step.id === 'cycle') setHint('Choose your routine now. Income comparisons follow once you choose an area.');
+  else if (!step.isArea) prefetchNext(step);
+}
+
+async function load(step) {
+  if (routineOnly(step)) { paint(step); return; }
+  if (!st.selected_constellations?.length) { setHint('Find an operating area to compare these choices.'); return; }
+  const my = ++seq;
+  comparisonRequest?.abort();
+  comparisonRequest = new AbortController();
+  delete results[step.id];
+  complete[step.id] = false;
+  paint(step);
+  const base = {...st};
+  // Each card is drawn as soon as its plan is ready; the suggestion and advice wait for all of them.
+  const cards = {};
+  const end = await AC.postStream(API + '/whatif', {base, options: step.options.map(o => ({id: o.id, patch: o.patch}))},
+    {signal: comparisonRequest.signal,
+     onBusy: () => { if (my === seq) setHint('AstraCore is busy, your plan is queued…'); },
+     onEvent: event => {
+       if (my !== seq) return;
+       if (event.queue) setHint(queueText(event.queue));
+       if (event.card) { cards[event.card.id] = event.card; results[step.id] = cards; paint(step); }
+     }});
+  if (my !== seq || end.superseded) return;            // user moved on
+  const rows = step.options.map(o => cards[o.id]).filter(Boolean);
+  if (end.error || rows.length < step.options.length) {
+    setHint(end.error || 'Could not compare these setups.');
+    $('advice').innerHTML = '<div class="flash warn"><span>Comparison unavailable. Your saved answers are safe.</span><button class="outline" id="retry-comparison">Retry comparison</button></div>';
+    $('retry-comparison').onclick = () => { $('advice').innerHTML = ''; load(step); };
+    return;
+  }
+  const coverage = rows.find(r => r.selling_coverage)?.selling_coverage;
+  if (coverage && JSON.stringify(coverage) !== JSON.stringify(SELL_COVERAGE)) {
+    SELL_COVERAGE = coverage;
+    if (step.id === "sell" || needsOwnTrip()) { showQuestion(step); return; }
+  }
+  results[step.id] = Object.fromEntries(rows.map(x => [x.id, x]));
+  complete[step.id] = true;
+  if (picks[step.id] === undefined) choose(step, recommend(step) ?? step.match(st));
+  else {   // a pick made while cards streamed in may have become "Same plan as …": plan on with that answer
+    const answer = answerOf(step, picks[step.id]);
+    if (answer) Object.assign(st, answer.patch);
+    paint(step);
+  }
+  const kept = results[step.id][picks[step.id]];
+  setHint(kept && kept.error
+    ? 'Your earlier answer no longer works with your other choices. Pick another to continue.'
+    : 'Click an answer to compare. You can come back and change it later.');
+  if (kept && !kept.error) prefetchNext(step);
+}
+
+// The same answers as a table: income, your time, effort and uncertainty in one place.
+function compareHTML(step, rec, pick) {
+  const res = results[step.id]; if (!res) return '';
+  const sell = step.metric === 'sell';
+  const rows = step.options.filter(o => res[o.id] && !res[o.id].error).map(o => ({
+    label: o.label, totals: res[o.id].totals, facts: res[o.id].facts, current: o.id === pick,
+    note: [o.id === pick ? (o.id === rec ? 'Your pick · suggested' : 'Your pick') : (o.id === rec ? 'Suggested' : ''),
+           res[o.id].same_as != null && optOf(step, res[o.id].same_as) ? `same plan as ${optOf(step, res[o.id].same_as).label}` : '']
+      .filter(Boolean).join(' · '),
+    income: value(step, res[o.id]), incomeUnit: sell ? 'ISK/day paid out' : 'ISK/day',
+  }));
+  if (rows.length < 2) return '';
+  return `<details class="compare-box" id="compare-details" ${compareOpen ? 'open' : ''}>
+    <summary>Compare answers side by side: income, your time and uncertainty</summary>
+    ${AC.compareTableHTML({caption: `${step.title}: what each answer means for your plan`, rows, first: 'Answer'})}
+    <p class="muted compare-note">Income is after taxes, hauling and fees. Your time is a rough estimate, the same for every answer.
+      Uncertainty lists what can make real income differ from the estimate, scored by how much of the income
+      depends on sell orders, courier transit or held batches; it is not a probability. Reasons every answer
+      shares are greyed.</p>
+    <p class="help-line">${AC.helpFor(HELP.time, {glossary: GLOSSARY, showLabel: true})}</p></details>`;
+}
+
+function choose(step, id) {
+  if (id === null || id === undefined || !optOf(step, id)) return;
+  picks[step.id] = id;
+  Object.assign(st, answerOf(step, id).patch);
+  paint(step);
+  prefetchNext(step);
+}
+
+function paint(step) {
+  const res = results[step.id] || {};
+  const done = routineOnly(step) || !!complete[step.id];   // every card is in: suggest and advise
+  const rec = done ? recommend(step) : null;
+  const pick = picks[step.id];
+  const valid = routineOnly(step) || !!(res[pick] && !res[pick].error && (!step.isArea || st.selected_constellations?.length));
+  if ($('next')) $('next').disabled = saving || !valid || needsOwnTrip();
+  $('opts').setAttribute('aria-busy', String(!done));
+  const vals = step.options.map(o => value(step, res[o.id])).filter(v => v != null);
+  const top = Math.max(1, ...vals);
+  document.querySelectorAll('.opt').forEach(el => {
+    const id = JSON.parse(el.dataset.id), r = res[id], o = optOf(step, id);
+    el.classList.toggle('pick', id === pick);
+    el.classList.toggle('recd', id === rec && id === pick);
+    el.setAttribute('aria-checked', id === pick ? 'true' : 'false');
+    el.setAttribute('aria-disabled', String(saving || !!r?.error));
+    el.tabIndex = id === pick || (pick == null && el === $('opts').firstElementChild) ? 0 : -1;
+    el.classList.toggle('err', !!r?.error);
+    // One badge story: the picked card says "Suggested" when it is the suggestion, otherwise "Your pick".
+    el.querySelector('.badges').innerHTML = id !== pick ? '' :
+      (rec != null && id === rec ? '<span class="badge rec">Suggested</span>' : (step.isGoal ? '' : '<span class="badge mine">Your pick</span>'));
+    if (routineOnly(step) || !r) return;
+    if (r.error) { el.classList.add('err'); el.querySelector('.res').innerHTML = `<div class="bad answer-error">${esc(r.error)}</div>`; return; }
+    const v = value(step, r), t = r.totals;
+    // The card's "?" buttons sit next to their figures; their answers open below the figures, at full card width.
+    const iskHelp = AC.helpPartsFor(HELP.isk, {glossary: GLOSSARY}), timeHelp = AC.helpPartsFor(HELP.time, {glossary: GLOSSARY});
+    const primary = [
+      [AC.icon('clock') + 'Your time / week' + timeHelp.button, '≈ ' + duration(minutesPerWeek(o, r))],
+    ];
+    const rows = [
+      [AC.icon('truck') + 'Haul / week', m3(t.m3_per_week)],
+      [AC.icon('refresh-cw') + 'Restarts / week', count(t.restarts_per_week)],
+      [AC.icon('map') + 'Systems', t.systems],
+      [AC.icon('factory') + 'Factory planets', t.factories],
+    ];
+    if (step.logins) primary.push([AC.icon('key-round') + 'Logins / week', count(7 / o.patch.cycle_days)]);
+    else if (step.metric === 'sell') primary.push([AC.icon('coins') + 'Per batch', isk(r.sell_net_per_cycle)]);
+    else if (step.metric === 'buy') primary.push([AC.icon('wallet') + 'ISK tied up', t.capital_isk ? isk(t.capital_isk) : 'none']);
+    else primary.push(rows.shift());
+    if (t.transfers) rows.push([AC.icon('handshake') + 'Transfers', t.transfers]);
+    if (t.buy_isk_per_day) rows.push([AC.icon('wallet') + 'Inputs bought / day', isk(t.buy_isk_per_day)]);
+    if (r.holds) rows.push([AC.icon('pause') + 'Batches held back', r.holds]);
+    const detailsKey = JSON.stringify([step.id, id]);
+    const focusedSummary = el.querySelector('.answer-details > summary');
+    const restoreDetailsFocus = focusedSummary && focusedSummary === document.activeElement;
+    el.querySelector('.res').innerHTML = `
+      <div class="isk">${isk(v)} <small>ISK/day${step.metric === 'sell' ? ' paid out' : ''}</small>${iskHelp.button}</div>
+      <div class="bar"><i></i></div>
+      <div class="metrics">${primary.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
+      <details class="answer-details" ${answerDetailsOpen.has(detailsKey) ? 'open' : ''}>
+        <summary>More figures and production <span class="sr-only">for ${esc(o.label)}</span></summary>
+        <div class="metrics">${rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div>
+        <div class="mix">${esc(r.mix)}${step.id === 'sell' && r.channels.length ? '<br>' + r.channels.map(esc).join(' · ') : ''}</div>
+      </details>
+      ${iskHelp.answer}${timeHelp.answer}
+      ${r.same_as != null ? sameAsHTML(step, r) : step.id === 'tier' ? samePlanHTML(step, o, r, res) : ''}${step.id === 'tier' ? teamworkNoteHTML(r) : ''}`;
+    const barWidth = Math.max(3, v / top * 100);
+    el.querySelector('.bar i').style.width = `${Number.isFinite(barWidth) ? barWidth : 3}%`;
+    const details = el.querySelector('.answer-details');
+    details.addEventListener('toggle', () => {
+      if (details.open) answerDetailsOpen.add(detailsKey);
+      else answerDetailsOpen.delete(detailsKey);
+    });
+    if (restoreDetailsFocus) details.querySelector('summary').focus({preventScroll: true});
+  });
+  $('advice').innerHTML = routineOnly(step) ? '' : advice(step, rec, pick);
+  $('compare').innerHTML = routineOnly(step) || !done ? '' : compareHTML(step, rec, pick);
+  $('compare-details')?.addEventListener('toggle', e => { compareOpen = e.target.open; });
+  hourControl.setValue(iskPerHour(), HOUR_DEFAULT[goalId()], +st.hour_isk < 0);
+  hourControl.setDisabled(saving);
+}
+
+// Products step: a card planned with Teamwork turned on for its tier says so, when its plan uses it.
+function teamworkNoteHTML(r) {
+  if (!r.teamwork_auto || !r.totals.transfers) return '';
+  return `<div class="same-plan">Your characters supply each other here (${r.totals.transfers} transfer${r.totals.transfers === 1 ? '' : 's'}): turned on for P3/P4. Change it under Teamwork.</div>`;
+}
+// A wider answer that planned out lower than an answer it contains shows that answer's plan, and saves that answer.
+function sameAsHTML(step, r) {
+  const same = optOf(step, r.same_as);
+  return same ? `<div class="same-plan">Same plan as ${esc(same.label)}, which earns more here. Choosing this keeps ${esc(same.label)}.</div>` : '';
+}
+// Products step: a card whose plan stops below the tier it allows says so, and why ("Same plan as Up to P2").
+function samePlanHTML(step, o, r, res) {
+  const need = r.tier_need;
+  if (!need || need.allowed !== o.patch.max_tier) return '';
+  const lower = optOf(step, need.used), lr = lower && res[lower.id];
+  const same = !!(lr && !lr.error && lower.id !== o.id && lr.mix === r.mix && AC.aboutSame(value(step, lr), value(step, r)));
+  const t = AC.tierHelp(need, {same, sameLabel: lower ? lower.label : ''});
+  return t ? `<div class="same-plan">${esc(t.short)}${AC.helpHTML({text: t.text, label: t.question, more: GLOSSARY + '#higher-tiers'})}</div>` : '';
+}
+
+function advice(step, rec, pick) {
+  const res = results[step.id]; if (!res || rec == null) return '';
+  const ok = byEffort(step, res);
+  if (ok.length > 1 && ok.slice(1).every(o => !diffs(step, ok[0], o).matters))
+    return `<div class="advice"><p>These answers make no real difference for your characters. Pick whichever you like.</p></div>`;
+  const r = optOf(step, rec);
+  const worth = iskPerHour() ? `an hour of your time is worth ${isk(iskPerHour())} ISK` : 'only ISK counts';
+  const p = [];
+  if (pick != null && pick !== rec && res[pick] && !res[pick].error) {
+    const d = diffs(step, optOf(step, pick), r);
+    if (!d.matters) return '';
+    p.push(`We'd suggest <b>${esc(r.label)}</b>: ${sentence(d)}.`);
+  } else {
+    const easier = ok.slice(0, ok.indexOf(r)).reverse().find(o => diffs(step, o, r).matters);
+    const best = ok.reduce((a, o) => value(step, res[o.id]) > value(step, res[a.id]) ? o : a, ok[0]);
+    if (easier) p.push(`Compared to <b>${esc(easier.label)}</b>, <b>${esc(r.label)}</b> means ${sentence(diffs(step, easier, r))}. Since ${worth}, that's worth it.`);
+    if (best.id !== rec) {
+      const d = diffs(step, r, best);
+      if (d.matters) p.push(step.id === 'buy'
+        ? `<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but that's within ${Math.round((1 - BUY_ENOUGH) * 100)}% for a smaller stake. Pick it if you're happy to tie up the ISK.`
+        : `<b>${esc(best.label)}</b> would earn more (${sentence(d)}), but since ${worth}, the extra effort isn't worth it.`);
+    }
+    if (!p.length) return '';
+  }
+  return `<div class="advice"><h6>${AC.icon('lightbulb')} Our advice</h6>${p.map(x => `<p>${x}</p>`).join('')}</div>`;
+}
+
+// ---- Area step: constellations + drop-off (advanced) --------------------------------------------
+function areaAdvanced() {
+  return `<p id="area-summary" class="muted">Checking the area suggested by your colonies and alliance…</p>
+    <div class="area-start" id="guided-area-start" ${st.selected_constellations?.length ? 'hidden' : ''}>
+      <h3>Where do you want to do PI?</h3>
+      <p>No colonies or sovereignty to start from? Find the region, constellation or system where you fly.</p>
+      <label>Region, constellation or system<input id="area-search" value="${esc(st.extra_area || '')}" placeholder="e.g. The Forge"></label>
+      <button type="button" id="find-area">Find planets</button></div>
+    <details class="area-adv box" id="area-adv"><summary>Fine-tune: constellations and drop-off</summary>
+    <div id="area-body"><div class="skel"></div></div></details>`;
+}
+async function wireArea(step) {
+  const det = $('area-adv');
+  let areaSeq = 0;
+  const loadArea = async (search = null, replaceSelection = false, preserveSelection = false) => {
+    const visit = ++areaSeq;
+    det.dataset.loaded = '1';
+    let a;
+    try {
+      const query = new URLSearchParams({hub_system: st.hub_system || ''});
+      if (search !== null) query.set('extra_area', search);
+      if (!replaceSelection && (preserveSelection || st.selected_constellations?.length))
+        query.set('selected_constellations', (st.selected_constellations || []).join(','));
+      const response = await fetch(API + '/area?' + query, {credentials: 'same-origin'});
+      if (!response.ok) throw new Error('Could not load the area');
+      a = await response.json();
+    } catch (error) {
+      if (!det.isConnected || visit !== areaSeq) return;
+      det.open = true;
+      delete det.dataset.loaded;
+      $('area-body').innerHTML = '<div class="flash warn"><span>Could not load your area. Check your connection and retry.</span><button class="outline" id="retry-area">Retry area</button></div>';
+      $('retry-area').onclick = () => loadArea(search, replaceSelection);
+      return;
+    }
+    if (!det.isConnected || visit !== areaSeq) return;
+    if (replaceSelection || (!preserveSelection && !st.selected_constellations?.length)) st.selected_constellations = a.selected || [];
+    SELL_COVERAGE = a.selling_coverage;
+    if (needsOwnTrip() !== !!$('enable-own-trip')) { showQuestion(step); return; }
+    $('guided-area-start').hidden = !!st.selected_constellations.length;
+    $('area-summary').textContent = st.selected_constellations.length ? `Suggested area: ${st.selected_constellations.length} constellation${st.selected_constellations.length === 1 ? '' : 's'}. Continue confirms this area and your travel choice.` : 'No planets found yet. Search for your operating region below.';
+    const sel = new Set((st.selected_constellations && st.selected_constellations.length ? st.selected_constellations : a.selected).map(Number));
+    $('area-body').innerHTML = `
+      <p class="muted">Constellations your characters can use (best first). The pickup round only visits systems in these.</p>
+      <div class="cons">${(a.constellations || []).map(c => `<label><input type="checkbox" value="${c.id}" ${sel.has(c.id) ? 'checked' : ''}>
+        ${esc(c.name)} <span class="muted">${esc(c.region)} · ${c.systems} systems${c.has_colonies ? ' · your colonies' : ''}</span></label>`).join('')}</div>
+      <label>Drop-off (where you collect products and ship them from)
+        <select id="area-hub"><option value="">Auto: nearest courier pickup within 3 jumps of the best spot, otherwise the best PI system</option>
+        ${(a.systems || []).map(n => `<option ${n === (st.hub_system || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+      <p class="muted">Also on the <a href="/pi/area">Area page</a>, with every system listed.</p>`;
+    const apply = async () => {
+      const ids = [...det.querySelectorAll('input[type=checkbox]:checked')].map(x => +x.value);
+      areaSeq++;
+      seq++;
+      comparisonRequest?.abort();
+      clearTimeout(prefetchTimer);
+      if (!ids.length) { $('area-summary').textContent = 'Choose at least one constellation below.'; st.selected_constellations = []; delete results[step.id]; $('next').disabled = true; setHint('Select at least one constellation.'); return; }
+      st.selected_constellations = ids; st.hub_system = $('area-hub').value;
+      delete results[step.id];
+      paint(step);
+      $('save-status').textContent = 'Area preview · Continue saves your choice';
+      loadArea(st.extra_area || null, false, true);
+    };
+    det.querySelectorAll('input[type=checkbox]').forEach(x => x.onchange = apply);
+    $('area-hub').onchange = apply;
+    if (!needsOwnTrip()) load(step);
+    else { paint(step); setHint('Choose your own trip to a trade hub before comparing setups.'); }
+  };
+  $('find-area').onclick = () => {
+    const search = $('area-search').value.trim();
+    if (!search) return;
+    st.extra_area = search;
+    st.selected_constellations = [];
+    st.hub_system = '';
+    seq++;
+    comparisonRequest?.abort();
+    clearTimeout(prefetchTimer);
+    delete results[step.id];
+    $('next').disabled = true;
+    loadArea(search, true);
+  };
+  loadArea(st.extra_area || null);
+}
+
+// Save the answer on screen, with the buttons locked meanwhile. False (and a message) if it failed.
+async function commit(step, target, confirmOptions = false) {
+  if (!hourControl.reportValidity()) return false;
+  saving = true;
+  hourControl.setDisabled(true);
+  $('next').disabled = true;
+  $('back').disabled = true;
+  drawTrack();
+  $('save-status').textContent = 'Saving your answer…';
+  const result = await save(step, target, confirmOptions);
+  saving = false;
+  hourControl.setDisabled(false);
+  if (result.error || result.superseded) {
+    $('save-status').textContent = 'Answer not saved';
+    setHint(result.error || 'Try saving your answer again.');
+    $('next').disabled = false;
+    $('back').disabled = cur === 0;
+    drawTrack();
+    return false;
+  }
+  $('save-status').textContent = 'Answer saved · you can change it later';
+  return true;
+}
+
+// Saves only what was picked (or seen pre-selected) on this question, never stale fields.
+async function save(step, target, confirmOptions = false) {
+  await hourSave;
+  const id = picks[step.id];
+  const o = answerOf(step, id);
+  const body = {answered: [...new Set([...answered, step.id])], guide_step: target, hour_isk: st.hour_isk ?? -1};
+  if (o) Object.assign(body, o.patch);
+  if (confirmOptions) {
+    body.answered = [...new Set([...body.answered, ...OPTIONAL_IDS])];
+    Object.assign(body, {per_planet: st.per_planet, cross_character: st.cross_character, ship_every_days: st.ship_every_days});
+  }
+  if (step.isArea) Object.assign(body, {selected_constellations: st.selected_constellations, hub_system: st.hub_system || '', extra_area: st.extra_area || ''});
+  const result = await AC.post(API + '/save', body);
+  if (result.ok) {
+    answered.add(step.id);
+    if (confirmOptions) {
+      OPTIONAL_IDS.forEach(id => answered.add(id));
+      Object.assign(saved, {per_planet: body.per_planet, cross_character: body.cross_character, ship_every_days: body.ship_every_days});
+    }
+    Object.assign(saved, o ? o.patch : {}, {hour_isk: body.hour_isk});
+  }
+  return result;
+}
+
+// ---- the result -----------------------------------------------------------------------------
+async function showPlan() {
+  const my = ++seq;
+  $('q').dataset.step = 'plan';
+  const chips = STEPS.filter(s => s.options && !OPTIONAL_IDS.has(s.id)).map(s =>
+    `<button type="button" class="chip" data-i="${STEPS.indexOf(s)}" aria-label="Change ${esc(s.title)}: ${esc(labelOf(s))}">${s.title}: <b>${esc(labelOf(s))}</b></button>`).join('');
+  $('q').innerHTML = `
+    <div class="eyebrow">Done</div>
+    <h2 id="question-title" tabindex="-1">Your operation, mapped out.</h2>
+    <p class="muted chips-note">Change any answer: the others stay as they are. Yield, taxes and shared deposits are under <a href="${esc(EXPERT_URL)}">Expert</a>.</p>
+    <div class="chips">${chips}</div>
+    ${additionalChoicesHTML()}
+    <div id="planbar" role="status" aria-live="polite"></div>
+    <div id="plan-compare"></div>
+    <div class="todo" id="build-instructions" hidden><h6 class="no-margin">What to do now</h6><ol>
+      <li><a href="#" id="tpl-link">Download the templates</a> and copy them into <code>Documents/EVE/PlanetaryInteractionTemplates</code>.</li>
+      <li>For each character below, place a command center on the listed planet and load the template shown.</li>
+      <li>Then go to <span id="operate-instruction">Operate</span>: it tracks extractors, pickups and what to sell where, straight from ESI.</li>
+    </ol></div>
+    <div id="planres"><div class="skel skel-tall"></div><div class="skel"></div><div class="skel skel-wide"></div></div>
+    <div class="nav">
+      <button class="outline secondary" id="back">${AC.icon('arrow-left')} Back</button>
+      <span class="hint"><a href="${esc(ADVANCED_URL)}">Fine-tune with every option →</a></span>
+      <span id="operate-handoff"></span>
+    </div>`;
+  document.querySelectorAll('.chip').forEach(c => c.onclick = () => navigate(+c.dataset.i));
+  wireAdditionalChoices();
+  $('back').onclick = () => navigate(backIndex());
+  operateHandoff(PLANS.some(p => p.active), 'Calculating your plan…');
+  const res = await AC.post(API + '/suggest', {}, {onBusy: () => {
+    if (my === seq) $('planres').innerHTML = '<div class="busy-note">AstraCore is busy, your plan is queued…</div>'; }});
+  if (my !== seq || res.superseded) return;
+  if (res.error) {
+    $('planres').innerHTML = `<div class="flash warn"><span>${esc(res.error)}${stepLinks(res.error_steps)}</span><button class="outline" id="retry-plan">Retry plan</button></div>`
+      + AC.planWarningsHTML(res.warnings, {steps: stepNames()});
+    operateHandoff(PLANS.some(p => p.active), 'Plan unavailable');
+    $('retry-plan').onclick = () => showPlan();
+    linkSteps($('planres'));
+    return;
+  }
+  EXPORT_Q = '?result=' + encodeURIComponent(res.result_id);
+  $('planres').innerHTML = planHTML(res, {steps: stepNames()});
+  linkSteps($('planres'));
+  $('plan-compare').innerHTML = activeComparison(res);
+  $('build-instructions').hidden = false;
+  fillYieldBand();
+  $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
+  planBar(res.result_id);
+}
+
+// Ticking "Never produce" or saying what a scan showed on the result: saved, then the plan is worked out again.
+async function onNeverProduce(names) {
+  const my = seq;
+  const r = await AC.post(API + '/save', {product_blacklist: names});
+  if (my !== seq) return;
+  if (r.ok) { st.product_blacklist = saved.product_blacklist = names.join(', '); }
+  showPlan();
+}
+function onRichnessSaved() { showPlan(); }
+
+// Warnings on the result link to the question that changes them ("Change Area").
+const stepNames = () => Object.fromEntries(STEPS.filter(s => s.options).map(s => [s.id, s.title]));
+function stepLinks(ids) {
+  const names = stepNames();
+  const links = (ids || []).filter(id => names[id]).map(id => `<a href="#" data-step="${esc(id)}">Change ${esc(names[id])}</a>`);
+  return links.length ? ` <span class="note-links">${links.join(' · ')}</span>` : '';
+}
+function linkSteps(root) {
+  root.querySelectorAll('a[data-step]').forEach(a => a.onclick = e => {
+    e.preventDefault();
+    const i = STEPS.findIndex(s => s.id === a.dataset.step);
+    if (i >= 0) navigate(i);
+  });
+}
+
+// This plan next to the active one, before deciding whether to replace it.
+function activeComparison(res) {
+  const active = PLANS.find(p => p.active);
+  if (!active || !res.facts) return '';
+  return `<details class="compare-box" open><summary>Compare with your active plan</summary>
+    ${AC.compareTableHTML({caption: 'This plan compared with your active plan', first: 'Plan', rows: [
+      {label: 'This plan', note: 'from your answers, not saved yet', totals: res.totals, facts: res.facts, current: true},
+      {label: active.label, note: 'active plan', totals: active.totals, facts: active.facts},
+    ]})}
+    <p class="muted compare-note">Compare every saved plan on <a href="${esc(OPERATE_URL)}#plan-status">Operate</a>.</p></details>`;
+}
+
+function operateHandoff(ready, message = 'Saving your plan…') {
+  $('operate-handoff').innerHTML = ready
+    ? `<a role="button" class="outline" href="${esc(OPERATE_URL)}">Go to Operate ${AC.icon('arrow-right')}</a>`
+    : `<button class="outline" disabled>${esc(message)}</button>`;
+  $('operate-instruction').innerHTML = ready ? `<a href="${esc(OPERATE_URL)}">Operate</a>` : 'Operate';
+}
+
+function planSaveFailure(result, retry) {
+  const message = esc(result.error || 'Could not save your plan.');
+  $('planbar').innerHTML = `<div class="flash warn"><span>${message} Your build list is ready; saving it lets Operate track it.</span><button class="outline" id="retry-save-plan">${result.stale ? 'Recalculate plan' : 'Retry save'}</button></div>`;
+  operateHandoff(PLANS.some(p => p.active), 'Save your plan to continue');
+  $('retry-save-plan').onclick = result.stale ? () => showPlan() : retry;
+}
+
+async function planBar(resultId) {
+  const my = seq;
+  const active = PLANS.find(p => p.active);
+  if (!active) {
+    $('planbar').textContent = 'Saving your plan…';
+    operateHandoff(false);
+    const r = await AC.post(API + '/plans', {result_id: resultId, label: '', active: true});
+    if (my !== seq) return;
+    if (r.ok) { setSaved(r); $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b> and set as your active plan. Operate compares what you build against it.</div>`; }
+    else planSaveFailure(r, () => planBar(resultId));
+    return;
+  }
+  $('planbar').innerHTML = `<div class="planbar">
+      <span class="muted">Your active plan is <b>${esc(active.label)}</b> (${isk(active.totals.isk_per_day)}/day).</span>
+      <input id="plan-label" placeholder="Name, e.g. Max ISK with P4" maxlength="80" aria-label="Plan name">
+      <button class="outline" id="plan-save">Save as new plan</button>
+      <button id="plan-active">Save and set as active plan</button></div>`;
+  const doSave = async activate => {
+    $('plan-save').disabled = true;
+    $('plan-active').disabled = true;
+    const r = await AC.post(API + '/plans', {result_id: resultId, label: $('plan-label').value, active: activate});
+    if (my !== seq) return;
+    if (r.ok) { setSaved(r); $('planbar').innerHTML = `<div class="flash">Saved as <b>${esc(r.label)}</b>${r.active ? ' and set as your active plan' : ''}.</div>`; }
+    else if (r.stale) planSaveFailure(r, () => planBar(resultId));
+    else {
+      $('plan-save').disabled = false;
+      $('plan-active').disabled = false;
+      $('planbar').querySelector('.plan-save-error')?.remove();
+      $('planbar').insertAdjacentHTML('beforeend', `<p class="bad plan-save-error" role="status">${esc(r.error || 'Could not save.')}</p>`);
+    }
+  };
+  $('plan-save').onclick = () => doSave(false);
+  $('plan-active').onclick = () => doSave(true);
+}
+function setSaved(r) {
+  operateHandoff(true);
+  if (Array.isArray(r.plans)) PLANS.splice(0, PLANS.length, ...r.plans);
+  EXPORT_Q = '?plan=' + r.id;
+  document.querySelectorAll('a[data-export]').forEach(a => a.href = EXPORT + '/' + a.dataset.export + EXPORT_Q);
+  $('tpl-link').href = EXPORT + '/templates.zip' + EXPORT_Q;
+}
+
+go(cur, false);

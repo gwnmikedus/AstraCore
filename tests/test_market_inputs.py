@@ -178,7 +178,7 @@ def test_settings_saved_before_the_buying_question_keep_their_wizard_position():
 def test_the_buying_question_sits_where_the_settings_migration_expects_it():
     import re
     from astracore.modules.pi.settings import BUY_STEP
-    html = (Path(__file__).parents[1] / 'src/astracore/modules/pi/templates/pi/guide.html').read_text()
+    html = (Path(__file__).parents[1] / 'src/astracore/static/js/guide.js').read_text()
     steps = html[html.index('const STEPS = ['):html.index('const OPTIONAL_IDS')]
     ids = re.findall(r"^  \{id: '([a-z]+)'", steps, re.M)
     assert ids.index('buy') == BUY_STEP

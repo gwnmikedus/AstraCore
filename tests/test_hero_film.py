@@ -68,7 +68,7 @@ def test_film_source_is_sixty_seconds_and_self_contained():
 
 def test_film_counts_the_wizards_six_main_questions():
     """The film's stepper and "Step N of M" copy follow the wizard's main questions (#244)."""
-    guide = (ROOT / "src" / "astracore" / "modules" / "pi" / "templates" / "pi" / "guide.html").read_text()
+    guide = (ROOT / "src" / "astracore" / "static" / "js" / "guide.js").read_text()
     titles = re.findall(r"\{id: '(\w+)', title: '([^']+)'", guide)
     optional = set(re.findall(r"'(\w+)'", re.search(r"OPTIONAL_IDS = new Set\(\[([^\]]*)\]", guide).group(1)))
     main = [title for step, title in titles if step not in optional]   # the main questions, then the result

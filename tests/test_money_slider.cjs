@@ -153,7 +153,7 @@ function guidedSlider(value = -1) {
   };
   context.load = () => { reload++; };   // the value of your time changes the plans: compare again
   context.AC.post = (url, body) => new Promise(resolve => requests.push({url, body, resolve}));
-  const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
+  const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/guide.js'), 'utf8');
   vm.runInNewContext(guide.slice(guide.indexOf('function hourPicker()'), guide.indexOf('const net =')), context);
   context.wireHour({});
   return {...setup, requests, repaints: () => repaint, reloads: () => reload};

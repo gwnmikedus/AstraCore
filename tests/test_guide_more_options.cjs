@@ -3,7 +3,7 @@ const {readFileSync} = require('node:fs');
 const {test} = require('node:test');
 const vm = require('node:vm');
 const path = require('node:path');
-const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8');
+const guide = readFileSync(path.join(__dirname, '../src/astracore/modules/pi/templates/pi/guide.html'), 'utf8') + readFileSync(path.join(__dirname, '../src/astracore/static/js/guide.js'), 'utf8');
 
 function fixture(settings = {}) {
   const calls = [], visits = [], nodes = new Map();
@@ -12,7 +12,7 @@ function fixture(settings = {}) {
     return nodes.get(id);
   };
   const context = {S: {guide_step: 0, answered: [], effort: 50, per_planet: 2, cross_character: true,
-    ship_every_days: 21, hour_isk: -1, ...settings}, SELLER: {}, API: '/pi/api', PLANNABLE: 1,
+    ship_every_days: 21, hour_isk: -1, ...settings}, SELLER: {}, HOME_MARKET: 'Home', API: '/pi/api', PLANNABLE: 1,
     Promise, window: {}, document: {querySelectorAll: () => []}, $,
     go(index) { visits.push(index); }, setHint() {},
   };

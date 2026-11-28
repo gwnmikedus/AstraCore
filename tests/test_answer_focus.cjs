@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
 const {test} = require('node:test');
 const vm = require('node:vm');
-const guide = readFileSync('src/astracore/modules/pi/templates/pi/guide.html', 'utf8');
+const guide = readFileSync('src/astracore/modules/pi/templates/pi/guide.html', 'utf8') + readFileSync('src/astracore/static/js/guide.js', 'utf8');
 const code = guide.slice(guide.indexOf('function paint(step)'), guide.indexOf('// Products step:'));
 
 function fixture() {

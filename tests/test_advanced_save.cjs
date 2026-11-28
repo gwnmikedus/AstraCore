@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const source = fs.readFileSync('src/astracore/modules/pi/templates/pi/planner.html', 'utf8');
+const source = fs.readFileSync('src/astracore/modules/pi/templates/pi/planner.html', 'utf8') + fs.readFileSync('src/astracore/static/js/planner.js', 'utf8');
 const code = source.slice(source.indexOf('// ---- saving the applied plan'), source.indexOf('// ---- wire up'));
 
 function setup(active = true) {
@@ -15,7 +15,7 @@ function setup(active = true) {
     return nodes.get(id);
   };
   const calls = [], links = [{dataset: {export: 'plan.md'}, href: ''}];
-  const c = {$, API: '/pi/api', EXPORT: '/pi/export', EXPORT_Q: '?result=r1', updateSeq: 0, esc: String, isk: String,
+  const c = {$, API: '/pi/api', EXPORT: '/pi/export', EXPORT_Q: '?result=r1', OPERATE_URL: '/pi/operate', updateSeq: 0, esc: String, isk: String,
     PLANS: active ? [{id: 5, active: true, label: 'Original', totals: {isk_per_day: 100}}] : [],
     schedule() { c.updateSeq += 1; c.scheduled = true; $('planbar').innerHTML = ''; },
     document: {querySelectorAll: () => links},

@@ -8,7 +8,7 @@ const read = file => readFileSync(path.join(__dirname, '..', file), 'utf8');
 const css = read('src/astracore/static/css/astracore.css');
 const orbital = read('src/astracore/static/css/orbital-command.css');
 const community = read('src/astracore/static/css/community.css');
-const planner = read('src/astracore/modules/pi/templates/pi/planner.html');
+const planner = read('src/astracore/modules/pi/templates/pi/planner.html') + read('src/astracore/static/js/planner.js');
 
 // Split a stylesheet into what sits inside media blocks whose query contains `query`, and everything else.
 function split(sheet, query) {

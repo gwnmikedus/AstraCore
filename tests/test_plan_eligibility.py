@@ -9,6 +9,7 @@ from astracore.modules.pi.planner import setups
 from astracore.modules.pi.settings import Settings
 
 from test_core import PI_SCOPES, browser, csrf, eve, me, new_id, sso_login  # noqa: F401 (fixtures)
+from plan_page import plan_data, script  # noqa: E402
 
 
 def _ready(c, eve, name):
@@ -87,7 +88,7 @@ def test_guided_setup_says_early_which_characters_cant_be_planned(browser, eve, 
     monkeypatch.setattr(service, "planning_context", context)
     r = c.get("/pi/plan")
     assert r.status_code == 200
-    assert "const BLOCKED = 1;" in r.text and "see Characters in this plan" in r.text
+    assert plan_data(r.text)["blocked_characters"] == 1 and "see Characters in this plan" in script("guide.js")
     assert 'id="characters-panel"' in r.text
     assert "1 can't be planned yet" in r.text                   # on the collapsed panel's summary
     assert "Train Command Center Upgrades to 2 to use this character for factories" in r.text
@@ -95,4 +96,4 @@ def test_guided_setup_says_early_which_characters_cant_be_planned(browser, eve, 
     db.set_character(cid, ccu_level=5)
     chars[0]["ccu_level"] = 5
     r = c.get("/pi/plan")
-    assert "const BLOCKED = 0;" in r.text and "can't be planned yet" not in r.text
+    assert plan_data(r.text)["blocked_characters"] == 0 and "can't be planned yet" not in r.text

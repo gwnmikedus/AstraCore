@@ -8,13 +8,24 @@ import html
 import re
 from urllib.parse import urlsplit
 
+import httpx
+import pytest
+
 from astracore import config
 from test_core import browser, eve, new_id, sso_login  # noqa: F401 (fixtures)
 
 PAGES = ("/", "/about", "/community", "/couriers", "/credits", "/feedback", "/glossary", "/privacy", "/project",
          "/releases", "/roadmap", "/what-we-read", "/welcome", "/profile", "/settings", "/area", "/plan",
          "/operate", "/pi", "/admin")
-SKIP = ("/auth/", "/export/", "/api/", "/static/", "/profile/export", "/reset", "/profile/reset")
+SKIP = ("/auth/", "/export/", "/api/", "/static/", "/profile/export", "/reset", "/profile/reset", "/pi/reset")
+
+
+@pytest.fixture(autouse=True)
+def _offline(monkeypatch):
+    """Crawling pages must not fetch market prices or anything else from the network."""
+    async def refuse(self, request, *a, **kw):
+        raise httpx.ConnectError("tests stay offline", request=request)
+    monkeypatch.setattr(httpx.AsyncClient, "send", refuse)
 
 
 def _ids(page: str) -> set:

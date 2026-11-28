@@ -7,12 +7,12 @@
 <form method="post" action="/feedback" class="community-form">
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 {% for field in ['kind','title','description','steps','expected','actual'] %}<input type="hidden" name="{{ field }}" value="{{ data[field] }}">{% endfor %}
-<input type="hidden" name="version" value="{{ version }}"><input type="hidden" name="submission_key" value="{{ submission_key }}"><input type="hidden" name="preview_at" value="{{ preview_at }}"><input type="hidden" name="preview_signature" value="{{ preview_signature }}">
+{% if note %}<input type="hidden" name="note_id" value="{{ note.id }}">{% endif %}<input type="hidden" name="version" value="{{ version }}"><input type="hidden" name="submission_key" value="{{ submission_key }}"><input type="hidden" name="preview_at" value="{{ preview_at }}"><input type="hidden" name="preview_signature" value="{{ preview_signature }}">
 <label class="community-consent"><input type="checkbox" name="public_confirm" value="yes" required><span>This text can be public. I understand that deleting my AstraCore profile doesn't remove an issue that's already on GitHub.</span></label>
 {% if characters %}<label>Credit (optional)<select name="credit_character"><option value="" selected>Keep me anonymous</option>{% for character in characters %}<option value="{{ character.character_id }}">Show “Reported by {{ character.name }}”</option>{% endfor %}</select></label>
 <p class="muted">With credit on, this character name can appear on What’s new and under “Pilots who shaped AstraCore” once your report is accepted. Only the name, never wallets, locations or game data. You can change it later on the report’s page.</p>{% endif %}
 {% if not connected %}<p class="muted">GitHub isn’t connected yet. Your report waits here privately and is published with this exact content once it is. You can withdraw it while it’s queued.</p>{% endif %}
 <button type="submit">{{ 'Publish report' if connected else 'Queue report' }}</button>
 </form>
-<form method="post" action="/feedback/edit" class="community-edit-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% for field in ['kind','title','description','steps','expected','actual'] %}<input type="hidden" name="{{ field }}" value="{{ data[field] }}">{% endfor %}<button class="outline secondary" type="submit">Edit this report</button></form>
+<form method="post" action="/feedback/edit" class="community-edit-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% if note %}<input type="hidden" name="note_id" value="{{ note.id }}">{% endif %}{% for field in ['kind','title','description','steps','expected','actual'] %}<input type="hidden" name="{{ field }}" value="{{ data[field] }}">{% endfor %}<button class="outline secondary" type="submit">Edit this report</button></form>
 {% endblock %}

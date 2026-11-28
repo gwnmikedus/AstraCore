@@ -8,6 +8,11 @@ The Community hub also keeps three small, private signals per profile (ENGAGEMEN
 per report, and the last report stage a pilot has seen (for the "your report moved" notice).
 MARK_SEEN_SCHEMA adds the same "seen" record for marks, so a pilot hears once when something they
 said would help them goes live.
+
+Quick notes (QUICK_NOTES_SCHEMA) are the low-friction side: the in-page Feedback panel and the one-tap
+"Was this clear?" on the plan result and Operate. They stay private in SQLite and never reach GitHub on
+their own. An administrator reads them on /community/admin and can promote one into the normal preview
+and consent flow, which publishes as the administrator with only the note text prefilled.
 """
 from __future__ import annotations
 
@@ -26,6 +31,7 @@ from typing import Optional
 import httpx
 import jwt
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from astracore import config, db
 from . import sessions
@@ -88,6 +94,21 @@ CREATE TABLE IF NOT EXISTS community_vote_seen (
     PRIMARY KEY(profile_id, target)
 );
 CREATE INDEX IF NOT EXISTS community_issues_roadmap ON community_issues(roadmap_slug);
+"""
+
+# Added by migration v11. Additive only: older builds ignore the table and its indexes.
+QUICK_NOTES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS community_notes (
+    id TEXT PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK(kind IN ('confusing', 'idea', 'bug', 'clear', 'unclear')),
+    body TEXT NOT NULL DEFAULT '', context_json TEXT NOT NULL DEFAULT '{}',
+    created_at REAL NOT NULL,
+    state TEXT NOT NULL DEFAULT 'new' CHECK(state IN ('new', 'archived', 'promoted')),
+    feedback_id TEXT REFERENCES community_feedback(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS community_notes_state ON community_notes(state, created_at);
+CREATE INDEX IF NOT EXISTS community_notes_profile ON community_notes(profile_id, created_at);
 """
 
 ROADMAP_VERSION = 1
@@ -821,7 +842,168 @@ def marks_live_count(user: Optional[dict]) -> int:
         return 0
 
 
-templates.env.globals.update(community_moved=moved_count, community_marks_live=marks_live_count, community_credits=credited_pilots,
+# --------------------------------------------------------------------------- quick notes (private, in context)
+NOTE_KINDS = {"confusing": "Confusing", "idea": "Idea", "bug": "Bug", "clear": "Clear", "unclear": "Not clear"}
+RATING_KINDS = ("clear", "unclear")
+RATING_SURFACES = {"plan-result": "Plan result", "operate": "Operate"}
+NOTES_PER_HOUR = 20
+NOTE_MAX = 2000
+NOTE_THANKS = "Thanks, pilot. Your note is in, privately. Only the maintainer reads it."
+
+
+def _one_line(value, limit: int) -> str:
+    return " ".join(str(value or "").split())[:limit]
+
+
+def _private_names(profile_id: int) -> list:
+    """The pilot's own character, corporation and alliance names: never kept in a quick note."""
+    with db.session() as c:
+        rows = c.execute("SELECT name, corporation_name, alliance_name FROM characters WHERE profile_id=?",
+                         (profile_id,)).fetchall()
+    names = {str(v).strip() for r in rows for v in r if v and len(str(v).strip()) >= 3}
+    return sorted(names, key=len, reverse=True)
+
+
+def _redact(text: str, names: list) -> str:
+    for name in names:
+        text = re.sub(re.escape(name), "[name]", text, flags=re.I)
+    return text
+
+
+def clean_context(raw, version: str, names: list = ()) -> dict:
+    """Keep only the small, harmless context the panel shows the pilot; everything else is dropped.
+
+    Paths lose their query string and any numeric segment, labels lose digits (no ISK amounts or IDs),
+    and the pilot's own character, corporation and alliance names are replaced."""
+    raw = raw if isinstance(raw, dict) else {}
+    context = {"version": _one_line(version, 40)}
+    path = str(raw.get("path") or "").split("?", 1)[0].split("#", 1)[0]
+    if re.fullmatch(r"/[A-Za-z0-9/_.-]{0,199}", path):
+        context["path"] = "/".join(":n" if segment.isdigit() else segment for segment in path.split("/"))
+    step = re.sub(r"\d", "#", _one_line(raw.get("step"), 80))
+    if step:
+        context["step"] = _redact(step, names)
+    viewport = re.fullmatch(r"(\d{2,5})x(\d{2,5})", str(raw.get("viewport") or ""))
+    if viewport:
+        context["viewport"] = f"{viewport.group(1)}x{viewport.group(2)}"
+    if raw.get("theme") in ("light", "dark"):
+        context["theme"] = raw["theme"]
+    if raw.get("surface") in RATING_SURFACES:
+        context["surface"] = raw["surface"]
+    target = raw.get("target") if isinstance(raw.get("target"), dict) else {}
+    selector = _one_line(target.get("selector"), 200)
+    if selector and re.fullmatch(r"[A-Za-z0-9 >.#_:()-]+", selector):
+        context["target"] = {"selector": selector,
+                             "label": _redact(re.sub(r"\d", "#", _one_line(target.get("label"), 80)), names)}
+    return context
+
+
+def save_note(profile_id: int, kind: str, body, raw_context, version: Optional[str] = None) -> str:
+    """Store one private quick note or "Was this clear?" answer. Raises ValueError with a pilot-facing message."""
+    kind = str(kind or "")
+    if kind not in NOTE_KINDS:
+        raise ValueError("Choose confusing, idea or bug.")
+    body = str(body or "").strip()
+    if "\x00" in body:
+        raise ValueError("Remove invalid characters before sending.")
+    if len(body) > NOTE_MAX:
+        raise ValueError("Keep a quick note under 2,000 characters, or use the full form.")
+    if kind not in RATING_KINDS and len(body) < 3:
+        raise ValueError("Write a few words first.")
+    names = _private_names(profile_id)
+    context = clean_context(raw_context, version or current_version(), names)
+    if kind in RATING_KINDS and "surface" not in context:
+        raise ValueError("This page can't take a rating.")
+    now = time.time()
+    with db.session() as c:
+        c.execute("BEGIN IMMEDIATE")
+        count = c.execute("SELECT COUNT(*) FROM community_notes WHERE profile_id=? AND created_at>?",
+                          (profile_id, now - 3600)).fetchone()[0]
+        if count >= NOTES_PER_HOUR:
+            raise ValueError("You've sent a lot of notes this hour. Thank you! Please try again a bit later.")
+        if kind in RATING_KINDS:
+            # Changing your mind replaces the answer you gave a moment ago instead of counting twice.
+            c.execute("DELETE FROM community_notes WHERE profile_id=? AND kind IN ('clear','unclear') AND body='' "
+                      "AND json_extract(context_json, '$.surface')=? AND created_at>?",
+                      (profile_id, context["surface"], now - 600))
+        note_id = secrets.token_hex(16)
+        c.execute("INSERT INTO community_notes(id,profile_id,kind,body,context_json,created_at) VALUES(?,?,?,?,?,?)",
+                  (note_id, profile_id, kind, _redact(body, names), json.dumps(context, sort_keys=True), now))
+    return note_id
+
+
+def _note_row(row) -> dict:
+    note = dict(row)
+    note.pop("profile_id", None)   # the admin list never shows who sent a note
+    try:
+        note["context"] = json.loads(note.pop("context_json") or "{}")
+    except ValueError:
+        note["context"] = {}
+    note["kind_label"] = NOTE_KINDS.get(note["kind"], note["kind"])
+    note["surface_label"] = RATING_SURFACES.get(note["context"].get("surface", ""), "")
+    return note
+
+
+def quick_notes(state: str = "new", limit: int = 200) -> list:
+    """Written notes for the admin list (ratings without words are counted in rating_tally instead)."""
+    with db.session() as c:
+        rows = c.execute("SELECT * FROM community_notes WHERE state=? AND body != '' ORDER BY created_at DESC LIMIT ?",
+                         (state, limit)).fetchall()
+    return [_note_row(r) for r in rows]
+
+
+def quick_note(note_id: str) -> Optional[dict]:
+    with db.session() as c:
+        row = c.execute("SELECT * FROM community_notes WHERE id=?", (str(note_id or ""),)).fetchone()
+    return _note_row(row) if row else None
+
+
+def rating_tally(days: int = 30) -> list:
+    """[{surface, label, up, down}] over the last `days` days ("up" and "down", not "clear": a dict's .clear()
+    would win in a template)."""
+    with db.session() as c:
+        rows = c.execute("SELECT json_extract(context_json, '$.surface') AS surface, kind, COUNT(*) AS n "
+                         "FROM community_notes WHERE kind IN ('clear','unclear') AND created_at>? GROUP BY surface, kind",
+                         (time.time() - days * 86400,)).fetchall()
+    tally = {slug: {"surface": slug, "label": label, "up": 0, "down": 0} for slug, label in RATING_SURFACES.items()}
+    for row in rows:
+        if row["surface"] in tally:
+            tally[row["surface"]]["up" if row["kind"] == "clear" else "down"] = row["n"]
+    return list(tally.values())
+
+
+def note_counts() -> dict:
+    with db.session() as c:
+        return {r["state"]: r["n"] for r in c.execute(
+            "SELECT state, COUNT(*) AS n FROM community_notes WHERE body != '' GROUP BY state")}
+
+
+def note_prefill(note: dict) -> dict:
+    """The full form, prefilled from a quick note for an administrator. Only the note text: its page context,
+    which the pilot was told stays private, is left out. The administrator rewrites it before previewing."""
+    first = note["body"].strip().splitlines()[0] if note["body"].strip() else ""
+    title = _one_line(first, 100)
+    return {"kind": "bug" if note["kind"] == "bug" else "idea", "title": title, "description": note["body"].strip()}
+
+
+def _promotable(user: Optional[dict], note_id) -> Optional[dict]:
+    if not user or not user.get("is_admin") or not note_id:
+        return None
+    return quick_note(str(note_id))
+
+
+def link_promoted(note_id: str, feedback_id: str) -> None:
+    with db.session() as c:
+        c.execute("UPDATE community_notes SET state='promoted',feedback_id=? WHERE id=?", (feedback_id, note_id))
+
+
+def _back_path(value) -> str:
+    """Where a no-JavaScript note returns to: a local path on this site only."""
+    path = str(value or "")
+    return path if re.fullmatch(r"/[A-Za-z0-9/_.-]{0,199}", path) and not path.startswith("//") else "/"
+
+
+templates.env.globals.update(note_kinds=NOTE_KINDS, community_moved=moved_count, community_marks_live=marks_live_count, community_credits=credited_pilots,
                              release_credits=release_credits)
 
 
@@ -862,10 +1044,10 @@ async def community_vote(request: Request):
 
 
 def _feedback_context(request: Request, data: Optional[dict] = None, error: str = "",
-                      direction: Optional[dict] = None) -> dict:
+                      direction: Optional[dict] = None, note: Optional[dict] = None) -> dict:
     return dict(page="feedback", page_title="Share an idea or report a bug", data=data or {}, error=error,
                 github_url=repository_url(), connected=configured(), feedback_login_url="/auth/community",
-                direction=direction)
+                direction=direction, note=note)
 
 
 def direction_prefill(slug: str) -> Optional[dict]:
@@ -880,7 +1062,10 @@ def direction_prefill(slug: str) -> Optional[dict]:
 
 @router.get("/feedback")
 @router.get("/community/report")
-async def feedback_page(request: Request, kind: str = "idea", direction: str = ""):
+async def feedback_page(request: Request, kind: str = "idea", direction: str = "", note: str = ""):
+    promoted = _promotable(request.state.user, note)
+    if promoted:
+        return render(request, "feedback.html", **_feedback_context(request, note_prefill(promoted), note=promoted))
     prefill = direction_prefill(direction)
     if prefill:
         return render(request, "feedback.html",
@@ -892,40 +1077,45 @@ async def feedback_page(request: Request, kind: str = "idea", direction: str = "
 async def feedback_preview(request: Request):
     user = sessions.require_user(request)
     form = await request.form()
+    note = _promotable(user, form.get("note_id"))
     try:
         data = validate_fields(form)
     except ValueError as exc:
         return render(request, "feedback.html", status_code=400,
-                      **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS}, str(exc)))
+                      **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS}, str(exc), note=note))
     version, nonce, timestamp = current_version(), secrets.token_hex(16), int(time.time())
     signature = preview_signature(data, version, nonce, timestamp, user["id"])
     return render(request, "feedback_preview.html", page="feedback", page_title="Preview your public report", data=data,
                   body=public_body(data, version), version=version, submission_key=nonce, preview_at=timestamp,
                   preview_signature=signature, github_url=repository_url(), connected=configured(), error="",
-                  characters=own_characters(user["id"]))
+                  characters=own_characters(user["id"]), note=note)
 
 
 @router.post("/feedback/edit")
 async def feedback_edit(request: Request):
-    sessions.require_user(request)
+    user = sessions.require_user(request)
     form = await request.form()
-    return render(request, "feedback.html", **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS}))
+    return render(request, "feedback.html", **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS},
+                                                                note=_promotable(user, form.get("note_id"))))
 
 
 @router.post("/feedback")
 async def feedback_submit(request: Request):
     user = sessions.require_user(request)
     form = await request.form()
+    note = _promotable(user, form.get("note_id"))
     try:
         data = validate_fields(form)
         nonce, version = verify_preview(form, data, user["id"])
         feedback_id = save_feedback(user["id"], data, nonce, version)
     except ValueError as exc:
         return render(request, "feedback.html", status_code=400,
-                      **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS}, str(exc)))
+                      **_feedback_context(request, {f: str(form.get(f) or "") for f in FIELDS}, str(exc), note=note))
     credit = _credit_choice(form.get("credit_character"))
     if credit is not None:
         set_credit(user["id"], feedback_id, credit)
+    if note:
+        link_promoted(note["id"], feedback_id)
     return redirect(f"/community/reports/{feedback_id}", THANKS, "ok")
 
 
@@ -985,12 +1175,52 @@ def require_admin(request: Request) -> dict:
     return user
 
 
+@router.post("/community/notes")
+async def community_note(request: Request):
+    """The Feedback panel and "Was this clear?". JSON from the page script; a plain form without JavaScript."""
+    user = sessions.require_user(request)
+    if request.headers.get("content-type", "").startswith("application/json"):
+        try:
+            payload = await request.json()
+        except ValueError:
+            payload = None
+        if not isinstance(payload, dict):
+            return JSONResponse({"error": "Something went wrong reading your note. Try again."}, status_code=400)
+        try:
+            save_note(user["id"], payload.get("kind"), payload.get("body"), payload.get("context"))
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        return JSONResponse({"ok": True, "message": NOTE_THANKS})
+    form = await request.form()
+    back = _back_path(form.get("path"))
+    try:
+        save_note(user["id"], form.get("kind"), form.get("body"), {"path": back})
+    except ValueError as exc:
+        return redirect(back, str(exc), "warn")
+    return redirect(back, NOTE_THANKS, "ok")
+
+
 @router.get("/community/admin")
-async def community_admin(request: Request):
+async def community_admin(request: Request, notes: str = "new"):
     user = require_admin(request)
+    notes = notes if notes in ("new", "archived", "promoted") else "new"
     return render(request, "feedback_admin.html", page="community", page_title="Community administration",
                   reports=feedback_for(user["id"], all_profiles=True), sync=sync_state(), connected=configured(),
-                  github_url=repository_url())
+                  github_url=repository_url(), notes=quick_notes(notes), notes_state=notes,
+                  note_counts=note_counts(), ratings=rating_tally())
+
+
+@router.post("/community/admin/notes/{note_id}/state")
+async def community_note_state(request: Request, note_id: str):
+    require_admin(request)
+    form = await request.form()
+    state = "archived" if form.get("state") == "archived" else "new"
+    with db.session() as c:
+        changed = c.execute("UPDATE community_notes SET state=? WHERE id=? AND state != 'promoted'", (state, note_id))
+    if changed.rowcount != 1:
+        raise HTTPException(status_code=404, detail="Note not found.")
+    return redirect("/community/admin#quick-notes-title",
+                    "Note archived." if state == "archived" else "Note moved back to new.", "ok")
 
 
 @router.post("/community/admin/sync")

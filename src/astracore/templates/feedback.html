@@ -11,9 +11,10 @@
 {% if not user %}<article><h2>Log in to submit</h2><p>Use your AstraCore EVE login. Your character identity will not be included in the public report. {% if invite_only() %}Platform access currently requires an invitation; the{% else %}Every EVE pilot can sign in. The{% endif %} roadmap and GitHub repository are public.</p><a class="primary-link" href="{{ feedback_login_url }}">{{ icon('key-round') }} Log in for community feedback</a><p class="muted">You can also {{ external_link(github_url ~ '/issues/new/choose', 'report directly on GitHub', new_tab=false) }}.</p></article>{% else %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
 {% if direction %}<p class="flash" role="status">{{ icon('orbit') }}<span>You're shaping the roadmap direction <a href="/community#direction-{{ direction.slug }}">{{ direction.title }}</a>. {{ direction.details }}</span></p>{% endif %}
+{% if note %}<p class="flash" role="status">{{ icon('lock') }}<span>You're promoting a private quick note. Only its text is filled in; its page context stays private. Rewrite it so it can be public, then preview. It's published as you.</span></p>{% endif %}
 {% if not connected %}<p class="flash warn">GitHub is not connected yet. Your confirmed report can be saved here and published once the connection is available.</p>{% endif %}
 <form action="/feedback/preview" method="post" class="community-form" data-feedback-form>
-<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% if note %}<input type="hidden" name="note_id" value="{{ note.id }}">{% endif %}
 <label>What would you like to share?<select name="kind" data-feedback-kind><option value="idea"{% if data.kind != 'bug' %} selected{% endif %}>An idea or feature request</option><option value="bug"{% if data.kind == 'bug' %} selected{% endif %}>A bug report</option></select></label>
 <label>Title<input name="title" value="{{ data.title or '' }}" minlength="8" maxlength="160" required placeholder="A short, specific description"></label>
 <label>Problem or idea<textarea name="description" minlength="20" maxlength="6000" rows="6" required placeholder="Explain what happened, or what you would like to be able to do.">{{ data.description or '' }}</textarea></label>

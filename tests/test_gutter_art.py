@@ -28,6 +28,6 @@ def test_gutter_art_is_decorative_and_uses_tokens_only():
 
 def test_landing_places_gutter_art_on_alternating_sides():
     home = (ROOT / "src" / "astracore" / "templates" / "home.html").read_text()
-    sides = re.findall(r"gutter_art\('(\w+)', '(left|right)'\)", home)
+    sides = re.findall(r"gutter_art\('(\w+)', '(left|right)'", home)
     assert len(sides) >= 4
     assert all(a[1] != b[1] for a, b in zip(sides, sides[1:])), "sides alternate down the page"

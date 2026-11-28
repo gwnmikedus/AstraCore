@@ -298,11 +298,12 @@ html[data-film-intro="play"] .platform-hero:not(.is-live) :is(.platform-copy, .h
   background-image: radial-gradient(120% 90% at 0 0, var(--core-glow), transparent 60%), linear-gradient(to bottom, var(--sheen), transparent 160px); }
 .launch-panel { position: relative; padding-inline: var(--space-8); background-color: var(--hull); }
 
-/* Long landing page: a few sections sit on a soft full-width band, edge to edge, with no rules around it.
-   The band is a spread shadow clipped to the section's height, so it never widens the page. */
-.page-home .landing-section:is(#preview, .product-proof, .community-teaser) {
-  padding-block: 64px; margin-block: 0; background: var(--band);
-  box-shadow: 0 0 0 100vmax var(--band); clip-path: inset(0 -100vmax); }
+/* Long landing page: every other section sits on its own full-width band, a cool step off the ground that
+   starts with a faint horizon light, so a new section reads as a new place without adding lines. The band is a
+   border-image painted out to both screen edges; border-image outset never widens the page or lets it scroll. */
+.page-home .landing-section:is(#preview, .product-proof, .directions-section, .community-teaser) {
+  position: relative; padding-block: 72px; margin-block: 0;
+  border-image: linear-gradient(to bottom, var(--band-top), var(--band) 280px) fill 0 / 0 / 0 100vmax; }
 
 /* Doodle placements. Small doodles use free room inside a section; gutter art fills the side margins of wide screens. */
 .faq-heading { position: relative; }
@@ -316,22 +317,35 @@ html[data-film-intro="play"] .platform-hero:not(.is-live) :is(.platform-copy, .h
   .launch-panel > .doodle { display: none; }
 }
 @media (max-width: 760px) {
-  .page-home .landing-section:is(#preview, .product-proof, .community-teaser) { padding-block: 40px; }
   .launch-panel { padding-inline: var(--space-4); }
   .faq-heading > .doodle { position: static; width: 180px; margin-top: var(--space-4); }
   .empty-doodle > .doodle { width: 88px; }
 }
 .doodle .d-beam { stroke: var(--signal); stroke-width: 1; stroke-dasharray: 6 4; }
 
-/* Gutter art (templates/_gutter_art.html): only where the side margins are wide enough to hold it with room to
-   spare, centred in the margin beside its section, so it never touches content. The page shell is the
-   container plus the 96px navigation rail, centred; --gut is what is left on each side. */
-.gutter-art { display: none; }
+/* Gutter art (templates/_gutter_art.html). Wide screens: centred in the empty side margin beside its section.
+   Narrower screens: the scenes on banded sections rise over the band's top edge on their side, as a horizon
+   object, and the band makes room below so the art never sits on text. --gut is what is left on each side of
+   the page shell (the container plus the 96px navigation rail). */
+.gutter-art { display: none; pointer-events: none; }
+.gutter-art > .doodle { overflow: hidden; }
 @media (min-width: 1840px) {
   .page-home :is(.pi-story, #preview, .product-proof, .operations-feature, .directions-section) { position: relative; }
   .gutter-art { --gut: calc((100vw - var(--container) - 96px) / 2); --w: min(340px, calc(var(--gut) - 32px));
-    display: block; position: absolute; top: 50%; width: var(--w); translate: 0 -50%; pointer-events: none; }
+    display: block; position: absolute; top: 50%; width: var(--w); translate: 0 -50%; }
   .gutter-art--left { right: calc(100% + 120px + (var(--gut) - var(--w)) / 2); }
   .gutter-art--right { left: calc(100% + 24px + (var(--gut) - var(--w)) / 2); }
-  .gutter-art > .doodle { overflow: hidden; }
+}
+@media (max-width: 1839px) {
+  /* Rise into the empty gap above the band (88px on desktop) on the right, where no copy ends, then leave
+     the band's top free beside it, so the art never sits on text. */
+  .page-home .landing-section:is(#preview, .product-proof, .directions-section) {
+    --art: clamp(104px, 11vw, 160px); --rise: 64px; padding-top: calc(48px + var(--art) * 1.43 - var(--rise)); }
+  .page-home .landing-section:is(#preview, .product-proof, .directions-section) > .gutter-art {
+    display: block; position: absolute; top: calc(-1 * var(--rise)); right: 0; left: auto; width: var(--art); z-index: 1; }
+}
+@media (max-width: 760px) {
+  .page-home .landing-section:is(#preview, .product-proof, .directions-section, .community-teaser) { padding-block: 48px; }
+  .page-home .landing-section:is(#preview, .product-proof, .directions-section) {
+    --art: 96px; --rise: 40px; padding-top: calc(32px + var(--art) * 1.43 - var(--rise)); }
 }

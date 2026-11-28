@@ -10,7 +10,7 @@ const orbital = read('src/astracore/static/css/orbital-command.css');
 const print = read('src/astracore/static/css/print.css');
 const doodles = read('src/astracore/templates/_doodles.html');
 const home = read('src/astracore/templates/home.html');
-const TOKENS = ['--void-deep', '--band', '--sheen', '--core-glow', '--doodle-ink', '--doodle-fill', '--doodle-soft'];
+const TOKENS = ['--void-deep', '--band', '--band-top', '--sheen', '--core-glow', '--doodle-ink', '--doodle-fill', '--doodle-soft'];
 
 const block = selector => {
   const at = css.indexOf(`${selector} {`);
@@ -35,7 +35,8 @@ test('the doodle layer uses tokens only, never moves and never widens the page',
   const layer = orbital.slice(orbital.lastIndexOf('/*', at)).replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(layer, /#[0-9a-f]{3,8}\b|rgba?\(/i, 'colours come from tokens');
   assert.doesNotMatch(layer, /animation|transition|@keyframes/, 'nothing drifts');
-  assert.doesNotMatch(layer, /inset: 0 -100vmax/, 'bands never add scrollable overflow');
+  assert.doesNotMatch(layer, /inset: 0 -100vmax|width: 100vw/, 'bands never add scrollable overflow');
+  assert.match(layer, /border-image: linear-gradient\(to bottom, var\(--band-top\), var\(--band\) 280px\) fill 0 \/ 0 \/ 0 100vmax/, 'bands paint edge to edge through border-image outset');
   assert.match(layer, /\.doodle \{[^}]*pointer-events: none/, 'doodles never take pointer events');
 });
 
@@ -48,5 +49,5 @@ test('doodles are decorative inline SVG: hidden from assistive tech, no scripts,
   }
   assert.doesNotMatch(doodles, /<script|on[a-z]+=|href=|fill='#|stroke='#|style=/i);
   assert.match(home, /gutter_art\('/, 'the landing page uses gutter art');
-  assert.match(orbital, /\.gutter-art \{ display: none; \}/, 'gutter art is off unless the margins are wide enough');
+  assert.match(orbital, /\.gutter-art \{ display: none;/, 'gutter art stays hidden until a layout places it');
 });

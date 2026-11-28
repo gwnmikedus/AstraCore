@@ -198,6 +198,12 @@ def cached() -> dict:
             "books": {int(k): v for k, v in raw.get("books", {}).items()}}
 
 
+def missing() -> bool:
+    """No usable order books at all: none stored yet, or the home regions changed since they were read (the home
+    market's books would be another region's). Merely old books are still usable."""
+    return not cached()["books"] or (db.kv_get(BOOKS_KEY) or {}).get("home") != home.home_region_ids()
+
+
 def stale() -> bool:
     c = cached()
     max_age = INCOMPLETE_MAX_AGE if c["failed"] else MAX_AGE

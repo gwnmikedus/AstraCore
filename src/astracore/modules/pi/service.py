@@ -157,16 +157,56 @@ async def refresh_prices(pi) -> bool:
     return not prices.stale()
 
 
+_market_task: Optional[asyncio.Task] = None
+_routes_task: Optional[asyncio.Task] = None
+
+
+def _soon(task: Optional[asyncio.Task], job, what: str) -> asyncio.Task:
+    """Start `job()` in the background unless the same refresh is already running."""
+    if task and not task.done():
+        return task
+
+    async def run():
+        try:
+            await job()
+        except Exception:  # noqa: BLE001 - the stored copy stays in use; the next page tries again
+            log.exception(what)
+
+    return asyncio.get_running_loop().create_task(run())
+
+
+def refresh_market_soon(pi) -> None:
+    """The order books are shared by every pilot and take a few hundred public ESI calls (seconds), so old ones
+    are refreshed in the background while pages keep using the last copy; its age is on the plan."""
+    global _market_task
+    _market_task = _soon(_market_task, lambda: refresh_prices(pi), "market order books")
+
+
+def refresh_routes_soon() -> None:
+    """Courier tariffs come from the providers' sites (not ESI): read once a day, in the background."""
+    global _routes_task
+    _routes_task = _soon(_routes_task, carrier.refresh_routes, "courier tariffs")
+
+
+def market_refreshing() -> bool:
+    return bool(_market_task and not _market_task.done())
+
+
 async def market_data(pi, outage: Optional[esi_errors.Outage] = None):
-    if prices.stale():
+    """The order books for a plan, without waiting on ESI when there are usable ones: old books (over
+    `prices.MAX_AGE`) are served and refreshed in the background. Only a page with no usable books at all (first
+    run, or the home regions changed) waits for the fetch."""
+    if prices.missing():
         if not await refresh_prices(pi) and outage is not None:
             # no order book loaded: plans use the last ones (refresh keeps them)
             outage.note(None, prices.cached().get("at"))
+    elif prices.stale():
+        refresh_market_soon(pi)
     if prices.history_stale():
         refresh_history_soon(pi)
     info = carrier.routes_info()
     if not info["at"] or time.time() - info["at"] > 86400:
-        await carrier.refresh_routes()
+        refresh_routes_soon()   # plans use the cached or fallback tariffs meanwhile
     return prices.cached()["books"]
 
 
@@ -209,7 +249,8 @@ async def planning_context(profile_id: int, s: Optional[Settings] = None, persis
     buy = selling.buy_costs(pi, sell_s, books, dropoff, local, origin)
     buy_cap = demand.buy_limits(pi, sell_s, books, hist["markets"], local, optimizer.capital_days(s)) if buy else {}
     return dict(profile_id=profile_id, s=sell_s, solve_s=solve_s, chars=chars, pi=pi, tpl=tpl, area=area,
-                systems=systems, books=books, books_at=prices.cached().get("at"), history=hist["markets"],
+                systems=systems, books=books, books_at=prices.cached().get("at"),
+                books_refreshing=market_refreshing(), history=hist["markets"],
                 history_at=hist["at"], values=values, buy=buy, buy_cap=buy_cap, dropoff=dropoff, local=local, overrides=overrides,
                 manual_overrides=manual, origin=origin, origin_jumps=origin_jumps, seller=seller,
                 measured=measured, head_yield=head_yield, calibrated=cal, outage=outage, teamwork_auto=teamwork_auto)
@@ -239,6 +280,7 @@ def _sell_side(ctx, res: dict) -> None:
     res["demand"] = demand.assess(ctx["pi"], ctx["s"], ctx["books"], history or {},
                                   res["selling"], res["channels"], units,
                                   ctx.get("books_at"), ctx.get("history_at"))
+    res["demand"]["books_refreshing"] = bool(ctx.get("books_refreshing"))   # newer prices on their way
     demand.sell_order_days(res["selling"], res["demand"])
 
 

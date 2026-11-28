@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import config, db
 from .core import auth, community, crypto, logbook, pages, releases, sessions
 from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
+from .core.compress import Compress
 from .core.ratelimit import RequestLimitMiddleware
 from .core.web import PKG, redirect, render
 from .esi import errors as esi_errors
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     app.add_middleware(sessions.SessionMiddleware)
     app.add_middleware(SecurityHeaders)
     app.add_middleware(CacheHeaders)
+    app.add_middleware(Compress)   # outermost: gzip the finished response (never a no-transform stream)
     app.mount("/static", VersionedStatic(directory=str(PKG / "static")), name="static")
 
     # Fixed paths browsers and phones ask for on their own: always revalidated, so a new icon shows up.

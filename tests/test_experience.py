@@ -1,4 +1,6 @@
 """The public introduction remains accessible without disturbing a pilot's session."""
+import re
+
 from test_core import browser, eve, me, new_id, sso_login  # noqa: F401
 
 
@@ -70,8 +72,8 @@ class OutboundLinks:
                 if tag == 'a':
                     self.current = {'attrs': attrs, 'indicators': 0, 'symbols': [], 'text': ''}
                     self.links.append(self.current)
-                elif self.current and tag == 'svg':
-                    classes = attrs.get('class', '').split()
+                elif self.current and tag in ('svg', 'span'):
+                    classes = (attrs.get('class') or '').split()
                     self.current['indicators'] += 'external-indicator' in classes
                     self.current['symbols'].extend(classes)
 
@@ -120,9 +122,28 @@ def test_feedback_routes_have_distinct_idea_and_bug_icons(browser):
 def test_icon_library_is_generated_and_contains_the_new_symbols():
     from astracore.core import icons
 
+    assert icons.SPRITE.read_text() == icons.build_sprite(), 'run python -m astracore.core.icons'
     assert (icons.ICON_DIR.parent / 'js/icons.js').read_text() == icons.build_js()
+    sprite = icons.SPRITE.read_text()
     for name in ('github', 'bug', 'coffee', 'server'):
-        assert '<path' in icons.svg(name) or '<rect' in icons.svg(name)
+        assert re.search(rf'<symbol id="{name}" viewBox="0 0 24 24"><(path|rect)', sprite), name
+        assert f'<use href="{icons.sprite_url()}#{name}"></use>' in icons.svg(name)
+
+
+def test_icons_reference_one_cached_sprite_instead_of_inlining_drawings(browser):
+    from astracore.core import assets, icons
+
+    page = browser().get('/community').text
+    assert '<path' not in ''.join(re.findall(r'<svg class="ic[^"]*"[^>]*>.*?</svg>', page))
+    uses = re.findall(r'<use href="([^"#]+)#([\w-]+)"', page)
+    assert uses and {url for url, _ in uses} == {icons.sprite_url()}
+    assert icons.svg('no-such-icon').endswith('aria-hidden="true"></svg>')   # unknown names draw nothing
+    r = browser().get(icons.sprite_url())
+    assert r.status_code == 200 and r.headers['content-type'].startswith('image/svg+xml')
+    assert 'immutable' in r.headers['cache-control']
+    # the external-site arrow is a CSS mask on an empty span, not one more SVG per link
+    css = browser().get(assets.asset('css/astracore.css')).text
+    assert re.search(r'\.external-indicator \{[^}]*mask: url\("/static/icons/external-link\.svg\?v=', css)
 
 
 def test_feedback_menu_marks_only_the_selected_report_kind(browser):

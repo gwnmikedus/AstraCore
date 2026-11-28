@@ -1350,6 +1350,9 @@ html[data-theme-changing] body *::after { transition: none !important; }
 /* Outbound links share a destination symbol and an accessible external-site cue. */
 .external-link .link-symbol { margin-inline-end: 3px; }
 .external-indicator { width: 13px; height: 13px; margin-inline-start: 3px; vertical-align: -.1em; flex: none; }
+/* Drawn by CSS, not an inline SVG per link: the arrow is a mask filled with the link colour. */
+.external-indicator { display: inline-block; background: currentColor;
+  -webkit-mask: url("../icons/external-link.svg") center / contain no-repeat; mask: url("../icons/external-link.svg") center / contain no-repeat; }
 .link-symbol { flex: none; }
 .text-action.external-link { gap: 8px; }
 .text-action:focus-visible .action-arrow { transform: translateX(4px); }

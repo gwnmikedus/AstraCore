@@ -156,6 +156,8 @@ def create_demo():
             return JSONResponse({"error": "Screenshot-only demo: actions and saving are disabled."}, status_code=403)
         if path.startswith(("/auth/", "/pi/export/", "/refresh")):
             return PlainTextResponse("Screenshot-only demo: EVE login, refresh and exports are disabled.", status_code=403)
+        # pages get a banner below: ask the app for them uncompressed (it gzips for browsers that accept it)
+        request.scope["headers"] = [(k, v) for k, v in request.scope["headers"] if k != b"accept-encoding"]
         response = await call_next(request)
         if "text/html" in response.headers.get("content-type", ""):
             body = b"".join([chunk async for chunk in response.body_iterator])

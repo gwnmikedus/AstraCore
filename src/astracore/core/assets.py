@@ -11,14 +11,14 @@ Cache rules (set here, so Cloudflare's 4-hour default never applies):
 - everything else (pages, API)   -> private, no-cache (set by CacheHeaders)
 
 CSS is served with its url(...) references rewritten to versioned URLs, so fonts and images used from a stylesheet
-follow the same rules.
+follow the same rules. The rewritten stylesheet is kept in memory until it, or a file it points at, changes.
 """
 from __future__ import annotations
 
 import hashlib
 import re
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 from starlette.responses import Response
 from starlette.staticfiles import StaticFiles
@@ -62,8 +62,9 @@ def asset(path: str) -> str:
 _CSS_URL = re.compile(r"""url\(\s*(['"]?)([^'")]+)\1\s*\)""")
 
 
-def rewrite_css(text: str, css_rel: str) -> str:
-    """Point every local url(...) in a stylesheet at its versioned URL (data: and external URLs are left alone)."""
+def rewrite_css(text: str, css_rel: str, refs: "List[str] | None" = None) -> str:
+    """Point every local url(...) in a stylesheet at its versioned URL (data: and external URLs are left alone).
+    The static paths it points at are appended to `refs` when given."""
     base = (STATIC / css_rel).parent
 
     def sub(m: re.Match) -> str:
@@ -75,9 +76,27 @@ def rewrite_css(text: str, css_rel: str) -> str:
             rel = target.resolve().relative_to(STATIC.resolve()).as_posix()
         except ValueError:
             return m.group(0)
+        if refs is not None:
+            refs.append(rel)
         return f"url({quote}{asset(rel)}{quote})"
 
     return _CSS_URL.sub(sub, text)
+
+
+# css path -> (its version, [(referenced path, its version)], rewritten body, etag)
+_css: Dict[str, Tuple[str, List[Tuple[str, str]], bytes, str]] = {}
+
+
+def versioned_css(rel: str) -> Tuple[bytes, str]:
+    """The stylesheet with versioned url()s and its ETag, rebuilt only when it or a file it references changes."""
+    hit = _css.get(rel)
+    if hit and hit[0] == version(rel) and all(version(r) == v for r, v in hit[1]):
+        return hit[2], hit[3]
+    refs: List[str] = []
+    body = rewrite_css((STATIC / rel).read_text(), rel, refs).encode()
+    etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
+    _css[rel] = (version(rel), [(r, version(r)) for r in dict.fromkeys(refs)], body, etag)
+    return body, etag
 
 
 class VersionedStatic(StaticFiles):
@@ -93,8 +112,7 @@ class VersionedStatic(StaticFiles):
         wanted = dict(p.split("=", 1) for p in qs.split("&") if "=" in p).get("v")
         current = version(rel)
         if rel.endswith(".css") and resp.status_code == 200:
-            body = rewrite_css((STATIC / rel).read_text(), rel).encode()
-            etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
+            body, etag = versioned_css(rel)
             if etag in scope_header(scope, b"if-none-match"):
                 resp = Response(status_code=304, headers={"etag": etag})
             else:

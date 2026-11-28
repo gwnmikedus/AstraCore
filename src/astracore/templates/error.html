@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="error-page">
-  <div class="code">{{ code }}</div>
+  <div class="code"{% if code == 404 %} title="Not on your overview. Try warping to the home page."{% endif %}>{{ code }}</div>
   <h2>{{ {404: 'Not found', 403: 'Not allowed', 429: 'Please wait', 500: 'Something broke', 400: 'Bad request', 503: 'EVE isn’t answering'}.get(code, 'Error') }}</h2>
   <p>{{ message }}</p>
   <p>{% if retry %}<a href="{{ retry }}">Try again</a> · {% endif %}<a href="/">Back to the home page</a></p>

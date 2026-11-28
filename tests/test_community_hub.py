@@ -238,7 +238,7 @@ def test_hub_sections_thanks_and_copy(browser):
                  releases.history()[0]["title"]):
         assert text in page
     assert "Insidious" not in page
-    assert "Flashbang" not in page and "<strong>Light theme</strong><span>Easier in daylight.</span>" in page
+    assert "<strong>Flashbang warning</strong><span>Light theme ahead. Shield your eyes.</span>" in page
     footer = page.split('<footer class="site-footer">', 1)[1]
     assert 'href="/credits#creator"' in footer and "revolut.me" not in footer
     project = browser().get("/project").text

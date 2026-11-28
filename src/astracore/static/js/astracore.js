@@ -118,10 +118,11 @@
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
     let themeTimer;
-    // The tooltip says what the switch does, in plain words.
+    // Easter egg, on purpose (see docs/easter-eggs.md): the tooltip warns before the switch. Dark to light is a
+    // flashbang, light to dark is shore leave for the eyes. The aria-label keeps the plain "Switch to … theme".
     const themeTips = {
-      dark: ['Light theme', 'Easier in daylight.'],
-      light: ['Dark theme', 'Easier on the eyes at night.']
+      dark: ['Flashbang warning', 'Light theme ahead. Shield your eyes.'],
+      light: ['Rest your eyes', 'Back to the dark hull. Stand down, pupils.']
     };
     const themeLabel = () => {
       const themeColor = document.querySelector('meta[name="theme-color"]');

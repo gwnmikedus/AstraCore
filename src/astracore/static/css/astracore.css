@@ -1386,7 +1386,10 @@ html[data-theme-changing] body *::after { transition: none !important; }
 .project-license { padding-top: 24px; border-top: 1px solid var(--line); }
 .flight-tip { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 0; margin-bottom: 16px; border-block: 1px solid var(--line); }
 .flight-tip-icon { width: 20px; height: 20px; flex: none; color: var(--scan); }
-.site-footer .flight-tip p { flex: 1; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.site-footer .flight-tip p { flex: 1; min-height: 40px; display: flex; align-items: center; color: var(--ink-muted); font-size: 14px; line-height: 20px;
+  transition: opacity .18s linear; }
+/* Tips rotate (js/flight-tips.js): room for the longest tip is kept so a change never moves the footer. */
+.site-footer .flight-tip p.is-swapping { opacity: 0; }
 .flight-tip button { min-height: 44px; font-size: 12px; }
 .flight-tip button[hidden] { display: none; }
 /* Easter-egg toast (js/easter-eggs.js, docs/easter-eggs.md). Fixed and click-through: it never shifts layout or blocks
@@ -1416,7 +1419,7 @@ html[data-theme-changing] body *::after { transition: none !important; }
 @media (max-width: 520px) {
   .contribution-card { padding: 20px; }
   .flight-tip { flex-wrap: wrap; }
-  .site-footer .flight-tip p { flex-basis: calc(100% - 32px); }
+  .site-footer .flight-tip p { flex-basis: calc(100% - 32px); min-height: 60px; }
   .flight-tip button { margin-left: 32px; }
 }
 

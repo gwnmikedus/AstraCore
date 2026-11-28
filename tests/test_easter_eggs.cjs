@@ -12,7 +12,7 @@ function load() {
   return context.window.AstraEggs;
 }
 
-function fakeDoc({tip = {textContent: 'Fly safe.'}, logo = null} = {}) {
+function fakeDoc({tip = {textContent: 'Fly safe.'}, logo = null, toggle = null} = {}) {
   const listeners = {};
   const appended = [];
   const make = () => {
@@ -24,6 +24,7 @@ function fakeDoc({tip = {textContent: 'Fly safe.'}, logo = null} = {}) {
   return {listeners, appended, tip, logo,
     querySelector: sel => sel === '[data-flight-tip]' ? tip : sel === '.site-footer .footmark' ? logo : null,
     addEventListener: (type, fn) => { listeners[type] = fn; },
+    getElementById: id => (id === 'theme-toggle' ? toggle : null),
     createElement: make,
     body: {appendChild: el => appended.push(el)}};
 }
@@ -46,6 +47,10 @@ test('downtime and New Eden birthday lines show only at their time', () => {
   assert.equal(eggs.footerLine(new Date('2026-11-28T10:59:00Z')), null);
   assert.equal(eggs.footerLine(new Date('2027-05-06T18:00:00Z')), eggs.LINES.birthday);
   assert.equal(eggs.footerLine(new Date('2027-05-07T18:00:00Z')), null);
+  assert.equal(eggs.footerLine(new Date('2027-04-01T09:00:00Z')), eggs.LINES.aprilFools);
+  assert.equal(eggs.footerLine(new Date('2026-12-25T09:00:00Z')), eggs.LINES.holidays);
+  assert.equal(eggs.footerLine(new Date('2026-12-27T09:00:00Z')), null);
+  assert.equal(eggs.footerLine(new Date('2027-01-01T09:00:00Z')), 'New year, new extractor cycle. Fly safe in YC 129.');
   assert.equal(eggs.yc(new Date('2026-06-01T00:00:00Z')), 128);
 });
 
@@ -65,6 +70,7 @@ test('the Konami code shows one polite, click-through toast that hides itself', 
   const doc = fakeDoc();
   const timers = [];
   eggs.init(doc, at('2026-11-28T15:00:00Z'), fn => timers.push(fn));
+  timers.length = 0;
   for (const key of eggs.KONAMI.slice(0, -1)) doc.listeners.keydown({key, target: {tagName: 'BODY'}});
   assert.equal(doc.appended.length, 0);
   doc.listeners.keydown({key: 'A', target: {tagName: 'BODY'}});
@@ -114,4 +120,40 @@ test('easter eggs stay inside the CSP and the brand rules', () => {
   assert.match(rule, /position: fixed/);
   assert.match(rule, /pointer-events: none/);
   assert.ok(fs.readFileSync('docs/easter-eggs.md', 'utf8').includes('They are intentional'));
+});
+
+test('typing o7 outside a field salutes back', () => {
+  const eggs = load();
+  const doc = fakeDoc();
+  eggs.init(doc, at('2026-11-28T15:00:00Z'), () => 0);
+  doc.listeners.keydown({key: 'o', target: {tagName: 'INPUT'}});
+  doc.listeners.keydown({key: '7', target: {tagName: 'INPUT'}});
+  assert.equal(doc.appended.length, 0);
+  doc.listeners.keydown({key: 'O', target: {tagName: 'BODY'}});
+  doc.listeners.keydown({key: '7', target: {tagName: 'BODY'}});
+  assert.equal(doc.appended[0].textContent, eggs.LINES.o7);
+});
+
+test('flipping the theme back and forth draws a complaint, a normal switch does not', () => {
+  const eggs = load();
+  let flip;
+  const toggle = {addEventListener: (type, fn) => { flip = fn; }};
+  const doc = fakeDoc({toggle});
+  let t = Date.parse('2026-11-28T15:00:00Z');
+  eggs.init(doc, () => new Date(t), () => 0);
+  flip(); t += 60000; flip();
+  assert.equal(doc.appended.length, 0);
+  for (let i = 0; i < eggs.THEME_FLIPS - 1; i++) { flip(); t += 500; }
+  assert.equal(doc.appended[0].textContent, eggs.LINES.themeFlip);
+});
+
+test('an hour on one page gets one nudge', () => {
+  const eggs = load();
+  const doc = fakeDoc();
+  const timers = [];
+  eggs.init(doc, at('2026-11-28T15:00:00Z'), (fn, ms) => timers.push({fn, ms}));
+  const hour = timers.find(x => x.ms === eggs.LONG_SESSION_MS);
+  assert.ok(hour);
+  hour.fn();
+  assert.equal(doc.appended[0].textContent, eggs.LINES.longSession);
 });

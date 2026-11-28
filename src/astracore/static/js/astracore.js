@@ -153,7 +153,12 @@
       root.toggleAttribute('data-theme-changing', true);
       tt.classList.add('tip-quiet');
       const settle = () => { themeTimer = setTimeout(() => root.removeAttribute('data-theme-changing'), 50); };
-      if (document.startViewTransition && !reducedMotion.matches) document.startViewTransition(apply).finished.finally(settle);
+      if (document.startViewTransition && !reducedMotion.matches) {
+        const transition = document.startViewTransition(apply);
+        // A quick second switch skips the first crossfade; that's fine, so don't report it as an error.
+        if (transition.ready) transition.ready.catch(() => {});
+        transition.finished.finally(settle);
+      }
       else { apply(); settle(); }
     };
     // After a switch the tooltip stays hidden until the pointer or focus leaves, so it never warns about the theme you just chose.

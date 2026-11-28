@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import config, db
-from .core import auth, community, crypto, pages, releases, sessions
+from .core import auth, community, crypto, logbook, pages, releases, sessions
 from .core.assets import REVALIDATE, CacheHeaders, VersionedStatic
 from .core.ratelimit import RequestLimitMiddleware
 from .core.web import PKG, redirect, render
@@ -178,6 +178,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(pages.router)
     app.include_router(community.router)
+    app.include_router(logbook.router)
     app.include_router(pi_router)
     app.include_router(pi_legacy)
     return app

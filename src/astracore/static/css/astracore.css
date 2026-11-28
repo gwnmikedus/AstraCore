@@ -1390,6 +1390,12 @@ html[data-theme-changing] body *::after { transition: none !important; }
 .site-footer .flight-tip p.is-swapping { opacity: 0; }
 .flight-tip button { min-height: 44px; font-size: 12px; }
 .flight-tip button[hidden] { display: none; }
+/* Footer logbook line (core/logbook.py): one quiet line that hints there is something to find. Room for two lines on
+   phones so a change after a find never moves the footer. */
+.site-footer .logbook-line { margin: 0 0 16px; min-height: 20px; color: var(--ink-muted); font-size: 13px; line-height: 20px; }
+.site-footer .logbook-line a { color: var(--ink-muted); }
+@media (max-width: 640px) { .site-footer .logbook-line { min-height: 40px; } }
+.egg-toast small { display: block; margin-top: 2px; color: var(--ink-muted); font-size: 13px; line-height: 18px; }
 /* Easter-egg toast (js/easter-eggs.js, docs/easter-eggs.md). Fixed and click-through: it never shifts layout or blocks
    a control. The global reduced-motion rule turns the fade into an instant show and hide. */
 .egg-toast { position: fixed; left: 16px; bottom: 16px; z-index: 60; max-width: min(360px, calc(100vw - 32px)); padding: 10px 14px;

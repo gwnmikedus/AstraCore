@@ -1,0 +1,33 @@
+/* Capsuleer's logbook (templates/logbook.html): a hidden page for easter-egg hunters, killboard-flavoured. */
+.logbook-intro { max-width: 62ch; color: var(--ink-muted); }
+.logbook-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: var(--space-6) 0 0; }
+.logbook-stats > div { padding: var(--space-3) var(--space-4); background: var(--hull); box-shadow: inset 0 0 0 1px var(--line); }
+.logbook-stats dt { font: 600 12px/16px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted); }
+.logbook-stats dd { margin: var(--space-1) 0 0; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.logbook-big { font: 600 32px/36px var(--font-display); color: var(--ink); margin-right: var(--space-1); }
+
+.logbook-eggs { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.logbook-egg { padding: var(--space-3) var(--space-4); background: var(--hull); box-shadow: inset 2px 0 0 var(--line-strong), inset 0 0 0 1px var(--line); }
+.logbook-egg.is-found { box-shadow: inset 2px 0 0 var(--signal), inset 0 0 0 1px var(--line); }
+.logbook-egg-head { display: flex; justify-content: space-between; gap: var(--space-2); align-items: baseline; }
+.logbook-egg-head strong { font: 600 18px/22px var(--font-display); letter-spacing: .02em; text-transform: none; }
+.logbook-egg:not(.is-found) .logbook-egg-head strong { color: var(--ink-muted); }
+.logbook-points { flex: none; font: 500 12px/16px var(--font-mono); color: var(--scan); }
+.logbook-egg p { margin: var(--space-2) 0 0; font-size: 14px; line-height: 20px; }
+.logbook-first { color: var(--ink-muted); font-size: 13px; }
+
+.logbook-ranking td { vertical-align: middle; }
+.logbook-rank { font: 600 18px/20px var(--font-display); color: var(--ink-muted); width: 3ch; }
+.logbook-ranking tbody tr:nth-child(-n+3) .logbook-rank { color: var(--signal); }
+.logbook-ranking tr.is-you { box-shadow: inset 2px 0 0 var(--signal); }
+.logbook-pilot { display: inline-flex; align-items: center; gap: var(--space-2); }
+.logbook-pilot img { width: 32px; height: 32px; flex: none; background: var(--hull-raised); }
+
+.logbook-optin { margin-top: var(--space-6); max-width: 560px; }
+.logbook-optin-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+.logbook-optin-row select { flex: 1 1 240px; min-height: 44px; }
+.logbook-optin-row button { min-height: 44px; }
+
+@media (max-width: 640px) {
+  .logbook-stats { grid-template-columns: 1fr; gap: var(--space-2); }
+}

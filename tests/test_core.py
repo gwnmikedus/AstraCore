@@ -865,7 +865,7 @@ def test_footer_credits_the_app_not_ccp_and_credits_page():
     from astracore.app import app
     with TestClient(app) as c:
         home = c.get("/").text
-        assert "AstraCore</strong> © 2026" in home and 'href="/credits"' in home
+        assert "AstraCore</strong> © <span title=\"YC 128 in New Eden\">2026</span>" in home and 'href="/credits"' in home
         assert "used under the EVE Developer License: © 2014 CCP hf." in home
         page = c.get("/credits").text
         assert "DalShooth" in page and "Barlow" in page and "Fuzzwork" in page

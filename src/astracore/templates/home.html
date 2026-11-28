@@ -2,6 +2,7 @@
 {% block title %}AstraCore · All your alts. One operation.{% endblock %}
 {% block description %}A command center for your EVE characters. Start with planetary operations. Help shape what comes next.{% endblock %}
 {% from '_artwork.html' import artwork %}
+{% from '_doodles.html' import doodle %}
 {% block head %}<link rel="stylesheet" href="{{ asset('css/hero-film.css') }}">
 <script nonce="{{ nonce }}">
   /* Will the film play? The same test as hero-film.js, decided before the first paint so the copy isn't drawn and then covered. */
@@ -48,6 +49,7 @@
   <div class="pi-story-copy"><div class="eyebrow">01 / PI available today</div><h2 id="pi-today-title">Your planets.<br>Your pace.</h2><p class="lead">Plan, build and run your planetary operation across all your characters.</p><p>Compare income against the time it takes. Place DalShooth colony templates. See the next restart, pickup and sale in one place.</p><a class="text-action" href="#preview">Find your routine {{ icon('arrow-right') }}</a><p class="muted">Forecasts account for taxes and hauling. Yield and prices can change.</p></div>
   <div class="pi-story-art"><div class="art-viewport" data-parallax="section">{{ artwork('pi-orbit', '(max-width: 760px) 100vw, (min-width: 1360px) 680px, 50vw') }}</div><span class="art-caption">PI / Plan. Build. Operate.</span></div>
 </section>
+<div class="doodle-divider doodle-divider--left" aria-hidden="true">{{ doodle('frigate') }}</div>
 <section class="landing-section" id="preview" aria-labelledby="preview-title">
   <div class="section-heading"><div><div class="eyebrow">PI / Find your rhythm</div><h2 id="preview-title">Good PI starts with how you play.</h2></div><p>Less hauling or longer production chains?<br>Try a direction. See what running it involves.</p></div>
   <div class="preview-console" data-pi-preview>
@@ -124,12 +126,14 @@
   </div>
 </section>
 </section>
+<div class="doodle-divider doodle-divider--right" aria-hidden="true">{{ doodle('station') }}</div>
 <section class="operations-feature" aria-labelledby="operate-title">
   <div class="operations-art" aria-hidden="true"><span class="console-label">PI / Logistics</span><img src="{{ asset('img/eve/renders/655-epithal-512.png') }}" width="512" height="512" alt="" loading="lazy"><span class="art-caption">Epithal <span>/ Planetary transport</span></span></div>
   <div class="operations-copy"><div class="eyebrow">04 / Keep the operation moving</div><h2 id="operate-title">Log in with a purpose.<br>Then get back to flying.</h2><p>Once your colonies are built, Operate puts the work in front of you. Across every character. In one place.</p>
     <ul class="operation-list"><li>{{ icon('timer') }}<div><strong>Restart before production stops.</strong><span>See which extractors have stopped or are ending soon.</span></div></li><li>{{ icon('package') }}<div><strong>Collect what’s ready.</strong><span>Find products waiting on launchpads and factories low on inputs.</span></div></li><li>{{ icon('wallet') }}<div><strong>Know how you get paid.</strong><span>Compare selling channels after fees and taxes, and track earned ISK against your active plan.</span></div></li></ul>
   </div>
 </section>
+<div class="doodle-divider doodle-divider--left" aria-hidden="true">{{ doodle('planet') }}</div>
 <section class="landing-section directions-section" aria-labelledby="directions-title">
   <div class="section-heading"><div><div class="eyebrow">05 / Shaped by capsuleers</div><h2 id="directions-title">Help shape what comes next.</h2></div><p>PI is available today.<br>Other operations are possible directions.</p></div>
   <div class="direction-grid">
@@ -145,7 +149,7 @@
   <div class="ac-actions"><a class="text-action" href="/community#thanks">Everyone who makes AstraCore possible {{ icon('arrow-right') }}</a><a class="text-action" href="/credits#creator">Our story and voluntary support {{ icon('arrow-right') }}</a></div>
 </section>
 <section class="landing-section" aria-labelledby="questions-title">
-  <div class="section-heading"><div><div class="eyebrow">Before you undock</div><h2 id="questions-title">A few things worth knowing.</h2></div></div>
+  <div class="section-heading faq-heading"><div><div class="eyebrow">Before you undock</div><h2 id="questions-title">A few things worth knowing.</h2></div>{{ doodle('constellation') }}</div>
   <div class="landing-faq">
     <details><summary>Can I use this if I haven’t started PI?</summary><p>Yes. Your characters’ skills determine the colony slots and templates they can use. Choose your area and routine, then follow the build list in your plan. You place the colonies in EVE yourself.</p></details>
     <details><summary>Does AstraCore control my characters?</summary><p>Read-only by default. AstraCore reads skills, colonies, hangars, contracts, orders, and wallet data. Sending waypoints to EVE is a separate opt-in for each character. <a href="/what-we-read">See every permission in plain words.</a></p></details>
@@ -153,7 +157,7 @@
     <details><summary>Who can use AstraCore right now?</summary><p>{% if not access_gate %}Every EVE pilot can sign in.{% elif members %}Access is open to members of {{ members.phrase }}, plus invited pilots.{% else %}Sign in with EVE Online to check your access.{% endif %} AstraCore is free. AstraCore PI is the available module today.</p></details>
   </div>
 </section>
-<section class="launch-panel" aria-labelledby="launch-title"><div><div class="eyebrow">Your next operation</div><h2 id="launch-title">Those planets won’t plan themselves.</h2><p>Your characters. Your time. A setup worth coming back to.</p></div><a href="{{ '/pi' if user else '/auth/login' }}" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a></section>
+<section class="launch-panel" aria-labelledby="launch-title">{{ doodle('capsule') }}<div><div class="eyebrow">Your next operation</div><h2 id="launch-title">Those planets won’t plan themselves.</h2><p>Your characters. Your time. A setup worth coming back to.</p></div><a href="{{ '/pi' if user else '/auth/login' }}" class="primary-link">Build my PI plan {{ icon('arrow-right') }}</a></section>
 {% if origin %}<div class="members landing-members"><span class="muted">Born within</span>{% if origin.corporation %}<span class="m">{{ logo_img('corporation', origin.corporation.id, 32) }}{{ origin.corporation.label }}</span>{% endif %}{% if origin.alliance %}<span class="m">{{ logo_img('alliance', origin.alliance.id, 32) }}{{ origin.alliance.label }}</span>{% endif %}</div>{% endif %}
 {% endblock %}
 

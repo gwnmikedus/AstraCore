@@ -12,11 +12,11 @@
   --signal: #b03f08; --signal-strong: #8c3204; --signal-tint: #fbe1d0; --on-signal: #ffffff;
   --scan: #2a5f8a; --status-ok: #1b66b3; --status-warn: #8a6400; --status-danger: #c2183c; --on-status: #ffffff;
   --shadow-lift: none;
-  --void-deep: #ffffff; --band: #ffffff; --grid-minor: transparent; --grid-major: transparent;
-  --bevel: transparent; --sheen: transparent; --core-glow: transparent; --ornament: none;
+  --void-deep: #ffffff; --band: #ffffff; --sheen: transparent; --core-glow: transparent;
+  --doodle-ink: #d3cdc0; --doodle-fill: #ffffff; --doodle-soft: #f4f1ea;
   color-scheme: light;
 }
-body::before, .site-footer::after { display: none !important; }
+.doodle { display: none !important; }
 html, body { background: #fff; font-size: 10pt; line-height: 1.35; }
 * { box-shadow: none !important; text-shadow: none !important; animation: none !important; transition: none !important; }
 main.container, .site-shell { max-width: none; width: auto; padding: 0; margin: 0; }

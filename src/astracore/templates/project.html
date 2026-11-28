@@ -43,7 +43,8 @@
   <section aria-labelledby="project-access-title">
     <h2 id="project-access-title">Before you join the fleet.</h2>
     <p>You can review your feedback’s public text before submitting. Never include login tokens, private character data, or other information you do not want published.</p>
-    <p>Hosted access remains invite-based. Without an invitation, you can still {{ external_link(project.issues_url ~ '/new/choose', 'share feedback on GitHub') }}.</p>
+    {% if invite_only() %}<p>Hosted access is invite-based right now. Without an invitation, you can still {{ external_link(project.issues_url ~ '/new/choose', 'share feedback on GitHub') }}.</p>
+    {% else %}<p>Every EVE pilot can sign in to the hosted AstraCore. You can also {{ external_link(project.issues_url ~ '/new/choose', 'share feedback on GitHub') }}.</p>{% endif %}
     <p>Start with the contribution guide and an existing issue, or propose an improvement before starting a larger change. Clear bug reports, reproducible examples, and documentation corrections help too.</p>
   </section>
 </div>
